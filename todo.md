@@ -151,11 +151,13 @@
   - Added verbose test infrastructure
   - Created test cases for filesystem interactions
   - Added detailed logging and verification
+
 - [x] [TODO-14] Linux Testing Infrastructure
   - Added Linux compatibility test suite
   - Created testing directory structure
   - Updated error handling for file permissions
   - Verified functionality on Ubuntu 6.8.0-51-generic
+  
 - [x] [TODO-1] Update to latest anthropic SDK (0.8.1+)
 - [x] [TODO-2] Update model to use claude-3-sonnet-20240229
 - [x] [TODO-3] Fix client initialization parameters
