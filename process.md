@@ -25,6 +25,7 @@
    - Commit messages should follow format: `[TODO-#] Description`
    - Each commit should reference the specific todo item
    - Commits should be atomic and focused
+   - Push to remote repository after each commit
 
 5. **Testing**
    - Each feature should have unit tests

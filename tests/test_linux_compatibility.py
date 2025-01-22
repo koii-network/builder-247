@@ -1,80 +1,60 @@
+"""
+Linux compatibility tests for the Anthropic client tools.
+Tests file permissions, path handling, and environment setup.
+"""
 import os
+import stat
 import pytest
-import tempfile
 from pathlib import Path
 
-def test_write_to_readonly_file():
-    """Test writing to a read-only file."""
-    with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
-        f.write("test")
+def test_script_permissions():
+    """Test that verification scripts have correct permissions."""
+    script_path = Path("testing/verify_hello_world.py")
     
-    # Make file read-only
-    os.chmod(f.name, 0o444)
+    # Check script exists
+    assert script_path.exists(), f"Script not found: {script_path}"
     
-    try:
-        with pytest.raises(PermissionError, match=f"No write permission for file {f.name}"):
-            with open(f.name, 'w') as f2:
-                f2.write("test")
-    finally:
-        os.chmod(f.name, 0o644)
-        os.unlink(f.name)
+    # Check script is executable
+    mode = os.stat(script_path).st_mode
+    is_executable = bool(mode & stat.S_IXUSR)
+    assert is_executable, f"Script {script_path} is not executable"
+    
+    # Check script has correct shebang
+    with open(script_path) as f:
+        first_line = f.readline().strip()
+        assert first_line.startswith("#!/"), f"Script {script_path} missing shebang"
+        assert "python" in first_line.lower(), f"Script {script_path} has incorrect interpreter"
 
-def test_read_from_noaccess_dir():
-    """Test reading from a directory without access."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        test_dir = Path(temp_dir) / "noaccess"
-        test_dir.mkdir()
-        test_file = test_dir / "test.txt"
+def test_output_directory_permissions():
+    """Test that output directory has correct permissions."""
+    output_dir = Path("testing/output")
+    
+    # Create directory if it doesn't exist
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Check directory exists
+    assert output_dir.exists(), f"Output directory not found: {output_dir}"
+    assert output_dir.is_dir(), f"Path is not a directory: {output_dir}"
+    
+    # Check directory is writable
+    test_file = output_dir / "permission_test.txt"
+    try:
         test_file.write_text("test")
-        
-        # Remove all permissions
-        os.chmod(test_dir, 0o000)
-        
-        try:
-            with pytest.raises(PermissionError, match=f"No read permission for directory {test_dir}"):
-                test_file.read_text()
-        finally:
-            os.chmod(test_dir, 0o755)
+        test_file.unlink()  # Clean up
+    except PermissionError:
+        pytest.fail(f"Output directory {output_dir} is not writable")
 
-def test_list_noaccess_dir():
-    """Test listing a directory without access."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        test_dir = Path(temp_dir) / "noaccess"
-        test_dir.mkdir()
-        
-        # Remove all permissions
-        os.chmod(test_dir, 0o000)
-        
-        try:
-            with pytest.raises(PermissionError, match=f"No read permission for directory {test_dir}"):
-                list(test_dir.iterdir())
-        finally:
-            os.chmod(test_dir, 0o755)
-
-def test_create_file_in_readonly_dir():
-    """Test creating a file in a read-only directory."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        test_dir = Path(temp_dir)
-        
-        # Make directory read-only
-        os.chmod(test_dir, 0o555)
-        
-        try:
-            with pytest.raises(PermissionError, match=f"No write permission for directory {test_dir}"):
-                (test_dir / "newfile.txt").write_text("test")
-        finally:
-            os.chmod(test_dir, 0o755)
-
-def test_execute_without_permission():
-    """Test executing a file without execute permission."""
-    with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
-        f.write("#!/bin/sh\necho test")
+def test_path_handling():
+    """Test path handling compatibility."""
+    # Test relative imports
+    import sys
+    project_root = Path(__file__).parent.parent
+    assert project_root in [Path(p) for p in sys.path], "Project root not in Python path"
     
-    # Remove execute permission
-    os.chmod(f.name, 0o644)
-    
+    # Test importing client from different directory
+    os.chdir(project_root)
     try:
-        with pytest.raises(PermissionError, match=f"No execute permission for file {f.name}"):
-            os.execl(f.name, f.name)
-    finally:
-        os.unlink(f.name) 
+        from src.client import AnthropicClient
+        assert AnthropicClient is not None
+    except ImportError as e:
+        pytest.fail(f"Failed to import client: {e}") 

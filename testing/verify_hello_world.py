@@ -1,37 +1,39 @@
 #!/usr/bin/env python3
-
+"""
+Verification script for hello world example.
+Tests basic functionality of the Anthropic client.
+"""
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
+# Add project root to path
+project_root = Path(__file__).parent.parent
+sys.path.append(str(project_root))
+
+from src.client import AnthropicClient
+
 def main():
-    # Create output directory if it doesn't exist
+    """Run hello world verification."""
+    # Ensure output directory exists
     output_dir = Path(__file__).parent / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Generate timestamp for output file
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = output_dir / f"hello_world_{timestamp}.txt"
+    # Initialize client
+    api_key = os.getenv("CLAUDE_API_KEY")
+    if not api_key:
+        print("Error: CLAUDE_API_KEY environment variable not set")
+        sys.exit(1)
+        
+    client = AnthropicClient(api_key=api_key)
     
-    try:
-        # Write hello world message
-        with open(output_file, "w") as f:
-            f.write("Hello World from Linux!\n")
-            f.write(f"Generated at: {datetime.now().isoformat()}\n")
-            f.write(f"Python version: {sys.version}\n")
-            f.write(f"Platform: {sys.platform}\n")
-            f.write(f"Working directory: {os.getcwd()}\n")
-        
-        print(f"Successfully wrote output to: {output_file}")
-        return 0
-        
-    except PermissionError as e:
-        print(f"Error: No write permission for file {output_file}")
-        return 1
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return 1
+    # Send test message
+    response = client.send_message("Say hello world!")
+    
+    # Write output
+    output_file = output_dir / "hello_world_output.txt"
+    output_file.write_text(response)
+    print(f"Output written to: {output_file}")
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    main() 

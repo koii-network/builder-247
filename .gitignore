@@ -35,6 +35,8 @@ ENV/
 .env
 
 # Logs
+logs/*
+!logs/.gitkeep
 *.log
 
 # Test cache
