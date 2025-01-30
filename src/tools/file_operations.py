@@ -151,6 +151,7 @@ def delete_file(file_path: str) -> Dict[str, Any]:
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+
 def list_files(directory: str) -> list:
     """
     Return a list of all files in the specified directory and its subdirectories.
@@ -171,4 +172,8 @@ def list_files(directory: str) -> list:
     if not directory.is_absolute():
         directory = Path.cwd() / directory
 
-    return [str(file.relative_to(directory)) for file in directory.rglob('*') if file.is_file()]
+    return [
+        str(file.relative_to(directory))
+        for file in directory.rglob("*")
+        if file.is_file()
+    ]

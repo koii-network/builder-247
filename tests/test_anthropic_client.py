@@ -3,7 +3,7 @@
 import os
 import pytest
 from dotenv import load_dotenv
-from src.client import AnthropicClient
+from src.anthropic_client import AnthropicClient
 from anthropic.types import ToolUseBlock, Message, ToolParam, TextBlock
 import json
 from pathlib import Path

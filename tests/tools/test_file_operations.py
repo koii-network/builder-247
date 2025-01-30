@@ -152,13 +152,16 @@ def test_operations_with_nonexistent_source(tmp_path):
     # Try to delete
     delete_result = fo.delete_file(str(source))
     assert not delete_result["success"]
-    assert "File not found" in delete_result["error"]# Replace 'your_module' with the actual module name
+    assert (
+        "File not found" in delete_result["error"]
+    )  # Replace 'your_module' with the actual module name
+
 
 def test_list_files_in_directory(tmp_path):
     subdir = tmp_path / "subdir"
     subdir.mkdir()
 
-        # Create files in the temporary directory
+    # Create files in the temporary directory
     (tmp_path / "file1.txt").write_text("Content of file 1")
     (tmp_path / "file2.txt").write_text("Content of file 2")
     (subdir / "file3.txt").write_text("Content of file 3")
@@ -170,15 +173,11 @@ def test_list_files_in_directory(tmp_path):
     print(files)
 
     # Expected relative paths based on the temp_path
-    expected_files = [
-        "file1.txt",
-        "file2.txt",
-        "subdir/file3.txt",
-        "subdir/file4.txt"
-    ]
+    expected_files = ["file1.txt", "file2.txt", "subdir/file3.txt", "subdir/file4.txt"]
 
     # Check if the returned list matches the expected list
     assert sorted(files) == sorted(expected_files)
+
 
 def test_list_files_in_empty_directory(tmp_path):
     # Create a temporary directory using tempfile
@@ -189,10 +188,12 @@ def test_list_files_in_empty_directory(tmp_path):
     # Expect an empty list
     assert files == []
 
+
 def test_list_files_in_nonexistent_directory():
     # Call the function with a nonexistent directory
     with pytest.raises(FileNotFoundError):
         fo.list_files("nonexistent_directory")
+
 
 def test_copy_file_with_absolute_paths(tmp_path):
     """Test copying a file using absolute paths."""

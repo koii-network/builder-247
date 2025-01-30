@@ -1,5 +1,6 @@
 import subprocess
 
+
 def execute_command(command):
     """
     Execute an arbitrary command line command.
@@ -13,7 +14,11 @@ def execute_command(command):
     try:
         # Execute the command
         if not command.strip():  # Check if the command is empty or just whitespace
-            return "", "command not found", 1  # Return an error message and a non-zero return code
+            return (
+                "",
+                "command not found",
+                1,
+            )  # Return an error message and a non-zero return code
 
         result = subprocess.run(command, shell=True, text=True, capture_output=True)
 
