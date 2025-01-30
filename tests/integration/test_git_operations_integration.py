@@ -85,9 +85,15 @@ def test_clone_repository(setup_environment, test_repo, tmp_path):
     # Create a test file and commit it
     test_file = test_repo / "test.txt"
     test_file.write_text("Hello, world!")
-    os.system(
-        f"cd {test_repo} && git init && git add . && git commit -m 'Initial commit'"
-    )
+
+    # Initialize repo with proper Git configuration
+    repo = Repo.init(test_repo)
+    repo.config_writer().set_value("user", "name", "Test User").release()
+    repo.config_writer().set_value("user", "email", "test@example.com").release()
+
+    # Add and commit the test file
+    repo.index.add([str(test_file)])
+    repo.index.commit("Initial commit")
 
     # 1. Initial prompt to Claude
     prompt = f"Can you clone the repository at {test_repo} to {clone_path}?"
