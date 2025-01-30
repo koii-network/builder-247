@@ -121,8 +121,8 @@ def test_copy_file(setup_environment, tmp_path):
     assert message.stop_reason == "tool_use"
     tool_use = next(block for block in message.content if block.type == "tool_use")
     assert tool_use.name == "copy_file"
-    assert tool_use.input["source_path"] == str(source_file)
-    assert tool_use.input["dest_path"] == str(dest_file)
+    assert tool_use.input["source"] == str(source_file)
+    assert tool_use.input["destination"] == str(dest_file)
 
     # 3. Execute tool and send result back in the same conversation
     result = client.execute_tool(tool_use)
@@ -161,8 +161,8 @@ def test_move_file(setup_environment, tmp_path):
     assert message.stop_reason == "tool_use"
     tool_use = next(block for block in message.content if block.type == "tool_use")
     assert tool_use.name == "move_file"
-    assert tool_use.input["source_path"] == str(source_file)
-    assert tool_use.input["dest_path"] == str(dest_file)
+    assert tool_use.input["source"] == str(source_file)
+    assert tool_use.input["destination"] == str(dest_file)
 
     # 3. Execute tool and send result back in the same conversation
     result = client.execute_tool(tool_use)
@@ -202,8 +202,8 @@ def test_rename_file(setup_environment, tmp_path):
     assert message.stop_reason == "tool_use"
     tool_use = next(block for block in message.content if block.type == "tool_use")
     assert tool_use.name == "rename_file"
-    assert tool_use.input["source_path"] == str(source_file)
-    assert tool_use.input["dest_path"] == str(dest_file)
+    assert tool_use.input["source"] == str(source_file)
+    assert tool_use.input["destination"] == str(dest_file)
 
     # 3. Execute tool and send result back in the same conversation
     result = client.execute_tool(tool_use)
