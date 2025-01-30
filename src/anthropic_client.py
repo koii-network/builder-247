@@ -2,6 +2,8 @@
 
 import os
 import json
+import sqlite3
+import uuid
 import importlib.util
 from pathlib import Path
 from typing import Dict, Any, Optional, List, TypedDict, Callable
@@ -11,6 +13,7 @@ from anthropic.types import (
     ToolChoiceParam,
     ContentBlockParam,
     ToolUseBlock,
+    Message,
 )
 
 
@@ -25,11 +28,70 @@ class ToolConfig(TypedDict):
 
 
 class AnthropicClient:
-    def __init__(self, model: Optional[str] = None):
+    def __init__(self, model: Optional[str] = None, db_path: Optional[str] = None):
         self.client = self.create_client()
         self.model = model or "claude-3-5-haiku-latest"
         self.tools = []
         self.tool_functions = {}
+        self.db_path = db_path or "conversations.db"
+        self._init_db()
+
+    def _init_db(self):
+        """Initialize the SQLite database with necessary tables."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS conversations (
+                    conversation_id TEXT PRIMARY KEY,
+                    model TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS messages (
+                    message_id TEXT PRIMARY KEY,
+                    conversation_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id)
+                )
+            """
+            )
+
+    def create_conversation(self) -> str:
+        """Create a new conversation and return its ID."""
+        conversation_id = str(uuid.uuid4())
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO conversations (conversation_id, model) VALUES (?, ?)",
+                (conversation_id, self.model),
+            )
+        return conversation_id
+
+    def _get_conversation_messages(self, conversation_id: str) -> List[MessageContent]:
+        """Retrieve all messages for a conversation in chronological order."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at",
+                (conversation_id,),
+            )
+            messages = []
+            for role, content in cursor.fetchall():
+                messages.append({"role": role, "content": json.loads(content)})
+            return messages
+
+    def _save_message(
+        self, conversation_id: str, role: str, content: List[ContentBlockParam]
+    ):
+        """Save a message to the database."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO messages (message_id, conversation_id, role, content) VALUES (?, ?, ?, ?)",
+                (str(uuid.uuid4()), conversation_id, role, json.dumps(content)),
+            )
 
     def create_client(self):
         """Create a new Anthropic client."""
@@ -115,61 +177,72 @@ class AnthropicClient:
     def send_message(
         self,
         prompt: Optional[str] = None,
-        previous_messages: Optional[List[MessageContent]] = None,
+        conversation_id: Optional[str] = None,
         max_tokens: Optional[int] = 1024,
         tool_choice: Optional[ToolChoiceParam] = None,
         tool_response: Optional[str] = None,
         tool_use_id: Optional[str] = None,
-    ) -> str:
+    ) -> Message:
         """
-        Send a test message to Claude via the Anthropic API.
+        Send a message to Claude, automatically managing conversation history.
 
         Args:
-            message (str): Message to send to Claude. Defaults to a test message.
+            prompt: The message to send to Claude
+            conversation_id: ID of the conversation to continue. If None, creates a new conversation
+            max_tokens: Maximum tokens in the response
+            tool_choice: Optional tool choice configuration
+            tool_response: Optional response from a previous tool call
+            tool_use_id: ID of the tool use when providing a tool response
 
         Returns:
-            str: Claude's response
-
-        Raises:
-            ValueError: If CLAUDE_API_KEY is not set
+            Message: Claude's response
         """
-
         if not prompt and not tool_response:
             raise ValueError("Prompt or tool response must be provided")
 
-        messages = previous_messages or []
+        # Create or get conversation
+        if not conversation_id:
+            conversation_id = self.create_conversation()
 
+        # Get previous messages
+        messages = self._get_conversation_messages(conversation_id)
+
+        # Add new message if it's a prompt
         if prompt:
             messages.append({"role": "user", "content": prompt})
+            self._save_message(conversation_id, "user", prompt)
 
         tool_config = self.create_tool_config(tool_choice)
 
+        # Handle tool response
         if tool_response is not None:
             if not tool_use_id:
                 raise ValueError("Tool use ID is required")
 
-            if not previous_messages:
-                raise ValueError("A previous message with the tool call is required")
-
-            return self.send_message_with_tool_response(
+            response = self.send_message_with_tool_response(
                 tool_response,
                 tool_use_id,
                 tool_config,
-                previous_messages,
+                messages,
                 max_tokens,
             )
-        if tool_choice is not None:
-            return self.send_message_with_tool(
+        elif tool_choice is not None:
+            response = self.send_message_with_tool(
                 messages,
                 tool_config,
                 max_tokens,
             )
+        else:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=max_tokens,
+                messages=messages,
+            )
 
-        return self.client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            messages=messages,
-        )
+        # Save assistant's response
+        self._save_message(conversation_id, "assistant", response.content)
+
+        return response
 
     def send_message_with_tool(
         self,
