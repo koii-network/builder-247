@@ -40,11 +40,11 @@ def parse_test_output(test_output: str) -> Dict[str, Any]:
     if failure_section:
         # Extract error message including assertion details
         error_lines = []
-        for line in failure_section.group(1).split('\n'):
-            if line.startswith('E       '):
-                error_lines.append(line.replace('E       ', ''))
+        for line in failure_section.group(1).split("\n"):
+            if line.startswith("E       "):
+                error_lines.append(line.replace("E       ", ""))
         if error_lines:
-            result["error_message"] = '\n'.join(error_lines)
+            result["error_message"] = "\n".join(error_lines)
             return result
 
     # If no detailed error found, look for summary error
@@ -101,19 +101,43 @@ def send_test_data_to_claude(test_data: Dict[str, Any]) -> Dict[str, Any]:
 
     client = Anthropic(api_key=api_key)
 
-    system_prompt = """You are a helpful AI assistant that analyzes test output.
-When given test output, respond with a JSON object containing these fields:
-- test_name: The name of the failing test
-- test_file: The file containing the failing test
-- error_message: A brief description of what went wrong
-- full_output: The complete test output
-
-Extract this information carefully from the provided test output."""
+    # Define the tool that specifies our desired JSON schema
+    tools = [
+        {
+            "name": "analyze_test_output",
+            "description": (
+                "Analyze test output and extract key information about test failures. "
+                "The output should include the test name, file, error message and full output."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "test_name": {
+                        "type": "string",
+                        "description": "The name of the failing test",
+                    },
+                    "test_file": {
+                        "type": "string",
+                        "description": "The file containing the failing test",
+                    },
+                    "error_message": {
+                        "type": "string",
+                        "description": "A brief description of what went wrong",
+                    },
+                    "full_output": {
+                        "type": "string",
+                        "description": "The complete test output",
+                    },
+                },
+                "required": ["test_name", "test_file", "error_message", "full_output"],
+            },
+        }
+    ]
 
     message = client.messages.create(
         model="claude-3-opus-20240229",
         max_tokens=1024,
-        system=system_prompt,
+        system="You are a helpful AI assistant that analyzes test output.",
         messages=[
             {
                 "role": "user",
@@ -123,12 +147,24 @@ Extract this information carefully from the provided test output."""
                 ),
             }
         ],
+        tools=tools,
+        tool_choice={"type": "tool", "name": "analyze_test_output"},
     )
 
     try:
-        return json.loads(message.content[0].text)
-    except json.JSONDecodeError:
+        # Extract the tool use response which will be in our desired JSON format
+        tool_calls = [
+            content for content in message.content if content.type == "tool_use"
+        ]
+        if tool_calls:
+            return tool_calls[0].input
+        else:
+            return {
+                "error": "No tool use response received",
+                "raw_response": message.content,
+            }
+    except Exception as e:
         return {
-            "error": "Response was not in JSON format",
-            "raw_response": message.content[0].text,
+            "error": f"Failed to parse response: {str(e)}",
+            "raw_response": message.content,
         }
