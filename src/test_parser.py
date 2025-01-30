@@ -3,6 +3,7 @@
 import os
 import json
 import subprocess
+import re
 from typing import Dict, Any
 from anthropic import Anthropic
 
@@ -20,13 +21,38 @@ def parse_test_output(test_output: str) -> Dict[str, Any]:
     Raises:
         ValueError: If the test output cannot be parsed
     """
-    # This implementation is intentionally wrong to make the test fail
-    return {
+    # Initialize default values
+    result = {
         "test_name": "unknown",
         "test_file": "unknown",
-        "error_message": "unknown",
+        "error_message": "",
         "full_output": test_output,
     }
+
+    # First try to find test name from the test run line
+    test_run = re.search(r"(\w+\.py)::(\w+)\s+(?:FAILED|ERROR)", test_output)
+    if test_run:
+        result["test_file"] = test_run.group(1)
+        result["test_name"] = test_run.group(2)
+
+    # Look for detailed error in FAILURES section
+    failure_section = re.search(r"=+ FAILURES =+\n(.+?)=+", test_output, re.DOTALL)
+    if failure_section:
+        # Extract error message including assertion details
+        error_lines = []
+        for line in failure_section.group(1).split('\n'):
+            if line.startswith('E       '):
+                error_lines.append(line.replace('E       ', ''))
+        if error_lines:
+            result["error_message"] = '\n'.join(error_lines)
+            return result
+
+    # If no detailed error found, look for summary error
+    summary = re.search(r"FAILED .+? - (.+?)(?:\n|$)", test_output)
+    if summary:
+        result["error_message"] = summary.group(1)
+
+    return result
 
 
 def get_structured_test_data(test_command: str) -> Dict[str, Any]:
