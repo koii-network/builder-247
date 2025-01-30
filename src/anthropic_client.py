@@ -1,6 +1,5 @@
 """Module for testing Claude's tool use capabilities."""
 
-import os
 import json
 import sqlite3
 import uuid
@@ -28,8 +27,10 @@ class ToolConfig(TypedDict):
 
 
 class AnthropicClient:
-    def __init__(self, model: Optional[str] = None, db_path: Optional[str] = None):
-        self.client = self.create_client()
+    def __init__(
+        self, api_key: str, model: Optional[str] = None, db_path: Optional[str] = None
+    ):
+        self.client = self._create_client(api_key)
         self.model = model or "claude-3-5-haiku-latest"
         self.tools = []
         self.tool_functions = {}
@@ -93,10 +94,8 @@ class AnthropicClient:
                 (str(uuid.uuid4()), conversation_id, role, json.dumps(content)),
             )
 
-    def create_client(self):
+    def _create_client(self, api_key: str):
         """Create a new Anthropic client."""
-        api_key = os.environ.get("CLAUDE_API_KEY")
-
         if not api_key:
             raise ValueError("Missing CLAUDE_API_KEY")
 
