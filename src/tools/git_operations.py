@@ -67,6 +67,15 @@ def clone_repository(
         Dict[str, Any]: Result of the operation
     """
     try:
+        # Insert GitHub token into the clone URL for authentication
+        token = os.environ.get("GITHUB_TOKEN")
+        if token and "github.com" in url:
+            # Convert HTTPS URL to token-authenticated URL
+            if url.startswith("https://"):
+                url = url.replace("https://", f"https://{token}@")
+            elif url.startswith("git@"):
+                url = f"https://{token}@github.com/{url.split(':', 1)[1]}"
+
         repo = Repo.clone_from(url, path)
         if user_name:
             repo.config_writer().set_value("user", "name", user_name).release()
@@ -190,6 +199,15 @@ def add_remote(repo_path: str, name: str, url: str) -> Dict[str, Any]:
         Dict[str, Any]: Result of the operation
     """
     try:
+        # Insert GitHub token into the remote URL for authentication
+        token = os.environ.get("GITHUB_TOKEN")
+        if token and "github.com" in url:
+            # Convert HTTPS URL to token-authenticated URL
+            if url.startswith("https://"):
+                url = url.replace("https://", f"https://{token}@")
+            elif url.startswith("git@"):
+                url = f"https://{token}@github.com/{url.split(':', 1)[1]}"
+
         repo = _get_repo(repo_path)
         repo.create_remote(name, url)
         return {"success": True}
