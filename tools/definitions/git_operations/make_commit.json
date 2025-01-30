@@ -4,9 +4,9 @@
 	"parameters": {
 		"type": "object",
 		"properties": {
-			"repo": {
-				"type": "object",
-				"description": "The GitPython Repo instance"
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
 			},
 			"message": {
 				"type": "string",
@@ -18,6 +18,6 @@
 				"default": true
 			}
 		},
-		"required": ["repo", "message"]
+		"required": ["repo_path", "message"]
 	}
 }

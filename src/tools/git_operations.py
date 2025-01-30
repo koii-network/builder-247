@@ -2,37 +2,28 @@
 
 import os
 import subprocess
-import requests
 from pathlib import Path
 from typing import Dict, Any, Optional
-from git import Repo, GitCommandError
+from git import Repo
 from src.tools.execute_command import execute_command
 
 
-def run_git_command(repo: Repo, command: str, **kwargs) -> Dict[str, Any]:
+def _get_repo(repo_path: str) -> Repo:
     """
-    Run a Git command using GitPython and return the result.
+    Get a GitPython Repo instance from a path.
 
     Args:
-        repo (Repo): The GitPython Repo instance
-        command (str): The Git command to run
-        **kwargs: Additional arguments to pass to the git command
+        repo_path (str): Path to the git repository
 
     Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - output (str): Command output if successful
-            - error (str): Error message if unsuccessful
+        Repo: The GitPython Repo instance
+
+    Raises:
+        Exception: If the path is not a git repository
     """
-    try:
-        git = repo.git
-        method = getattr(git, command.replace("-", "_"))
-        output = method(**kwargs)
-        return {"success": True, "output": output}
-    except GitCommandError as e:
-        return {"success": False, "error": str(e)}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    if not os.path.exists(repo_path):
+        raise Exception(f"Path does not exist: {repo_path}")
+    return Repo(repo_path)
 
 
 def init_repository(
@@ -55,7 +46,7 @@ def init_repository(
             repo.config_writer().set_value("user", "name", user_name).release()
         if user_email:
             repo.config_writer().set_value("user", "email", user_email).release()
-        return {"success": True, "repo": repo}
+        return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -81,23 +72,24 @@ def clone_repository(
             repo.config_writer().set_value("user", "name", user_name).release()
         if user_email:
             repo.config_writer().set_value("user", "email", user_email).release()
-        return {"success": True, "repo": repo}
+        return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def create_branch(repo: Repo, branch_name: str) -> Dict[str, Any]:
+def create_branch(repo_path: str, branch_name: str) -> Dict[str, Any]:
     """
     Create a new Git branch.
 
     Args:
-        repo (Repo): The GitPython Repo instance
+        repo_path (str): Path to the git repository
         branch_name (str): Name of the branch to create
 
     Returns:
         Dict[str, Any]: Result of the operation
     """
     try:
+        repo = _get_repo(repo_path)
         current = repo.active_branch
         new_branch = repo.create_head(branch_name)
         new_branch.checkout()
@@ -106,18 +98,19 @@ def create_branch(repo: Repo, branch_name: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def checkout_branch(repo: Repo, branch_name: str) -> Dict[str, Any]:
+def checkout_branch(repo_path: str, branch_name: str) -> Dict[str, Any]:
     """
     Check out an existing Git branch.
 
     Args:
-        repo (Repo): The GitPython Repo instance
+        repo_path (str): Path to the git repository
         branch_name (str): Name of the branch to check out
 
     Returns:
         Dict[str, Any]: Result of the operation
     """
     try:
+        repo = _get_repo(repo_path)
         branch = repo.heads[branch_name]
         branch.checkout()
         return {"success": True}
@@ -125,12 +118,12 @@ def checkout_branch(repo: Repo, branch_name: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def make_commit(repo: Repo, message: str, add_all: bool = True) -> Dict[str, Any]:
+def make_commit(repo_path: str, message: str, add_all: bool = True) -> Dict[str, Any]:
     """
     Stage changes and create a commit.
 
     Args:
-        repo (Repo): The GitPython Repo instance
+        repo_path (str): Path to the git repository
         message (str): The commit message
         add_all (bool): Whether to stage all changes
 
@@ -138,6 +131,7 @@ def make_commit(repo: Repo, message: str, add_all: bool = True) -> Dict[str, Any
         Dict[str, Any]: Result of the operation
     """
     try:
+        repo = _get_repo(repo_path)
         if add_all:
             repo.git.add(A=True)
         else:
@@ -148,45 +142,47 @@ def make_commit(repo: Repo, message: str, add_all: bool = True) -> Dict[str, Any
         return {"success": False, "error": str(e)}
 
 
-def get_current_branch(repo: Repo) -> Dict[str, Any]:
+def get_current_branch(repo_path: str) -> Dict[str, Any]:
     """
     Get the name of the current Git branch.
 
     Args:
-        repo (Repo): The GitPython Repo instance
+        repo_path (str): Path to the git repository
 
     Returns:
         Dict[str, Any]: Result of the operation with the branch name in the 'output' field
     """
     try:
+        repo = _get_repo(repo_path)
         return {"success": True, "output": repo.active_branch.name}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def list_branches(repo: Repo) -> Dict[str, Any]:
+def list_branches(repo_path: str) -> Dict[str, Any]:
     """
     List all Git branches.
 
     Args:
-        repo (Repo): The GitPython Repo instance
+        repo_path (str): Path to the git repository
 
     Returns:
         Dict[str, Any]: Result of the operation with branch list in the 'output' field
     """
     try:
+        repo = _get_repo(repo_path)
         branches = [head.name for head in repo.heads]
         return {"success": True, "output": branches}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def add_remote(repo: Repo, name: str, url: str) -> Dict[str, Any]:
+def add_remote(repo_path: str, name: str, url: str) -> Dict[str, Any]:
     """
     Add a remote to the repository.
 
     Args:
-        repo (Repo): The GitPython Repo instance
+        repo_path (str): Path to the git repository
         name (str): Name of the remote
         url (str): URL of the remote
 
@@ -194,24 +190,26 @@ def add_remote(repo: Repo, name: str, url: str) -> Dict[str, Any]:
         Dict[str, Any]: Result of the operation
     """
     try:
+        repo = _get_repo(repo_path)
         repo.create_remote(name, url)
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def fetch_remote(repo: Repo, remote_name: str = "origin") -> Dict[str, Any]:
+def fetch_remote(repo_path: str, remote_name: str = "origin") -> Dict[str, Any]:
     """
     Fetch from a remote.
 
     Args:
-        repo (Repo): The GitPython Repo instance
+        repo_path (str): Path to the git repository
         remote_name (str): Name of the remote to fetch from
 
     Returns:
         Dict[str, Any]: Result of the operation
     """
     try:
+        repo = _get_repo(repo_path)
         remote = repo.remotes[remote_name]
         remote.fetch()
         return {"success": True}
@@ -220,13 +218,13 @@ def fetch_remote(repo: Repo, remote_name: str = "origin") -> Dict[str, Any]:
 
 
 def pull_remote(
-    repo: Repo, remote_name: str = "origin", branch: str = None
+    repo_path: str, remote_name: str = "origin", branch: str = None
 ) -> Dict[str, Any]:
     """
     Pull from a remote.
 
     Args:
-        repo (Repo): The GitPython Repo instance
+        repo_path (str): Path to the git repository
         remote_name (str): Name of the remote to pull from
         branch (str, optional): Branch to pull. If None, pulls active branch
 
@@ -234,6 +232,7 @@ def pull_remote(
         Dict[str, Any]: Result of the operation
     """
     try:
+        repo = _get_repo(repo_path)
         remote = repo.remotes[remote_name]
         if branch:
             remote.pull(branch)
@@ -245,13 +244,13 @@ def pull_remote(
 
 
 def push_remote(
-    repo: Repo, remote_name: str = "origin", branch: str = None
+    repo_path: str, remote_name: str = "origin", branch: str = None
 ) -> Dict[str, Any]:
     """
     Push to a remote.
 
     Args:
-        repo (Repo): The GitPython Repo instance
+        repo_path (str): Path to the git repository
         remote_name (str): Name of the remote to push to
         branch (str, optional): Branch to push. If None, pushes active branch
 
@@ -259,7 +258,7 @@ def push_remote(
         Dict[str, Any]: Result of the operation
     """
     try:
-        # Get the remote
+        repo = _get_repo(repo_path)
         remote = repo.remotes[remote_name]
 
         # Get the current URL
@@ -307,25 +306,12 @@ def can_access_repository(repo_url: str) -> bool:
         return False
 
 
-def check_fork_exists(owner: str, repo_name: str) -> Dict[str, Any]:
-    """Check if fork exists using GitHub API."""
-    try:
-        response = requests.get(
-            f"https://api.github.com/repos/{owner}/{repo_name}",
-            headers={"Authorization": f"token {os.environ.get('GITHUB_TOKEN')}"},
-        )
-        if response.status_code != 200:
-            return {"success": False, "error": "Repository not found"}
-        return {"success": True, "exists": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
 def commit_and_push(
-    repo: Repo, message: str, file_path: Optional[str] = None
+    repo_path: str, message: str, file_path: Optional[str] = None
 ) -> Dict[str, Any]:
     """Commit and push changes."""
     try:
+        repo = _get_repo(repo_path)
         if file_path:
             repo.git.add(file_path)
         else:
@@ -338,42 +324,54 @@ def commit_and_push(
         return {"success": False, "error": str(e)}
 
 
-def check_for_conflicts(repo: Repo) -> Dict[str, Any]:
-    """Check if there are merge conflicts."""
-    try:
-        # Check unmerged paths in the index
-        unmerged = repo.index.unmerged_blobs()
-        conflicting_files = list(unmerged.keys())
+def check_for_conflicts(repo_path: str) -> Dict[str, Any]:
+    """
+    Check if there are merge conflicts by looking at Git's index.
 
-        # If no unmerged blobs found, check for conflict markers in files
-        if not conflicting_files:
-            for file_path in repo.git.ls_files().split("\n"):
-                if not file_path:
-                    continue
-                try:
-                    with open(Path(repo.working_dir) / file_path) as f:
-                        content = f.read()
-                        if "<<<<<<< HEAD" in content:
-                            conflicting_files.append(file_path)
-                except (IOError, OSError):
-                    continue
+    Args:
+        repo_path (str): Path to the git repository
+
+    Returns:
+        Dict[str, Any]: A dictionary containing:
+            - success (bool): Whether the operation succeeded
+            - has_conflicts (bool): Whether any conflicts were found
+            - conflicting_files (list): List of files with conflicts
+            - error (str): Error message if unsuccessful
+    """
+    try:
+        repo = _get_repo(repo_path)
+        # Get unmerged paths from the index
+        unmerged = repo.index.unmerged_blobs()
+        conflicting_files = sorted(list(unmerged.keys()))
 
         return {
             "success": True,
             "has_conflicts": bool(conflicting_files),
             "conflicting_files": conflicting_files,
         }
-    except (GitCommandError, IOError, OSError) as e:
+    except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def get_conflict_info(repo: Repo) -> Dict[str, Any]:
-    """Get details about current conflicts."""
+def get_conflict_info(repo_path: str) -> Dict[str, Any]:
+    """
+    Get details about current conflicts from Git's index.
+
+    Args:
+        repo_path (str): Path to the git repository
+
+    Returns:
+        Dict[str, Any]: A dictionary containing:
+            - success (bool): Whether the operation succeeded
+            - conflicts (dict): Dictionary mapping file paths to their conflict information
+            - error (str): Error message if unsuccessful
+    """
     try:
+        repo = _get_repo(repo_path)
         conflicts = {}
         unmerged = repo.index.unmerged_blobs()
 
-        # First try to get info from unmerged blobs
+        # Get conflict versions from unmerged blobs
         for path, blobs in unmerged.items():
             versions = {}
             for stage_blob in blobs:
@@ -387,29 +385,17 @@ def get_conflict_info(repo: Repo) -> Dict[str, Any]:
                     versions["theirs"] = blob.data_stream.read().decode()
             conflicts[path] = {"content": versions}
 
-        # If no unmerged blobs, check for conflict markers
-        if not conflicts:
-            for file_path in repo.git.ls_files().split("\n"):
-                if not file_path:
-                    continue
-                try:
-                    with open(Path(repo.working_dir) / file_path) as f:
-                        content = f.read()
-                        if "<<<<<<< HEAD" in content:
-                            conflicts[file_path] = {"content": {"raw": content}}
-                except (IOError, OSError):
-                    continue
-
         return {"success": True, "conflicts": conflicts}
-    except (GitCommandError, IOError, OSError) as e:
+    except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def resolve_conflict(
-    repo: Repo, file_path: str, resolution: str, message: str = "Resolve conflict"
+    repo_path: str, file_path: str, resolution: str, message: str = "Resolve conflict"
 ) -> Dict[str, Any]:
     """Resolve a conflict in a specific file and commit the resolution."""
     try:
+        repo = _get_repo(repo_path)
         # Write the resolved content
         full_path = Path(repo.working_dir) / file_path
         full_path.write_text(resolution)
@@ -422,11 +408,12 @@ def resolve_conflict(
         return {"success": False, "error": str(e)}
 
 
-def create_merge_commit(repo: Repo, message: str) -> Dict[str, Any]:
+def create_merge_commit(repo_path: str, message: str) -> Dict[str, Any]:
     """Create a merge commit after resolving conflicts."""
     try:
+        repo = _get_repo(repo_path)
         # Check if there are any remaining conflicts
-        if check_for_conflicts(repo)["has_conflicts"]:
+        if check_for_conflicts(repo_path)["has_conflicts"]:
             return {
                 "success": False,
                 "error": "Cannot create merge commit with unresolved conflicts",

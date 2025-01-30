@@ -4,9 +4,9 @@
 	"parameters": {
 		"type": "object",
 		"properties": {
-			"repo": {
-				"type": "object",
-				"description": "The GitPython Repo instance"
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
 			},
 			"name": {
 				"type": "string",
@@ -17,6 +17,6 @@
 				"description": "URL of the remote"
 			}
 		},
-		"required": ["repo", "name", "url"]
+		"required": ["repo_path", "name", "url"]
 	}
 }

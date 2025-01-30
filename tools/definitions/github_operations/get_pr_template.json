@@ -1,0 +1,9 @@
+{
+	"name": "get_pr_template",
+	"description": "Get the PR template content from .github/ directory or copy it from docs/agent/pr_template.md.",
+	"parameters": {
+		"type": "object",
+		"properties": {},
+		"required": []
+	}
+}

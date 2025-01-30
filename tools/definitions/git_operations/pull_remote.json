@@ -4,9 +4,9 @@
 	"parameters": {
 		"type": "object",
 		"properties": {
-			"repo": {
-				"type": "object",
-				"description": "The GitPython Repo instance"
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
 			},
 			"remote_name": {
 				"type": "string",
@@ -18,6 +18,6 @@
 				"description": "Branch to pull. If None, pulls active branch"
 			}
 		},
-		"required": ["repo"]
+		"required": ["repo_path"]
 	}
 }

@@ -4,11 +4,11 @@
 	"parameters": {
 		"type": "object",
 		"properties": {
-			"repo": {
-				"type": "object",
-				"description": "The GitPython Repo instance"
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
 			}
 		},
-		"required": ["repo"]
+		"required": ["repo_path"]
 	}
 }

@@ -4,15 +4,15 @@
 	"parameters": {
 		"type": "object",
 		"properties": {
-			"repo": {
-				"type": "object",
-				"description": "The GitPython Repo instance"
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
 			},
 			"branch_name": {
 				"type": "string",
 				"description": "Name of the branch to check out"
 			}
 		},
-		"required": ["repo", "branch_name"]
+		"required": ["repo_path", "branch_name"]
 	}
 }
