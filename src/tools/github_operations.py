@@ -78,13 +78,13 @@ def get_pr_template(repo_path: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def fork_repository(repo_full_name: str, target_dir: str = None) -> Dict[str, Any]:
+def fork_repository(repo_full_name: str, local_path: str = None) -> Dict[str, Any]:
     """
     Fork a repository and clone it locally.
 
     Args:
         repo_full_name (str): Full name of the repository (e.g. "owner/repo")
-        target_dir (str, optional): Directory where to clone the fork.
+        local_path (str, optional): Directory where to clone the fork.
                                   If None, uses current directory
 
     Returns:
@@ -110,7 +110,7 @@ def fork_repository(repo_full_name: str, target_dir: str = None) -> Dict[str, An
         time.sleep(5)
 
         # Clone the fork
-        target_dir = target_dir or os.path.basename(fork.name)
+        target_dir = local_path or os.path.basename(fork.name)
         print(f"Cloning fork to {target_dir}")
         clone_result = clone_repository(
             fork.clone_url,
@@ -252,33 +252,39 @@ def sync_fork(repo_path: str, branch: str = "main") -> Dict[str, Any]:
         return {"success": False, "error": error_msg}
 
 
-def check_fork_exists(repo_full_name: str) -> Dict[str, Any]:
+def check_fork_exists(owner: str, repo_name: str) -> Dict[str, Any]:
     """
-    Check if a fork of the repository exists for the current user.
+    Check if fork exists using GitHub API.
 
     Args:
-        repo_full_name (str): Full name of the repository (e.g. "owner/repo")
+        owner (str): Owner of the repository
+        repo_name (str): Name of the repository
 
     Returns:
         Dict[str, Any]: A dictionary containing:
             - success (bool): Whether the operation succeeded
             - exists (bool): Whether the fork exists
-            - fork_full_name (str): Full name of the fork if it exists
             - error (str): Error message if unsuccessful
     """
     try:
         gh = _get_github_client()
-        username = _get_github_username()
-        owner, repo_name = repo_full_name.split("/")
 
-        # Try to get the fork
+        # First check if the source repo exists
         try:
-            fork = gh.get_repo(f"{username}/{repo_name}")
-            return {"success": True, "exists": True, "fork_full_name": fork.full_name}
-        except GithubException as e:
-            if e.status == 404:  # Not found
-                return {"success": True, "exists": False}
-            raise
+            gh.get_repo(f"{owner}/{repo_name}")
+        except GithubException:
+            return {"success": False, "error": "Source repository not found"}
+
+        # Then check if we have a fork
+        user = gh.get_user()
+        try:
+            fork = user.get_repo(repo_name)
+            # Verify it's actually a fork of the target repo
+            if fork.fork and fork.parent.full_name == f"{owner}/{repo_name}":
+                return {"success": True, "exists": True}
+            return {"success": True, "exists": False}
+        except GithubException:
+            return {"success": True, "exists": False}
 
     except Exception as e:
         return {"success": False, "error": str(e)}
