@@ -24,7 +24,7 @@ class ToolConfig(TypedDict):
 class AnthropicClient:
     def __init__(self, model: Optional[str] = None):
         self.client = self.create_client()
-        self.model = model or "claude-3-opus-latest"
+        self.model = model or "claude-3-5-haiku-latest"
         self.tools = []
         self.tool_functions = {}
 
@@ -85,9 +85,7 @@ class AnthropicClient:
                 raise ValueError("Tool use ID is required")
 
             if not previous_messages:
-                raise ValueError(
-                    "A previous message with the tool call is required"
-                )
+                raise ValueError("A previous message with the tool call is required")
 
             return self.send_message_with_tool_response(
                 tool_response,
