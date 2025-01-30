@@ -197,7 +197,7 @@ def add_remote(repo_path: str, name: str, url: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def fetch_remote(repo_path: str, remote_name: str = "origin") -> Dict[str, Any]:
+def fetch_remote(repo_path: str, remote_name: str) -> Dict[str, Any]:
     """
     Fetch from a remote.
 
@@ -214,6 +214,7 @@ def fetch_remote(repo_path: str, remote_name: str = "origin") -> Dict[str, Any]:
         remote.fetch()
         return {"success": True}
     except Exception as e:
+        print(f"Fetch failed: {str(e)}")  # Debug output
         return {"success": False, "error": str(e)}
 
 
@@ -233,13 +234,13 @@ def pull_remote(
     """
     try:
         repo = _get_repo(repo_path)
-        remote = repo.remotes[remote_name]
         if branch:
-            remote.pull(branch)
+            repo.git.pull(remote_name, branch, "--allow-unrelated-histories")
         else:
-            remote.pull()
+            repo.git.pull("--allow-unrelated-histories")
         return {"success": True}
     except Exception as e:
+        print(f"Pull failed: {str(e)}")  # Debug output
         return {"success": False, "error": str(e)}
 
 
@@ -259,30 +260,13 @@ def push_remote(
     """
     try:
         repo = _get_repo(repo_path)
-        remote = repo.remotes[remote_name]
+        current_branch = repo.active_branch.name if not branch else branch
 
-        # Get the current URL
-        url = remote.url
-
-        # If using HTTPS and token is in the environment, add it to URL
-        token = os.environ.get("GITHUB_TOKEN")
-        if token and url.startswith("https://"):
-            new_url = url.replace("https://", f"https://{token}@")
-            remote.set_url(new_url)
-
-        try:
-            # Do the push
-            if branch:
-                remote.push(branch)
-            else:
-                remote.push()
-            return {"success": True}
-        finally:
-            # Restore original URL if we changed it
-            if token and url.startswith("https://"):
-                remote.set_url(url)
-
+        # Set up the upstream branch and push
+        repo.git.push("--set-upstream", remote_name, current_branch)
+        return {"success": True}
     except Exception as e:
+        print(f"Push failed: {str(e)}")  # Debug output
         return {"success": False, "error": str(e)}
 
 
@@ -317,8 +301,8 @@ def commit_and_push(
         else:
             repo.git.add(A=True)
         repo.index.commit(message)
-        origin = repo.remotes.origin
-        repo.git.push(origin)
+        current_branch = repo.active_branch.name
+        repo.git.push("--set-upstream", "origin", current_branch)
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -370,13 +354,14 @@ def get_conflict_info(repo_path: str) -> Dict[str, Any]:
         repo = _get_repo(repo_path)
         conflicts = {}
         unmerged = repo.index.unmerged_blobs()
+        print(f"Unmerged blobs: {unmerged}")  # Debug output
 
         # Get conflict versions from unmerged blobs
         for path, blobs in unmerged.items():
+            print(f"Processing path: {path}")  # Debug output
             versions = {}
-            for stage_blob in blobs:
-                stage = stage_blob.stage
-                blob = stage_blob.blob
+            for stage, blob in blobs:
+                print(f"Processing stage: {stage}")  # Debug output
                 if stage == 1:
                     versions["ancestor"] = blob.data_stream.read().decode()
                 elif stage == 2:
@@ -387,6 +372,7 @@ def get_conflict_info(repo_path: str) -> Dict[str, Any]:
 
         return {"success": True, "conflicts": conflicts}
     except Exception as e:
+        print(f"Error in get_conflict_info: {str(e)}")  # Debug output
         return {"success": False, "error": str(e)}
 
 
@@ -401,7 +387,7 @@ def resolve_conflict(
         full_path.write_text(resolution)
 
         # Stage the resolved file
-        repo.index.add([file_path])
+        repo.git.add(file_path)
 
         return {"success": True}
     except Exception as e:

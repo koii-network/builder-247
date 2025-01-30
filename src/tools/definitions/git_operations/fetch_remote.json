@@ -10,8 +10,7 @@
 			},
 			"remote_name": {
 				"type": "string",
-				"description": "Name of the remote to fetch from",
-				"default": "origin"
+				"description": "Name of the remote to fetch from"
 			}
 		}
 	}

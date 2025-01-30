@@ -14,6 +14,8 @@ load_dotenv()
 @pytest.fixture(autouse=True)
 def setup_environment(tmp_path):
     """Set up environment variables and client before each test."""
+    if not os.environ.get("GITHUB_TOKEN"):
+        pytest.skip("GITHUB_TOKEN environment variable not set")
     api_key = os.environ.get("CLAUDE_API_KEY")
     if not api_key:
         pytest.skip("CLAUDE_API_KEY environment variable not set")
@@ -23,7 +25,6 @@ def setup_environment(tmp_path):
     return client
 
 
-@pytest.mark.skipif(not os.environ.get("GITHUB_TOKEN"), reason="GITHUB_TOKEN not set")
 def test_check_fork_exists(setup_environment):
     """Test the check_fork_exists tool."""
     client = setup_environment
@@ -56,7 +57,6 @@ def test_check_fork_exists(setup_environment):
     time.sleep(2)  # Rate limiting
 
 
-@pytest.mark.skipif(not os.environ.get("GITHUB_TOKEN"), reason="GITHUB_TOKEN not set")
 def test_fork_repository(setup_environment):
     """Test the fork_repository tool."""
     client = setup_environment
@@ -89,7 +89,6 @@ def test_fork_repository(setup_environment):
     time.sleep(2)  # Rate limiting
 
 
-@pytest.mark.skipif(not os.environ.get("GITHUB_TOKEN"), reason="GITHUB_TOKEN not set")
 def test_create_pull_request(setup_environment):
     """Test the create_pull_request tool."""
     client = setup_environment
@@ -123,7 +122,6 @@ def test_create_pull_request(setup_environment):
     time.sleep(2)  # Rate limiting
 
 
-@pytest.mark.skipif(not os.environ.get("GITHUB_TOKEN"), reason="GITHUB_TOKEN not set")
 def test_get_pr_template(setup_environment):
     """Test the get_pr_template tool."""
     client = setup_environment
@@ -156,7 +154,6 @@ def test_get_pr_template(setup_environment):
     time.sleep(2)  # Rate limiting
 
 
-@pytest.mark.skipif(not os.environ.get("GITHUB_TOKEN"), reason="GITHUB_TOKEN not set")
 def test_sync_fork(setup_environment):
     """Test the sync_fork tool."""
     client = setup_environment
