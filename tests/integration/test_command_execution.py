@@ -14,14 +14,13 @@ def setup_environment(tmp_path):
         pytest.skip("CLAUDE_API_KEY environment variable not set")
     temp_db = tmp_path / "test.db"
     client = AnthropicClient(api_key=api_key, db_path=temp_db)
-    client.register_tools_from_directory("src/tools/definitions/command_execution")
+    client.register_tools_from_directory("src/tools/definitions/execute_command")
     return client
 
 
 def test_command_execution(setup_environment, tmp_path):
     """Test command execution tool."""
     client = setup_environment
-    os.chdir(tmp_path)
 
     # Create a test file
     with open("test.txt", "w") as f:

@@ -40,232 +40,12 @@ def test_repo(tmp_path):
     return repo_path
 
 
-def test_git_operations(setup_environment, tmp_path):
-    """Test Git operations tools."""
-    client = setup_environment
-    os.chdir(tmp_path)
-
-    # Initialize repository
-    message = client.send_message(
-        "Can you initialize a new Git repository in the current directory?",
-        tool_choice={"type": "any"},
-    )
-
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "init_repository"
-
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response="success" if result["success"] else result["error"],
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
-
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-
-    # Create and add a file
-    with open("test.txt", "w") as f:
-        f.write("test content")
-
-    message = client.send_message(
-        "Can you stage the test.txt file for commit?",
-        tool_choice={"type": "any"},
-    )
-
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "stage_files"
-
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response="success" if result["success"] else result["error"],
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
-
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-
-    # Create a commit
-    message = client.send_message(
-        "Can you create a commit with the message 'Initial commit'?",
-        tool_choice={"type": "any"},
-    )
-
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "create_commit"
-
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response="success" if result["success"] else result["error"],
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
-
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-
-    # Create a branch
-    message = client.send_message(
-        "Can you create a new branch called 'feature'?",
-        tool_choice={"type": "any"},
-    )
-
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "create_branch"
-
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response="success" if result["success"] else result["error"],
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
-
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-
-    # Switch to the new branch
-    message = client.send_message(
-        "Can you switch to the 'feature' branch?",
-        tool_choice={"type": "any"},
-    )
-
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "checkout_branch"
-
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response="success" if result["success"] else result["error"],
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
-
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-
-    # Get current branch
-    message = client.send_message(
-        "What branch are we currently on?",
-        tool_choice={"type": "any"},
-    )
-
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "get_current_branch"
-
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response=result["branch"],
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
-
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-
-    # List branches
-    message = client.send_message(
-        "Can you list all branches in the repository?",
-        tool_choice={"type": "any"},
-    )
-
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "list_branches"
-
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response="\n".join(result["branches"]),
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
-
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-
-    # Add remote
-    message = client.send_message(
-        "Can you add a remote called 'origin' with URL 'https://github.com/test/test.git'?",
-        tool_choice={"type": "any"},
-    )
-
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "add_remote"
-
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response="success" if result["success"] else result["error"],
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
-
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-
-    # Fetch from remote
-    message = client.send_message(
-        "Can you fetch from the remote repository?",
-        tool_choice={"type": "any"},
-    )
-
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "fetch_remote"
-
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response="success" if result["success"] else result["error"],
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
-
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-
-    # Push to remote
-    message = client.send_message(
-        "Can you push the current branch to the remote repository?",
-        tool_choice={"type": "any"},
-    )
-
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "push_remote"
-
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response="success" if result["success"] else result["error"],
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
-
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-
-
 def test_init_repository(setup_environment, tmp_path):
-    """Test the init_repository tool."""
+    """Test initializing a Git repository."""
     client = setup_environment
-    repo_path = tmp_path / "new_repo"
 
     message = client.send_message(
-        f"Can you initialize a new git repository at {repo_path}?",
+        f"Can you initialize a new git repository at {tmp_path}?",
         tool_choice={"type": "any"},
     )
     assert isinstance(message, Message)
@@ -283,7 +63,7 @@ def test_init_repository(setup_environment, tmp_path):
         tool_choice={"type": "auto"},
     )
     assert isinstance(response, Message)
-    assert (repo_path / ".git").exists()
+    assert (tmp_path / ".git").exists()
     response_text = next(
         block.text for block in response.content if block.type == "text"
     )
@@ -291,7 +71,7 @@ def test_init_repository(setup_environment, tmp_path):
 
 
 def test_clone_repository(setup_environment, test_repo, tmp_path):
-    """Test the clone_repository tool."""
+    """Test cloning a Git repository."""
     client = setup_environment
     clone_path = tmp_path / "cloned_repo"
 
@@ -322,7 +102,7 @@ def test_clone_repository(setup_environment, test_repo, tmp_path):
 
 
 def test_get_current_branch(setup_environment, test_repo):
-    """Test the get_current_branch tool."""
+    """Test getting the current branch."""
     client = setup_environment
 
     message = client.send_message(
@@ -351,7 +131,7 @@ def test_get_current_branch(setup_environment, test_repo):
 
 
 def test_create_branch(setup_environment, test_repo):
-    """Test the create_branch tool."""
+    """Test creating a new branch."""
     client = setup_environment
 
     message = client.send_message(
@@ -380,7 +160,7 @@ def test_create_branch(setup_environment, test_repo):
 
 
 def test_checkout_branch(setup_environment, test_repo):
-    """Test the checkout_branch tool."""
+    """Test checking out a branch."""
     client = setup_environment
 
     # First create a branch to checkout
@@ -412,7 +192,7 @@ def test_checkout_branch(setup_environment, test_repo):
 
 
 def test_make_commit(setup_environment, test_repo):
-    """Test the make_commit tool."""
+    """Test making a commit."""
     client = setup_environment
 
     # Create a new file to commit
@@ -445,7 +225,7 @@ def test_make_commit(setup_environment, test_repo):
 
 
 def test_list_branches(setup_environment, test_repo):
-    """Test the list_branches tool."""
+    """Test listing branches."""
     client = setup_environment
 
     # Create some branches to list
@@ -477,12 +257,12 @@ def test_list_branches(setup_environment, test_repo):
     assert "develop" in response_text.lower()
 
 
-def test_add_remote(setup_environment, test_repo, tmp_path):
-    """Test the add_remote tool."""
+def test_add_remote(setup_environment, test_repo):
+    """Test adding a remote."""
     client = setup_environment
 
     # Create another repo to use as remote
-    remote_path = tmp_path / "remote_repo"
+    remote_path = test_repo / "remote_repo"
     os.system(f"git init {remote_path}")
 
     message = client.send_message(
@@ -507,7 +287,7 @@ def test_add_remote(setup_environment, test_repo, tmp_path):
 
 
 def test_fetch_remote(setup_environment, test_repo):
-    """Test the fetch_remote tool."""
+    """Test fetching from a remote."""
     client = setup_environment
 
     # Add a remote to fetch from
@@ -541,7 +321,7 @@ def test_fetch_remote(setup_environment, test_repo):
 
 
 def test_pull_remote(setup_environment, test_repo):
-    """Test the pull_remote tool."""
+    """Test pulling from a remote."""
     client = setup_environment
 
     # Add a remote to pull from
@@ -571,7 +351,7 @@ def test_pull_remote(setup_environment, test_repo):
 
 
 def test_push_remote(setup_environment, test_repo):
-    """Test the push_remote tool."""
+    """Test pushing to a remote."""
     client = setup_environment
 
     # Add a remote to push to
@@ -605,7 +385,7 @@ def test_push_remote(setup_environment, test_repo):
 
 
 def test_check_for_conflicts(setup_environment, test_repo):
-    """Test the check_for_conflicts tool."""
+    """Test checking for conflicts."""
     client = setup_environment
 
     # Create a conflict situation
@@ -635,7 +415,7 @@ def test_check_for_conflicts(setup_environment, test_repo):
 
 
 def test_get_conflict_info(setup_environment, test_repo):
-    """Test the get_conflict_info tool."""
+    """Test getting conflict information."""
     client = setup_environment
 
     # Create a conflict situation
@@ -669,7 +449,7 @@ def test_get_conflict_info(setup_environment, test_repo):
 
 
 def test_resolve_conflict(setup_environment, test_repo):
-    """Test the resolve_conflict tool."""
+    """Test resolving a conflict."""
     client = setup_environment
 
     # Create a conflict situation
@@ -703,7 +483,7 @@ def test_resolve_conflict(setup_environment, test_repo):
 
 
 def test_create_merge_commit(setup_environment, test_repo):
-    """Test the create_merge_commit tool."""
+    """Test creating a merge commit."""
     client = setup_environment
 
     # Set up a merge situation
@@ -747,7 +527,7 @@ def test_create_merge_commit(setup_environment, test_repo):
 
 
 def test_commit_and_push(setup_environment, test_repo):
-    """Test the commit_and_push tool."""
+    """Test committing and pushing changes."""
     client = setup_environment
 
     # Create changes to commit and push
@@ -783,7 +563,7 @@ def test_commit_and_push(setup_environment, test_repo):
 
 
 def test_can_access_repository(setup_environment):
-    """Test the can_access_repository tool."""
+    """Test checking repository accessibility."""
     client = setup_environment
 
     message = client.send_message(
