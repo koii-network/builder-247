@@ -8,11 +8,11 @@
 				"type": "string",
 				"description": "Full name of the repository (e.g. 'owner/repo')"
 			},
-			"target_dir": {
+			"local_path": {
 				"type": "string",
-				"description": "Directory where to clone the fork. If None, uses current directory"
+				"description": "Local path where the repository should be cloned"
 			}
 		},
-		"required": ["repo_full_name"]
+		"required": ["repo_full_name", "local_path"]
 	}
 }

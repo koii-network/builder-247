@@ -3,7 +3,12 @@
 	"description": "Get the PR template content from .github/ directory or copy it from docs/agent/pr_template.md.",
 	"parameters": {
 		"type": "object",
-		"properties": {},
-		"required": []
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			}
+		},
+		"required": ["repo_path"]
 	}
 }
