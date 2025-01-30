@@ -35,15 +35,20 @@ def test_command_execution(setup_environment, tmp_path):
     assert isinstance(message, Message)
     assert message.stop_reason == "tool_use"
     tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "run_terminal_cmd"
+    assert tool_use.name == "execute_command"
 
-    result = client.execute_tool(tool_use)
+    # Execute tool and get stdout, stderr, returncode
+    stdout, stderr, returncode = client.execute_tool(tool_use)
     response = client.send_message(
-        tool_response=result["output"] if result["success"] else result["error"],
+        tool_response=stdout if returncode == 0 else stderr,
         tool_use_id=tool_use.id,
         conversation_id=message.conversation_id,
     )
 
     assert isinstance(response, Message)
     assert all(block.type == "text" for block in response.content)
-    assert "test.txt" in result["output"]
+    assert "test.txt" in stdout
+    assert returncode == 0
+
+    # Clean up
+    os.remove("test.txt")
