@@ -1,11 +1,11 @@
 """Module for Git operations."""
 
-from git import Repo, GitCommandError
-from typing import Dict, Any, Optional
-from pathlib import Path
+import os
 import subprocess
 import requests
-import os
+from pathlib import Path
+from typing import Dict, Any, Optional
+from git import Repo, GitCommandError
 from src.tools.execute_command import execute_command
 
 
@@ -26,7 +26,7 @@ def run_git_command(repo: Repo, command: str, **kwargs) -> Dict[str, Any]:
     """
     try:
         git = repo.git
-        method = getattr(git, command.replace('-', '_'))
+        method = getattr(git, command.replace("-", "_"))
         output = method(**kwargs)
         return {"success": True, "output": output}
     except GitCommandError as e:
@@ -35,7 +35,9 @@ def run_git_command(repo: Repo, command: str, **kwargs) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def init_repository(path: str, user_name: str = None, user_email: str = None) -> Dict[str, Any]:
+def init_repository(
+    path: str, user_name: str = None, user_email: str = None
+) -> Dict[str, Any]:
     """
     Initialize a new Git repository.
 
@@ -58,7 +60,9 @@ def init_repository(path: str, user_name: str = None, user_email: str = None) ->
         return {"success": False, "error": str(e)}
 
 
-def clone_repository(url: str, path: str, user_name: str = None, user_email: str = None) -> Dict[str, Any]:
+def clone_repository(
+    url: str, path: str, user_name: str = None, user_email: str = None
+) -> Dict[str, Any]:
     """
     Clone a Git repository.
 
@@ -215,7 +219,9 @@ def fetch_remote(repo: Repo, remote_name: str = "origin") -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def pull_remote(repo: Repo, remote_name: str = "origin", branch: str = None) -> Dict[str, Any]:
+def pull_remote(
+    repo: Repo, remote_name: str = "origin", branch: str = None
+) -> Dict[str, Any]:
     """
     Pull from a remote.
 
@@ -238,7 +244,9 @@ def pull_remote(repo: Repo, remote_name: str = "origin", branch: str = None) -> 
         return {"success": False, "error": str(e)}
 
 
-def push_remote(repo: Repo, remote_name: str = "origin", branch: str = None) -> Dict[str, Any]:
+def push_remote(
+    repo: Repo, remote_name: str = "origin", branch: str = None
+) -> Dict[str, Any]:
     """
     Push to a remote.
 
@@ -251,12 +259,30 @@ def push_remote(repo: Repo, remote_name: str = "origin", branch: str = None) -> 
         Dict[str, Any]: Result of the operation
     """
     try:
+        # Get the remote
         remote = repo.remotes[remote_name]
-        if branch:
-            remote.push(branch)
-        else:
-            remote.push()
-        return {"success": True}
+
+        # Get the current URL
+        url = remote.url
+
+        # If using HTTPS and token is in the environment, add it to URL
+        token = os.environ.get("GITHUB_TOKEN")
+        if token and url.startswith("https://"):
+            new_url = url.replace("https://", f"https://{token}@")
+            remote.set_url(new_url)
+
+        try:
+            # Do the push
+            if branch:
+                remote.push(branch)
+            else:
+                remote.push()
+            return {"success": True}
+        finally:
+            # Restore original URL if we changed it
+            if token and url.startswith("https://"):
+                remote.set_url(url)
+
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -264,9 +290,20 @@ def push_remote(repo: Repo, remote_name: str = "origin", branch: str = None) -> 
 def can_access_repository(repo_url: str) -> bool:
     """Check if a git repository is accessible."""
     try:
-        result = execute_command(f"git ls-remote {repo_url}")
+        # Ensure we're using HTTPS and disable credential prompting
+        https_url = repo_url.replace("git@github.com:", "https://github.com/").replace(
+            "ssh://git@github.com/", "https://github.com/"
+        )
+        if not https_url.startswith("https://"):
+            https_url = (
+                f"https://github.com/{https_url}"
+                if "/" in https_url
+                else f"https://github.com//{https_url}"
+            )
+
+        result = execute_command(f"GIT_TERMINAL_PROMPT=0 git ls-remote {https_url}")
         return result[2] == 0  # Check return code
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return False
 
 
@@ -284,7 +321,9 @@ def check_fork_exists(owner: str, repo_name: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def commit_and_push(repo: Repo, message: str, file_path: Optional[str] = None) -> Dict[str, Any]:
+def commit_and_push(
+    repo: Repo, message: str, file_path: Optional[str] = None
+) -> Dict[str, Any]:
     """Commit and push changes."""
     try:
         if file_path:
@@ -308,7 +347,7 @@ def check_for_conflicts(repo: Repo) -> Dict[str, Any]:
 
         # If no unmerged blobs found, check for conflict markers in files
         if not conflicting_files:
-            for file_path in repo.git.ls_files().split('\n'):
+            for file_path in repo.git.ls_files().split("\n"):
                 if not file_path:
                     continue
                 try:
@@ -316,15 +355,15 @@ def check_for_conflicts(repo: Repo) -> Dict[str, Any]:
                         content = f.read()
                         if "<<<<<<< HEAD" in content:
                             conflicting_files.append(file_path)
-                except:
+                except (IOError, OSError):
                     continue
 
         return {
             "success": True,
             "has_conflicts": bool(conflicting_files),
-            "conflicting_files": conflicting_files
+            "conflicting_files": conflicting_files,
         }
-    except Exception as e:
+    except (GitCommandError, IOError, OSError) as e:
         return {"success": False, "error": str(e)}
 
 
@@ -350,7 +389,7 @@ def get_conflict_info(repo: Repo) -> Dict[str, Any]:
 
         # If no unmerged blobs, check for conflict markers
         if not conflicts:
-            for file_path in repo.git.ls_files().split('\n'):
+            for file_path in repo.git.ls_files().split("\n"):
                 if not file_path:
                     continue
                 try:
@@ -358,15 +397,17 @@ def get_conflict_info(repo: Repo) -> Dict[str, Any]:
                         content = f.read()
                         if "<<<<<<< HEAD" in content:
                             conflicts[file_path] = {"content": {"raw": content}}
-                except:
+                except (IOError, OSError):
                     continue
 
         return {"success": True, "conflicts": conflicts}
-    except Exception as e:
+    except (GitCommandError, IOError, OSError) as e:
         return {"success": False, "error": str(e)}
 
 
-def resolve_conflict(repo: Repo, file_path: str, resolution: str, message: str = "Resolve conflict") -> Dict[str, Any]:
+def resolve_conflict(
+    repo: Repo, file_path: str, resolution: str, message: str = "Resolve conflict"
+) -> Dict[str, Any]:
     """Resolve a conflict in a specific file and commit the resolution."""
     try:
         # Write the resolved content
@@ -386,7 +427,10 @@ def create_merge_commit(repo: Repo, message: str) -> Dict[str, Any]:
     try:
         # Check if there are any remaining conflicts
         if check_for_conflicts(repo)["has_conflicts"]:
-            return {"success": False, "error": "Cannot create merge commit with unresolved conflicts"}
+            return {
+                "success": False,
+                "error": "Cannot create merge commit with unresolved conflicts",
+            }
 
         # Create the merge commit
         commit = repo.index.commit(message)

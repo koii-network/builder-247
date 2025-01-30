@@ -1,7 +1,5 @@
 """Tests for Git operations module."""
 
-import tempfile
-import shutil
 from pathlib import Path
 import pytest
 from git import Repo, GitCommandError
@@ -23,7 +21,6 @@ from src.tools.git_operations import (
     resolve_conflict,
     create_merge_commit,
 )
-from unittest.mock import patch
 
 
 @pytest.fixture
@@ -164,9 +161,9 @@ def test_add_and_fetch_remote(tmp_path):
 
 def test_pull_and_push_remote(tmp_path):
     """Test pulling from and pushing to a remote."""
-    # Create a source repository that will act as our remote
+    # Create a source repository that will act as our remote - make it bare
     source_repo_path = tmp_path / "source_repo"
-    source_repo = Repo.init(source_repo_path, bare=True)  # Bare repo to allow pushing
+    Repo.init(source_repo_path, bare=True)  # We don't need to store the reference
 
     # Create our test repository
     test_repo_path = tmp_path / "test_repo"
@@ -210,7 +207,7 @@ def test_pull_and_push_remote(tmp_path):
     assert result["success"]
 
     # Create and checkout the branch
-    pull_repo.git.checkout('-b', current_branch, f'test-remote/{current_branch}')
+    pull_repo.git.checkout("-b", current_branch, f"test-remote/{current_branch}")
 
     # Test pull from the remote
     result = pull_remote(pull_repo, "test-remote", current_branch)
@@ -226,7 +223,9 @@ def test_can_access_repository():
     assert can_access_repository("https://github.com/torvalds/linux.git")
 
     # Test with invalid repository
-    assert not can_access_repository("https://github.com/invalid/invalid-repo-that-does-not-exist.git")
+    assert not can_access_repository(
+        "https://github.com/invalid/invalid-repo-that-does-not-exist.git"
+    )
 
 
 def test_check_for_conflicts_and_info(git_repo):

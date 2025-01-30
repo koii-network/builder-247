@@ -260,6 +260,7 @@ def test_sync_fork(github_ops, upstream_repo, git_repo):
 
     # Try to sync the fork
     result = github_ops.sync_fork(fork_result["repo"])
+    print(result)
     assert result["success"]
 
 
