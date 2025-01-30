@@ -1,6 +1,6 @@
 """File operations tool implementations."""
 
-from ...file_operations import (
+from src.tools.file_operations import (
     read_file,
     write_file,
     copy_file,

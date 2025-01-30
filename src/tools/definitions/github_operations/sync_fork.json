@@ -1,7 +1,7 @@
 {
 	"name": "sync_fork",
 	"description": "Sync a fork with its upstream repository.",
-	"parameters": {
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_path": {
@@ -13,7 +13,6 @@
 				"description": "Branch to sync",
 				"default": "main"
 			}
-		},
-		"required": ["repo_path"]
+		}
 	}
 }

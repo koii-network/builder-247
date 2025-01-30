@@ -1,7 +1,7 @@
 {
 	"name": "clone_repository",
-	"description": "Clone a Git repository with optional user configuration.",
-	"parameters": {
+	"description": "Clone a Git repository.",
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"url": {
@@ -20,7 +20,6 @@
 				"type": "string",
 				"description": "Git user email to configure"
 			}
-		},
-		"required": ["url", "path"]
+		}
 	}
 }

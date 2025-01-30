@@ -1,14 +1,13 @@
 {
 	"name": "list_branches",
-	"description": "List all Git branches in the repository.",
-	"parameters": {
+	"description": "List all Git branches.",
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_path": {
 				"type": "string",
 				"description": "Path to the git repository"
 			}
-		},
-		"required": ["repo_path"]
+		}
 	}
 }

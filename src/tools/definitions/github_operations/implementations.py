@@ -1,6 +1,6 @@
 """GitHub operations tool implementations."""
 
-from ...github_operations import (
+from src.tools.github_operations import (
     get_pr_template,
     fork_repository,
     sync_fork,

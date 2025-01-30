@@ -1,0 +1,17 @@
+{
+	"name": "move_file",
+	"description": "Move a file from source to destination.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"source": {
+				"type": "string",
+				"description": "Path to the source file"
+			},
+			"destination": {
+				"type": "string",
+				"description": "Path to the destination file"
+			}
+		}
+	}
+}

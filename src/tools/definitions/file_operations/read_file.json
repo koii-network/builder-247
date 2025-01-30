@@ -1,0 +1,13 @@
+{
+	"name": "read_file",
+	"description": "Read the contents of a file.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"file_path": {
+				"type": "string",
+				"description": "Path to the file to read"
+			}
+		}
+	}
+}

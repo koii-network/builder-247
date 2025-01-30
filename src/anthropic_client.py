@@ -383,5 +383,5 @@ class AnthropicClient:
 
     def execute_tool(self, tool_call: ToolUseBlock) -> str:
         tool_function = self.tool_functions[tool_call.name]
-        tool_result = tool_function(**tool_call.args)
+        tool_result = tool_function(**tool_call.input)
         return tool_result

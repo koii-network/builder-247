@@ -1,7 +1,7 @@
 {
 	"name": "make_commit",
 	"description": "Stage changes and create a commit.",
-	"parameters": {
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_path": {
@@ -17,7 +17,6 @@
 				"description": "Whether to stage all changes",
 				"default": true
 			}
-		},
-		"required": ["repo_path", "message"]
+		}
 	}
 }

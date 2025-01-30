@@ -1,7 +1,7 @@
 {
 	"name": "create_merge_commit",
 	"description": "Create a merge commit after resolving conflicts.",
-	"parameters": {
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_path": {
@@ -12,7 +12,6 @@
 				"type": "string",
 				"description": "The merge commit message"
 			}
-		},
-		"required": ["repo_path", "message"]
+		}
 	}
 }

@@ -1,7 +1,7 @@
 {
 	"name": "resolve_conflict",
 	"description": "Resolve a conflict in a specific file and stage the resolution.",
-	"parameters": {
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_path": {
@@ -21,7 +21,6 @@
 				"description": "Optional commit message for the resolution",
 				"default": "Resolve conflict"
 			}
-		},
-		"required": ["repo_path", "file_path", "resolution"]
+		}
 	}
 }

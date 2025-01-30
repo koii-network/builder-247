@@ -1,7 +1,7 @@
 {
 	"name": "pull_remote",
-	"description": "Pull from a Git remote.",
-	"parameters": {
+	"description": "Pull from a remote.",
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_path": {
@@ -15,9 +15,8 @@
 			},
 			"branch": {
 				"type": "string",
-				"description": "Branch to pull. If None, pulls active branch"
+				"description": "Branch to pull. If not specified, pulls active branch"
 			}
-		},
-		"required": ["repo_path"]
+		}
 	}
 }

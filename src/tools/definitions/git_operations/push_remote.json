@@ -1,7 +1,7 @@
 {
 	"name": "push_remote",
-	"description": "Push to a Git remote.",
-	"parameters": {
+	"description": "Push to a remote.",
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_path": {
@@ -15,9 +15,8 @@
 			},
 			"branch": {
 				"type": "string",
-				"description": "Branch to push. If None, pushes active branch"
+				"description": "Branch to push. If not specified, pushes active branch"
 			}
-		},
-		"required": ["repo_path"]
+		}
 	}
 }

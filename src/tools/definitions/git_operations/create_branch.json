@@ -1,7 +1,7 @@
 {
 	"name": "create_branch",
-	"description": "Create a new Git branch and check it out.",
-	"parameters": {
+	"description": "Create a new Git branch.",
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_path": {
@@ -12,7 +12,6 @@
 				"type": "string",
 				"description": "Name of the branch to create"
 			}
-		},
-		"required": ["repo_path", "branch_name"]
+		}
 	}
 }

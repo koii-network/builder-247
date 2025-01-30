@@ -1,7 +1,7 @@
 {
 	"name": "create_pull_request",
 	"description": "Create a pull request with optional template validation.",
-	"parameters": {
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_full_name": {
@@ -30,7 +30,6 @@
 				"description": "Whether to validate the PR description against the template",
 				"default": true
 			}
-		},
-		"required": ["repo_full_name", "title", "body", "head"]
+		}
 	}
 }

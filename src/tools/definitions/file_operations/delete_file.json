@@ -1,0 +1,13 @@
+{
+	"name": "delete_file",
+	"description": "Delete a file.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"file_path": {
+				"type": "string",
+				"description": "Path to the file to delete"
+			}
+		}
+	}
+}

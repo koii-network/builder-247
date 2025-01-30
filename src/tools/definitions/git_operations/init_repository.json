@@ -1,7 +1,7 @@
 {
 	"name": "init_repository",
-	"description": "Initialize a new Git repository with optional user configuration.",
-	"parameters": {
+	"description": "Initialize a new Git repository.",
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"path": {
@@ -16,7 +16,6 @@
 				"type": "string",
 				"description": "Git user email to configure"
 			}
-		},
-		"required": ["path"]
+		}
 	}
 }

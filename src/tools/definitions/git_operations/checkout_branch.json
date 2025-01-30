@@ -1,7 +1,7 @@
 {
 	"name": "checkout_branch",
 	"description": "Check out an existing Git branch.",
-	"parameters": {
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_path": {
@@ -12,7 +12,6 @@
 				"type": "string",
 				"description": "Name of the branch to check out"
 			}
-		},
-		"required": ["repo_path", "branch_name"]
+		}
 	}
 }

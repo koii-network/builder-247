@@ -1,7 +1,7 @@
 {
 	"name": "commit_and_push",
 	"description": "Commit and push changes to remote repository.",
-	"parameters": {
+	"input_schema": {
 		"type": "object",
 		"properties": {
 			"repo_path": {
@@ -16,7 +16,6 @@
 				"type": "string",
 				"description": "Optional specific file to commit"
 			}
-		},
-		"required": ["repo_path", "message"]
+		}
 	}
 }
