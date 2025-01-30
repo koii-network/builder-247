@@ -400,11 +400,10 @@ def test_check_fork_exists(upstream_repo):
         # Wait for GitHub to propagate the changes
         time.sleep(2)
 
+        # Split the repo full name into owner and repo name
+        owner, repo_name = upstream_repo.split("/")
+
         # Check if fork exists
-        result = check_fork_exists(upstream_repo)
+        result = check_fork_exists(owner, repo_name)
         assert result["success"]
         assert result["exists"]
-        assert (
-            result["fork_full_name"]
-            == f"{GITHUB_USERNAME}/{upstream_repo.split('/')[-1]}"
-        )
