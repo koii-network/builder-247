@@ -15,6 +15,7 @@ from anthropic.types import (
     Message,
     TextBlock,
 )
+import os
 
 
 class MessageContent(TypedDict):
@@ -187,7 +188,8 @@ class AnthropicClient:
           tool names to their implementation functions
 
         Args:
-            definitions_dir: Path to directory containing tool definitions and implementations
+            definitions_dir: Path to directory containing tool definitions and implementations.
+                           Can be absolute or relative to current working directory.
 
         Returns:
             List of registered tool names
@@ -197,15 +199,17 @@ class AnthropicClient:
             ImportError: If implementations.py cannot be loaded
         """
         registered_tools = []
-        definitions_path = Path(definitions_dir)
+        # Convert relative path to absolute path if needed
+        abs_path = os.path.abspath(definitions_dir)
+        definitions_path = Path(abs_path)
 
         if not definitions_path.exists() or not definitions_path.is_dir():
-            raise ValueError(f"Directory not found: {definitions_dir}")
+            raise ValueError(f"Directory not found: {abs_path}")
 
         # Load implementations from implementations.py
         impl_path = definitions_path / "implementations.py"
         if not impl_path.exists():
-            raise ValueError(f"Missing implementations.py in {definitions_dir}")
+            raise ValueError(f"Missing implementations.py in {abs_path}")
 
         # Import the implementations module
         spec = importlib.util.spec_from_file_location("implementations", impl_path)
