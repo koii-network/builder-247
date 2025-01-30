@@ -71,7 +71,7 @@ def test_multi_category_tool_selection(setup_environment, test_repo, tmp_path):
     assert isinstance(response, Message)
     assert all(block.type == "text" for block in response.content)
 
-    # Test command execution - should use run_terminal_cmd
+    # Test command execution - should use execute_command
     message2 = client.send_message(
         "What's the current working directory?",
         tool_choice={"type": "any"},
@@ -80,12 +80,13 @@ def test_multi_category_tool_selection(setup_environment, test_repo, tmp_path):
     assert isinstance(message2, Message)
     assert message2.stop_reason == "tool_use"
     tool_use = next(block for block in message2.content if block.type == "tool_use")
-    assert tool_use.name == "run_terminal_cmd"
+    assert tool_use.name == "execute_command"
     assert "pwd" in tool_use.input["command"]
 
     result = client.execute_tool(tool_use)
+    stdout, stderr, returncode = result
     response = client.send_message(
-        tool_response=result["output"] if result["success"] else result["error"],
+        tool_response=stdout if returncode == 0 else stderr,
         tool_use_id=tool_use.id,
         conversation_id=message2.conversation_id,
     )
@@ -106,7 +107,7 @@ def test_multi_category_tool_selection(setup_environment, test_repo, tmp_path):
 
     result = client.execute_tool(tool_use)
     response = client.send_message(
-        tool_response=result["branch"],
+        tool_response=result["output"] if result["success"] else result["error"],
         tool_use_id=tool_use.id,
         conversation_id=message3.conversation_id,
     )
