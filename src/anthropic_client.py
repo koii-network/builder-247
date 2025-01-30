@@ -5,7 +5,7 @@ import sqlite3
 import uuid
 import importlib.util
 from pathlib import Path
-from typing import Dict, Any, Optional, List, TypedDict, Callable
+from typing import Dict, Any, Optional, List, TypedDict, Callable, Union
 from anthropic import Anthropic
 from anthropic.types import (
     ToolParam,
@@ -13,6 +13,7 @@ from anthropic.types import (
     ContentBlockParam,
     ToolUseBlock,
     Message,
+    TextBlock,
 )
 
 
@@ -24,6 +25,60 @@ class MessageContent(TypedDict):
 class ToolConfig(TypedDict):
     tool_definitions: List[ToolParam]
     tool_choice: ToolChoiceParam
+
+
+def _format_content_for_storage(
+    content: Union[str, List[ContentBlockParam]]
+) -> List[Dict[str, Any]]:
+    """Format message content for storage in a way that can be serialized and later sent to the API."""
+    if isinstance(content, str):
+        return [{"type": "text", "text": content}]
+
+    formatted = []
+    for block in content:
+        if isinstance(block, TextBlock):
+            formatted.append({"type": "text", "text": block.text})
+        elif isinstance(block, ToolUseBlock):
+            formatted.append(
+                {
+                    "type": "tool_use",
+                    "id": block.id,
+                    "name": block.name,
+                    "input": block.input,
+                }
+            )
+        elif isinstance(block, dict):  # Handle tool results and other dict blocks
+            if block.get("type") == "tool_result":
+                formatted.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block["tool_use_id"],
+                        "content": block["content"],
+                    }
+                )
+            else:
+                # For any other dict blocks, store as-is
+                formatted.append(block)
+    return formatted
+
+
+def _format_tool_response(tool_response: str, tool_use_id: str) -> List[Dict[str, Any]]:
+    """Format a tool response into the correct message format."""
+    return [
+        {"type": "tool_result", "tool_use_id": tool_use_id, "content": tool_response}
+    ]
+
+
+def _format_message_for_api(message: MessageContent) -> Dict[str, Any]:
+    """Format a message for the Anthropic API."""
+    return {
+        "role": message["role"],
+        "content": (
+            message["content"]
+            if isinstance(message["content"], list)
+            else [{"type": "text", "text": message["content"]}]
+        ),
+    }
 
 
 class AnthropicClient:
@@ -85,13 +140,22 @@ class AnthropicClient:
             return messages
 
     def _save_message(
-        self, conversation_id: str, role: str, content: List[ContentBlockParam]
+        self,
+        conversation_id: str,
+        role: str,
+        content: Union[str, List[ContentBlockParam]],
     ):
         """Save a message to the database."""
+        formatted_content = _format_content_for_storage(content)
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 "INSERT INTO messages (message_id, conversation_id, role, content) VALUES (?, ?, ?, ?)",
-                (str(uuid.uuid4()), conversation_id, role, json.dumps(content)),
+                (
+                    str(uuid.uuid4()),
+                    conversation_id,
+                    role,
+                    json.dumps(formatted_content),
+                ),
             )
 
     def _create_client(self, api_key: str):
@@ -206,40 +270,48 @@ class AnthropicClient:
         # Get previous messages
         messages = self._get_conversation_messages(conversation_id)
 
-        # Add new message if it's a prompt
+        # Add new message if it's a prompt or tool response
         if prompt:
-            messages.append({"role": "user", "content": prompt})
-            self._save_message(conversation_id, "user", prompt)
+            formatted_prompt = [{"type": "text", "text": prompt}]
+            self._save_message(conversation_id, "user", formatted_prompt)
+            messages.append({"role": "user", "content": formatted_prompt})
+        elif tool_response and tool_use_id:
+            # When sending a tool response, we need to include the previous messages
+            # that contain the tool use block
+            formatted_response = _format_tool_response(tool_response, tool_use_id)
+            self._save_message(conversation_id, "user", formatted_response)
+            # Get the messages again to ensure we have the complete history
+            messages = self._get_conversation_messages(conversation_id)
 
-        tool_config = self.create_tool_config(tool_choice)
+        # Format messages for API
+        api_messages = [_format_message_for_api(msg) for msg in messages]
 
-        # Handle tool response
-        if tool_response is not None:
-            if not tool_use_id:
-                raise ValueError("Tool use ID is required")
+        # Create API request parameters
+        create_params = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "messages": api_messages,
+        }
 
-            response = self.send_message_with_tool_response(
-                tool_response,
-                tool_use_id,
-                tool_config,
-                messages,
-                max_tokens,
-            )
-        elif tool_choice is not None:
-            response = self.send_message_with_tool(
-                messages,
-                tool_config,
-                max_tokens,
-            )
-        else:
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                messages=messages,
-            )
+        # Always include tools if they are registered
+        if self.tools:
+            create_params["tools"] = self.tools
+            # Only include tool_choice for new prompts, not for tool responses
+            if tool_choice and not tool_response:
+                create_params["tool_choice"] = tool_choice
+
+        # Log the request parameters
+        print("Sending request to API with parameters:")
+        print(json.dumps(create_params, indent=2))
+
+        # Send message to Claude
+        response = self.client.messages.create(**create_params)
 
         # Save assistant's response
         self._save_message(conversation_id, "assistant", response.content)
+
+        # Add conversation_id to response
+        setattr(response, "conversation_id", conversation_id)
 
         return response
 

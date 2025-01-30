@@ -28,7 +28,7 @@ def temp_tools_dir(tmp_path):
     tool_def = {
         "name": "mock_tool",
         "description": "A mock tool for testing",
-        "parameters": {
+        "input_schema": {
             "type": "object",
             "properties": {"input": {"type": "string", "description": "Test input"}},
             "required": ["input"],
@@ -127,7 +127,7 @@ def test_send_test_message_no_api_key(monkeypatch):
     monkeypatch.delenv("CLAUDE_API_KEY", raising=False)
 
     with pytest.raises(ValueError, match="Missing CLAUDE_API_KEY"):
-        AnthropicClient()
+        AnthropicClient(api_key="")
 
 
 def test_send_message_with_tool(setup_environment, calculator_tool_choice):
@@ -200,11 +200,12 @@ def test_send_message_with_tool_response(setup_environment, string_tool_choice):
     """Test that Claude can respond to a tool call."""
     client = setup_environment
     client.register_tool(string_tool(), string_reverser)
+
+    # Start conversation and get tool use response
     message1 = client.send_message(
         "What is the reverse of 'hello'?",
         tool_choice=string_tool_choice,
     )
-    print("Message 1:", message1)
 
     assert isinstance(message1, Message)
     assert message1.stop_reason == "tool_use"
@@ -214,25 +215,17 @@ def test_send_message_with_tool_response(setup_environment, string_tool_choice):
     assert tool_use.name == "string_reverser"
     assert tool_use.input == {"text": "hello"}
 
+    # Get the conversation ID from the first message
+    conversation_id = message1.conversation_id
+
+    # Send tool response in the same conversation
     message2 = client.send_message(
-        previous_messages=[
-            {"role": "user", "content": "What is the reverse of 'hello'?"},
-            {
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "tool_use",
-                        "id": tool_use.id,
-                        "name": tool_use.name,
-                        "input": tool_use.input,
-                    }
-                ],
-            },
-        ],
         tool_response="olleh",
         tool_use_id=tool_use.id,
+        tool_choice=string_tool_choice,
+        conversation_id=conversation_id,
     )
-    print("Message 2:", message2)
+
     assert isinstance(message2, Message)
     assert isinstance(message2.content[0], TextBlock)
     assert "olleh" in message2.content[0].text
@@ -281,12 +274,16 @@ def test_bulk_tool_registration(temp_tools_dir, setup_environment):
     )
 
     assert isinstance(response, Message)
-    assert isinstance(response.content[0], TextBlock)
+    assert response.stop_reason == "tool_use"
+    tool_use = [block for block in response.content if block.type == "tool_use"][0]
+    assert isinstance(tool_use, ToolUseBlock)
+    assert tool_use.name == "mock_tool"
+    assert tool_use.input == {"input": "test"}
 
 
 def test_bulk_registration_errors(tmp_path):
     """Test error handling in bulk tool registration."""
-    client = setup_environment
+    client = AnthropicClient(api_key=os.environ.get("CLAUDE_API_KEY"))
 
     # Test with non-existent directory
     with pytest.raises(ValueError, match="Directory not found"):
@@ -314,5 +311,17 @@ def test_conversation_with_tools(temp_tools_dir, setup_environment):
 
     assert isinstance(response1, Message)
     assert isinstance(response2, Message)
-    assert isinstance(response1.content[0], TextBlock)
-    assert isinstance(response2.content[0], TextBlock)
+
+    # Check first response
+    assert response1.stop_reason == "tool_use"
+    tool_use1 = [block for block in response1.content if block.type == "tool_use"][0]
+    assert isinstance(tool_use1, ToolUseBlock)
+    assert tool_use1.name == "mock_tool"
+    assert tool_use1.input == {"input": "hello"}
+
+    # Check second response
+    assert response2.stop_reason == "tool_use"
+    tool_use2 = [block for block in response2.content if block.type == "tool_use"][0]
+    assert isinstance(tool_use2, ToolUseBlock)
+    assert tool_use2.name == "mock_tool"
+    assert tool_use2.input == {"input": "world"}
