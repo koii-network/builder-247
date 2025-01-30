@@ -1,0 +1,26 @@
+{
+	"name": "clone_repository",
+	"description": "Clone a Git repository with optional user configuration.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"url": {
+				"type": "string",
+				"description": "URL of the repository to clone"
+			},
+			"path": {
+				"type": "string",
+				"description": "Path where to clone the repository"
+			},
+			"user_name": {
+				"type": "string",
+				"description": "Git user name to configure"
+			},
+			"user_email": {
+				"type": "string",
+				"description": "Git user email to configure"
+			}
+		},
+		"required": ["url", "path"]
+	}
+}

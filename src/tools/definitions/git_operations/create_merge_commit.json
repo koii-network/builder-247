@@ -1,0 +1,18 @@
+{
+	"name": "create_merge_commit",
+	"description": "Create a merge commit after resolving conflicts.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"message": {
+				"type": "string",
+				"description": "The merge commit message"
+			}
+		},
+		"required": ["repo", "message"]
+	}
+}

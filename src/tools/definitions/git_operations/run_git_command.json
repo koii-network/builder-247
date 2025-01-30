@@ -1,0 +1,18 @@
+{
+	"name": "run_git_command",
+	"description": "Run a Git command using GitPython and return the result.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"command": {
+				"type": "string",
+				"description": "The Git command to run"
+			}
+		},
+		"required": ["repo", "command"]
+	}
+}

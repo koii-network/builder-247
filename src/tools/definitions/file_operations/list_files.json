@@ -1,0 +1,14 @@
+{
+	"name": "list_files",
+	"description": "Return a list of all files in the specified directory and its subdirectories.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"directory": {
+				"type": "string",
+				"description": "The directory to search for files"
+			}
+		},
+		"required": ["directory"]
+	}
+}

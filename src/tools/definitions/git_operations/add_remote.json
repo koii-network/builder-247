@@ -1,0 +1,22 @@
+{
+	"name": "add_remote",
+	"description": "Add a remote to the Git repository.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"name": {
+				"type": "string",
+				"description": "Name of the remote"
+			},
+			"url": {
+				"type": "string",
+				"description": "URL of the remote"
+			}
+		},
+		"required": ["repo", "name", "url"]
+	}
+}

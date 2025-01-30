@@ -1,0 +1,23 @@
+{
+	"name": "pull_remote",
+	"description": "Pull from a Git remote.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"remote_name": {
+				"type": "string",
+				"description": "Name of the remote to pull from",
+				"default": "origin"
+			},
+			"branch": {
+				"type": "string",
+				"description": "Branch to pull. If None, pulls active branch"
+			}
+		},
+		"required": ["repo"]
+	}
+}

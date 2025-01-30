@@ -1,0 +1,14 @@
+{
+	"name": "get_current_branch",
+	"description": "Get the name of the current Git branch.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			}
+		},
+		"required": ["repo"]
+	}
+}

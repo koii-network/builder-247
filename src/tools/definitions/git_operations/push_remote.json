@@ -1,0 +1,23 @@
+{
+	"name": "push_remote",
+	"description": "Push to a Git remote.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"remote_name": {
+				"type": "string",
+				"description": "Name of the remote to push to",
+				"default": "origin"
+			},
+			"branch": {
+				"type": "string",
+				"description": "Branch to push. If None, pushes active branch"
+			}
+		},
+		"required": ["repo"]
+	}
+}

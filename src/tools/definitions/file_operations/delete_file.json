@@ -1,0 +1,14 @@
+{
+	"name": "delete_file",
+	"description": "Delete a file at the specified path.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"file_path": {
+				"type": "string",
+				"description": "Path to the file to delete"
+			}
+		},
+		"required": ["file_path"]
+	}
+}

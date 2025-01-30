@@ -1,0 +1,19 @@
+{
+	"name": "fetch_remote",
+	"description": "Fetch from a Git remote.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"remote_name": {
+				"type": "string",
+				"description": "Name of the remote to fetch from",
+				"default": "origin"
+			}
+		},
+		"required": ["repo"]
+	}
+}

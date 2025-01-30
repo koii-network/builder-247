@@ -1,0 +1,14 @@
+{
+	"name": "execute_command",
+	"description": "Execute an arbitrary command line command and return its output, error message, and return code.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"command": {
+				"type": "string",
+				"description": "The command to execute"
+			}
+		},
+		"required": ["command"]
+	}
+}

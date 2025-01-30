@@ -1,0 +1,19 @@
+{
+	"name": "sync_fork",
+	"description": "Sync a fork with its upstream repository.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"branch": {
+				"type": "string",
+				"description": "Branch to sync",
+				"default": "main"
+			}
+		},
+		"required": ["repo"]
+	}
+}

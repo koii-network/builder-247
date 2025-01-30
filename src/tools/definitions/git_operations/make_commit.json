@@ -1,0 +1,23 @@
+{
+	"name": "make_commit",
+	"description": "Stage changes and create a commit.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"message": {
+				"type": "string",
+				"description": "The commit message"
+			},
+			"add_all": {
+				"type": "boolean",
+				"description": "Whether to stage all changes",
+				"default": true
+			}
+		},
+		"required": ["repo", "message"]
+	}
+}

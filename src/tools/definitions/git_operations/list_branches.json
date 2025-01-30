@@ -1,0 +1,14 @@
+{
+	"name": "list_branches",
+	"description": "List all Git branches in the repository.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			}
+		},
+		"required": ["repo"]
+	}
+}

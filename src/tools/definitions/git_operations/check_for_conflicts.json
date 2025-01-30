@@ -1,0 +1,14 @@
+{
+	"name": "check_for_conflicts",
+	"description": "Check if there are merge conflicts in the repository.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			}
+		},
+		"required": ["repo"]
+	}
+}

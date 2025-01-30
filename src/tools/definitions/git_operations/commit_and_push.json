@@ -1,0 +1,22 @@
+{
+	"name": "commit_and_push",
+	"description": "Commit and push changes to remote repository.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"message": {
+				"type": "string",
+				"description": "Commit message"
+			},
+			"file_path": {
+				"type": "string",
+				"description": "Optional specific file to commit"
+			}
+		},
+		"required": ["repo", "message"]
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"name": "fork_repository",
+	"description": "Fork a repository and clone it locally.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo_full_name": {
+				"type": "string",
+				"description": "Full name of the repository (e.g. 'owner/repo')"
+			},
+			"target_dir": {
+				"type": "string",
+				"description": "Directory where to clone the fork. If None, uses current directory"
+			}
+		},
+		"required": ["repo_full_name"]
+	}
+}

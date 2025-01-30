@@ -1,0 +1,27 @@
+{
+	"name": "resolve_conflict",
+	"description": "Resolve a conflict in a specific file and stage the resolution.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"file_path": {
+				"type": "string",
+				"description": "Path to the conflicted file"
+			},
+			"resolution": {
+				"type": "string",
+				"description": "The resolved content for the file"
+			},
+			"message": {
+				"type": "string",
+				"description": "Optional commit message for the resolution",
+				"default": "Resolve conflict"
+			}
+		},
+		"required": ["repo", "file_path", "resolution"]
+	}
+}

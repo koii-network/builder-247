@@ -1,0 +1,18 @@
+{
+	"name": "create_branch",
+	"description": "Create a new Git branch and check it out.",
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"repo": {
+				"type": "object",
+				"description": "The GitPython Repo instance"
+			},
+			"branch_name": {
+				"type": "string",
+				"description": "Name of the branch to create"
+			}
+		},
+		"required": ["repo", "branch_name"]
+	}
+}
