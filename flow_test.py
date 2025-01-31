@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from src.anthropic_client import AnthropicClient
 from src.tools.github_operations import check_fork_exists, fork_repository, sync_fork, create_pull_request
-from src.tools.git_operations import create_branch, checkout_branch, list_branches
+from src.tools.git_operations import create_branch, checkout_branch, make_commit, push_remote
 from src.tools.file_operations import read_file, write_file, move_file, copy_file, rename_file, delete_file, list_files
 import shutil
 from anthropic.types import (
@@ -153,6 +153,46 @@ if __name__ == "__main__":
         
         print ("end")
         
+        
+
+        check_out_branch_result = checkout_branch(repo_path, "feature")
+        print ("check_out_branch_result: " + str(check_out_branch_result))
+
+        make_commit_result = make_commit(repo_path, "all files", True)
+        print ("make_commit_result: " + str(make_commit_result))
+
+        push_result = push_remote(repo_path, "origin")
+        print ("push_result: " + str(push_result))
+
+        # make a pr
+        SampleDescription = """
+        ### Type of Change
+        - [x] Feature
+        - [ ] Bug fix
+        - [ ] Documentation
+        - [ ] Other
+
+        ### Description
+        This is a test PR to check if the tool works.
+
+        ### Related Issues
+        - None
+
+        ### Testing Done
+        - Manual testing was conducted to ensure functionality.
+
+        ### Checklist
+        - [x] I have performed a self-review of my own code
+        - [x] I have commented my code, particularly in hard-to-understand areas
+        - [x] I have made corresponding changes to the documentation
+        - [x] My changes generate no new warnings
+        - [x] I have added tests that prove my fix is effective or that my feature works
+        - [x] New and existing unit tests pass locally with my changes
+        - [x] I confirm that testing has been completed
+        """
+
+        create_pr_result = create_pull_request("HermanKoii/dummyExpress", "feature", SampleDescription, "feature")
+        #################################AUTO PR NOT WORKING DUE TO RATE LIMIT#########################
         # print ("create a commit please")
         # response = client.send_message("Help me to use the tools commit and push"+additional_info)
         # print ("response: " + str(response))
@@ -170,7 +210,7 @@ if __name__ == "__main__":
         #     response = client.send_message(tool_response=tool_output,tool_use_id=tool_use.id, conversation_id=response.conversation_id)
         #     max_iterations -= 1
         # print ("end")
-        
+        ############ AUTO PR NOT WORKING DUE TO RATE LIMIT#########################
     except Exception as e:
         print(f"Error: {str(e)}")
 
