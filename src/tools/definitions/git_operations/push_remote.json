@@ -1,0 +1,22 @@
+{
+	"name": "push_remote",
+	"description": "Push to a remote.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			},
+			"remote_name": {
+				"type": "string",
+				"description": "Name of the remote to push to",
+				"default": "origin"
+			},
+			"branch": {
+				"type": "string",
+				"description": "Branch to push. If not specified, pushes active branch"
+			}
+		}
+	}
+}

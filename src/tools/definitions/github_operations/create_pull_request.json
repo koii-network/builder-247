@@ -1,0 +1,35 @@
+{
+	"name": "create_pull_request",
+	"description": "Create a pull request with optional template validation.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_full_name": {
+				"type": "string",
+				"description": "Full name of the repository (e.g. 'owner/repo')"
+			},
+			"title": {
+				"type": "string",
+				"description": "Title of the pull request"
+			},
+			"body": {
+				"type": "string",
+				"description": "Description/body of the pull request"
+			},
+			"head": {
+				"type": "string",
+				"description": "The name of the branch where your changes are implemented"
+			},
+			"base": {
+				"type": "string",
+				"description": "The name of the branch you want your changes pulled into",
+				"default": "main"
+			},
+			"validate_template": {
+				"type": "boolean",
+				"description": "Whether to validate the PR description against the template",
+				"default": true
+			}
+		}
+	}
+}

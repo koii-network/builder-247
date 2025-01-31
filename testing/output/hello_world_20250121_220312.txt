@@ -1,5 +1,0 @@
-Test Message: Hello, World! Please respond with a friendly greeting.
-Response: Hello there! It's nice to meet you.
-
-Test completed at: 2025-01-21T22:03:12.583980
-Model used: claude-3-sonnet-20240229

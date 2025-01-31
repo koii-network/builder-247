@@ -1,0 +1,13 @@
+{
+	"name": "can_access_repository",
+	"description": "Check if a git repository is accessible.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_url": {
+				"type": "string",
+				"description": "URL of the repository to check"
+			}
+		}
+	}
+}

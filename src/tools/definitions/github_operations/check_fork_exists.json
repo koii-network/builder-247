@@ -1,0 +1,17 @@
+{
+	"name": "check_fork_exists",
+	"description": "Check if fork exists using GitHub API.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"owner": {
+				"type": "string",
+				"description": "Owner of the repository"
+			},
+			"repo_name": {
+				"type": "string",
+				"description": "Name of the repository"
+			}
+		}
+	}
+}

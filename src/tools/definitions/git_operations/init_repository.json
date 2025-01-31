@@ -1,0 +1,21 @@
+{
+	"name": "init_repository",
+	"description": "Initialize a new Git repository.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"path": {
+				"type": "string",
+				"description": "Path where to initialize the repository"
+			},
+			"user_name": {
+				"type": "string",
+				"description": "Git user name to configure"
+			},
+			"user_email": {
+				"type": "string",
+				"description": "Git user email to configure"
+			}
+		}
+	}
+}

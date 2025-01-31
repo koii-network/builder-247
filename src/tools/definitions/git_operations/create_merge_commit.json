@@ -1,0 +1,17 @@
+{
+	"name": "create_merge_commit",
+	"description": "Create a merge commit after resolving conflicts.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			},
+			"message": {
+				"type": "string",
+				"description": "The merge commit message"
+			}
+		}
+	}
+}

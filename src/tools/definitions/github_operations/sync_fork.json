@@ -1,0 +1,18 @@
+{
+	"name": "sync_fork",
+	"description": "Sync a fork with its upstream repository.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			},
+			"branch": {
+				"type": "string",
+				"description": "Branch to sync",
+				"default": "main"
+			}
+		}
+	}
+}

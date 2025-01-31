@@ -1,0 +1,13 @@
+{
+	"name": "check_for_conflicts",
+	"description": "Check if there are merge conflicts in the repository.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			}
+		}
+	}
+}

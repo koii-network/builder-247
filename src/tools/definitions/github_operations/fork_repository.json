@@ -1,0 +1,17 @@
+{
+	"name": "fork_repository",
+	"description": "Fork a repository and clone it locally.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_full_name": {
+				"type": "string",
+				"description": "Full name of the repository (e.g. 'owner/repo')"
+			},
+			"local_path": {
+				"type": "string",
+				"description": "Local path where the repository should be cloned"
+			}
+		}
+	}
+}

@@ -1,0 +1,17 @@
+{
+	"name": "create_branch",
+	"description": "Create a new Git branch.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			},
+			"branch_name": {
+				"type": "string",
+				"description": "Name of the branch to create"
+			}
+		}
+	}
+}

@@ -1,0 +1,17 @@
+{
+	"name": "fetch_remote",
+	"description": "Fetch from a remote.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			},
+			"remote_name": {
+				"type": "string",
+				"description": "Name of the remote to fetch from"
+			}
+		}
+	}
+}

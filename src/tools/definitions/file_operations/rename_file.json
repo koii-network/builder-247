@@ -1,0 +1,17 @@
+{
+	"name": "rename_file",
+	"description": "Rename a file from source to destination.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"source": {
+				"type": "string",
+				"description": "Current file path"
+			},
+			"destination": {
+				"type": "string",
+				"description": "New file path"
+			}
+		}
+	}
+}

@@ -1,0 +1,26 @@
+{
+	"name": "resolve_conflict",
+	"description": "Resolve a conflict in a specific file and stage the resolution.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			},
+			"file_path": {
+				"type": "string",
+				"description": "Path to the conflicted file"
+			},
+			"resolution": {
+				"type": "string",
+				"description": "The resolved content for the file"
+			},
+			"message": {
+				"type": "string",
+				"description": "Optional commit message for the resolution",
+				"default": "Resolve conflict"
+			}
+		}
+	}
+}

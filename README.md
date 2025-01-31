@@ -1,58 +1,54 @@
-# Anthropic CLI Tools
+# 247 Builder
 
-A Python-based CLI tool that integrates with Anthropic's Claude API to provide filesystem and command line capabilities.
+## Developing locally
 
-## Features
+Set up a virtual environment and activate it:
 
-- File system operations (read/write/list)
-- Command line execution
-- Conversation context management
-- Automated testing suite
-
-## Setup
-
-1. Clone the repository
-2. Create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Create a `.env` file with your Anthropic API key:
-   ```
-   ANTHROPIC_API_KEY=your_api_key_here
-   ```
-
-## Project Structure
-
-```
-.
-├── src/
-│   ├── __init__.py
-│   ├── client.py        # Anthropic API client wrapper
-│   ├── tools/           # Tool implementations
-│   │   ├── __init__.py
-│   │   ├── filesystem.py
-│   │   └── command.py
-│   └── context.py       # Context management
-├── tests/
-│   ├── __init__.py
-│   ├── test_client.py
-│   └── test_tools.py
-├── requirements.txt
-└── README.md
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-## Testing
+Install dependencies:
 
-Run tests with:
-```bash
-pytest
+```sh
+pip install -r requirements.txt
 ```
 
-## License
+run tests:
 
-MIT License 
+```sh
+python3 -m pytest tests/
+```
+
+## Developing in Docker
+
+Build the image:
+
+```sh
+docker build -t test-builder .
+```
+
+Run the container with a mounted volume:
+
+```sh
+docker run -it -v $(pwd):/app test-builder
+```
+
+This will give you access to your files within the container and run the container in interactive mode with shell access. You can then run tests inside the container using:
+
+```sh
+python -m pytest tests/
+```
+
+or
+
+```sh
+python3 -m pytest tests/
+```
+
+To exit the container's shell:
+
+```sh
+exit
+```

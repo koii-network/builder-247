@@ -1,0 +1,22 @@
+{
+	"name": "pull_remote",
+	"description": "Pull from a remote.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			},
+			"remote_name": {
+				"type": "string",
+				"description": "Name of the remote to pull from",
+				"default": "origin"
+			},
+			"branch": {
+				"type": "string",
+				"description": "Branch to pull. If not specified, pulls active branch"
+			}
+		}
+	}
+}

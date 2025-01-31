@@ -1,0 +1,21 @@
+{
+	"name": "add_remote",
+	"description": "Add a remote to the repository.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			},
+			"name": {
+				"type": "string",
+				"description": "Name of the remote"
+			},
+			"url": {
+				"type": "string",
+				"description": "URL of the remote"
+			}
+		}
+	}
+}

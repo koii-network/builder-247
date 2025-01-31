@@ -1,0 +1,13 @@
+{
+	"name": "execute_command",
+	"description": "Execute an arbitrary command line command.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"command": {
+				"type": "string",
+				"description": "The command to execute"
+			}
+		}
+	}
+}

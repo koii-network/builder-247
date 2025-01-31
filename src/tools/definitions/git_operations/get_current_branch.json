@@ -1,0 +1,13 @@
+{
+	"name": "get_current_branch",
+	"description": "Get the name of the current Git branch.",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_path": {
+				"type": "string",
+				"description": "Path to the git repository"
+			}
+		}
+	}
+}
