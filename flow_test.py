@@ -71,8 +71,19 @@ class GitHubFlow:
             raise Exception(f"Failed to checkout branch: {checkout_result['error']}")
             
     def get_file_list(self, repo_path: str):
-        """Get the list of files in the repository"""
-        return list(Path(repo_path).rglob("*"))
+        """Get the list of files in the repository, ignoring .gitignore files"""
+        import subprocess
+
+        # Use git command to list files not ignored by .gitignore
+        result = subprocess.run(
+            ["git", "ls-files"],
+            cwd=repo_path,
+            text=True,
+            capture_output=True,
+            check=True
+        )
+        files = result.stdout.splitlines()
+        return [Path(repo_path) / file for file in files]
     
 
 
@@ -110,7 +121,7 @@ if __name__ == "__main__":
     
     # Initialize the flow
     from_repo = "https://github.com/HermanKoii/dummyExpress.git"
-    example_todo = "Add a CoinGekko API; Create a Test for the API to make it work; Add error handling."
+    example_todo = "Add a /koiiprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd; Create a Test for the API to make it work; Add error handling."
     
     flow = GitHubFlow(from_repo, example_todo, temp_path)
     
@@ -153,7 +164,7 @@ if __name__ == "__main__":
         
         print ("end")
         
-        
+        print(response.content)
 
         check_out_branch_result = checkout_branch(repo_path, "feature")
         print ("check_out_branch_result: " + str(check_out_branch_result))
@@ -193,8 +204,8 @@ if __name__ == "__main__":
             - [x] I confirm that testing has been completed
         """
 
-        create_pr_result = create_pull_request("HermanKoii/dummyExpress", "feature", SampleDescription, "feature")
-        #################################AUTO PR NOT WORKING DUE TO RATE LIMIT#########################
+        create_pr_result = create_pull_request(repo_full_name="HermanKoii/dummyExpress", title="feature", body=SampleDescription, head="HermanL02:feature", base="master")
+        ################################# AUTO PR NOT WORKING DUE TO RATE LIMIT #########################
         # print ("create a commit please")
         # response = client.send_message("Help me to use the tools commit and push"+additional_info)
         # print ("response: " + str(response))
@@ -212,7 +223,7 @@ if __name__ == "__main__":
         #     response = client.send_message(tool_response=tool_output,tool_use_id=tool_use.id, conversation_id=response.conversation_id)
         #     max_iterations -= 1
         # print ("end")
-        ############ AUTO PR NOT WORKING DUE TO RATE LIMIT#########################
+        ############ AUTO PR NOT WORKING DUE TO RATE LIMIT #########################
     except Exception as e:
         print(f"Error: {str(e)}")
 
