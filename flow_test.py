@@ -86,18 +86,18 @@ if __name__ == "__main__":
     temp_path = "./test"
     print("Using path:", temp_path)
 
-    # Ensure the directory exists
-    if not os.path.exists(temp_path):
-        os.makedirs(temp_path)
+    # # Ensure the directory exists
+    # if not os.path.exists(temp_path):
+    #     os.makedirs(temp_path)
 
-    # Write operation
-    try:
-        with open(os.path.join(temp_path, "test_file.txt"), "w") as f:
-            f.write("Test content")
-        print("File written successfully.")
-    except Exception as e:
-        print(f"Error writing file: {e}")
-    ############### Debugging current local repository ###############
+    # # Write operation
+    # try:
+    #     with open(os.path.join(temp_path, "test_file.txt"), "w") as f:
+    #         f.write("Test content")
+    #     print("File written successfully.")
+    # except Exception as e:
+    #     print(f"Error writing file: {e}")
+    # ############### Debugging current local repository ###############
 
     client = setup_environment()
     client.register_tools_from_directory("./src/tools/definitions/execute_command")
