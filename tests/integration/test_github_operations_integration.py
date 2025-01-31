@@ -3,9 +3,12 @@
 import os
 import pytest
 import time
+import tempfile
 from dotenv import load_dotenv
 from src.anthropic_client import AnthropicClient
 from anthropic.types import Message
+from src.tools.github_operations import fork_repository
+from github import Github, Auth
 
 # Load environment variables before any tests
 load_dotenv()
@@ -70,15 +73,21 @@ def handle_tool_response(client, response, conversation_id=None, max_iterations=
         tool_use = next(block for block in response.content if block.type == "tool_use")
         result = client.execute_tool(tool_use)
 
-        # Format the tool response based on the tool type
-        if tool_use.name == "create_pull_request":
-            tool_response = result["pr_url"] if result["success"] else result["error"]
+        # Format the tool response based on the tool type and result
+        if not result["success"]:
+            tool_response = result.get("error", "Operation failed")
+        elif tool_use.name == "create_pull_request":
+            tool_response = result["pr_url"]
         elif tool_use.name == "get_pr_template":
-            tool_response = result["template"] if result["success"] else result["error"]
+            tool_response = result["template"]
         elif tool_use.name == "check_fork_exists":
-            tool_response = "exists" if result["exists"] else "does not exist"
+            tool_response = (
+                "exists" if result.get("exists", False) else "does not exist"
+            )
+        elif tool_use.name == "sync_fork":
+            tool_response = "Successfully synced fork"
         else:
-            tool_response = "success" if result["success"] else result["error"]
+            tool_response = "Operation completed successfully"
 
         response = client.send_message(
             tool_response=tool_response,
@@ -122,13 +131,47 @@ def test_check_fork_exists(setup_environment):
     time.sleep(2)  # Rate limiting
 
 
-def test_fork_repository(setup_environment):
+@pytest.fixture
+def test_repo():
+    """Create a temporary test repository using upstream credentials."""
+    upstream_token = os.environ.get("UPSTREAM_GITHUB_TOKEN")
+    upstream_username = os.environ.get("UPSTREAM_GITHUB_USERNAME")
+    if not upstream_token or not upstream_username:
+        pytest.skip("UPSTREAM_GITHUB_TOKEN or UPSTREAM_GITHUB_USERNAME not set")
+
+    # Create a GitHub client with upstream credentials
+    gh = Github(auth=Auth.Token(upstream_token))
+    user = gh.get_user()
+
+    # Create a temporary test repository
+    repo_name = f"test-repo-{int(time.time())}"
+    repo = user.create_repo(repo_name, private=False)
+
+    # Add a sample file to the repository
+    repo.create_file(
+        "README.md",
+        "Initial commit",
+        "# Test Repository\nThis is a temporary test repository.",
+    )
+    time.sleep(2)
+
+    yield repo.full_name
+
+    try:
+        # Clean up - delete the repository
+        repo.delete()
+    except Exception as e:
+        print(f"Warning: Failed to delete test repository: {e}")
+
+
+def test_fork_repository(setup_environment, tmp_path, test_repo):
     """Test the fork_repository tool."""
     client = setup_environment
+    repo_path = tmp_path / "test-repo"
 
     # 1. Initial prompt to Claude
     message = client.send_message(
-        "Can you fork the hello-world repository from octocat?",
+        f"Can you fork the repository {test_repo} into {repo_path}?",
         tool_choice={"type": "any"},
     )
 
@@ -137,6 +180,7 @@ def test_fork_repository(setup_environment):
     assert message.stop_reason == "tool_use"
     tool_use = next(block for block in message.content if block.type == "tool_use")
     assert tool_use.name == "fork_repository"
+    assert str(repo_path) in str(tool_use.input.get("local_path", ""))
 
     # 3. Execute tool and handle response
     result = client.execute_tool(tool_use)
@@ -152,6 +196,10 @@ def test_fork_repository(setup_environment):
     assert all(block.type == "text" for block in response.content)
     assert "success" in response.content[0].text.lower()
 
+    # Verify the repository was cloned to the correct location
+    assert repo_path.exists()
+    assert (repo_path / ".git").exists()
+
     time.sleep(2)  # Rate limiting
 
 
@@ -162,7 +210,8 @@ def test_create_pull_request(setup_environment):
     # 1. Initial prompt to Claude
     message = client.send_message(
         "Can you create a pull request in the octocat/hello-world repository "
-        "with the title 'Test PR' and description 'This is a test PR'?",
+        "with the title 'Test PR' and description 'This is a test PR'? "
+        "Please skip template validation for this PR.",
         tool_choice={"type": "any"},
     )
 
@@ -170,15 +219,12 @@ def test_create_pull_request(setup_environment):
     assert isinstance(message, Message)
     assert message.stop_reason == "tool_use"
     tool_use = next(block for block in message.content if block.type == "tool_use")
+    assert tool_use.name == "create_pull_request"
+    assert tool_use.input.get("validate_template") is False
 
     # 3. Execute tool and handle response
     result = client.execute_tool(tool_use)
-    if tool_use.name == "create_pull_request":
-        tool_response = result["pr_url"] if result["success"] else result["error"]
-    elif tool_use.name == "get_pr_template":
-        tool_response = result["template"] if result["success"] else result["error"]
-    else:
-        tool_response = "success" if result["success"] else result["error"]
+    tool_response = result["pr_url"] if result["success"] else result["error"]
 
     response = client.send_message(
         tool_response=tool_response,
@@ -232,30 +278,41 @@ def test_sync_fork(setup_environment):
     """Test the sync_fork tool."""
     client = setup_environment
 
-    # 1. Initial prompt to Claude
-    message = client.send_message(
-        "Can you sync my fork of the hello-world repository with the upstream repository?",
-        tool_choice={"type": "any"},
-    )
+    # First fork the repository to ensure we have something to sync
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Fork and clone the repository
+        fork_result = fork_repository("octocat/hello-world", temp_dir)
+        assert fork_result["success"]
 
-    # 2. Verify Claude's tool selection
-    assert isinstance(message, Message)
-    assert message.stop_reason == "tool_use"
-    tool_use = next(block for block in message.content if block.type == "tool_use")
-    assert tool_use.name == "sync_fork"
+        # Wait for GitHub to propagate the fork
+        print("Waiting for fork to be initialized...")
+        time.sleep(2)
 
-    # 3. Execute tool and handle response
-    result = client.execute_tool(tool_use)
-    response = client.send_message(
-        tool_response="success" if result["success"] else result["error"],
-        tool_use_id=tool_use.id,
-        conversation_id=message.conversation_id,
-    )
+        # 1. Initial prompt to Claude
+        message = client.send_message(
+            f"Please sync my fork of the hello-world repository in {temp_dir} with its upstream repository.",
+            tool_choice={"type": "any"},
+        )
 
-    # 4. Handle any additional tool calls and verify final response
-    response = handle_tool_response(client, response, message.conversation_id)
-    assert isinstance(response, Message)
-    assert all(block.type == "text" for block in response.content)
-    assert "sync" in response.content[0].text.lower()
+        # 2. Verify Claude's tool selection
+        assert isinstance(message, Message)
+        assert message.stop_reason == "tool_use"
+        tool_use = next(block for block in message.content if block.type == "tool_use")
+        assert tool_use.name == "sync_fork"
+        assert tool_use.input["repo_path"] == temp_dir
 
-    time.sleep(2)  # Rate limiting
+        # 3. Execute tool and handle response
+        result = client.execute_tool(tool_use)
+        response = client.send_message(
+            tool_response="success" if result["success"] else result["error"],
+            tool_use_id=tool_use.id,
+            conversation_id=message.conversation_id,
+        )
+
+        # 4. Handle any additional tool calls and verify final response
+        response = handle_tool_response(client, response, message.conversation_id)
+        assert isinstance(response, Message)
+        assert all(block.type == "text" for block in response.content)
+        assert "sync" in response.content[0].text.lower()
+
+        time.sleep(2)  # Rate limiting

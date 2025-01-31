@@ -5,15 +5,42 @@ import pytest
 from dotenv import load_dotenv
 from src.anthropic_client import AnthropicClient
 from anthropic.types import Message
+import time
 
 # Load environment variables before any tests
 load_dotenv()
 
 
+def get_api_key(max_retries=3, retry_delay=1):
+    """
+    Get API key with retries to handle mounted volume synchronization.
+
+    Args:
+        max_retries (int): Maximum number of retries
+        retry_delay (int): Delay in seconds between retries
+    """
+    for attempt in range(max_retries):
+        # Try environment variable first
+        api_key = os.environ.get("CLAUDE_API_KEY")
+        if api_key:
+            return api_key
+
+        # Try loading from .env
+        load_dotenv()
+        api_key = os.environ.get("CLAUDE_API_KEY")
+        if api_key:
+            return api_key
+
+        if attempt < max_retries - 1:
+            time.sleep(retry_delay)
+
+    return None
+
+
 @pytest.fixture(autouse=True)
 def setup_environment(tmp_path):
     """Set up environment variables and client before each test."""
-    api_key = os.environ.get("CLAUDE_API_KEY")
+    api_key = get_api_key()
     if not api_key:
         pytest.skip("CLAUDE_API_KEY environment variable not set")
     temp_db = tmp_path / "test.db"
