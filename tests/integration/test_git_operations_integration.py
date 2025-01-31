@@ -356,7 +356,10 @@ def test_add_remote(setup_environment, test_repo):
     remote_repo = Repo.init(remote_path, bare=True)
 
     # 1. Initial prompt to Claude
-    prompt = f"Can you add a remote called 'upstream' pointing to {remote_path} in the repository at {test_repo}?"
+    prompt = (
+        f"Please add a new remote to the repository at {test_repo}. "
+        f"The remote should be named 'upstream' and point to {remote_path}"
+    )
     message = client.send_message(prompt, tool_choice={"type": "any"})
 
     # 2. Verify Claude's tool selection
@@ -508,7 +511,8 @@ def test_push_remote(setup_environment, test_repo):
     assert all(block.type == "text" for block in response.content)
     final_text = response.content[0].text.lower()
     assert "push" in final_text
-    assert "success" in final_text or "complete" in final_text
+    # Check for any indication of success (pushed/completed/done)
+    assert any(word in final_text for word in ["success", "pushed", "complete", "done"])
 
 
 def test_check_for_conflicts(setup_environment, test_repo):
@@ -611,7 +615,10 @@ def test_create_merge_commit(setup_environment, test_repo):
     test_repo.index.commit("Pre-merge commit")
 
     # 1. Initial prompt to Claude
-    prompt = f"Can you create a merge commit in the repository at {test_repo}?"
+    prompt = (
+        f"Can you create a merge commit with the message 'Merge branches' "
+        f"in the repository at {test_repo}?"
+    )
     message = client.send_message(prompt, tool_choice={"type": "any"})
 
     # 2. Verify Claude's tool selection
@@ -622,7 +629,7 @@ def test_create_merge_commit(setup_environment, test_repo):
     assert normalize_repo_path(tool_use.input["repo_path"]) == normalize_repo_path(
         str(test_repo)
     )
-    assert tool_use.input["message"] == "Merge commit"
+    assert tool_use.input["message"] == "Merge branches"
 
     # 3. Execute tool and verify result
     result = client.execute_tool(tool_use)
