@@ -4,7 +4,7 @@ import os
 import tempfile
 from pathlib import Path
 from src.anthropic_client import AnthropicClient
-from src.tools.github_operations import check_fork_exists, fork_repository, sync_fork
+from src.tools.github_operations import check_fork_exists, fork_repository, sync_fork, create_pull_request
 from src.tools.git_operations import create_branch, checkout_branch, list_branches
 from src.tools.file_operations import read_file, write_file, move_file, copy_file, rename_file, delete_file, list_files
 import shutil
@@ -86,7 +86,26 @@ def setup_environment():
     return AnthropicClient(api_key=api_key)
 
 if __name__ == "__main__":
+    ############## Debugging current local repository ###############
+    print("Current working directory:", os.getcwd())
+
+    # Debugging the path
     temp_path = "./test"
+    print("Using path:", temp_path)
+
+    # Ensure the directory exists
+    if not os.path.exists(temp_path):
+        os.makedirs(temp_path)
+
+    # Write operation
+    try:
+        with open(os.path.join(temp_path, "test_file.txt"), "w") as f:
+            f.write("Test content")
+        print("File written successfully.")
+    except Exception as e:
+        print(f"Error writing file: {e}")
+    ############### Debugging current local repository ###############
+
     client = setup_environment()
     
     # Initialize the flow
@@ -103,18 +122,20 @@ if __name__ == "__main__":
         
         # Get the list of files
         files = flow.get_file_list(repo_path)
-        print(files)
+        # print(files)
         client = setup_environment()
 
         client.register_tools_from_directory("./src/tools/definitions/execute_command")
         client.register_tools_from_directory("./src/tools/definitions/file_operations")
         client.register_tools_from_directory("./src/tools/definitions/git_operations")
         client.register_tools_from_directory("./src/tools/definitions/github_operations")
-        additional_info = 'Here is the list of files in the repo' + str(files) 
-        # Start interaction with Claude
-        print ("start")
+        additional_info = 'Here is the list of files in the repo: ' + ', '.join(map(str, files)) + ". The files are under the current path, so please use cd test to enter the repo path."
+
+        print ("Start conversation")
         response = client.send_message(example_todo + additional_info)
         print ("response: " + str(response))
+
+        
         max_iterations = 10
         while response.stop_reason == "tool_use" and max_iterations > 0:
             tool_use = [block for block in response.content if block.type == "tool_use"][0]
@@ -126,19 +147,29 @@ if __name__ == "__main__":
             print ("tool_output: " + str(tool_output))
             if not isinstance(tool_output, str):
                 tool_output = str(tool_output)
-            
-            response = client.send_message(tool_output or "Operation Finished")
+        
+            response = client.send_message(tool_response=tool_output,tool_use_id=tool_use.id, conversation_id=response.conversation_id)
             max_iterations -= 1
         
         print ("end")
-        # TODO: Implement interaction with Claude to complete the task
-
-        # 2. Design the solution
-        # 3. Write tests
-        # 4. Implement the feature
-        # 5. Run tests and fix issues
-        # 6. Sync branches and handle conflicts
-        # 7. Create PR
+        
+        # print ("create a commit please")
+        # response = client.send_message("Help me to use the tools commit and push"+additional_info)
+        # print ("response: " + str(response))
+        # max_iterations = 10
+        # while response.stop_reason == "tool_use" and max_iterations > 0:
+        #     tool_use = [block for block in response.content if block.type == "tool_use"][0]
+        #     tool_name = tool_use.name
+        #     tool_input = tool_use.input
+        #     print ("tool_name: " + tool_name)
+        #     print ("tool_input: " + str(tool_input))
+        #     tool_output = client.execute_tool(ToolUseBlock(id=tool_use.id, name=tool_name, input=tool_input, type='tool_use'))
+        #     print ("tool_output: " + str(tool_output))
+        #     if not isinstance(tool_output, str):
+        #         tool_output = str(tool_output)
+        #     response = client.send_message(tool_response=tool_output,tool_use_id=tool_use.id, conversation_id=response.conversation_id)
+        #     max_iterations -= 1
+        # print ("end")
         
     except Exception as e:
         print(f"Error: {str(e)}")
