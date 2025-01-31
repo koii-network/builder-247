@@ -166,29 +166,31 @@ if __name__ == "__main__":
 
         # make a pr
         SampleDescription = """
-        ### Type of Change
-        - [x] Feature
-        - [ ] Bug fix
-        - [ ] Documentation
-        - [ ] Other
+### Type of Change
+- [x] New feature
+- [ ] Bug fix
+- [ ] Documentation update
+- [ ] Code refactoring
+- [ ] Other
 
-        ### Description
-        This is a test PR to check if the tool works.
+### Description
+This pull request introduces a new feature that enhances the existing functionality by integrating a CoinGekko API. The feature allows users to fetch real-time cryptocurrency data, which is crucial for the application's financial analysis module. Additionally, error handling mechanisms have been implemented to ensure robustness.
 
-        ### Related Issues
-        - None
+### Related Issues
+- None
 
-        ### Testing Done
-        - Manual testing was conducted to ensure functionality.
+### Testing Done
+Manual testing was conducted to ensure the new feature works as expected. The API integration was tested with various endpoints, and error handling was verified under different failure scenarios.
 
-        ### Checklist
-        - [x] I have performed a self-review of my own code
-        - [x] I have commented my code, particularly in hard-to-understand areas
-        - [x] I have made corresponding changes to the documentation
-        - [x] My changes generate no new warnings
-        - [x] I have added tests that prove my fix is effective or that my feature works
-        - [x] New and existing unit tests pass locally with my changes
-        - [x] I confirm that testing has been completed
+### Checklist
+- [x] I have tested my changes
+- [x] I have performed a self-review of my own code
+- [x] I have commented my code, particularly in hard-to-understand areas
+- [x] I have made corresponding changes to the documentation
+- [x] My changes generate no new warnings
+- [x] I have added tests that prove my fix is effective or that my feature works
+- [x] New and existing unit tests pass locally with my changes
+- [x] I confirm that testing has been completed
         """
 
         create_pr_result = create_pull_request("HermanKoii/dummyExpress", "feature", SampleDescription, "feature")
