@@ -4,11 +4,11 @@ from anthropic.types import (
     ToolUseBlock,
 )
 from src.get_file_list import get_file_list
-from src.tools.git_operations import create_branch, checkout_branch, make_commit, push_remote, get_current_branch
+from src.tools.git_operations import create_branch, checkout_branch, make_commit, push_remote, get_current_branch, c
 from task.constants import PROMPTS
 
 
-def handle_tool_response(client, response, max_iterations=10):
+def handle_tool_response(client, response, tool_choice={"type": "any"}, max_iterations=10):
     """
     Handle tool responses recursively until we get a text response.
     """
@@ -26,7 +26,7 @@ def handle_tool_response(client, response, max_iterations=10):
         if not isinstance(tool_output, str):
             tool_output = str(tool_output)
         
-        response = client.send_message(tool_response=tool_output, tool_use_id=tool_use.id, conversation_id=response.conversation_id)
+        response = client.send_message(tool_response=tool_output, tool_use_id=tool_use.id, conversation_id=response.conversation_id, tool_choice=tool_choice)
         max_iterations -= 1
     print("End Conversation")
 def task(repo_owner="HermanKoii", repo_name="dummyExpress", repo_path = "./test", todo = "Add a /grassprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd; Create a Test for the API to make it work; Add error handling."):
@@ -45,23 +45,33 @@ def task(repo_owner="HermanKoii", repo_name="dummyExpress", repo_path = "./test"
         handle_tool_response(client, createBranchResponse)
     
         branch_info = get_current_branch(repo_path)
+        
         branch_name = branch_info.get("output") if branch_info.get("success") else None
         print("Using Branch: ", branch_name)
         # Get the list of files
         files = get_file_list(repo_path)
+        print("Use Files: ", files)
         files_directory = PROMPTS["files"].format(files=', '.join(map(str, files)))
         execute_todo_response = client.send_message(todo + files_directory)
         handle_tool_response(client, execute_todo_response)
         github_username = os.environ.get("GITHUB_USERNAME")
-
-        commit_push_create_pr_response = client.send_message(PROMPTS["commit_push_create_pr"].format(
+        commit_response = client.send_message(PROMPTS["commit"].format(
+            repo_path=repo_path,
+            todo=todo
+        ), tool_choice={"type": "any"})
+        handle_tool_response(client, commit_response, tool_choice={"type": "tool", "name": "make_commit"})
+        push_response = client.send_message(PROMPTS["push"].format(
+            repo_path=repo_path
+        ), tool_choice={"type": "tool", "name": "push_remote"})
+        handle_tool_response(client, push_response, tool_choice={"type": "tool", "name": "push_remote"})
+        create_pr_response = client.send_message(PROMPTS["create_pr"].format(
             repo_path=repo_path,
             todo=todo, 
             repo_full_name=f"{repo_owner}/{repo_name}", 
             head=f"{github_username}:{branch_name}", 
             base="master"
-        ))
-        handle_tool_response(client, commit_push_create_pr_response)
+        ), tool_choice={"type": "any"})
+        handle_tool_response(client, create_pr_response, tool_choice={"type": "tool", "name": "create_pull_request"})
     except Exception as e:
         print(f"Error: {str(e)}")
 if __name__ == "__main__":
