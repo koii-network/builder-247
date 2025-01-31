@@ -7,6 +7,7 @@ from src.get_file_list import get_file_list
 from src.tools.git_operations import create_branch, checkout_branch, make_commit, push_remote, get_current_branch
 from task.constants import PROMPTS
 
+
 def handle_tool_response(client, response, max_iterations=10):
     """
     Handle tool responses recursively until we get a text response.
@@ -52,8 +53,9 @@ def task(repo_owner="HermanKoii", repo_name="dummyExpress", repo_path = "./test"
         execute_todo_response = client.send_message(todo + files_directory)
         handle_tool_response(client, execute_todo_response)
         github_username = os.environ.get("GITHUB_USERNAME")
+
         commit_push_create_pr_response = client.send_message(PROMPTS["commit_push_create_pr"].format(
-            repo_path=repo_path, 
+            repo_path=repo_path,
             todo=todo, 
             repo_full_name=f"{repo_owner}/{repo_name}", 
             head=f"{github_username}:{branch_name}", 
