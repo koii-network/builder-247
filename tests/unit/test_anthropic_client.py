@@ -155,8 +155,7 @@ def test_send_message_with_tool_no_tool_needed(setup_environment):
     response = client.send_message(
         "What is your name?",
     )
-    print(response)
-
+    
     assert isinstance(response, Message)
     assert isinstance(response.content[0], TextBlock)
 

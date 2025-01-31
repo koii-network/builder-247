@@ -304,10 +304,6 @@ class AnthropicClient:
             if tool_choice and not tool_response:
                 create_params["tool_choice"] = tool_choice
 
-        # Log the request parameters
-        print("Sending request to API with parameters:")
-        print(json.dumps(create_params, indent=2))
-
         # Send message to Claude
         response = self.client.messages.create(**create_params)
 
@@ -374,8 +370,6 @@ class AnthropicClient:
                 ],
             }
         )
-
-        print(messages)
 
         return self.client.messages.create(
             model=self.model,
