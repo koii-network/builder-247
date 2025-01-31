@@ -99,9 +99,15 @@ def test_fork_repository(upstream_repo, git_repo):
         return
 
     assert fork_result["success"]
-    assert fork_result["fork_url"].endswith(
-        f"{GITHUB_USERNAME}/{upstream_repo.split('/')[-1]}.git"
-    )
+
+    # Extract the repository name from the URL, ignoring any auth tokens
+    expected_suffix = f"{GITHUB_USERNAME}/{upstream_repo.split('/')[-1]}.git"
+    fork_url = fork_result["fork_url"]
+    # Remove any auth token from the URL if present
+    if "@" in fork_url:
+        fork_url = "https://github.com/" + fork_url.split("@github.com/")[1]
+
+    assert fork_url.endswith(expected_suffix)
     assert (
         fork_result["fork_full_name"]
         == f"{GITHUB_USERNAME}/{upstream_repo.split('/')[-1]}"
@@ -111,8 +117,18 @@ def test_fork_repository(upstream_repo, git_repo):
     repo = Repo(git_repo)
     assert "origin" in repo.remotes
     assert "upstream" in repo.remotes
-    assert repo.remotes.origin.url == fork_result["fork_url"]
-    assert repo.remotes.upstream.url == f"https://github.com/{upstream_repo}.git"
+    # Compare URLs without auth tokens
+    origin_url = repo.remotes.origin.url
+    if "@" in origin_url:
+        origin_url = "https://github.com/" + origin_url.split("@github.com/")[1]
+    assert (
+        origin_url
+        == f"https://github.com/{GITHUB_USERNAME}/{upstream_repo.split('/')[-1]}.git"
+    )
+    upstream_url = repo.remotes.upstream.url
+    if "@" in upstream_url:
+        upstream_url = "https://github.com/" + upstream_url.split("@github.com/")[1]
+    assert upstream_url == f"https://github.com/{upstream_repo}.git"
 
 
 def test_create_pull_request_with_valid_template(upstream_repo):
