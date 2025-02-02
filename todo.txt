@@ -1,0 +1,3 @@
+Add a /accessToGoogle API to fetch if Google is available right now; Create a Test for the API to make it work; Add error handling.
+Add a /arweaveprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd; Create a Test for the API to make it work; Add error handling.
+Add a /bitcoinprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd; Create a Test for the API to make it work; Add error handling.
