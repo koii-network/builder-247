@@ -85,7 +85,7 @@ if __name__ == "__main__":
     with open("./todo.txt", "r") as f:
         for line in f:
             todo = line.strip()
-            print("Todo: ", todo)
+            # print("Todo: ", todo)
             todo_to_pr(todo=todo)
     # todo_to_pr()
     
