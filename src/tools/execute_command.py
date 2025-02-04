@@ -22,24 +22,18 @@ def execute_command(command):
 
         process = subprocess.Popen(command, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        stdout, stderr = [], []
-
-        # Read stdout and stderr line by line
-        for line in iter(process.stdout.readline, ''):
-            print(line, end='')  # Print stdout in real-time
-            stdout.append(line)
-
-        for line in iter(process.stderr.readline, ''):
-            print(line, end='')  # Print stderr in real-time
-            stderr.append(line)
-
-        process.stdout.close()
-        process.stderr.close()
-        return_code = process.wait()
+        try:
+            stdout, stderr = process.communicate(timeout=300)
+        except subprocess.TimeoutExpired:
+       
+            process.kill()
+       
+            stdout, stderr = process.communicate()
+       
+            process.__exit__(None, None, None)
+            return stdout, "Command timed out after 5 minutes", -1
 
         # Return the output, error, and return code
-        return ''.join(stdout), ''.join(stderr), return_code
-    except subprocess.TimeoutExpired:
-        return "", "operation too long, over 5 minutes", -1  
+        return stdout, stderr, process.returncode
     except Exception as e:
         return "", str(e), -1

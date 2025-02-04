@@ -6,7 +6,7 @@ from anthropic.types import (
 from src.get_file_list import get_file_list
 from src.tools.git_operations import get_current_branch
 from task.constants import PROMPTS
-
+from datetime import datetime
 
 def handle_tool_response(client, response, tool_choice={"type": "any"}, max_iterations=10):
     """
@@ -19,6 +19,7 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}, max_iter
         tool_input = tool_use.input
         print ("tool_name: " + tool_name)
         print ("tool_input: " + str(tool_input))
+        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         tool_output = client.execute_tool(ToolUseBlock(id=tool_use.id, name=tool_name, input=tool_input, type='tool_use'))
         print ("tool_output for first 50 characters: " + str(tool_output)[:50])
         
@@ -29,7 +30,7 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}, max_iter
         response = client.send_message(tool_response=tool_output, tool_use_id=tool_use.id, conversation_id=response.conversation_id, tool_choice=tool_choice)
         max_iterations -= 1
     print("End Conversation")
-def todo_to_pr(repo_owner="HermanKoii", repo_name="dummyExpress", repo_path = "./test", todo = "Add a /grassprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd; Create a Test for the API to make it work; Add error handling."):
+def todo_to_pr(repo_owner="HermanKoii", repo_name="dummyExpress", repo_path = "./example_repo", todo = "Add a /grassprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd"):
     """
     Task flow
     """
@@ -57,7 +58,7 @@ def todo_to_pr(repo_owner="HermanKoii", repo_name="dummyExpress", repo_path = ".
         files = get_file_list(repo_path)
         print("Use Files: ", files)
         files_directory = PROMPTS["files"].format(files=', '.join(map(str, files)))
-        execute_todo_response = client.send_message(todo + files_directory)
+        execute_todo_response = client.send_message(todo + PROMPTS["generic_acceptance_criteria"] + files_directory)
         handle_tool_response(client, execute_todo_response)
         github_username = os.environ.get("GITHUB_USERNAME")
         commit_response = client.send_message(PROMPTS["commit"].format(
