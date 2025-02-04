@@ -4,3 +4,4 @@ __pycache__
 .pytest_cache
 conversations.db
 test
+task_flow.egg-info
