@@ -1,50 +1,6 @@
-Add a /accessToYahoo API to fetch if Yahoo is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToFacebook API to fetch if Facebook is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToTwitter API to fetch if Twitter is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToInstagram API to fetch if Instagram is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToLinkedIn API to fetch if LinkedIn is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToReddit API to fetch if Reddit is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToPinterest API to fetch if Pinterest is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToSnapchat API to fetch if Snapchat is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToTikTok API to fetch if TikTok is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToNetflix API to fetch if Netflix is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToAmazon API to fetch if Amazon is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToEbay API to fetch if Ebay is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToWikipedia API to fetch if Wikipedia is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToYouTube API to fetch if YouTube is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToSpotify API to fetch if Spotify is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToApple API to fetch if Apple is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToMicrosoft API to fetch if Microsoft is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToAdobe API to fetch if Adobe is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToIBM API to fetch if IBM is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToIntel API to fetch if Intel is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToSamsung API to fetch if Samsung is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToSony API to fetch if Sony is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToLG API to fetch if LG is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToHuawei API to fetch if Huawei is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToXiaomi API to fetch if Xiaomi is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToOppo API to fetch if Oppo is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToVivo API to fetch if Vivo is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToOnePlus API to fetch if OnePlus is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToNokia API to fetch if Nokia is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToHTC API to fetch if HTC is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToMotorola API to fetch if Motorola is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToLenovo API to fetch if Lenovo is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToAsus API to fetch if Asus is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToAcer API to fetch if Acer is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToDell API to fetch if Dell is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToHP API to fetch if HP is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToToshiba API to fetch if Toshiba is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToPanasonic API to fetch if Panasonic is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToPhilips API to fetch if Philips is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToCanon API to fetch if Canon is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToNikon API to fetch if Nikon is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToFujifilm API to fetch if Fujifilm is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToKodak API to fetch if Kodak is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToGoPro API to fetch if GoPro is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToTesla API to fetch if Tesla is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToSpaceX API to fetch if SpaceX is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToUber API to fetch if Uber is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToLyft API to fetch if Lyft is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToAirbnb API to fetch if Airbnb is available right now; Create a Test for the API to make it work; Add error handling.
-Add a /accessToBooking API to fetch if Booking is available right now; Create a Test for the API to make it work; Add error handling.
+add a /grassprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd;
+add a /arweaveprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd;
+add a /bitcoinprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd;
+add a /ethereumprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd;
+add a /solanaprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd;
+add a /dogecoinprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>&vs_currencies=usd;
