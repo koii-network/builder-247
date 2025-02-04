@@ -15,10 +15,22 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-run tests:
+Install project in editable mode:
+
+```sh
+pip install -e .
+```
+
+Run tests:
 
 ```sh
 python3 -m pytest tests/
+```
+
+Run the agent:
+
+```sh
+python3 -m src.task.flow
 ```
 
 ## Developing in Docker
@@ -45,6 +57,12 @@ or
 
 ```sh
 python3 -m pytest tests/
+```
+
+You can also run the agent in the container with:
+
+```sh
+python -m src.task.flow
 ```
 
 To exit the container's shell:
