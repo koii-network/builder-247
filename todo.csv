@@ -1,6 +1,6 @@
-add a /grassprice API endpoint to fetch the current price of the grass token vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko. make sure you use the correct coin symbol.
-add a /arweaveprice API to fetch the current price of the arweave token vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko. make sure you use the correct coin symbol.
-add a /bitcoinprice API to fetch the current price of bitcoin vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko. make sure you use the correct coin symbol.
-add a /ethereumprice API to fetch the current price of ethereum vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko. make sure you use the correct coin symbol.
-add a /solanaprice API to fetch the current price of solana vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko. make sure you use the correct coin symbol.
-add a /dogecoinprice API to fetch the current price of dogecoin vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko. make sure you use the correct coin symbol.
+add a /grassprice API endpoint to fetch the current price of grass vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko.
+add a /arweaveprice API to fetch the current price of arweave vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko.
+add a /bitcoinprice API to fetch the current price of bitcoin vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko.
+add a /ethereumprice API to fetch the current price of ethereum vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko.
+add a /solanaprice API to fetch the current price of solana vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko.
+add a /dogecoinprice API to fetch the current price of dogecoin vs USD from coingecko,do this without requiring an API key. make sure you use the correct endpoint from coingecko.
