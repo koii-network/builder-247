@@ -5,6 +5,7 @@ from src.anthropic_client import AnthropicClient
 from src.tools.github_operations import check_fork_exists, fork_repository, sync_fork
 import shutil
 
+
 def setup_repository(repo_owner, repo_name, repo_path):
     """Check if the branch exists, sync or create the branch"""
     # Check if the branch exists
@@ -19,7 +20,7 @@ def setup_repository(repo_owner, repo_name, repo_path):
             fork_result = fork_repository(f"{repo_owner}/{repo_name}", repo_path)
             if not fork_result["success"]:
                 raise Exception(f"Failed to create fork: {fork_result['error']}")
-            
+
         # Sync it
         sync_result = sync_fork(repo_path, "master")
         print("Sync result: ", sync_result)
@@ -36,12 +37,13 @@ def setup_repository(repo_owner, repo_name, repo_path):
         print("Fork result: ", fork_result)
         if not fork_result["success"]:
             raise Exception(f"Failed to create fork: {fork_result['error']}")
-        
+
         # Add debug information
         if not os.path.exists(repo_path):
             raise Exception(f"Cloning failed, path does not exist: {repo_path}")
-        
+
     return repo_path
+
 
 def setup_client():
     """
