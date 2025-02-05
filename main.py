@@ -54,37 +54,39 @@ def close_db():
 
 
 def run_todo_task(round_number, todo, acceptance_criteria):
-    try:
-        # Connect to DB in the background thread
-        db = sqlite3.connect(DATABASE)
-        db.row_factory = sqlite3.Row
+    # Create application context for the background thread
+    with app.app_context():
+        try:
+            # Use get_db() to ensure tables are created
+            db = get_db()
+            cursor = db.cursor()
 
-        # Update status to "running"
-        cursor = db.cursor()
-        cursor.execute(
-            "INSERT OR REPLACE INTO submissions (roundNumber, submission, status) VALUES (?, ?, ?)",
-            (round_number, None, "running"),
-        )
-        db.commit()
+            # Update status to "running"
+            cursor.execute(
+                "INSERT OR REPLACE INTO submissions (roundNumber, submission, status) VALUES (?, ?, ?)",
+                (round_number, None, "running"),
+            )
+            db.commit()
 
-        # Run the actual task
-        result = todo_to_pr(todo=todo, acceptance_criteria=acceptance_criteria)
+            # Run the actual task
+            result = todo_to_pr(todo=todo, acceptance_criteria=acceptance_criteria)
 
-        # Store the result
-        cursor.execute(
-            "UPDATE submissions SET submission = ?, status = ? WHERE roundNumber = ?",
-            (result, "completed", round_number),
-        )
-        db.commit()
-    except Exception as e:
-        print(f"Background task failed: {str(e)}")
-        cursor.execute(
-            "UPDATE submissions SET status = ? WHERE roundNumber = ?",
-            ("failed", round_number),
-        )
-        db.commit()
-    finally:
-        db.close()
+            # Store the result
+            cursor.execute(
+                "UPDATE submissions SET submission = ?, status = ? WHERE roundNumber = ?",
+                (result, "completed", round_number),
+            )
+            db.commit()
+        except Exception as e:
+            print(f"Background task failed: {str(e)}")
+            if "cursor" in locals():  # Make sure cursor exists
+                cursor.execute(
+                    "UPDATE submissions SET status = ? WHERE roundNumber = ?",
+                    ("failed", round_number),
+                )
+                db.commit()
+        finally:
+            close_db()  # Use the Flask close_db function
 
 
 @app.get("/")
