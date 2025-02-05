@@ -20,7 +20,6 @@ def get_db():
             """
             CREATE TABLE IF NOT EXISTS submissions (
                 roundNumber INTEGER PRIMARY KEY,
-                submission TEXT,
                 status TEXT DEFAULT 'pending',
                 pr_url TEXT,
                 username TEXT,

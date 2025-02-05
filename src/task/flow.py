@@ -1,6 +1,7 @@
 # Standard library imports
 import os
 from datetime import datetime
+import time
 
 # Third-party imports
 from anthropic.types import ToolUseBlock
@@ -36,6 +37,7 @@ def handle_tool_response(
         # Ensure tool_output is a string
         if not isinstance(tool_output, str):
             tool_output = str(tool_output)
+        time.sleep(10)
 
         response = client.send_message(
             tool_response=tool_output,
@@ -45,6 +47,7 @@ def handle_tool_response(
         )
         max_iterations -= 1
     print("End Conversation")
+    return tool_output
 
 
 def todo_to_pr(
@@ -74,6 +77,7 @@ def todo_to_pr(
         )
         print("Setup repository prompt: ", setup_repository_prompt)
         createBranchResponse = client.send_message(setup_repository_prompt)
+        time.sleep(10)
         print("Create branch response: ", createBranchResponse)
         handle_tool_response(client, createBranchResponse)
         print("Create branch response: ", createBranchResponse)
@@ -88,22 +92,29 @@ def todo_to_pr(
         execute_todo_response = client.send_message(
             f"{todo} {PROMPTS['generic_acceptance_criteria']} {acceptance_criteria} {files_directory}"
         )
+        time.sleep(10)
         handle_tool_response(client, execute_todo_response)
+
         github_username = os.environ.get("GITHUB_USERNAME")
+        time.sleep(10)
         commit_response = client.send_message(
             PROMPTS["commit"].format(repo_path=repo_path, todo=todo),
             tool_choice={"type": "any"},
         )
+        time.sleep(10)
         handle_tool_response(
             client, commit_response, tool_choice={"type": "tool", "name": "make_commit"}
         )
+        time.sleep(10)
         push_response = client.send_message(
             PROMPTS["push"].format(repo_path=repo_path),
             tool_choice={"type": "tool", "name": "push_remote"},
         )
+        time.sleep(10)
         handle_tool_response(
             client, push_response, tool_choice={"type": "tool", "name": "push_remote"}
         )
+        time.sleep(10)
         create_pr_response = client.send_message(
             PROMPTS["create_pr"].format(
                 repo_path=repo_path,
@@ -114,6 +125,7 @@ def todo_to_pr(
             ),
             tool_choice={"type": "any"},
         )
+        time.sleep(10)
         pr_result = handle_tool_response(
             client,
             create_pr_response,
