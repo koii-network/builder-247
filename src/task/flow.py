@@ -114,11 +114,13 @@ def todo_to_pr(
             ),
             tool_choice={"type": "any"},
         )
-        handle_tool_response(
+        pr_result = handle_tool_response(
             client,
             create_pr_response,
             tool_choice={"type": "tool", "name": "create_pull_request"},
         )
+
+        return pr_result["pr_url"]
 
     except Exception as e:
         print(f"Error: {str(e)}")

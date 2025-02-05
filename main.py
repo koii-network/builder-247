@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify, g
 from src.task.flow import todo_to_pr
 from threading import Thread
 import sqlite3
+from github import Github
+import re
+import os
 
 app = Flask(__name__)
 
@@ -18,7 +21,11 @@ def get_db():
             CREATE TABLE IF NOT EXISTS submissions (
                 roundNumber INTEGER PRIMARY KEY,
                 submission TEXT,
-                status TEXT DEFAULT 'pending'
+                status TEXT DEFAULT 'pending',
+                pr_url TEXT,
+                username TEXT,
+                repo_owner TEXT,
+                repo_name TEXT
             )
             """
         )
@@ -53,40 +60,54 @@ def close_db():
         db.close()
 
 
-def run_todo_task(round_number, todo, acceptance_criteria):
-    # Create application context for the background thread
+def run_todo_task(round_number, todo, acceptance_criteria, repo_owner, repo_name):
     with app.app_context():
         try:
-            # Use get_db() to ensure tables are created
             db = get_db()
             cursor = db.cursor()
 
             # Update status to "running"
             cursor.execute(
-                "INSERT OR REPLACE INTO submissions (roundNumber, submission, status) VALUES (?, ?, ?)",
-                (round_number, None, "running"),
+                """
+                INSERT OR REPLACE INTO submissions
+                (roundNumber, submission, status, repo_owner, repo_name)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (round_number, None, "running", repo_owner, repo_name),
             )
             db.commit()
 
-            # Run the actual task
-            result = todo_to_pr(todo=todo, acceptance_criteria=acceptance_criteria)
+            # Run the actual task with specified repo
+            pr_url = todo_to_pr(
+                todo=todo,
+                acceptance_criteria=acceptance_criteria,
+                repo_owner=repo_owner,
+                repo_name=repo_name,
+            )
+
+            # Extract username from environment
+            username = os.environ.get("GITHUB_USERNAME")
 
             # Store the result
             cursor.execute(
-                "UPDATE submissions SET submission = ?, status = ? WHERE roundNumber = ?",
-                (result, "completed", round_number),
+                """
+                UPDATE submissions
+                SET submission = ?, status = ?, pr_url = ?, username = ?
+                WHERE roundNumber = ?
+                """,
+                (pr_url, "completed", pr_url, username, round_number),
             )
             db.commit()
         except Exception as e:
             print(f"Background task failed: {str(e)}")
-            if "cursor" in locals():  # Make sure cursor exists
+            if "cursor" in locals():
                 cursor.execute(
                     "UPDATE submissions SET status = ? WHERE roundNumber = ?",
                     ("failed", round_number),
                 )
                 db.commit()
         finally:
-            close_db()  # Use the Flask close_db function
+            close_db()
 
 
 @app.get("/")
@@ -105,10 +126,16 @@ def start_task(roundNumber):
     data = request.get_json()
     todo = data.get("todo")
     acceptance_criteria = data.get("acceptance_criteria", "")
+    repo_owner = data.get("repo_owner")
+    repo_name = data.get("repo_name")
+
+    if not repo_owner or not repo_name:
+        return jsonify({"error": "Missing repo_owner or repo_name"}), 400
 
     # Start the task in background
     thread = Thread(
-        target=run_todo_task, args=(int(roundNumber), todo, acceptance_criteria)
+        target=run_todo_task,
+        args=(int(roundNumber), todo, acceptance_criteria, repo_owner, repo_name),
     )
     thread.daemon = True
     thread.start()
@@ -122,13 +149,26 @@ def fetch_submission(roundNumber):
     db = get_db()
     cursor = db.cursor()
     query = cursor.execute(
-        "SELECT * FROM submissions WHERE roundNumber = ?", (int(roundNumber),)
+        """
+        SELECT roundNumber, submission, status, pr_url, username
+        FROM submissions
+        WHERE roundNumber = ? and status = 'completed'
+        """,
+        (int(roundNumber),),
     )
     result = query.fetchone()
     close_db()
 
     if result:
-        return jsonify({"submission": result["submission"], "status": result["status"]})
+        return jsonify(
+            {
+                "roundNumber": result["roundNumber"],
+                "submission": result["submission"],
+                "status": result["status"],
+                "pr_url": result["pr_url"],
+                "username": result["username"],
+            }
+        )
     else:
         return "Submission not found", 404
 
@@ -137,8 +177,65 @@ def fetch_submission(roundNumber):
 def audit_submission():
     print("Auditing submission")
     data = request.get_json()
-    audit_result = data["submission"] == "Hello World!"
-    return jsonify(audit_result)
+    round_number = data.get("roundNumber")
+
+    if not round_number:
+        return jsonify({"error": "Missing roundNumber"}), 400
+
+    # Get submission details from database
+    db = get_db()
+    cursor = db.cursor()
+    query = cursor.execute(
+        """
+        SELECT pr_url, username, repo_owner, repo_name
+        FROM submissions
+        WHERE roundNumber = ? AND status = 'completed'
+        """,
+        (int(round_number),),
+    )
+    result = query.fetchone()
+    close_db()
+
+    if not result:
+        return jsonify({"error": "Submission not found"}), 404
+
+    is_valid = verify_pr_ownership(
+        result["pr_url"], result["username"], result["repo_owner"], result["repo_name"]
+    )
+    return jsonify(is_valid)
+
+
+def verify_pr_ownership(
+    pr_url: str, expected_username: str, expected_owner: str, expected_repo: str
+) -> bool:
+    """
+    Verify that a PR was created by the expected user on the expected repository.
+    """
+    try:
+        gh = Github(os.environ.get("GITHUB_TOKEN"))
+
+        match = re.match(r"https://github.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
+        if not match:
+            print(f"Invalid PR URL format: {pr_url}")
+            return False
+
+        owner, repo_name, pr_number = match.groups()
+
+        # Verify repository matches
+        if owner != expected_owner or repo_name != expected_repo:
+            print(
+                f"Repository mismatch. Expected: {expected_owner}/{expected_repo}, Got: {owner}/{repo_name}"
+            )
+            return False
+
+        repo = gh.get_repo(f"{owner}/{repo_name}")
+        pr = repo.get_pull(int(pr_number))
+
+        return pr.user.login == expected_username
+
+    except Exception as e:
+        print(f"Error verifying PR ownership: {str(e)}")
+        return False
 
 
 if __name__ == "__main__":
