@@ -90,7 +90,7 @@ class AnthropicClient:
         self.model = model or "claude-3-5-haiku-latest"
         self.tools = []
         self.tool_functions = {}
-        self.db_path = db_path or "conversations.db"
+        self.db_path = db_path or "database.db"
         self._init_db()
 
     def _init_db(self):
