@@ -36,11 +36,11 @@ def handle_tool_response(
 
         # Ensure tool_output is a string
         if not isinstance(tool_output, str):
-            tool_output = str(tool_output)
+            tool_output_str = str(tool_output)
         time.sleep(10)
 
         response = client.send_message(
-            tool_response=tool_output,
+            tool_response=tool_output_str,
             tool_use_id=tool_use.id,
             conversation_id=response.conversation_id,
             tool_choice=tool_choice,
@@ -132,7 +132,10 @@ def todo_to_pr(
             tool_choice={"type": "tool", "name": "create_pull_request"},
         )
 
-        return pr_result["pr_url"]
+        if isinstance(pr_result, str):
+            return pr_result
+        else:
+            return pr_result.get("pr_url")
 
     except Exception as e:
         print(f"Error: {str(e)}")

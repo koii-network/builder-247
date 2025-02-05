@@ -51,7 +51,6 @@ def setup_client():
     """
     load_dotenv()
     api_key = os.environ.get("CLAUDE_API_KEY")
-    print("API key:", api_key)
     client = AnthropicClient(api_key=api_key)
     client.register_tools_from_directory("./src/tools/definitions/execute_command")
     client.register_tools_from_directory("./src/tools/definitions/file_operations")

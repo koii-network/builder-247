@@ -69,10 +69,10 @@ def run_todo_task(round_number, todo, acceptance_criteria, repo_owner, repo_name
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO submissions
-                (roundNumber, submission, status, repo_owner, repo_name)
-                VALUES (?, ?, ?, ?, ?)
+                (roundNumber, status, repo_owner, repo_name)
+                VALUES (?, ?, ?, ?)
                 """,
-                (round_number, None, "running", repo_owner, repo_name),
+                (round_number, "running", repo_owner, repo_name),
             )
             db.commit()
 
@@ -91,10 +91,10 @@ def run_todo_task(round_number, todo, acceptance_criteria, repo_owner, repo_name
             cursor.execute(
                 """
                 UPDATE submissions
-                SET submission = ?, status = ?, pr_url = ?, username = ?
+                SET status = ?, pr_url = ?, username = ?
                 WHERE roundNumber = ?
                 """,
-                (pr_url, "completed", pr_url, username, round_number),
+                ("completed", pr_url, username, round_number),
             )
             db.commit()
         except Exception as e:
@@ -149,7 +149,7 @@ def fetch_submission(roundNumber):
     cursor = db.cursor()
     query = cursor.execute(
         """
-        SELECT roundNumber, submission, status, pr_url, username
+        SELECT roundNumber, status, pr_url, username
         FROM submissions
         WHERE roundNumber = ? and status = 'completed'
         """,
@@ -162,7 +162,6 @@ def fetch_submission(roundNumber):
         return jsonify(
             {
                 "roundNumber": result["roundNumber"],
-                "submission": result["submission"],
                 "status": result["status"],
                 "pr_url": result["pr_url"],
                 "username": result["username"],
