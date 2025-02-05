@@ -3,5 +3,6 @@
 __pycache__
 .pytest_cache
 conversations.db
+database.db
 test
 task_flow.egg-info
