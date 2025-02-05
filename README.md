@@ -30,7 +30,7 @@ python3 -m pytest tests/
 Run the agent:
 
 ```sh
-python3 -m src.task.flow
+python3 main.py
 ```
 
 ## Developing in Docker
@@ -62,7 +62,7 @@ python3 -m pytest tests/
 You can also run the agent in the container with:
 
 ```sh
-python -m src.task.flow
+python main.py
 ```
 
 To exit the container's shell:
