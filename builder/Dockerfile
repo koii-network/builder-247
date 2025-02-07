@@ -12,7 +12,7 @@ COPY requirements.txt .
 RUN apt-get update && apt-get install -y git sudo
 
 # Install the dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Configure Git to add the safe directory
 RUN git config --global --add safe.directory /app
@@ -20,5 +20,9 @@ RUN git config --global --add safe.directory /app
 # Copy the rest of your application code into the container
 COPY . .
 
+# Make port 8080 available to the world outside this container
+EXPOSE 8080
+
+
 # Set the command to run your application (modify as needed)
-CMD ["/bin/bash"]
+CMD ["python", "main.py"]

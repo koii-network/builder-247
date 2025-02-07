@@ -30,21 +30,55 @@ python3 -m pytest tests/
 Run the agent:
 
 ```sh
-python3 main.py
+python3 builder/main.py
 ```
 
 ## Developing in Docker
 
+### Running the Flask Server
+
 Build the image:
 
 ```sh
-docker build -t test-builder .
+docker build -t test-builder ./builder
+```
+
+Run the container:
+
+```sh
+docker run test-builder
+```
+
+You can also run with a mounted volume if you'd like to change files without updating the container:
+
+```sh
+docker run -v $(pwd):/app test-builder
+```
+
+### Running Interactively (using the shell)
+
+Change this line in the Dockerfile:
+
+```sh
+CMD ["python", "main.py"]
+```
+
+to
+
+```sh
+CMD ["/bin/bash"]
+```
+
+Build the image:
+
+```sh
+docker build -t test-builder ./builder
 ```
 
 Run the container with a mounted volume:
 
 ```sh
-docker run -it -v $(pwd):/app test-builder
+docker run -it -v $(pwd)/builder:/app test-builder
 ```
 
 This will give you access to your files within the container and run the container in interactive mode with shell access. You can then run tests inside the container using:
@@ -59,7 +93,7 @@ or
 python3 -m pytest tests/
 ```
 
-You can also run the agent in the container with:
+You can also run the flask server in the container with:
 
 ```sh
 python main.py

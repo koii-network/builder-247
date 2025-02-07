@@ -5,6 +5,7 @@ import sqlite3
 from github import Github
 import re
 import os
+import requests
 
 app = Flask(__name__)
 
@@ -59,13 +60,14 @@ def close_db():
         db.close()
 
 
-def run_todo_task(round_number, todo, acceptance_criteria, repo_owner, repo_name):
+def run_todo_task(
+    round_number, todo, acceptance_criteria, repo_owner, repo_name, signature, publickey
+):
     with app.app_context():
         try:
             db = get_db()
             cursor = db.cursor()
 
-            # Update status to "running"
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO submissions
@@ -76,7 +78,6 @@ def run_todo_task(round_number, todo, acceptance_criteria, repo_owner, repo_name
             )
             db.commit()
 
-            # Run the actual task with specified repo
             pr_url = todo_to_pr(
                 todo=todo,
                 acceptance_criteria=acceptance_criteria,
@@ -84,10 +85,22 @@ def run_todo_task(round_number, todo, acceptance_criteria, repo_owner, repo_name
                 repo_name=repo_name,
             )
 
-            # Extract username from environment
+            try:
+                response = requests.post(
+                    "https://ai-builder.koii.network/add-pr",
+                    json={
+                        "pr_url": pr_url,
+                        "signature": signature,
+                        "publickey": publickey,
+                    },
+                    headers={"Content-Type": "application/json"},
+                )
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                print(f"Error submitting PR: {str(e)}")
+
             username = os.environ.get("GITHUB_USERNAME")
 
-            # Store the result
             cursor.execute(
                 """
                 UPDATE submissions
@@ -127,6 +140,8 @@ def start_task(roundNumber):
     acceptance_criteria = data.get("acceptance_criteria", "")
     repo_owner = data.get("repo_owner")
     repo_name = data.get("repo_name")
+    signature = data.get("signature")
+    publickey = data.get("publickey")
 
     if not repo_owner or not repo_name:
         return jsonify({"error": "Missing repo_owner or repo_name"}), 400
@@ -134,7 +149,15 @@ def start_task(roundNumber):
     # Start the task in background
     thread = Thread(
         target=run_todo_task,
-        args=(int(roundNumber), todo, acceptance_criteria, repo_owner, repo_name),
+        args=(
+            int(roundNumber),
+            todo,
+            acceptance_criteria,
+            repo_owner,
+            repo_name,
+            signature,
+            publickey,
+        ),
     )
     thread.daemon = True
     thread.start()
@@ -176,11 +199,11 @@ def audit_submission():
     print("Auditing submission")
     data = request.get_json()
     round_number = data.get("roundNumber")
-
+    signature = data.get("signature")
+    publickey = data.get("publickey")
     if not round_number:
         return jsonify({"error": "Missing roundNumber"}), 400
 
-    # Get submission details from database
     db = get_db()
     cursor = db.cursor()
     query = cursor.execute(
@@ -198,13 +221,23 @@ def audit_submission():
         return jsonify({"error": "Submission not found"}), 404
 
     is_valid = verify_pr_ownership(
-        result["pr_url"], result["username"], result["repo_owner"], result["repo_name"]
+        result["pr_url"],
+        result["username"],
+        result["repo_owner"],
+        result["repo_name"],
+        signature,
+        publickey,
     )
     return jsonify(is_valid)
 
 
 def verify_pr_ownership(
-    pr_url: str, expected_username: str, expected_owner: str, expected_repo: str
+    pr_url: str,
+    expected_username: str,
+    expected_owner: str,
+    expected_repo: str,
+    signature: str,
+    publickey: str,
 ) -> bool:
     """
     Verify that a PR was created by the expected user on the expected repository.
@@ -219,7 +252,6 @@ def verify_pr_ownership(
 
         owner, repo_name, pr_number = match.groups()
 
-        # Verify repository matches
         if owner != expected_owner or repo_name != expected_repo:
             print(
                 f"Repository mismatch. Expected: {expected_owner}/{expected_repo}, Got: {owner}/{repo_name}"
@@ -229,7 +261,28 @@ def verify_pr_ownership(
         repo = gh.get_repo(f"{owner}/{repo_name}")
         pr = repo.get_pull(int(pr_number))
 
-        return pr.user.login == expected_username
+        if pr.user.login != expected_username:
+            print(
+                f"Username mismatch. Expected: {expected_username}, Got: {pr.user.login}"
+            )
+            return False
+
+        response = requests.post(
+            "https://ai-builder.koii.network/check-todo",
+            json={
+                "pr_url": pr_url,
+                "signature": signature,
+                "publickey": publickey,
+            },
+            headers={"Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+        result = response.json()
+        if result["is_valid"]:
+            return True
+        else:
+            print(f"PR is not valid: {result['reason']}")
+            return False
 
     except Exception as e:
         print(f"Error verifying PR ownership: {str(e)}")
@@ -237,4 +290,4 @@ def verify_pr_ownership(
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=8080, debug=True)
