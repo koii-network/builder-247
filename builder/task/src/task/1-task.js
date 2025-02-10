@@ -1,4 +1,5 @@
 import { getOrcaClient } from '@_koii/task-manager/extensions';
+import { namespaceWrapper, TASK_ID } from '@_koii/namespace-wrapper';
 
 export async function task(roundNumber) {
   /**
@@ -9,7 +10,18 @@ export async function task(roundNumber) {
   console.log(`EXECUTE TASK FOR ROUND ${roundNumber}`);
   try {
     const orcaClient = await getOrcaClient();
-    
+
+    const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
+    const stakingKey = stakingKeypair.publicKey.toBase58();
+
+    const signature = await namespaceWrapper.payloadSigning(
+      {
+        taskId: TASK_ID,
+        roundNumber: roundNumber,
+      },
+      stakingKeypair.secretKey,
+    );
+
     await orcaClient.podCall(`task/${roundNumber}`, {
       method: 'POST',
       headers: {
@@ -21,6 +33,8 @@ export async function task(roundNumber) {
           'do this without requiring an API key. make sure you use the correct endpoint from coingecko.',
         repo_owner: 'HermanKoii',
         repo_name: 'dummyExpress',
+        signature,
+        stakingKey,
       }),
     });
   } catch (error) {
