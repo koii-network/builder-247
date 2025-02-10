@@ -30,7 +30,7 @@ python3 -m pytest tests/
 Run the agent:
 
 ```sh
-python3 builder/main.py
+python3 main.py
 ```
 
 ## Developing in Docker
