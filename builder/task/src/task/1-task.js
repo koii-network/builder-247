@@ -1,5 +1,5 @@
-import { getOrcaClient } from '@_koii/task-manager/extensions';
-import { namespaceWrapper, TASK_ID } from '@_koii/namespace-wrapper';
+import { getOrcaClient } from "@_koii/task-manager/extensions";
+import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 
 export async function task(roundNumber) {
   /**
@@ -23,21 +23,16 @@ export async function task(roundNumber) {
     );
 
     await orcaClient.podCall(`task/${roundNumber}`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        todo: 'add a /ethprice API endpoint to fetch the current price of ethereum vs USD from coingecko',
-        acceptance_criteria:
-          'do this without requiring an API key. make sure you use the correct endpoint from coingecko.',
-        repo_owner: 'HermanKoii',
-        repo_name: 'dummyExpress',
         signature,
         stakingKey,
       }),
     });
   } catch (error) {
-    console.error('EXECUTE TASK ERROR:', error);
+    console.error("EXECUTE TASK ERROR:", error);
   }
 }
