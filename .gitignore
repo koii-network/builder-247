@@ -8,3 +8,4 @@ test
 task_flow.egg-info
 example_repo
 signature.js
+git-filter-repo
