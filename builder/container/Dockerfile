@@ -20,6 +20,9 @@ RUN git config --global --add safe.directory /app
 # Copy the rest of your application code into the container
 COPY . .
 
+ENV MIDDLE_SERVER_URL=https://builder247.koii.network
+
+
 # Make port 8080 available to the world outside this container
 EXPOSE 8080
 
