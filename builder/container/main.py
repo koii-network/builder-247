@@ -6,7 +6,6 @@ from github import Github
 import re
 import os
 import requests
-import json
 
 app = Flask(__name__)
 
@@ -94,11 +93,11 @@ def run_todo_task(
 
             try:
                 response = requests.post(
-                    "https://builder247.koii.network/add-pr",
+                    os.environ.get("MIDDLE_SERVER_URL") + "/api/add-pr-to-to-do",
                     json={
                         "pr_url": pr_url,
                         "signature": signature,
-                        "publicKey": staking_key,
+                        "pubKey": staking_key,
                     },
                     headers={"Content-Type": "application/json"},
                 )
@@ -150,6 +149,9 @@ def start_task(roundNumber):
         return jsonify({"error": "Missing signature or staking key"}), 401
 
     todo = get_todo(signature, staking_key)
+
+    if not todo:
+        return jsonify({"error": "No todo found"}), 404
 
     # Start the task in background
     thread = Thread(
@@ -276,11 +278,12 @@ def verify_pr_ownership(
             return False
 
         response = requests.post(
-            "https://builder247.koii.network/check-todo",
+            os.environ.get("MIDDLE_SERVER_URL") + "/api/check-to-do",
             json={
                 "pr_url": pr_url,
                 "signature": signature,
-                "publicKey": staking_key,
+                "pubKey": staking_key,
+                "github_username": expected_username,
             },
             headers={"Content-Type": "application/json"},
         )
@@ -311,7 +314,7 @@ def get_todo(signature, staking_key):
     """
     try:
         response = requests.post(
-            "https://builder247.koii.network/fetch-to-do",
+            os.environ.get("MIDDLE_SERVER_URL") + "/api/fetch-to-do",
             json={
                 "signature": signature,
                 "pubKey": staking_key,
@@ -323,18 +326,13 @@ def get_todo(signature, staking_key):
         result = response.json()
 
         if result["success"]:
-            # The data field contains a JSON string that needs to be parsed
-            todo_data = json.loads(result["data"])
-            return todo_data
+            return result["data"]
         else:
             print(f"Failed to fetch todo: {result.get('message', 'Unknown error')}")
             return None
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching todo: {str(e)}")
-        return None
-    except json.JSONDecodeError as e:
-        print(f"Error parsing todo data: {str(e)}")
         return None
 
 
