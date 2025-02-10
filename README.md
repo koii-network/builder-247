@@ -2,6 +2,12 @@
 
 ## Developing locally
 
+Navigate to the correct directory:
+
+```sh
+cd builder/container
+```
+
 Set up a virtual environment and activate it:
 
 ```sh
@@ -13,12 +19,6 @@ Install dependencies:
 
 ```sh
 pip install -r requirements.txt
-```
-
-Install project in editable mode:
-
-```sh
-pip install -e .
 ```
 
 Run tests:
@@ -37,10 +37,16 @@ python3 builder/main.py
 
 ### Running the Flask Server
 
+Navigate to the correct directory:
+
+```sh
+cd builder/container
+```
+
 Build the image:
 
 ```sh
-docker build -t test-builder ./builder
+docker build -t test-builder .
 ```
 
 Run the container:
@@ -57,6 +63,12 @@ docker run -v $(pwd):/app test-builder
 
 ### Running Interactively (using the shell)
 
+Navigate to the correct directory:
+
+```sh
+cd builder/container
+```
+
 Change this line in the Dockerfile:
 
 ```sh
@@ -72,7 +84,7 @@ CMD ["/bin/bash"]
 Build the image:
 
 ```sh
-docker build -t test-builder ./builder
+docker build -t test-builder .
 ```
 
 Run the container with a mounted volume:
