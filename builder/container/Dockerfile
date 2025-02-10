@@ -20,7 +20,8 @@ RUN git config --global --add safe.directory /app
 # Copy the rest of your application code into the container
 COPY . .
 
-ENV MIDDLE_SERVER_URL=https://builder247.koii.network
+ENV MIDDLE_SERVER_URL=https://builder247.api.koii.network
+ENV PYTHONUNBUFFERED=1
 
 
 # Make port 8080 available to the world outside this container
@@ -28,4 +29,4 @@ EXPOSE 8080
 
 
 # Set the command to run your application (modify as needed)
-CMD ["python", "main.py"]
+CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8080", "main:app"]
