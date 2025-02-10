@@ -11,6 +11,8 @@ app = Flask(__name__)
 
 DATABASE = "database.db"
 
+print("MIDDLE SERVER URL: ", os.environ.get("MIDDLE_SERVER_URL"))
+
 
 def get_db():
     if "db" not in g:
@@ -142,13 +144,14 @@ def health_check():
 def start_task(roundNumber):
     print(f"Task started for round: {roundNumber}")
     data = request.get_json()
-    signature = data.get("signature")
+    fetch_signature = data.get("fetchSignature")
+    add_signature = data.get("addSignature")
     staking_key = data.get("stakingKey")
 
-    if not signature or not staking_key:
+    if not fetch_signature or not add_signature or not staking_key:
         return jsonify({"error": "Missing signature or staking key"}), 401
 
-    todo = get_todo(signature, staking_key)
+    todo = get_todo(fetch_signature, staking_key)
 
     if not todo:
         return jsonify({"error": "No todo found"}), 404
@@ -162,7 +165,7 @@ def start_task(roundNumber):
             todo.get("acceptance_criteria"),
             todo.get("repo_owner"),
             todo.get("repo_name"),
-            signature,
+            add_signature,
             staking_key,
         ),
     )

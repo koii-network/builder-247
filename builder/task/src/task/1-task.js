@@ -14,13 +14,19 @@ export async function task(roundNumber) {
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     const stakingKey = stakingKeypair.publicKey.toBase58();
 
-    const signature = await namespaceWrapper.payloadSigning(
+    const fetchSignature = await namespaceWrapper.payloadSigning(
       {
         taskId: TASK_ID,
         roundNumber: roundNumber,
+        action: "fetch",
       },
       stakingKeypair.secretKey,
     );
+    const addSignature = await namespaceWrapper.payloadSigning({
+      taskId: TASK_ID,
+      roundNumber: roundNumber,
+      action: "add",
+    });
 
     await orcaClient.podCall(`task/${roundNumber}`, {
       method: "POST",
@@ -28,7 +34,8 @@ export async function task(roundNumber) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        signature,
+        fetchSignature,
+        addSignature,
         stakingKey,
       }),
     });
