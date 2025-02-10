@@ -61,7 +61,13 @@ def close_db():
 
 
 def run_todo_task(
-    round_number, todo, acceptance_criteria, repo_owner, repo_name, signature, publickey
+    round_number,
+    todo,
+    acceptance_criteria,
+    repo_owner,
+    repo_name,
+    signature,
+    staking_key,
 ):
     with app.app_context():
         try:
@@ -87,11 +93,11 @@ def run_todo_task(
 
             try:
                 response = requests.post(
-                    "https://ai-builder.koii.network/add-pr",
+                    "https://builder247.koii.network/add-pr",
                     json={
                         "pr_url": pr_url,
                         "signature": signature,
-                        "publickey": publickey,
+                        "publicKey": staking_key,
                     },
                     headers={"Content-Type": "application/json"},
                 )
@@ -141,7 +147,7 @@ def start_task(roundNumber):
     repo_owner = data.get("repo_owner")
     repo_name = data.get("repo_name")
     signature = data.get("signature")
-    publickey = data.get("publickey")
+    staking_key = data.get("stakingKey")
 
     if not repo_owner or not repo_name:
         return jsonify({"error": "Missing repo_owner or repo_name"}), 400
@@ -156,7 +162,7 @@ def start_task(roundNumber):
             repo_owner,
             repo_name,
             signature,
-            publickey,
+            staking_key,
         ),
     )
     thread.daemon = True
@@ -200,7 +206,7 @@ def audit_submission():
     data = request.get_json()
     round_number = data.get("roundNumber")
     signature = data.get("signature")
-    publickey = data.get("publickey")
+    staking_key = data.get("stakingKey")
     if not round_number:
         return jsonify({"error": "Missing roundNumber"}), 400
 
@@ -226,7 +232,7 @@ def audit_submission():
         result["repo_owner"],
         result["repo_name"],
         signature,
-        publickey,
+        staking_key,
     )
     return jsonify(is_valid)
 
@@ -237,7 +243,7 @@ def verify_pr_ownership(
     expected_owner: str,
     expected_repo: str,
     signature: str,
-    publickey: str,
+    staking_key: str,
 ) -> bool:
     """
     Verify that a PR was created by the expected user on the expected repository.
@@ -268,11 +274,11 @@ def verify_pr_ownership(
             return False
 
         response = requests.post(
-            "https://ai-builder.koii.network/check-todo",
+            "https://builder247.koii.network/check-todo",
             json={
                 "pr_url": pr_url,
                 "signature": signature,
-                "publickey": publickey,
+                "publicKey": staking_key,
             },
             headers={"Content-Type": "application/json"},
         )
