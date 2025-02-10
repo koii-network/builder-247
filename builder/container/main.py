@@ -143,25 +143,23 @@ def health_check():
 def start_task(roundNumber):
     print(f"Task started for round: {roundNumber}")
     data = request.get_json()
-    todo = data.get("todo")
-    acceptance_criteria = data.get("acceptance_criteria", "")
-    repo_owner = data.get("repo_owner")
-    repo_name = data.get("repo_name")
     signature = data.get("signature")
     staking_key = data.get("stakingKey")
 
-    if not repo_owner or not repo_name:
-        return jsonify({"error": "Missing repo_owner or repo_name"}), 400
+    if not signature or not staking_key:
+        return jsonify({"error": "Missing signature or staking key"}), 401
+
+    todo = get_todo(signature, staking_key)
 
     # Start the task in background
     thread = Thread(
         target=run_todo_task,
         args=(
             int(roundNumber),
-            todo,
-            acceptance_criteria,
-            repo_owner,
-            repo_name,
+            todo.get("title"),
+            todo.get("acceptance_criteria"),
+            todo.get("repo_owner"),
+            todo.get("repo_name"),
             signature,
             staking_key,
         ),
@@ -210,6 +208,9 @@ def audit_submission():
     staking_key = data.get("stakingKey")
     if not round_number:
         return jsonify({"error": "Missing roundNumber"}), 400
+
+    if not signature or not staking_key:
+        return jsonify({"error": "Missing signature or staking key"}), 401
 
     db = get_db()
     cursor = db.cursor()
