@@ -6,6 +6,9 @@ import http from "http";
 export const app = express();
 const port = 3000;
 
+// Add body-parser middleware
+app.use(express.json());
+
 app.get("/", (req: express.Request, res: express.Response) => {
   res.send("Hello World!");
 });
