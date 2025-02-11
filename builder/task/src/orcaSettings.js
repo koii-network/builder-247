@@ -7,9 +7,9 @@ Do not change containers > name. You must specify your container image here.
 
 */
 
-import { TASK_ID } from '@_koii/namespace-wrapper';
+import { TASK_ID } from "@_koii/namespace-wrapper";
 const podId = TASK_ID;
-import 'dotenv/config';
+import "dotenv/config";
 
 const podSpec = `apiVersion: v1
 kind: Pod
@@ -18,7 +18,7 @@ metadata:
 spec:
   containers:
     - name: user-${podId}
-      image: docker.io/labrocadabro/orca:builder247
+      image: docker.io/labrocadabro/builder247:0.1
   env:
     - name: GITHUB_TOKEN
       value: "${process.env.GITHUB_TOKEN}"
@@ -32,7 +32,7 @@ spec:
 
 export const config = {
   // location of your docker image
-  imageURL: 'docker.io/labrocadabro/orca:builder247',
+  imageURL: "docker.io/labrocadabro/builder247:0.1",
   // if you are using a podSpec, edit it in podSpec.js
   customPodSpec: podSpec,
   // SSL
