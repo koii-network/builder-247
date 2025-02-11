@@ -102,10 +102,19 @@ requirementsTags:
     value: "5 GB"
   - type: STORAGE
     value: "5 GB"
+  - type: TASK_VARIABLE
+    value: "CLAUDE_API_KEY"
+    description: "Your Anthropic API key. You can get one here: https://console.anthropic.com/settings/keys"
+  - type: TASK_VARIABLE
+    value: "GITHUB_USERNAME"
+    description: "Your GitHub username. You can sign up for an account here: https://github.com/join"
+  - type: TASK_VARIABLE
+    value: "GITHUB_TOKEN"
+    description: "Your GitHub Personal Access Token. You can create one here: https://github.com/settings/tokens"
 
 ## Tags ##
 # See https://www.koii.network/docs/develop/command-line-tool/create-task-cli/create-task#tags for available tag options.
-tags: ["Witness"]
+tags: ["AI"]
 
 # Environment ##
 # TEST or PRODUCTION
