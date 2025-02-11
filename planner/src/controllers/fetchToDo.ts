@@ -45,7 +45,6 @@ async function checkAssignedInfoExists(stakingKey: string, roundNumber: number):
     })
       .select("_id")
       .lean();
-    console.log("findone result", result);
     return result !== null;
   } catch (error) {
     console.error("Error checking assigned info:", error);
@@ -92,6 +91,10 @@ export const fetchTodo = async (req: Request, res: Response) => {
     const todos = await TodoModel.find({
       status: TodoStatus.INITIALIZED,
       $expr: { $lt: [{ $size: "$assignedTo" }, 2] },
+      $nor: [
+        { "assignedTo.stakingKey": requestBody.pubKey },
+        { "assignedTo.githubUsername": requestBody.github_username },
+      ],
     }).sort({ createdAt: 1 });
 
     if (todos.length === 0) {
@@ -102,10 +105,15 @@ export const fetchTodo = async (req: Request, res: Response) => {
       return;
     }
     console.log("todos listed", todos);
+
     const updatedTodo = await TodoModel.findOneAndUpdate(
       {
         _id: todos[0]?._id,
         $expr: { $lt: [{ $size: "$assignedTo" }, 2] },
+        $nor: [
+          { "assignedTo.stakingKey": requestBody.pubKey },
+          { "assignedTo.githubUsername": requestBody.github_username },
+        ],
       },
       {
         $push: {
