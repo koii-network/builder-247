@@ -27,6 +27,7 @@ async function importTodos() {
       acceptanceCriteria: String,
       repoOwner: String,
       repoName: String,
+      status: String,
       assignedTo: Array,
     },
     { timestamps: true },
@@ -62,6 +63,7 @@ async function importTodos() {
         repoOwner: REPO_OWNER,
         repoName: REPO_NAME,
         assignedTo: [],
+        status: "initialized",
       });
       console.log(`Imported todo: ${record.title}`);
     }
