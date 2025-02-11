@@ -21,6 +21,8 @@ RUN git config --global --add safe.directory /app
 COPY . .
 
 ENV MIDDLE_SERVER_URL=https://builder247.api.koii.network
+
+# Force Flask to not buffer logs
 ENV PYTHONUNBUFFERED=1
 
 
@@ -28,7 +30,7 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 
 
-# Set the command to run your application (modify as needed)
+# Set the command to run your application
 CMD gunicorn \
     --log-level=info \
     --access-logfile=- \

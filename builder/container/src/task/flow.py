@@ -51,13 +51,11 @@ def handle_tool_response(
 
 
 def todo_to_pr(
-    repo_owner="HermanKoii",
-    repo_name="dummyExpress",
+    repo_owner,
+    repo_name,
+    todo,
+    acceptance_criteria,
     repo_path="./example_repo",
-    todo="Add a /grassprice API to fetch https://api.coingecko.com/api/v3/simple/price?ids=<coin_name>"
-    "&vs_currencies=usd",
-    acceptance_criteria="Please make sure the tests, controllers, routes, are under different folders. Please make "
-    "sure the tests pass. Please make sure the code is modular and readable.",
 ):
     """
     Task flow
@@ -90,7 +88,7 @@ def todo_to_pr(
         print("Use Files: ", files)
         files_directory = PROMPTS["files"].format(files=", ".join(map(str, files)))
         execute_todo_response = client.send_message(
-            f"{todo} {PROMPTS['generic_acceptance_criteria']} {acceptance_criteria} {files_directory}"
+            f"{todo}. Your solution must meet the following criteria: {acceptance_criteria}{files_directory}"
         )
         time.sleep(10)
         handle_tool_response(client, execute_todo_response)
