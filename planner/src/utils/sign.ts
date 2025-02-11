@@ -21,8 +21,6 @@ export async function verifySignature(
   signedMessage: string,
   pubKey: string,
 ): Promise<{ data?: string; error?: string }> {
-  console.log("signedMessage", signedMessage);
-  console.log("pubKey", pubKey);
   try {
     const payload = nacl.sign.open(await bs58Decode(signedMessage), await bs58Decode(pubKey));
     if (!payload) return { error: "Invalid signature" };
