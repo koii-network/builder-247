@@ -19,13 +19,13 @@ spec:
   containers:
     - name: user-${podId}
       image: docker.io/labrocadabro/builder247:0.1
-  env:
-    - name: GITHUB_TOKEN
-      value: "${process.env.GITHUB_TOKEN}"
-    - name: GITHUB_USERNAME
-      value: "${process.env.GITHUB_USERNAME}"
-    - name: CLAUDE_API_KEY
-      value: "${process.env.CLAUDE_API_KEY}"
+      env:
+      - name: GITHUB_TOKEN
+        value: "${process.env.GITHUB_TOKEN}"
+      - name: GITHUB_USERNAME
+        value: "${process.env.GITHUB_USERNAME}"
+      - name: CLAUDE_API_KEY
+        value: "${process.env.CLAUDE_API_KEY}"
 `;
 
 // const podSpec = null;
