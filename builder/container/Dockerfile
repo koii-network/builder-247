@@ -34,7 +34,7 @@ CMD gunicorn \
     --access-logfile=- \
     --error-logfile=- \
     --capture-output \
-    --access-logformat='%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(L)s' \
+    --access-logformat='[REQ] %(r)s %(s)s %(L)sms' \
     --logger-class=gunicorn.glogging.Logger \
     -w 2 \
     -b 0.0.0.0:8080 \
