@@ -22,11 +22,14 @@ export async function task(roundNumber) {
       },
       stakingKeypair.secretKey,
     );
-    const addSignature = await namespaceWrapper.payloadSigning({
-      taskId: TASK_ID,
-      roundNumber: roundNumber,
-      action: "add",
-    });
+    const addSignature = await namespaceWrapper.payloadSigning(
+      {
+        taskId: TASK_ID,
+        roundNumber: roundNumber,
+        action: "add",
+      },
+      stakingKeypair.secretKey,
+    );
 
     await orcaClient.podCall(`task/${roundNumber}`, {
       method: "POST",
