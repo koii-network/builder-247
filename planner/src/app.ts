@@ -21,10 +21,29 @@ morgan.token("status-colored", (req, res) => {
   return `\x1b[${color}m${status}\x1b[0m`;
 });
 
-// Add morgan logging middleware with custom format
+// Add this middleware before morgan to capture response body
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (body) {
+    res.locals.responseBody = body;
+    return originalJson.call(this, body);
+  };
+  next();
+});
+
+// Add custom token for error message
+morgan.token("error-message", (req, res) => {
+  const expressRes = res as express.Response;
+  if (expressRes.statusCode >= 400) {
+    return expressRes.locals.responseBody?.message || "";
+  }
+  return "";
+});
+
+// Modified morgan configuration
 app.use(
-  morgan(":method :url :status-colored - :response-time ms", {
-    skip: (req) => req.url === "/healthz", // Skip logging health check endpoints
+  morgan(":method :url :status-colored :error-message - :response-time ms", {
+    skip: (req) => req.url === "/healthz",
   }),
 );
 
