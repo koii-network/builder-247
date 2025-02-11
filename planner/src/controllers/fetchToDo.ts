@@ -25,14 +25,21 @@ async function verifySignatureData(signature: string, pubKey: string): Promise<{
   try {
     const { data, error } = await verifySignature(signature, pubKey);
     if (error || !data) {
+      console.log("bad signature");
       return null;
     }
     const body = JSON.parse(data);
+    if (!body.taskId) console.log("no taskId");
+    if (!body.roundNumber) console.log("no roundNumber");
+    if (!body.action) console.log("no action");
+    if (body.action !== "fetch") console.log("action is not fetch:", body.action);
+    if (body.taskId !== taskID) console.log("taskId is not correct:", body.taskId, taskID);
     if (!body.taskId || !body.roundNumber || body.taskId !== taskID || body.action !== "fetch") {
       return null;
     }
     return { roundNumber: body.roundNumber };
-  } catch {
+  } catch (error) {
+    console.log("unexpected signature error", error);
     return null;
   }
 }
