@@ -24,16 +24,11 @@ function verifyRequestBody(req: Request): { signature: string; pubKey: string; g
 async function verifySignatureData(signature: string, pubKey: string): Promise<{ roundNumber: number } | null> {
   try {
     const { data, error } = await verifySignature(signature, pubKey);
-    console.log("Decoded Data:", data);
-    console.log("Decoded Error:", error);
     if (error || !data) {
       return null;
     }
     const body = JSON.parse(data);
-    console.log("Decoded JSON Body:", body);
-    console.log(body.taskId, taskID);
-    console.log(body.roundNumber);
-    if (!body.taskId || !body.roundNumber || body.taskId !== taskID) {
+    if (!body.taskId || !body.roundNumber || body.taskId !== taskID || body.action !== "fetch") {
       return null;
     }
     return { roundNumber: body.roundNumber };
