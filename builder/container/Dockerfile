@@ -31,13 +31,13 @@ EXPOSE 8080
 
 
 # Set the command to run your application
-CMD gunicorn \
-    --log-level=info \
-    --access-logfile=- \
-    --error-logfile=- \
-    --capture-output \
-    --access-logformat='[REQ] %(r)s %(s)s %(L)sms' \
-    --logger-class=gunicorn.glogging.Logger \
-    -w 2 \
-    -b 0.0.0.0:8080 \
-    main:app
+CMD ["gunicorn", \
+    "--log-level=info", \
+    "--access-logfile=-", \
+    "--error-logfile=-", \
+    "--capture-output", \
+    "--access-logformat=[REQ] %(r)s %(s)s %(L)sms", \
+    "--logger-class=gunicorn.glogging.Logger", \
+    "-w", "2", \
+    "-b", "0.0.0.0:8080", \
+    "main:app"]
