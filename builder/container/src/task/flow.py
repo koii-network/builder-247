@@ -121,7 +121,7 @@ def todo_to_pr(
                 todo=todo,
                 repo_full_name=f"{repo_owner}/{repo_name}",
                 head=f"{github_username}:{branch_name}",
-                base="master",
+                base="main",
             ),
             tool_choice={"type": "any"},
         )

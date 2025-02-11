@@ -170,7 +170,7 @@ def test_get_current_branch(setup_environment, test_repo):
     # 3. Execute tool and send result back in the same conversation
     result = client.execute_tool(tool_use)
     assert result["success"]
-    assert result["output"] in ["main", "master"]  # Git may use either as default
+    assert result["output"] in ["main", "main"]  # Git may use either as default
     response = client.send_message(
         tool_response=f"Current branch is {result['output']}",
         tool_use_id=tool_use.id,
@@ -182,7 +182,7 @@ def test_get_current_branch(setup_environment, test_repo):
     assert all(block.type == "text" for block in response.content)
     final_text = response.content[0].text.lower()
     assert "branch" in final_text
-    assert any(name in final_text for name in ["main", "master"])
+    assert any(name in final_text for name in ["main", "main"])
 
 
 def test_create_branch(setup_environment, test_repo):
@@ -232,9 +232,9 @@ def test_checkout_branch(setup_environment, test_repo):
     feature_branch = test_repo.create_head("feature")
     feature_branch.checkout()
 
-    # Switch back to master branch
-    master = test_repo.heads["master"]
-    master.checkout()
+    # Switch back to main branch
+    main = test_repo.heads["main"]
+    main.checkout()
 
     # 1. Initial prompt to Claude
     prompt = f"Can you switch to the 'feature' branch in the repository at {test_repo.working_dir}?"
@@ -330,7 +330,7 @@ def test_list_branches(setup_environment, test_repo):
     assert result["success"]
     assert "feature" in result["output"]
     assert "develop" in result["output"]
-    assert any(branch in result["output"] for branch in ["main", "master"])
+    assert any(branch in result["output"] for branch in ["master", "main"])
 
     # 4. Verify Claude's response
     response = client.send_message(

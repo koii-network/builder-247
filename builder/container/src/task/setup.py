@@ -22,7 +22,7 @@ def setup_repository(repo_owner, repo_name, repo_path):
                 raise Exception(f"Failed to create fork: {fork_result['error']}")
 
         # Sync it
-        sync_result = sync_fork(repo_path, "master")
+        sync_result = sync_fork(repo_path, "main")
         print("Sync result: ", sync_result)
         if not sync_result["success"]:
             raise Exception(f"Failed to sync fork: {sync_result['error']}")

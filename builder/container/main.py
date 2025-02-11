@@ -6,12 +6,25 @@ from github import Github
 import re
 import os
 import requests
+import sys
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="\033[36m%(asctime)s.%(msecs)03d\033[0m [\033[33m%(levelname)s\033[0m] %(message)s",
+    datefmt="%H:%M:%S",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+# Force Flask to not buffer logs
+app.config["PYTHONUNBUFFERED"] = True
 
 DATABASE = "database.db"
 
-print("MIDDLE SERVER URL: ", os.environ.get("MIDDLE_SERVER_URL"))
+logger.info("MIDDLE SERVER URL: %s", os.environ.get("MIDDLE_SERVER_URL"))
 
 
 def get_db():
@@ -105,7 +118,7 @@ def run_todo_task(
                 )
                 response.raise_for_status()
             except requests.exceptions.RequestException as e:
-                print(f"Error submitting PR: {str(e)}")
+                logger.error(f"Error submitting PR: {str(e)}")
 
             username = os.environ.get("GITHUB_USERNAME")
 
@@ -119,7 +132,7 @@ def run_todo_task(
             )
             db.commit()
         except Exception as e:
-            print(f"Background task failed: {str(e)}")
+            logger.error(f"Background task failed: {str(e)}")
             if "cursor" in locals():
                 cursor.execute(
                     "UPDATE submissions SET status = ? WHERE roundNumber = ?",
@@ -142,7 +155,7 @@ def health_check():
 
 @app.post("/task/<roundNumber>")
 def start_task(roundNumber):
-    print(f"Task started for round: {roundNumber}")
+    logger.info(f"Task started for round: {roundNumber}")
     data = request.get_json()
     fetch_signature = data.get("fetchSignature")
     add_signature = data.get("addSignature")
@@ -177,7 +190,7 @@ def start_task(roundNumber):
 
 @app.get("/submission/<roundNumber>")
 def fetch_submission(roundNumber):
-    print(f"Fetching submission for round: {roundNumber}")
+    logger.info(f"Fetching submission for round: {roundNumber}")
     db = get_db()
     cursor = db.cursor()
     query = cursor.execute(
@@ -206,7 +219,7 @@ def fetch_submission(roundNumber):
 
 @app.post("/audit")
 def audit_submission():
-    print("Auditing submission")
+    logger.info("Auditing submission")
     data = request.get_json()
     round_number = data.get("roundNumber")
     signature = data.get("signature")
@@ -260,13 +273,13 @@ def verify_pr_ownership(
 
         match = re.match(r"https://github.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
         if not match:
-            print(f"Invalid PR URL format: {pr_url}")
+            logger.warning(f"Invalid PR URL format: {pr_url}")
             return False
 
         owner, repo_name, pr_number = match.groups()
 
         if owner != expected_owner or repo_name != expected_repo:
-            print(
+            logger.warning(
                 f"Repository mismatch. Expected: {expected_owner}/{expected_repo}, Got: {owner}/{repo_name}"
             )
             return False
@@ -275,7 +288,7 @@ def verify_pr_ownership(
         pr = repo.get_pull(int(pr_number))
 
         if pr.user.login != expected_username:
-            print(
+            logger.warning(
                 f"Username mismatch. Expected: {expected_username}, Got: {pr.user.login}"
             )
             return False
@@ -295,11 +308,11 @@ def verify_pr_ownership(
         if result["is_valid"]:
             return True
         else:
-            print(f"PR is not valid: {result['reason']}")
+            logger.warning(f"PR is not valid: {result['reason']}")
             return False
 
     except Exception as e:
-        print(f"Error verifying PR ownership: {str(e)}")
+        logger.error(f"Error verifying PR ownership: {str(e)}")
         return False
 
 
@@ -316,6 +329,7 @@ def get_todo(signature, staking_key):
         None: If the request fails
     """
     try:
+        logger.info("Fetching todo")
         response = requests.post(
             os.environ.get("MIDDLE_SERVER_URL") + "/api/fetch-to-do",
             json={
@@ -327,15 +341,18 @@ def get_todo(signature, staking_key):
         )
         response.raise_for_status()
         result = response.json()
+        logger.info(f"Fetch todo response: {result}")
 
         if result["success"]:
             return result["data"]
         else:
-            print(f"Failed to fetch todo: {result.get('message', 'Unknown error')}")
+            logger.error(
+                f"Failed to fetch todo: {result.get('message', 'Unknown error')}"
+            )
             return None
 
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching todo: {str(e)}")
+        logger.error(f"Error fetching todo: {str(e)}")
         return None
 
 
