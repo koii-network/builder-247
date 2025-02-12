@@ -7,7 +7,6 @@ import { isValidStakingKey } from "../utils/taskState";
 // Helper function to verify request body
 function verifyRequestBody(req: Request): { signature: string; pubKey: string; github_username: string } | null {
   try {
-    console.log("Body:", req.body);
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
     const github_username = req.body.github_username as string;
@@ -44,18 +43,27 @@ async function verifySignatureData(signature: string, pubKey: string): Promise<{
   }
 }
 
-async function checkAssignedInfoExists(stakingKey: string, roundNumber: number): Promise<boolean> {
+async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
   try {
     const result = await TodoModel.findOne({
       "assignedTo.stakingKey": stakingKey,
       "assignedTo.roundNumber": roundNumber,
     })
-      .select("_id")
+      .select("assignedTo title acceptanceCriteria repoOwner repoName")
       .lean();
-    return result !== null;
+
+    if (!result) return null;
+
+    // Find the specific assignment entry
+    const assignment = result.assignedTo.find((a) => a.stakingKey === stakingKey && a.roundNumber === roundNumber);
+
+    return {
+      todo: result,
+      hasPR: assignment?.prUrl ? true : false,
+    };
   } catch (error) {
     console.error("Error checking assigned info:", error);
-    return false;
+    return null;
   }
 }
 
@@ -86,12 +94,27 @@ export const fetchTodo = async (req: Request, res: Response) => {
     return;
   }
   console.log();
-  if (await checkAssignedInfoExists(requestBody.pubKey, signatureData.roundNumber)) {
-    res.status(401).json({
-      success: false,
-      message: "Assigned info already exists for this round",
-    });
-    return;
+  const existingAssignment = await checkExistingAssignment(requestBody.pubKey, signatureData.roundNumber);
+
+  if (existingAssignment) {
+    if (existingAssignment.hasPR) {
+      res.status(401).json({
+        success: false,
+        message: "Task already completed",
+      });
+      return;
+    } else {
+      res.status(200).json({
+        success: true,
+        data: {
+          title: existingAssignment.todo.title,
+          acceptance_criteria: existingAssignment.todo.acceptanceCriteria,
+          repo_owner: existingAssignment.todo.repoOwner,
+          repo_name: existingAssignment.todo.repoName,
+        },
+      });
+      return;
+    }
   }
 
   try {
@@ -116,7 +139,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
     const updatedTodo = await TodoModel.findOneAndUpdate(
       {
         _id: todos[0]?._id,
-        $expr: { $lt: [{ $size: "$assignedTo" }, 2] },
+        $expr: { $lt: [{ $size: "$assignedTo" }, 5] },
         $nor: [
           { "assignedTo.stakingKey": requestBody.pubKey },
           { "assignedTo.githubUsername": requestBody.github_username },
