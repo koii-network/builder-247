@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from src.server.services import database
 from src.server.services.github_service import verify_pr_ownership
+import json
 
 bp = Blueprint("audit", __name__, url_prefix="/audit")
 
@@ -11,12 +12,19 @@ def audit_submission():
     logger.info("Auditing submission")
 
     data = request.get_json()
-    round_number = data.get("roundNumber")
+    submission = data.get("submission")
     signature = data.get("signature")
     staking_key = data.get("stakingKey")
 
+    if not submission:
+        return jsonify({"error": "Missing submission"}), 400
+
+    submission_json = json.loads(submission)
+
+    round_number = submission_json.get("roundNumber")
+
     if not round_number:
-        return jsonify({"error": "Missing roundNumber"}), 400
+        return jsonify({"error": "Missing round number"}), 400
 
     if not signature or not staking_key:
         return jsonify({"error": "Missing signature or staking key"}), 401
