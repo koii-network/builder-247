@@ -1,12 +1,12 @@
 """Module for Git operations."""
 
 import os
-import subprocess
 import shutil
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from git import Repo
-from src.tools.execute_command import execute_command
+
+import time
 
 
 def _get_repo(repo_path: str) -> Repo:
@@ -113,10 +113,18 @@ def clone_repository(
         return {"success": False, "error": str(e)}
 
 
-def create_branch(branch_name: str) -> dict:
-    """Create branch in current working directory"""
+def create_branch(branch_base: str) -> dict:
+    """Create branch with automatic timestamp suffix"""
     try:
-        repo = Repo(os.getcwd())  # Now uses the flow-managed directory
+        # Validate base name
+        if not branch_base:
+            return {"success": False, "error": "Missing branch base name"}
+
+        # Generate branch name
+        timestamp = int(time.time())
+        branch_name = f"{branch_base}-{timestamp}"
+
+        repo = Repo(os.getcwd())
         print(f"Creating branch '{branch_name}' in {repo.working_dir}")
 
         # Create and checkout branch
@@ -129,7 +137,11 @@ def create_branch(branch_name: str) -> dict:
         # Configure upstream tracking
         repo.git.push("--set-upstream", "origin", branch_name)
 
-        return {"success": True}
+        return {
+            "success": True,
+            "branch_name": branch_name,
+            "message": f"Created branch {branch_name}",
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -235,13 +247,13 @@ def push_remote(remote_name: str = "origin", branch: str = None) -> Dict[str, An
         try:
             repo.git.push(remote_name, branch)
             return {"success": True}
-        except Exception as e:
+        except Exception:
             # If failed, pull and try again
             repo.git.pull(remote_name, branch)
             repo.git.push(remote_name, branch)
             return {"success": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except Exception:
+        return {"success": False, "error": "Failed to push changes"}
 
 
 def can_access_repository(repo_url: str) -> bool:
@@ -253,7 +265,7 @@ def can_access_repository(repo_url: str) -> bool:
             if any(repo_url in url for url in remote.urls):
                 return True
         return False
-    except Exception as e:
+    except Exception:
         return False
 
 

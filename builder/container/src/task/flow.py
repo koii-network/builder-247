@@ -31,7 +31,7 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
     Handle tool responses recursively until natural completion.
     """
     print("Start Conversation")
-    final_output = None
+    tool_result = None  # Track the final tool execution result
 
     while response.stop_reason == "tool_use":
         # Process all tool uses in the current response
@@ -42,6 +42,7 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
 
             # Execute the tool
             tool_output = client.execute_tool(tool_use)
+            tool_result = tool_output  # Store the final tool result
             print(f"Tool output: {tool_output}")
 
             # Send tool result back to AI
@@ -52,12 +53,8 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
                 tool_choice=tool_choice,
             )
 
-            # Store final output if we have a text response
-            if response.stop_reason != "tool_use":
-                final_output = response.content[0].text if response.content else ""
-
     print("End Conversation")
-    return final_output or "Task completed successfully"
+    return tool_result  # Return the final tool execution result
 
 
 def todo_to_pr(
@@ -114,19 +111,15 @@ def todo_to_pr(
                 f"{os.environ['GITHUB_USERNAME']}@users.noreply.github.com",
             )
 
-        # Create a feature branch
-        setup_repository_prompt = PROMPTS["setup_repository"].format(
-            repo_path=repo_path, todo=todo
+        # Create branch
+        branch_response = client.send_message(
+            PROMPTS["setup_repository"].format(todo=todo),
+            tool_choice={"type": "tool", "name": "create_branch"},
         )
-        print("Setup repository prompt: ", setup_repository_prompt)
-        createBranchResponse = client.send_message(setup_repository_prompt)
-        time.sleep(10)
-        print("Create branch response: ", createBranchResponse)
-        handle_tool_response(client, createBranchResponse)
+        handle_tool_response(client, branch_response)
         branch_info = get_current_branch()
-        print("Branch info: ", branch_info)
         branch_name = branch_info.get("output") if branch_info.get("success") else None
-        print("Using Branch: ", branch_name)
+
         # Get the list of files
         files = get_file_list(repo_path)
         print("Use Files: ", files)
@@ -138,18 +131,6 @@ def todo_to_pr(
         handle_tool_response(client, execute_todo_response)
 
         time.sleep(10)
-        commit_response = client.send_message(
-            PROMPTS["commit"].format(todo=todo),
-            tool_choice={"type": "tool", "name": "make_commit"},
-        )
-        handle_tool_response(client, commit_response)
-
-        # Single push operation
-        push_response = client.send_message(
-            PROMPTS["push"],
-            tool_choice={"type": "tool", "name": "push_remote"},
-        )
-        handle_tool_response(client, push_response)
 
         # Create PR
         pr_response = client.send_message(
@@ -166,10 +147,7 @@ def todo_to_pr(
         # Handle PR creation once
         pr_result = handle_tool_response(client, pr_response)
 
-        if pr_result.get("success"):
-            return pr_result.get("pr_url")
-        else:
-            return f"PR creation failed: {pr_result.get('error')}"
+        return pr_result.get("pr_url") or "PR creation completed successfully"
 
     except Exception as e:
         print(f"\n{' ERROR '.center(50, '=')}")

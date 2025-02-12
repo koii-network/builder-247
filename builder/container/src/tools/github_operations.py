@@ -2,14 +2,10 @@
 
 import os
 
-from pathlib import Path
 from typing import Dict, Any
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
-from .pr_template import validate_pr_description
 from src.tools.git_operations import (
-    clone_repository,
-    add_remote,
     fetch_remote,
     pull_remote,
     push_remote,
@@ -17,6 +13,7 @@ from src.tools.git_operations import (
 
 import time
 from git import Repo
+from src.task.constants import PR_TEMPLATE
 
 # Load environment variables from .env file
 load_dotenv()
@@ -38,53 +35,10 @@ def _get_github_client() -> Github:
     return Github(auth=Auth.Token(token))
 
 
-def _get_github_username() -> str:
-    """
-    Get the GitHub username from environment.
-
-    Returns:
-        str: GitHub username
-
-    Raises:
-        ValueError: If GITHUB_USERNAME is not set
-    """
-    username = os.environ.get("GITHUB_USERNAME")
-    if not username:
-        raise ValueError("Missing GITHUB_USERNAME")
-    return username
-
-
-def get_pr_template(repo_path: str) -> Dict[str, Any]:
-    """
-    Get the PR template content from the repository's .github directory.
-
-    Args:
-        repo_path (str): Path to the git repository
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - template (str): The template content if successful
-            - error (str): Error message if unsuccessful
-    """
-    try:
-        template_path = Path(repo_path) / ".github" / "pull_request_template.md"
-
-        if not template_path.exists():
-            return {"success": False, "error": "No PR template found"}
-
-        # Read and return the template content
-        content = template_path.read_text()
-        return {"success": True, "template": content}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
 def fork_repository(repo_full_name: str, repo_path: str) -> dict:
     """Forks a repository and configures proper remotes"""
     try:
         gh = _get_github_client()
-        username = _get_github_username()
 
         # Create fork using GitHub API
         print(f"Forking repository: {repo_full_name}")
@@ -97,7 +51,9 @@ def fork_repository(repo_full_name: str, repo_path: str) -> dict:
 
         # Clone the fork with authentication
         print(f"Cloning to {repo_path}")
-        authenticated_url = f"https://{os.environ['GITHUB_TOKEN']}@github.com/{fork.full_name}.git"
+        authenticated_url = (
+            f"https://{os.environ['GITHUB_TOKEN']}@github.com/{fork.full_name}.git"
+        )
         repo = Repo.clone_from(authenticated_url, repo_path)
 
         # Configure remotes
@@ -107,14 +63,14 @@ def fork_repository(repo_full_name: str, repo_path: str) -> dict:
 
         # Set push URL for origin to include token
         with repo.config_writer() as config:
-            config.set_value(f'remote "origin"', 'url', authenticated_url)
+            config.set_value('remote "origin"', "url", authenticated_url)
 
         # Add upstream remote
         repo.create_remote("upstream", original_repo.clone_url)
 
         # Set default push/pull behavior
         with repo.config_writer() as config:
-            config.set_value('push', 'default', 'current')
+            config.set_value("push", "default", "current")
 
         return {"success": True}
     except Exception as e:
@@ -124,31 +80,30 @@ def fork_repository(repo_full_name: str, repo_path: str) -> dict:
 def create_pull_request(
     repo_full_name: str,
     title: str,
-    body: str,
     head: str,
+    summary: str,
+    tests: str,
+    todo: str,
+    acceptance_criteria: str,
     base: str = "main",
-    validate_template: bool = True,
 ) -> Dict[str, Any]:
-    """
-    Create a pull request with proper fork handling.
-    """
+    """Create PR with formatted description"""
     try:
         gh = _get_github_client()
-        username = _get_github_username()
+        # Format tests into markdown bullets
+        tests_bullets = "\n".join([f"- {t.strip()}" for t in tests.split("\n")])
 
-        # Get original repository
-        original_repo = gh.get_repo(repo_full_name)
-
-        # Create PR against original repo from fork
-        pr = original_repo.create_pull(
+        body = PR_TEMPLATE.format(
+            todo=todo,
             title=title,
-            body=body,
-            head=f"{username}:{head}",  # Add username prefix for fork reference
-            base=base,
+            acceptance_criteria=acceptance_criteria,
+            summary=summary,
+            tests=tests_bullets,
         )
+
+        repo = gh.get_repo(repo_full_name)
+        pr = repo.create_pull(title=title, body=body, head=head, base=base)
         return {"success": True, "pr_url": pr.html_url}
-    except GithubException as e:
-        return {"success": False, "error": str(e)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

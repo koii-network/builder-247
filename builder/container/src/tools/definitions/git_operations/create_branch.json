@@ -1,12 +1,12 @@
 {
 	"name": "create_branch",
-	"description": "Create and checkout a new branch in the current repository",
+	"description": "Create a new branch with automatic timestamp suffix",
 	"input_schema": {
 		"type": "object",
 		"properties": {
-			"branch_name": {
+			"branch_base": {
 				"type": "string",
-				"description": "Name of the branch to create"
+				"description": "Base name for the branch (without timestamp)"
 			}
 		}
 	}
