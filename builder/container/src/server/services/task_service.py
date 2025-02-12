@@ -1,7 +1,7 @@
 import requests
 import os
 from threading import Thread
-from flask import jsonify
+from flask import jsonify, current_app
 from src.server.services.database import get_db, close_db
 from src.task.flow import todo_to_pr
 import logging
@@ -51,59 +51,61 @@ def get_todo(signature, staking_key):
 
 
 def run_todo_task(round_number, todo, signature, staking_key):
-    try:
-        db = get_db()
-        cursor = db.cursor()
-
-        cursor.execute(
-            """
-            INSERT OR REPLACE INTO submissions
-            (roundNumber, status, repo_owner, repo_name)
-            VALUES (?, ?, ?, ?)
-            """,
-            (round_number, "running", todo["repo_owner"], todo["repo_name"]),
-        )
-        db.commit()
-
-        pr_url = todo_to_pr(
-            todo=todo["title"],
-            acceptance_criteria=todo["acceptance_criteria"],
-            repo_owner=todo["repo_owner"],
-            repo_name=todo["repo_name"],
-        )
-
+    """Wrapper function for background task execution"""
+    with current_app.app_context():
         try:
-            response = requests.post(
-                os.environ.get("MIDDLE_SERVER_URL") + "/api/add-pr-to-to-do",
-                json={
-                    "pr_url": pr_url,
-                    "signature": signature,
-                    "pubKey": staking_key,
-                },
-                headers={"Content-Type": "application/json"},
-            )
-            response.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error submitting PR: {str(e)}")
+            db = get_db()
+            cursor = db.cursor()
 
-        username = os.environ.get("GITHUB_USERNAME")
-
-        cursor.execute(
-            """
-            UPDATE submissions
-            SET status = ?, pr_url = ?, username = ?
-            WHERE roundNumber = ?
-            """,
-            ("completed", pr_url, username, round_number),
-        )
-        db.commit()
-    except Exception as e:
-        logger.error(f"Background task failed: {str(e)}")
-        if "cursor" in locals():
             cursor.execute(
-                "UPDATE submissions SET status = ? WHERE roundNumber = ?",
-                ("failed", round_number),
+                """
+                INSERT OR REPLACE INTO submissions
+                (roundNumber, status, repo_owner, repo_name)
+                VALUES (?, ?, ?, ?)
+                """,
+                (round_number, "running", todo["repo_owner"], todo["repo_name"]),
             )
             db.commit()
-    finally:
-        close_db()
+
+            pr_url = todo_to_pr(
+                todo=todo["title"],
+                acceptance_criteria=todo["acceptance_criteria"],
+                repo_owner=todo["repo_owner"],
+                repo_name=todo["repo_name"],
+            )
+
+            try:
+                response = requests.post(
+                    os.environ.get("MIDDLE_SERVER_URL") + "/api/add-pr-to-to-do",
+                    json={
+                        "pr_url": pr_url,
+                        "signature": signature,
+                        "pubKey": staking_key,
+                    },
+                    headers={"Content-Type": "application/json"},
+                )
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Error submitting PR: {str(e)}")
+
+            username = os.environ.get("GITHUB_USERNAME")
+
+            cursor.execute(
+                """
+                UPDATE submissions
+                SET status = ?, pr_url = ?, username = ?
+                WHERE roundNumber = ?
+                """,
+                ("completed", pr_url, username, round_number),
+            )
+            db.commit()
+        except Exception as e:
+            logger.error(f"Background task failed: {str(e)}")
+            if "cursor" in locals():
+                cursor.execute(
+                    "UPDATE submissions SET status = ? WHERE roundNumber = ?",
+                    ("failed", round_number),
+                )
+                db.commit()
+        finally:
+            close_db()
