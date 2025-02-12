@@ -2,13 +2,15 @@ from flask import Blueprint, jsonify, request
 from src.server.services import database
 from src.server.services.github_service import verify_pr_ownership
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("audit", __name__, url_prefix="/audit")
 
 
 @bp.route("", methods=["POST"])
 def audit_submission():
-    logger = database.logger
     logger.info("Auditing submission")
 
     data = request.get_json()

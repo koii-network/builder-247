@@ -1,12 +1,14 @@
 from flask import Blueprint, jsonify
 from src.server.services import database
+import logging
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("submission", __name__, url_prefix="/submission")
 
 
 @bp.route("/<roundNumber>")
 def fetch_submission(roundNumber):
-    logger = database.logger
     logger.info(f"Fetching submission for round: {roundNumber}")
 
     db = database.get_db()
