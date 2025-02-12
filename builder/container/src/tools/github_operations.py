@@ -1,6 +1,7 @@
 """Module for GitHub operations."""
 
 import os
+import subprocess
 
 from pathlib import Path
 from typing import Dict, Any
@@ -16,6 +17,7 @@ from src.tools.git_operations import (
 )
 
 import time
+from git import Repo
 
 # Load environment variables from .env file
 load_dotenv()
@@ -79,77 +81,47 @@ def get_pr_template(repo_path: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def fork_repository(repo_full_name: str, local_path: str = None) -> Dict[str, Any]:
-    """
-    Fork a repository and clone it locally.
-
-    Args:
-        repo_full_name (str): Full name of the repository (e.g. "owner/repo")
-        local_path (str, optional): Directory where to clone the fork.
-                                  If None, uses current directory
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - fork_url (str): URL of the forked repository if successful
-            - fork_full_name (str): Full name of the fork if successful
-            - error (str): Error message if unsuccessful
-    """
+def fork_repository(repo_full_name: str, repo_path: str) -> dict:
+    """Forks a repository and clones it to the specified path."""
     try:
         gh = _get_github_client()
         username = _get_github_username()
 
-        print(f"Getting repository: {repo_full_name}")
+        # Create parent directories if they don't exist
+        os.makedirs(os.path.dirname(repo_path), exist_ok=True)
+
+        # Create fork using GitHub API
+        print(f"Forking repository: {repo_full_name}")
         repo = gh.get_repo(repo_full_name)
-        print(f"Creating fork of repository: {repo.full_name}")
         fork = gh.get_user().create_fork(repo)
         print(f"Fork created: {fork.full_name}")
-        print(f"Fork URL: {fork.clone_url}")
 
-        # Wait for GitHub to propagate the fork
-        print("Waiting for fork to be propagated...")
+        # Wait for fork propagation
+        print("Waiting for fork to be ready...")
         time.sleep(5)
 
         # Clone the fork
-        target_dir = local_path or os.path.basename(fork.name)
-        print(f"Cloning fork to {target_dir}")
+        print(f"Cloning to {repo_path}")
         clone_result = clone_repository(
             fork.clone_url,
-            target_dir,
+            repo_path,
             user_name=username,
             user_email=f"{username}@users.noreply.github.com",
         )
 
         if not clone_result["success"]:
-            print(f"Failed to clone repository: {clone_result['error']}")
-            return {
-                "success": False,
-                "error": f"Failed to clone repository: {clone_result['error']}",
-            }
+            return clone_result
 
-        # Add upstream remote
-        upstream_url = f"https://github.com/{repo_full_name}.git"
-        print(f"Adding upstream remote: {upstream_url}")
-        add_remote_result = add_remote(target_dir, "upstream", upstream_url)
-        if not add_remote_result["success"]:
-            print(f"Failed to add upstream remote: {add_remote_result['error']}")
-            return {
-                "success": False,
-                "error": f"Failed to add upstream remote: {add_remote_result['error']}",
-            }
+        # Add upstream remote directly using GitPython
+        print("Adding upstream remote")
+        repo = Repo(repo_path)
+        repo.create_remote("upstream", f"https://github.com/{repo_full_name}.git")
 
-        return {
-            "success": True,
-            "fork_url": fork.clone_url,
-            "fork_full_name": fork.full_name,
-            "repo_path": target_dir,
-        }
+        return {"success": True}
     except GithubException as e:
-        print(f"GitHub API error: {str(e)}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": f"GitHub API error: {str(e)}"}
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
-        return {"success": False, "error": f"Unexpected error: {str(e)}"}
+        return {"success": False, "error": str(e)}
 
 
 def create_pull_request(

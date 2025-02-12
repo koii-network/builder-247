@@ -1,45 +1,25 @@
 import subprocess
+import os
 
 
-def execute_command(command):
-    """
-    Execute an arbitrary command line command.
-
-    Parameters:
-    command (str): The command to execute.
-
-    Returns:
-    tuple: A tuple containing the output, error message, and return code.
-    """
+def execute_command(command: str) -> dict:
+    """Execute a shell command in the current working directory."""
     try:
-        # Execute the command
-        if not command.strip():  # Check if the command is empty or just whitespace
-            return (
-                "",
-                "command not found",
-                1,
-            )  # Return an error message and a non-zero return code
+        cwd = os.getcwd()
+        print(f"Executing command in {cwd}: {command}")
 
-        process = subprocess.Popen(
+        result = subprocess.run(
             command,
             shell=True,
+            cwd=cwd,
+            capture_output=True,
             text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
         )
-
-        try:
-            stdout, stderr = process.communicate(timeout=10)
-        except subprocess.TimeoutExpired:
-
-            process.kill()
-
-            stdout, stderr = process.communicate()
-
-            process.__exit__(None, None, None)
-            return stdout, "Command timed out after 10 seconds", -1
-
-        # Return the output, error, and return code
-        return stdout, stderr, process.returncode
+        return {
+            "success": True,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "returncode": result.returncode,
+        }
     except Exception as e:
-        return "", str(e), -1
+        return {"success": False, "error": str(e)}

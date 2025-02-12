@@ -31,7 +31,6 @@ def temp_tools_dir(tmp_path):
         "input_schema": {
             "type": "object",
             "properties": {"input": {"type": "string", "description": "Test input"}},
-            "required": ["input"],
         },
     }
 
@@ -67,7 +66,6 @@ def calculator_tool():
                 "x": {"type": "number", "description": "First number to add"},
                 "y": {"type": "number", "description": "Second number to add"},
             },
-            "required": ["x", "y"],
         },
     )
 
@@ -87,7 +85,6 @@ def string_tool():
             "properties": {
                 "text": {"type": "string", "description": "Text to reverse"},
             },
-            "required": ["text"],
         },
     )
 
@@ -155,7 +152,7 @@ def test_send_message_with_tool_no_tool_needed(setup_environment):
     response = client.send_message(
         "What is your name?",
     )
-    
+
     assert isinstance(response, Message)
     assert isinstance(response.content[0], TextBlock)
 

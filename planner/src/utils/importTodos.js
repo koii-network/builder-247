@@ -47,8 +47,8 @@ async function importTodos() {
 
   for await (const record of parser) {
     records.push({
-      title: record.title,
-      acceptanceCriteria: record.acceptanceCriteria,
+      title: record.todo,
+      acceptanceCriteria: record.acceptance_criteria,
     });
   }
 

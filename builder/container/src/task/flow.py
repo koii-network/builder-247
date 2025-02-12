@@ -1,12 +1,23 @@
 # Standard library imports
 import os
+import sys
 from datetime import datetime
 import time
+from pathlib import Path
+import csv
+import shutil
+import traceback
 
-# Third-party imports
+# Conditional path adjustment before any other imports
+if __name__ == "__main__":
+    # Calculate path to project root
+    project_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../../..")
+    )
+    sys.path.insert(0, project_root)
+
+# Regular imports (PEP 8 compliant)
 from anthropic.types import ToolUseBlock
-
-# Local application imports
 from src.get_file_list import get_file_list
 from src.tools.git_operations import get_current_branch
 from src.task.setup import setup_repository, setup_client
@@ -32,7 +43,7 @@ def handle_tool_response(
                 id=tool_use.id, name=tool_name, input=tool_input, type="tool_use"
             )
         )
-        print("tool_output for first 50 characters: " + str(tool_output)[:50])
+        print("tool_output: " + str(tool_output))
 
         # Ensure tool_output is a string
         if not isinstance(tool_output, str):
@@ -55,15 +66,23 @@ def todo_to_pr(
     repo_name,
     todo,
     acceptance_criteria,
-    repo_path="./example_repo",
+    repo_path=None,  # Make path parameter required
 ):
     """
     Task flow
     """
 
+    # Generate unique repo path for each task
+    safe_todo_name = "".join(c if c.isalnum() else "_" for c in todo)
+    repo_path = repo_path or f"./repos/{safe_todo_name[:50]}"
+
+    # Ensure clean working directory
+    if os.path.exists(repo_path):
+        shutil.rmtree(repo_path)
+
     # print("Using Directory:", os.getcwd())
     # print("Using path:", repo_path)
-    client = setup_client()
+    client = setup_client(repo_path)
     # print("Client: ", client)
     try:
         # Set up the repository
@@ -78,8 +97,7 @@ def todo_to_pr(
         time.sleep(10)
         print("Create branch response: ", createBranchResponse)
         handle_tool_response(client, createBranchResponse)
-        print("Create branch response: ", createBranchResponse)
-        branch_info = get_current_branch(repo_path)
+        branch_info = get_current_branch()
 
         branch_name = branch_info.get("output") if branch_info.get("success") else None
         print("Using Branch: ", branch_name)
@@ -136,12 +154,29 @@ def todo_to_pr(
             return pr_result.get("pr_url")
 
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"\n{' ERROR '.center(50, '=')}")
+        print(f"Error Type: {type(e).__name__}")
+        print(f"Error Message: {str(e)}")
+        print(f"Repo Path: {repo_path}")
+        traceback.print_exc()
+        print("=" * 50)
 
 
 if __name__ == "__main__":
-    # read from ./todo.csv, and each line you need to run todo_to_pr
-    with open("./todo.csv", "r") as f:
-        for line in f:
-            todo, acceptance_criteria = line.strip().split(",")
-            todo_to_pr(todo=todo, acceptance_criteria=acceptance_criteria)
+    todos_path = Path(__file__).parent / "data" / "todos.csv"
+
+    with open(todos_path, "r") as f:
+        reader = csv.reader(f)
+        next(reader)  # Skip header
+        for i, row in enumerate(reader):
+            if len(row) >= 2:
+                todo, acceptance_criteria = row[0], row[1]
+                todo_to_pr(
+                    todo=todo.strip(),
+                    repo_owner="koii-network",
+                    repo_name="builder-test",
+                    acceptance_criteria=acceptance_criteria.strip(),
+                    repo_path=f"./repo_{i}",  # Unique path per task
+                )
+            else:
+                print(f"Skipping invalid row: {row}")

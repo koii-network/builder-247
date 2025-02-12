@@ -1,6 +1,6 @@
 {
 	"name": "execute_command",
-	"description": "Execute an arbitrary command line command.",
+	"description": "Execute a shell command in the current working directory",
 	"input_schema": {
 		"type": "object",
 		"properties": {

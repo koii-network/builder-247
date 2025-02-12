@@ -177,3 +177,17 @@ def list_files(directory: str) -> list:
         for file in directory.rglob("*")
         if file.is_file()
     ]
+
+
+def create_file(file_path: str, content: str) -> dict:
+    """Create a new file with specified content."""
+    try:
+        # Use relative path from working directory
+        full_path = os.path.join(os.getcwd(), file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+        with open(full_path, "w") as f:
+            f.write(content)
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}

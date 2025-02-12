@@ -129,7 +129,6 @@ def send_test_data_to_claude(test_data: Dict[str, Any]) -> Dict[str, Any]:
                         "description": "The complete test output",
                     },
                 },
-                "required": ["test_name", "test_file", "error_message", "full_output"],
             },
         }
     ]
