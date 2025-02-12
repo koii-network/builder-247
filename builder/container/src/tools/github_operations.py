@@ -2,7 +2,7 @@
 
 import os
 
-# from pathlib import Path
+from pathlib import Path
 from typing import Dict, Any
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
@@ -53,30 +53,30 @@ def _get_github_username() -> str:
     return username
 
 
-# def get_pr_template(repo_path: str) -> Dict[str, Any]:
-#     """
-#     Get the PR template content from the repository's .github directory.
+def get_pr_template(repo_path: str) -> Dict[str, Any]:
+    """
+    Get the PR template content from the repository's .github directory.
 
-#     Args:
-#         repo_path (str): Path to the git repository
+    Args:
+        repo_path (str): Path to the git repository
 
-#     Returns:
-#         Dict[str, Any]: A dictionary containing:
-#             - success (bool): Whether the operation succeeded
-#             - template (str): The template content if successful
-#             - error (str): Error message if unsuccessful
-#     """
-#     try:
-#         template_path = Path(repo_path) / ".github" / "pull_request_template.md"
+    Returns:
+        Dict[str, Any]: A dictionary containing:
+            - success (bool): Whether the operation succeeded
+            - template (str): The template content if successful
+            - error (str): Error message if unsuccessful
+    """
+    try:
+        template_path = Path(repo_path) / ".github" / "pull_request_template.md"
 
-#         if not template_path.exists():
-#             return {"success": False, "error": "No PR template found"}
+        if not template_path.exists():
+            return {"success": False, "error": "No PR template found"}
 
-#         # Read and return the template content
-#         content = template_path.read_text()
-#         return {"success": True, "template": content}
-#     except Exception as e:
-#         return {"success": False, "error": str(e)}
+        # Read and return the template content
+        content = template_path.read_text()
+        return {"success": True, "template": content}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def fork_repository(repo_full_name: str, local_path: str = None) -> Dict[str, Any]:
