@@ -18,7 +18,7 @@ metadata:
 spec:
   containers:
     - name: user-${podId}
-      image: docker.io/labrocadabro/builder247:0.2
+      image: docker.io/labrocadabro/builder247:0.3
       env:
       - name: GITHUB_TOKEN
         value: "${process.env.GITHUB_TOKEN}"
@@ -32,7 +32,7 @@ spec:
 
 export const config = {
   // location of your docker image
-  imageURL: "docker.io/labrocadabro/builder247:0.2",
+  imageURL: "docker.io/labrocadabro/builder247:0.3",
   // if you are using a podSpec, edit it in podSpec.js
   customPodSpec: podSpec,
   // SSL
