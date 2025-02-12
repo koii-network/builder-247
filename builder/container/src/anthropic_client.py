@@ -84,14 +84,8 @@ def _format_message_for_api(message: MessageContent) -> Dict[str, Any]:
 
 class AnthropicClient:
     def __init__(
-        self,
-        api_key: str,
-        model: Optional[str] = None,
-        db_path: Optional[str] = None,
-        default_headers=None,
-        working_directory=None,
+        self, api_key: str, model: Optional[str] = None, db_path: Optional[str] = None
     ):
-        self.working_directory = working_directory or os.getcwd()
         self.client = self._create_client(api_key)
         self.model = model or "claude-3-5-haiku-latest"
         self.tools = []
@@ -385,12 +379,7 @@ class AnthropicClient:
             tool_choice=tool_config["tool_choice"],
         )
 
-    def execute_tool(self, tool_use):
-        original_dir = os.getcwd()
-        try:
-            os.chdir(self.working_directory)
-            tool_function = self.tool_functions[tool_use.name]
-            tool_result = tool_function(**tool_use.input)
-            return tool_result
-        finally:
-            os.chdir(original_dir)
+    def execute_tool(self, tool_call: ToolUseBlock) -> str:
+        tool_function = self.tool_functions[tool_call.name]
+        tool_result = tool_function(**tool_call.input)
+        return tool_result
