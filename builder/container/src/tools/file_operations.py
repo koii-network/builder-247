@@ -30,25 +30,17 @@ def read_file(file_path: str) -> Dict[str, Any]:
 
 
 def write_file(file_path: str, content: str) -> Dict[str, Any]:
-    """
-    Write content to a file.
-
-    Args:
-        file_path (str): Path to the file to write
-        content (str): Content to write to the file
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
-    """
+    """Write file with directory creation"""
     try:
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "w") as f:
+        full_path = Path(os.getcwd()) / file_path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(full_path, "w") as f:
             f.write(content)
+
         return {"success": True}
     except Exception as e:
-        return {"success": False, "error": f"Error writing file: {str(e)}"}
+        return {"success": False, "error": str(e)}
 
 
 def copy_file(source: str, destination: str) -> Dict[str, Any]:

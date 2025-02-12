@@ -13,3 +13,4 @@ task/orca/
 
 # Ignore auto-generated repository directories
 repo_*/
+repos/

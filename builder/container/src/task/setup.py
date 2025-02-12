@@ -2,64 +2,57 @@
 from dotenv import load_dotenv
 import os
 from src.anthropic_client import AnthropicClient
-from src.tools.github_operations import check_fork_exists, fork_repository, sync_fork
-import shutil
+from pathlib import Path
+from git import Repo
 
 
 def setup_repository(repo_owner, repo_name, repo_path):
-    """Check if the branch exists, sync or create the branch"""
-    # Convert to absolute path
+    """Configure repository with proper remotes without deleting directory"""
     repo_path = os.path.abspath(repo_path)
-    print(f"Using absolute repository path: {repo_path}")
+    print(f"Initializing repository at: {repo_path}")
 
-    # Ensure parent directory exists
-    os.makedirs(os.path.dirname(repo_path), exist_ok=True)
+    # Initialize repository
+    repo = Repo.init(repo_path)
 
-    # Check if the branch exists
-    print(f"Checking if fork exists at {repo_path}")
-    fork_check = check_fork_exists(repo_owner, repo_name)
+    # Configure remotes
+    origin_url = f"https://github.com/{repo_owner}/{repo_name}.git"
+    print(f"Setting origin remote to: {origin_url}")
+    repo.create_remote("origin", origin_url)
 
-    if fork_check["success"] and fork_check["exists"]:
-        print("Fork exists")
-        if not os.path.exists(repo_path):
-            print("Cloning repository...")
-            clone_result = fork_repository(f"{repo_owner}/{repo_name}", repo_path)
-            if not clone_result["success"]:
-                raise Exception(f"Cloning failed: {clone_result['error']}")
-        else:
-            print("Updating existing repository...")
-            sync_result = sync_fork(repo_path, "main")
-            if not sync_result["success"]:
-                raise Exception(f"Sync failed: {sync_result['error']}")
-    else:
-        print("Creating new fork")
-        if os.path.exists(repo_path):
-            shutil.rmtree(repo_path)
-        print(f"Forking to {repo_path}")
-        fork_result = fork_repository(f"{repo_owner}/{repo_name}", repo_path)
-        if not fork_result["success"]:
-            raise Exception(f"Forking failed: {fork_result['error']}")
-
-    # Verify repository exists
-    if not os.path.exists(repo_path):
-        raise Exception(f"Repository path not created: {repo_path}")
+    # Create initial commit if empty
+    if not repo.heads:
+        readme_path = os.path.join(repo_path, "README.md")
+        with open(readme_path, "w") as f:
+            f.write(f"# {repo_name}\n\nInitial repository setup")
+        repo.git.add(A=True)
+        repo.git.commit(m="Initial commit")
+        repo.git.branch("-M", "main")
 
     return repo_path
 
 
-def setup_client(repo_path: str):
-    """
-    Setup the anthropic client with repository context
-    """
+def setup_client() -> AnthropicClient:
+    """Configure and return the Anthropic client with tools."""
     load_dotenv()
-    api_key = os.environ.get("CLAUDE_API_KEY")
-    client = AnthropicClient(
-        api_key=api_key,
-        default_headers={"X-API-Key": os.environ.get("MIDDLE_SERVER_API_KEY")},
-        working_directory=repo_path,
-    )
-    client.register_tools_from_directory("./src/tools/definitions/execute_command")
-    client.register_tools_from_directory("./src/tools/definitions/file_operations")
-    client.register_tools_from_directory("./src/tools/definitions/git_operations")
-    client.register_tools_from_directory("./src/tools/definitions/github_operations")
+
+    client = AnthropicClient(api_key=os.environ["CLAUDE_API_KEY"])
+
+    register_tools(client)
+
     return client
+
+
+def register_tools(client: AnthropicClient):
+    """Register tools using paths relative to container directory"""
+    container_root = Path(__file__).parent.parent.parent  # Points to container/
+    tool_dirs = [
+        container_root / "src/tools/definitions/execute_command",
+        container_root / "src/tools/definitions/file_operations",
+        container_root / "src/tools/definitions/git_operations",
+        container_root / "src/tools/definitions/github_operations",
+    ]
+
+    for tool_dir in tool_dirs:
+        if not tool_dir.exists():
+            raise FileNotFoundError(f"Tool directory not found: {tool_dir}")
+        client.register_tools_from_directory(str(tool_dir))

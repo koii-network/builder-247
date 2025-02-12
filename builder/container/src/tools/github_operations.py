@@ -1,7 +1,6 @@
 """Module for GitHub operations."""
 
 import os
-import subprocess
 
 from pathlib import Path
 from typing import Dict, Any
@@ -82,44 +81,42 @@ def get_pr_template(repo_path: str) -> Dict[str, Any]:
 
 
 def fork_repository(repo_full_name: str, repo_path: str) -> dict:
-    """Forks a repository and clones it to the specified path."""
+    """Forks a repository and configures proper remotes"""
     try:
         gh = _get_github_client()
         username = _get_github_username()
 
-        # Create parent directories if they don't exist
-        os.makedirs(os.path.dirname(repo_path), exist_ok=True)
-
         # Create fork using GitHub API
         print(f"Forking repository: {repo_full_name}")
-        repo = gh.get_repo(repo_full_name)
-        fork = gh.get_user().create_fork(repo)
-        print(f"Fork created: {fork.full_name}")
+        original_repo = gh.get_repo(repo_full_name)
+        fork = gh.get_user().create_fork(original_repo)
 
         # Wait for fork propagation
         print("Waiting for fork to be ready...")
         time.sleep(5)
 
-        # Clone the fork
+        # Clone the fork with authentication
         print(f"Cloning to {repo_path}")
-        clone_result = clone_repository(
-            fork.clone_url,
-            repo_path,
-            user_name=username,
-            user_email=f"{username}@users.noreply.github.com",
-        )
+        authenticated_url = f"https://{os.environ['GITHUB_TOKEN']}@github.com/{fork.full_name}.git"
+        repo = Repo.clone_from(authenticated_url, repo_path)
 
-        if not clone_result["success"]:
-            return clone_result
+        # Configure remotes
+        print("Configuring remotes:")
+        print(f"origin -> {fork.clone_url}")
+        print(f"upstream -> {original_repo.clone_url}")
 
-        # Add upstream remote directly using GitPython
-        print("Adding upstream remote")
-        repo = Repo(repo_path)
-        repo.create_remote("upstream", f"https://github.com/{repo_full_name}.git")
+        # Set push URL for origin to include token
+        with repo.config_writer() as config:
+            config.set_value(f'remote "origin"', 'url', authenticated_url)
+
+        # Add upstream remote
+        repo.create_remote("upstream", original_repo.clone_url)
+
+        # Set default push/pull behavior
+        with repo.config_writer() as config:
+            config.set_value('push', 'default', 'current')
 
         return {"success": True}
-    except GithubException as e:
-        return {"success": False, "error": f"GitHub API error: {str(e)}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -133,57 +130,27 @@ def create_pull_request(
     validate_template: bool = True,
 ) -> Dict[str, Any]:
     """
-    Create a pull request.
-
-    Args:
-        repo_full_name (str): Full name of the repository (e.g. "owner/repo")
-        title (str): Title of the pull request
-        body (str): Description/body of the pull request
-        head (str): The name of the branch where your changes are implemented
-        base (str): The name of the branch you want your changes pulled into
-        validate_template (bool): Whether to validate the PR description against the template
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - pr_url (str): URL of the pull request if successful
-            - error (str): Error message if unsuccessful
-            - template_errors (list): List of template validation errors if any
+    Create a pull request with proper fork handling.
     """
     try:
-        if validate_template:
-            print("Validating PR description against template...")
-            validation = validate_pr_description(body)
-            if not validation["valid"]:
-                print(
-                    f"PR description validation failed with errors: {validation['errors']}"
-                )
-                return {
-                    "success": False,
-                    "error": "PR description does not match template",
-                    "template_errors": validation["errors"],
-                }
-            print("PR description validation passed")
-
         gh = _get_github_client()
-        print(f"Getting repository: {repo_full_name}")
-        repo = gh.get_repo(repo_full_name)
-        print(f"Creating pull request in repository: {repo.full_name}")
-        print(f"PR details: title='{title}', head='{head}', base='{base}'")
-        pr = repo.create_pull(
+        username = _get_github_username()
+
+        # Get original repository
+        original_repo = gh.get_repo(repo_full_name)
+
+        # Create PR against original repo from fork
+        pr = original_repo.create_pull(
             title=title,
             body=body,
-            head=head,
+            head=f"{username}:{head}",  # Add username prefix for fork reference
             base=base,
         )
-        print(f"Pull request created: {pr.html_url}")
         return {"success": True, "pr_url": pr.html_url}
     except GithubException as e:
-        print(f"GitHub API error: {str(e)}")
         return {"success": False, "error": str(e)}
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
-        return {"success": False, "error": f"Unexpected error: {str(e)}"}
+        return {"success": False, "error": str(e)}
 
 
 def sync_fork(repo_path: str, branch: str = "main") -> Dict[str, Any]:

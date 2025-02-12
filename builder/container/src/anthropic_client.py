@@ -86,15 +86,22 @@ class AnthropicClient:
     def __init__(
         self, api_key: str, model: Optional[str] = None, db_path: Optional[str] = None
     ):
+        # Set fixed database path in container directory
+        container_root = Path(__file__).parent.parent.parent
+        self.db_path = str(container_root / "conversations.db")
+
         self.client = self._create_client(api_key)
         self.model = model or "claude-3-5-haiku-latest"
         self.tools = []
         self.tool_functions = {}
-        self.db_path = db_path or "database.db"
         self._init_db()
 
     def _init_db(self):
         """Initialize the SQLite database with necessary tables."""
+        # Create parent directories if needed
+        db_dir = Path(self.db_path).parent
+        db_dir.mkdir(parents=True, exist_ok=True)
+
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """

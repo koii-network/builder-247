@@ -98,6 +98,15 @@ def clone_repository(
                 if user_email:
                     config.set_value("user", "email", user_email)
 
+        # Enforce GitHub Actions user configuration
+        with repo.config_writer() as config:
+            config.set_value("user", "name", os.environ["GITHUB_USERNAME"])
+            config.set_value(
+                "user",
+                "email",
+                f"{os.environ['GITHUB_USERNAME']}@users.noreply.github.com",
+            )
+
         return {"success": True}
     except Exception as e:
         print(f"Clone failed with error: {str(e)}")
@@ -105,31 +114,22 @@ def clone_repository(
 
 
 def create_branch(branch_name: str) -> dict:
-    """Create and checkout a new branch in the current repository."""
+    """Create branch in current working directory"""
     try:
-        repo_path = os.getcwd()
-        print(f"Creating branch '{branch_name}' in {repo_path}")
+        repo = Repo(os.getcwd())  # Now uses the flow-managed directory
+        print(f"Creating branch '{branch_name}' in {repo.working_dir}")
 
-        # Check if branch exists
-        check_branch = subprocess.run(
-            ["git", "show-ref", "--verify", f"refs/heads/{branch_name}"],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-        )
+        # Create and checkout branch
+        repo.git.checkout("-b", branch_name)
 
-        if check_branch.returncode == 0:
-            return {"success": False, "error": f"Branch '{branch_name}' already exists"}
+        # Verify branch exists
+        if branch_name not in repo.heads:
+            raise Exception(f"Branch creation failed: {branch_name}")
 
-        # Create and checkout new branch
-        subprocess.run(
-            ["git", "checkout", "-b", branch_name],
-            cwd=repo_path,
-            check=True,
-        )
+        # Configure upstream tracking
+        repo.git.push("--set-upstream", "origin", branch_name)
+
         return {"success": True}
-    except subprocess.CalledProcessError as e:
-        return {"success": False, "error": f"Git error: {e.stderr}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -162,10 +162,9 @@ def make_commit(message: str, add_all: bool = True) -> Dict[str, Any]:
 
 
 def get_current_branch() -> Dict[str, Any]:
-    """Get the name of the current Git branch in the current repository."""
+    """Get the current branch name in the working directory"""
     try:
-        repo_path = os.getcwd()
-        repo = _get_repo(repo_path)
+        repo = Repo(os.getcwd())
         return {"success": True, "output": repo.active_branch.name}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -207,28 +206,40 @@ def fetch_remote(remote_name: str) -> Dict[str, Any]:
 
 
 def pull_remote(remote_name: str = "origin", branch: str = None) -> Dict[str, Any]:
-    """Pull from a remote in the current repository."""
+    """Pull changes with explicit branch specification."""
     try:
         repo_path = os.getcwd()
         repo = _get_repo(repo_path)
-        if branch:
-            repo.git.pull(remote_name, branch, "--allow-unrelated-histories")
-        else:
-            repo.git.pull("--allow-unrelated-histories")
+        branch = branch or repo.active_branch.name
+
+        repo.git.pull(remote_name, branch, "--allow-unrelated-histories")
+
+        # Check for conflicts after pull
+        if check_for_conflicts()["has_conflicts"]:
+            return {"success": False, "error": "Merge conflict detected after pull"}
+
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def push_remote(remote_name: str = "origin", branch: str = None) -> Dict[str, Any]:
-    """Push changes to a remote repository."""
+    """Push changes with automatic conflict resolution."""
     try:
         repo_path = os.getcwd()
         repo = _get_repo(repo_path)
         current_branch = repo.active_branch.name
         branch = branch or current_branch
-        repo.git.push(remote_name, branch)
-        return {"success": True}
+
+        # First try normal push
+        try:
+            repo.git.push(remote_name, branch)
+            return {"success": True}
+        except Exception as e:
+            # If failed, pull and try again
+            repo.git.pull(remote_name, branch)
+            repo.git.push(remote_name, branch)
+            return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -236,35 +247,23 @@ def push_remote(remote_name: str = "origin", branch: str = None) -> Dict[str, An
 def can_access_repository(repo_url: str) -> bool:
     """Check if a git repository is accessible."""
     try:
-        # Ensure we're using HTTPS and disable credential prompting
-        https_url = repo_url.replace("git@github.com:", "https://github.com/").replace(
-            "ssh://git@github.com/", "https://github.com/"
-        )
-        if not https_url.startswith("https://"):
-            https_url = (
-                f"https://github.com/{https_url}"
-                if "/" in https_url
-                else f"https://github.com//{https_url}"
-            )
-
-        result = execute_command(f"GIT_TERMINAL_PROMPT=0 git ls-remote {https_url}")
-        return result[2] == 0  # Check return code
-    except (OSError, subprocess.SubprocessError):
+        # Use GitPython to check remote URLs
+        repo = Repo(os.getcwd())
+        for remote in repo.remotes:
+            if any(repo_url in url for url in remote.urls):
+                return True
+        return False
+    except Exception as e:
         return False
 
 
-def commit_and_push(message: str, file_path: Optional[str] = None) -> Dict[str, Any]:
-    """Commit and push changes in the current repository."""
+def commit_and_push(message: str) -> Dict[str, Any]:
+    """Commit and push changes in the current working directory"""
     try:
-        repo_path = os.getcwd()
-        repo = _get_repo(repo_path)
-        if file_path:
-            repo.git.add(file_path)
-        else:
-            repo.git.add(A=True)
+        repo = Repo(os.getcwd())
+        repo.git.add(A=True)
         repo.index.commit(message)
-        current_branch = repo.active_branch.name
-        repo.git.push("--set-upstream", "origin", current_branch)
+        repo.git.push("origin", repo.active_branch.name)
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}

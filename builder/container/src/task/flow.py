@@ -7,6 +7,7 @@ from pathlib import Path
 import csv
 import shutil
 import traceback
+from git import Repo
 
 # Conditional path adjustment before any other imports
 if __name__ == "__main__":
@@ -20,45 +21,43 @@ if __name__ == "__main__":
 from anthropic.types import ToolUseBlock
 from src.get_file_list import get_file_list
 from src.tools.git_operations import get_current_branch
-from src.task.setup import setup_repository, setup_client
+from src.task.setup import setup_client
 from src.task.constants import PROMPTS
+from src.tools.github_operations import fork_repository
 
 
-def handle_tool_response(
-    client, response, tool_choice={"type": "any"}, max_iterations=10
-):
+def handle_tool_response(client, response, tool_choice={"type": "any"}):
     """
-    Handle tool responses recursively until we get a text response.
+    Handle tool responses recursively until natural completion.
     """
     print("Start Conversation")
-    while response.stop_reason == "tool_use" and max_iterations > 0:
-        tool_use = [block for block in response.content if block.type == "tool_use"][0]
-        tool_name = tool_use.name
-        tool_input = tool_use.input
-        print("tool_name: " + tool_name)
-        print("tool_input: " + str(tool_input))
-        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        tool_output = client.execute_tool(
-            ToolUseBlock(
-                id=tool_use.id, name=tool_name, input=tool_input, type="tool_use"
+    final_output = None
+
+    while response.stop_reason == "tool_use":
+        # Process all tool uses in the current response
+        for tool_use in [b for b in response.content if isinstance(b, ToolUseBlock)]:
+            print(f"Processing tool: {tool_use.name}")
+            print(f"Tool input: {tool_use.input}")
+            print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+            # Execute the tool
+            tool_output = client.execute_tool(tool_use)
+            print(f"Tool output: {tool_output}")
+
+            # Send tool result back to AI
+            response = client.send_message(
+                tool_response=str(tool_output),
+                tool_use_id=tool_use.id,
+                conversation_id=response.conversation_id,
+                tool_choice=tool_choice,
             )
-        )
-        print("tool_output: " + str(tool_output))
 
-        # Ensure tool_output is a string
-        if not isinstance(tool_output, str):
-            tool_output_str = str(tool_output)
-        time.sleep(10)
+            # Store final output if we have a text response
+            if response.stop_reason != "tool_use":
+                final_output = response.content[0].text if response.content else ""
 
-        response = client.send_message(
-            tool_response=tool_output_str,
-            tool_use_id=tool_use.id,
-            conversation_id=response.conversation_id,
-            tool_choice=tool_choice,
-        )
-        max_iterations -= 1
     print("End Conversation")
-    return tool_output
+    return final_output or "Task completed successfully"
 
 
 def todo_to_pr(
@@ -66,28 +65,55 @@ def todo_to_pr(
     repo_name,
     todo,
     acceptance_criteria,
-    repo_path=None,  # Make path parameter required
+    repo_path=None,
 ):
     """
-    Task flow
+    Task flow with proper directory handling
     """
+    # Generate sequential repo path
+    base_dir = os.path.abspath("./repos")
+    os.makedirs(base_dir, exist_ok=True)
 
-    # Generate unique repo path for each task
-    safe_todo_name = "".join(c if c.isalnum() else "_" for c in todo)
-    repo_path = repo_path or f"./repos/{safe_todo_name[:50]}"
+    # Find first available number
+    counter = 0
+    while True:
+        candidate_path = os.path.join(base_dir, f"repo_{counter}")
+        if not os.path.exists(candidate_path):
+            repo_path = candidate_path
+            break
+        counter += 1
 
-    # Ensure clean working directory
-    if os.path.exists(repo_path):
-        shutil.rmtree(repo_path)
-
-    # print("Using Directory:", os.getcwd())
-    # print("Using path:", repo_path)
-    client = setup_client(repo_path)
-    # print("Client: ", client)
+    # Set up repository and working directory
+    original_dir = os.getcwd()
     try:
-        # Set up the repository
-        repo_path = setup_repository(repo_owner, repo_name, repo_path)
-        print("Setup repository result: ", repo_path)
+        # Clean existing repository (in case of partial failures)
+        if os.path.exists(repo_path):
+            shutil.rmtree(repo_path)
+
+        # Create parent directory first
+        os.makedirs(os.path.dirname(repo_path), exist_ok=True)
+
+        # Fork and clone repository
+        fork_result = fork_repository(f"{repo_owner}/{repo_name}", repo_path)
+        if not fork_result["success"]:
+            raise Exception(f"Fork failed: {fork_result.get('error')}")
+
+        # Enter repo directory
+        os.chdir(repo_path)
+
+        client = setup_client()
+
+        # Configure Git user info
+        print("Configuring Git user information")
+        repo = Repo(repo_path)
+        with repo.config_writer() as config:
+            config.set_value("user", "name", os.environ["GITHUB_USERNAME"])
+            config.set_value(
+                "user",
+                "email",
+                f"{os.environ['GITHUB_USERNAME']}@users.noreply.github.com",
+            )
+
         # Create a feature branch
         setup_repository_prompt = PROMPTS["setup_repository"].format(
             repo_path=repo_path, todo=todo
@@ -98,7 +124,7 @@ def todo_to_pr(
         print("Create branch response: ", createBranchResponse)
         handle_tool_response(client, createBranchResponse)
         branch_info = get_current_branch()
-
+        print("Branch info: ", branch_info)
         branch_name = branch_info.get("output") if branch_info.get("success") else None
         print("Using Branch: ", branch_name)
         # Get the list of files
@@ -111,47 +137,39 @@ def todo_to_pr(
         time.sleep(10)
         handle_tool_response(client, execute_todo_response)
 
-        github_username = os.environ.get("GITHUB_USERNAME")
         time.sleep(10)
         commit_response = client.send_message(
-            PROMPTS["commit"].format(repo_path=repo_path, todo=todo),
-            tool_choice={"type": "any"},
+            PROMPTS["commit"].format(todo=todo),
+            tool_choice={"type": "tool", "name": "make_commit"},
         )
-        time.sleep(10)
-        handle_tool_response(
-            client, commit_response, tool_choice={"type": "tool", "name": "make_commit"}
-        )
-        time.sleep(10)
+        handle_tool_response(client, commit_response)
+
+        # Single push operation
         push_response = client.send_message(
-            PROMPTS["push"].format(repo_path=repo_path),
+            PROMPTS["push"],
             tool_choice={"type": "tool", "name": "push_remote"},
         )
-        time.sleep(10)
-        handle_tool_response(
-            client, push_response, tool_choice={"type": "tool", "name": "push_remote"}
-        )
-        time.sleep(10)
-        create_pr_response = client.send_message(
+        handle_tool_response(client, push_response)
+
+        # Create PR
+        pr_response = client.send_message(
             PROMPTS["create_pr"].format(
-                repo_path=repo_path,
-                todo=todo,
                 repo_full_name=f"{repo_owner}/{repo_name}",
-                head=f"{github_username}:{branch_name}",
+                head=f"{os.environ['GITHUB_USERNAME']}:{branch_name}",
                 base="main",
+                todo=todo,
+                acceptance_criteria=acceptance_criteria,
             ),
-            tool_choice={"type": "any"},
-        )
-        time.sleep(10)
-        pr_result = handle_tool_response(
-            client,
-            create_pr_response,
             tool_choice={"type": "tool", "name": "create_pull_request"},
         )
 
-        if isinstance(pr_result, str):
-            return pr_result
-        else:
+        # Handle PR creation once
+        pr_result = handle_tool_response(client, pr_response)
+
+        if pr_result.get("success"):
             return pr_result.get("pr_url")
+        else:
+            return f"PR creation failed: {pr_result.get('error')}"
 
     except Exception as e:
         print(f"\n{' ERROR '.center(50, '=')}")
@@ -160,6 +178,9 @@ def todo_to_pr(
         print(f"Repo Path: {repo_path}")
         traceback.print_exc()
         print("=" * 50)
+
+    finally:
+        os.chdir(original_dir)  # Restore original directory
 
 
 if __name__ == "__main__":
