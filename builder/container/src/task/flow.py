@@ -125,29 +125,43 @@ def todo_to_pr(
         print("Use Files: ", files)
         files_directory = PROMPTS["files"].format(files=", ".join(map(str, files)))
         execute_todo_response = client.send_message(
-            f"{todo}. Your solution must meet the following criteria: {acceptance_criteria}{files_directory}"
+            PROMPTS["execute_todo"].format(
+                todo=todo,
+                files_directory=files_directory,
+            )
         )
         time.sleep(10)
         handle_tool_response(client, execute_todo_response)
 
         time.sleep(10)
 
-        # Create PR
-        pr_response = client.send_message(
-            PROMPTS["create_pr"].format(
-                repo_full_name=f"{repo_owner}/{repo_name}",
-                head=f"{os.environ['GITHUB_USERNAME']}:{branch_name}",
-                base="main",
-                todo=todo,
-                acceptance_criteria=acceptance_criteria,
-            ),
-            tool_choice={"type": "tool", "name": "create_pull_request"},
-        )
+        # Create PR with retries
+        max_retries = 3
+        for attempt in range(max_retries):
+            pr_response = client.send_message(
+                PROMPTS["create_pr"].format(
+                    repo_full_name=f"{repo_owner}/{repo_name}",
+                    head=branch_name,  # Let the tool handle formatting
+                    base="main",
+                    todo=todo,
+                    acceptance_criteria=acceptance_criteria,
+                ),
+                tool_choice={"type": "tool", "name": "create_pull_request"},
+            )
 
-        # Handle PR creation once
-        pr_result = handle_tool_response(client, pr_response)
+            pr_result = handle_tool_response(client, pr_response)
 
-        return pr_result.get("pr_url") or "PR creation completed successfully"
+            if pr_result.get("success"):
+                return pr_result.get("pr_url", "PR created but no URL returned")
+            else:
+                print(
+                    f"PR creation attempt {attempt+1} failed: {pr_result.get('error')}"
+                )
+                if attempt < max_retries - 1:
+                    print("Retrying...")
+                    time.sleep(5)
+
+        return f"PR creation failed after {max_retries} attempts"
 
     except Exception as e:
         print(f"\n{' ERROR '.center(50, '=')}")

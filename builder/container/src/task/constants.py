@@ -5,9 +5,6 @@ PROMPTS = {
         "Example format: 'feature/add-logging'"
     ),
     "files": "Below is the list of files in the repository: {files}.",
-    "commit": "If you have not already committed, please make a commit with a descriptive message. "
-    "Give the commit a message that describes the task: {todo}",
-    "push": "Please push the changes to the remote repository.",
     "create_pr": (
         "Create pull request from {head} to {base} in {repo_full_name}.\n"
         "Todo: {todo}\n"
@@ -16,6 +13,12 @@ PROMPTS = {
         "Provide these components:\n"
         "1. Summary of changes made\n"
         "2. List of tests with descriptions"
+    ),
+    "execute_todo": (
+        "Execute the task: {todo}\n"
+        "Files in the repository: {files_directory}\n"
+        "All operations should be performed with relative paths."
+        "After completing your changes, make sure to commit and push them to the remote branch."
     ),
 }
 
@@ -30,5 +33,5 @@ PR_TEMPLATE = """# {title}
 ## Summary of Changes
 {summary}
 
-## List of Tests
+## Test Cases
 {tests}"""

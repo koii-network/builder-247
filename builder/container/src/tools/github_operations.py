@@ -5,6 +5,7 @@ import os
 from typing import Dict, Any
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
+import ast
 from src.tools.git_operations import (
     fetch_remote,
     pull_remote,
@@ -90,8 +91,16 @@ def create_pull_request(
     """Create PR with formatted description"""
     try:
         gh = _get_github_client()
+
+        # Auto-format head branch if needed
+        if ":" not in head:
+            head = f"{os.environ['GITHUB_USERNAME']}:{head}"
+
+        # Ensure base branch is just the name without owner
+        base = base.split(":")[-1]  # Remove owner prefix if present
+
         # Format tests into markdown bullets
-        tests_bullets = "\n".join([f"- {t.strip()}" for t in tests.split("\n")])
+        tests_bullets = " - " + "\n - ".join(ast.literal_eval(tests))
 
         body = PR_TEMPLATE.format(
             todo=todo,
@@ -104,8 +113,14 @@ def create_pull_request(
         repo = gh.get_repo(repo_full_name)
         pr = repo.create_pull(title=title, body=body, head=head, base=base)
         return {"success": True, "pr_url": pr.html_url}
+    except GithubException as e:
+        return {
+            "success": False,
+            "error": f"GitHub API error: {e.data.get('message', str(e))}",
+            "details": e.data.get("errors", []),
+        }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": f"Unexpected error: {str(e)}", "details": []}
 
 
 def sync_fork(repo_path: str, branch: str = "main") -> Dict[str, Any]:
