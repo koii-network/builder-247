@@ -10,7 +10,7 @@ function verifyRequestBody(req: Request): { signature: string; pubKey: string; p
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
     const prUrl = req.body.prUrl as string;
-    if (!signature || !pubKey) {
+    if (!signature || !pubKey || !prUrl) {
       return null;
     }
     return { signature, pubKey, prUrl };
@@ -83,13 +83,13 @@ export const addPR = async (req: Request, res: Response) => {
   if (!result) {
     res.status(401).json({
       success: false,
-      message: "Failed to update assigned info",
+      message: "Failed to update pull request URL",
     });
     return;
   }
 
   res.status(200).json({
     success: true,
-    message: "Assigned info updated",
+    message: "Pull request URL updated",
   });
 };
