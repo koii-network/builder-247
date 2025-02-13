@@ -1,6 +1,6 @@
 import { storeFile } from "../helpers.js";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
-import { namespaceWrapper } from "@_koii/namespace-wrapper";
+import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 
 export async function submission(roundNumber) {
   /**
@@ -14,8 +14,18 @@ export async function submission(roundNumber) {
     const orcaClient = await getOrcaClient();
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     const stakingKey = stakingKeypair.publicKey.toBase58();
+    console.log("stakingKey", stakingKey);
     const result = await orcaClient.podCall(`submission/${roundNumber}`);
     result.data.stakingKey = stakingKey;
+    const signature = await namespaceWrapper.payloadSigning(
+      {
+        taskId: TASK_ID,
+        roundNumber: roundNumber,
+        action: "check",
+      },
+      stakingKeypair.secretKey,
+    );
+    result.data.signature = signature;
     const cid = await storeFile(result.data, "submission.json");
     console.log("SUBMISSION CID:", cid);
     return cid;

@@ -7,31 +7,29 @@ import { isValidStakingKey } from "../utils/taskState";
 // Helper function to verify request body
 function verifyRequestBody(req: Request): {
   signature: string;
-  pubKey: string;
+  stakingKey: string;
   github_username: string;
   prUrl: string;
-  submitterKey: string;
 } | null {
   try {
     console.log("Request body:", req.body);
     const signature = req.body.signature as string;
-    const pubKey = req.body.pubKey as string;
+    const stakingKey = req.body.stakingKey as string;
     const github_username = req.body.github_username as string;
     const prUrl = req.body.prUrl as string;
-    const submitterKey = req.body.submitterKey as string;
-    if (!signature || !pubKey || !github_username || !prUrl || !submitterKey) {
+    if (!signature || !stakingKey || !github_username || !prUrl) {
       return null;
     }
-    return { signature, pubKey, github_username, prUrl, submitterKey };
+    return { signature, stakingKey, github_username, prUrl };
   } catch {
     return null;
   }
 }
 
 // Helper function to verify signature
-async function verifySignatureData(signature: string, pubKey: string): Promise<{ roundNumber: string } | null> {
+async function verifySignatureData(signature: string, stakingKey: string): Promise<{ roundNumber: string } | null> {
   try {
-    const { data, error } = await verifySignature(signature, pubKey);
+    const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
       return null;
     }
@@ -87,7 +85,7 @@ export const checkToDo = async (req: Request, res: Response) => {
     return;
   }
 
-  const signatureData = await verifySignatureData(requestBody.signature, requestBody.pubKey);
+  const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey);
   if (!signatureData) {
     res.status(401).json({
       success: false,
@@ -96,7 +94,7 @@ export const checkToDo = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(requestBody.pubKey))) {
+  if (!(await isValidStakingKey(requestBody.stakingKey))) {
     res.status(401).json({
       success: false,
       message: "Invalid staking key",
@@ -105,7 +103,7 @@ export const checkToDo = async (req: Request, res: Response) => {
   }
 
   const isValid = await checkToDoAssignment(
-    requestBody.submitterKey,
+    requestBody.stakingKey,
     signatureData.roundNumber,
     requestBody.github_username,
     requestBody.prUrl,
