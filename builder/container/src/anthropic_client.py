@@ -83,17 +83,19 @@ def _format_message_for_api(message: MessageContent) -> Dict[str, Any]:
 
 
 class AnthropicClient:
+
     def __init__(
-        self, api_key: str, model: Optional[str] = None, db_path: Optional[str] = None
+        self,
+        api_key: str,
+        db_path: Optional[str] = "database.db",
+        model: Optional[str] = None,
     ):
-        # Set fixed database path in container directory
-        container_root = Path(__file__).parent.parent.parent
-        self.db_path = str(container_root / "conversations.db")
 
         self.client = self._create_client(api_key)
         self.model = model or "claude-3-5-haiku-latest"
         self.tools = []
         self.tool_functions = {}
+        self.db_path = db_path
         self._init_db()
 
     def _init_db(self):
@@ -108,6 +110,7 @@ class AnthropicClient:
                 CREATE TABLE IF NOT EXISTS conversations (
                     conversation_id TEXT PRIMARY KEY,
                     model TEXT NOT NULL,
+                    system_prompt TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """
@@ -125,13 +128,13 @@ class AnthropicClient:
             """
             )
 
-    def create_conversation(self) -> str:
+    def create_conversation(self, system_prompt: Optional[str] = None) -> str:
         """Create a new conversation and return its ID."""
         conversation_id = str(uuid.uuid4())
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
-                "INSERT INTO conversations (conversation_id, model) VALUES (?, ?)",
-                (conversation_id, self.model),
+                "INSERT INTO conversations (conversation_id, model, system_prompt) VALUES (?, ?, ?)",
+                (conversation_id, self.model, system_prompt),
             )
         return conversation_id
 
@@ -252,7 +255,7 @@ class AnthropicClient:
         self,
         prompt: Optional[str] = None,
         conversation_id: Optional[str] = None,
-        max_tokens: Optional[int] = 1024,
+        max_tokens: Optional[int] = 2000,
         tool_choice: Optional[ToolChoiceParam] = None,
         tool_response: Optional[str] = None,
         tool_use_id: Optional[str] = None,
@@ -267,6 +270,7 @@ class AnthropicClient:
             tool_choice: Optional tool choice configuration
             tool_response: Optional response from a previous tool call
             tool_use_id: ID of the tool use when providing a tool response
+            system_prompt: Optional system prompt to include in the API request
 
         Returns:
             Message: Claude's response
@@ -277,6 +281,15 @@ class AnthropicClient:
         # Create or get conversation
         if not conversation_id:
             conversation_id = self.create_conversation()
+
+        # Get conversation details including system prompt
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT model, system_prompt FROM conversations WHERE conversation_id = ?",
+                (conversation_id,),
+            )
+            result = cursor.fetchone()
+            system_prompt = result[1] if result else None  # Get second column value
 
         # Get previous messages
         messages = self._get_conversation_messages(conversation_id)
@@ -303,6 +316,9 @@ class AnthropicClient:
             "max_tokens": max_tokens,
             "messages": api_messages,
         }
+
+        if system_prompt:
+            create_params["system"] = system_prompt
 
         # Always include tools if they are registered
         if self.tools:

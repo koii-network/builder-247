@@ -76,13 +76,16 @@ def run_todo_task(app, round_number, todo, signature, staking_key):
                 acceptance_criteria=todo["acceptance_criteria"],
                 repo_owner=todo["repo_owner"],
                 repo_name=todo["repo_name"],
+                system_prompt=todo["system_prompt"],
             )
+
+            print("pr_url", pr_url)
 
             try:
                 response = requests.post(
                     os.environ.get("MIDDLE_SERVER_URL") + "/api/add-pr-to-to-do",
                     json={
-                        "prUrl": pr_url,  # Changed from pr_url to prUrl to match API
+                        "prUrl": pr_url,
                         "signature": signature,
                         "pubKey": staking_key,
                     },

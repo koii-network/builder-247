@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
+import "dotenv/config";
+
 import { TodoModel, TodoStatus } from "../models/Todo";
 import { verifySignature } from "../utils/sign";
 import { taskID } from "../constant";
-// TODO: The high concurrent situation there might be some issues, need to be optimized
 import { isValidStakingKey } from "../utils/taskState";
-// Helper function to verify request body
+
+// Verify the request body contains the right data
 function verifyRequestBody(req: Request): { signature: string; pubKey: string; github_username: string } | null {
   try {
     const signature = req.body.signature as string;
@@ -19,7 +21,7 @@ function verifyRequestBody(req: Request): { signature: string; pubKey: string; g
   }
 }
 
-// Helper function to verify signature
+// Confirm the signature is valid and contains the right data
 async function verifySignatureData(signature: string, pubKey: string): Promise<{ roundNumber: number } | null> {
   try {
     const { data, error } = await verifySignature(signature, pubKey);
@@ -43,6 +45,7 @@ async function verifySignatureData(signature: string, pubKey: string): Promise<{
   }
 }
 
+// Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
   try {
     const result = await TodoModel.findOne({
@@ -98,13 +101,12 @@ export const fetchTodo = async (req: Request, res: Response) => {
 
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
-      res.status(401).json({
+      return res.status(401).json({
         success: false,
         message: "Task already completed",
       });
-      return;
     } else {
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         data: {
           title: existingAssignment.todo.title,
@@ -113,7 +115,6 @@ export const fetchTodo = async (req: Request, res: Response) => {
           repo_name: existingAssignment.todo.repoName,
         },
       });
-      return;
     }
   }
 
@@ -176,6 +177,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
         acceptance_criteria: updatedTodo.acceptanceCriteria,
         repo_owner: updatedTodo.repoOwner,
         repo_name: updatedTodo.repoName,
+        system_prompt: process.env.SYSTEM_PROMPT,
       },
     });
   } catch (error) {

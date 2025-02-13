@@ -8,6 +8,7 @@ import csv
 import shutil
 import traceback
 from git import Repo
+import dotenv
 
 # Conditional path adjustment before any other imports
 if __name__ == "__main__":
@@ -24,6 +25,9 @@ from src.tools.git_operations import get_current_branch
 from src.task.setup import setup_client
 from src.task.constants import PROMPTS
 from src.tools.github_operations import fork_repository
+
+
+dotenv.load_dotenv()
 
 
 def handle_tool_response(client, response, tool_choice={"type": "any"}):
@@ -62,6 +66,7 @@ def todo_to_pr(
     repo_name,
     todo,
     acceptance_criteria,
+    system_prompt,
     repo_path=None,
 ):
     """
@@ -98,7 +103,9 @@ def todo_to_pr(
         # Enter repo directory
         os.chdir(repo_path)
 
+        # Create client and conversation with system prompt
         client = setup_client()
+        conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info
         print("Configuring Git user information")
@@ -112,8 +119,11 @@ def todo_to_pr(
             )
 
         # Create branch
+        setup_prompt = PROMPTS["setup_repository"].format(todo=todo)
+        print("setup_prompt", setup_prompt)
         branch_response = client.send_message(
-            PROMPTS["setup_repository"].format(todo=todo),
+            setup_prompt,
+            conversation_id=conversation_id,
             tool_choice={"type": "tool", "name": "create_branch"},
         )
         handle_tool_response(client, branch_response)
@@ -124,11 +134,14 @@ def todo_to_pr(
         files = get_file_list(repo_path)
         print("Use Files: ", files)
         files_directory = PROMPTS["files"].format(files=", ".join(map(str, files)))
+        execute_todo_prompt = PROMPTS["execute_todo"].format(
+            todo=todo,
+            files_directory=files_directory,
+        )
+        print("execute_todo_prompt", execute_todo_prompt)
         execute_todo_response = client.send_message(
-            PROMPTS["execute_todo"].format(
-                todo=todo,
-                files_directory=files_directory,
-            )
+            execute_todo_prompt,
+            conversation_id=conversation_id,
         )
         time.sleep(10)
         handle_tool_response(client, execute_todo_response)
@@ -138,21 +151,25 @@ def todo_to_pr(
         # Create PR with retries
         max_retries = 3
         for attempt in range(max_retries):
+            create_pr_prompt = PROMPTS["create_pr"].format(
+                repo_full_name=f"{repo_owner}/{repo_name}",
+                head=branch_name,
+                base="main",
+                todo=todo,
+                acceptance_criteria=acceptance_criteria,
+            )
+            print("create_pr_prompt", create_pr_prompt)
             pr_response = client.send_message(
-                PROMPTS["create_pr"].format(
-                    repo_full_name=f"{repo_owner}/{repo_name}",
-                    head=branch_name,  # Let the tool handle formatting
-                    base="main",
-                    todo=todo,
-                    acceptance_criteria=acceptance_criteria,
-                ),
+                create_pr_prompt,
                 tool_choice={"type": "tool", "name": "create_pull_request"},
             )
 
             pr_result = handle_tool_response(client, pr_response)
 
+            print("pr_result", pr_result)
+
             if pr_result.get("success"):
-                return pr_result.get("pr_url", "PR created but no URL returned")
+                return pr_result.get("pr_url")
             else:
                 print(
                     f"PR creation attempt {attempt+1} failed: {pr_result.get('error')}"
@@ -161,7 +178,8 @@ def todo_to_pr(
                     print("Retrying...")
                     time.sleep(5)
 
-        return f"PR creation failed after {max_retries} attempts"
+        print(f"PR creation failed after {max_retries} attempts")
+        return None
 
     except Exception as e:
         print(f"\n{' ERROR '.center(50, '=')}")
@@ -176,7 +194,9 @@ def todo_to_pr(
 
 
 if __name__ == "__main__":
-    todos_path = Path(__file__).parent / "data" / "todos.csv"
+    todos_path = (
+        Path(__file__).parent.parent.parent.parent.parent / "data" / "todos.csv"
+    )
 
     with open(todos_path, "r") as f:
         reader = csv.reader(f)
@@ -190,6 +210,7 @@ if __name__ == "__main__":
                     repo_name="builder-test",
                     acceptance_criteria=acceptance_criteria.strip(),
                     repo_path=f"./repo_{i}",  # Unique path per task
+                    system_prompt=os.environ["SYSTEM_PROMPT"],
                 )
             else:
                 print(f"Skipping invalid row: {row}")

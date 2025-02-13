@@ -35,7 +35,9 @@ def setup_client() -> AnthropicClient:
     """Configure and return the Anthropic client with tools."""
     load_dotenv()
 
-    client = AnthropicClient(api_key=os.environ["CLAUDE_API_KEY"])
+    db_path = Path(__file__).parent.parent.parent / "database.db"
+
+    client = AnthropicClient(api_key=os.environ["CLAUDE_API_KEY"], db_path=db_path)
 
     register_tools(client)
 
