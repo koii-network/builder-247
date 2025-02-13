@@ -25,7 +25,7 @@ repositoryUrl: "https://github.com/koii-network/builder-247"
 
 ## Image URL ##
 # 230x86 pixels.
-imageUrl: "imageUrl"
+imageUrl: "https://raw.githubusercontent.com/koii-network/builder-247/refs/heads/main/prometheus.png"
 
 ## Info URL ##
 infoUrl: "infoUrl"
