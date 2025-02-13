@@ -15,7 +15,7 @@ def fetch_submission(roundNumber):
     cursor = db.cursor()
     query = cursor.execute(
         """
-        SELECT roundNumber, status, pr_url, username
+        SELECT roundNumber, status, pr_url, username, repo_owner, repo_name
         FROM submissions
         WHERE roundNumber = ? and status = 'completed'
         """,
@@ -31,6 +31,8 @@ def fetch_submission(roundNumber):
                 "status": result["status"],
                 "pr_url": result["pr_url"],
                 "username": result["username"],
+                "repo_owner": result["repo_owner"],
+                "repo_name": result["repo_name"],
             }
         )
     else:

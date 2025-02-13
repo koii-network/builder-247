@@ -31,7 +31,7 @@ def verify_pr_ownership(
         response = requests.post(
             os.environ.get("MIDDLE_SERVER_URL") + "/api/check-to-do",
             json={
-                "pr_url": pr_url,
+                "prUrl": pr_url,
                 "signature": signature,
                 "pubKey": staking_key,
                 "github_username": expected_username,
