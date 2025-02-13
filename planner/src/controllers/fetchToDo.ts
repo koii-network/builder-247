@@ -134,7 +134,10 @@ export const fetchTodo = async (req: Request, res: Response) => {
       });
       return;
     }
-    console.log("todos listed", todos);
+    console.log(
+      "todos listed",
+      todos.map((todo) => todo.title),
+    );
 
     const updatedTodo = await TodoModel.findOneAndUpdate(
       {
