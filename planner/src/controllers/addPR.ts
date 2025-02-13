@@ -7,6 +7,7 @@ import { isValidStakingKey } from "../utils/taskState";
 
 function verifyRequestBody(req: Request): { signature: string; pubKey: string; prUrl: string } | null {
   try {
+    console.log("req.body", req.body);
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
     const prUrl = req.body.prUrl as string;
