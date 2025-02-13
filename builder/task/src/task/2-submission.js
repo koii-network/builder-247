@@ -15,7 +15,7 @@ export async function submission(roundNumber) {
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     const stakingKey = stakingKeypair.publicKey.toBase58();
     const result = await orcaClient.podCall(`submission/${roundNumber}`);
-    result.stakingKey = stakingKey;
+    result.data.stakingKey = stakingKey;
     const cid = await storeFile(result.data, "submission.json");
     console.log("SUBMISSION CID:", cid);
     return cid;

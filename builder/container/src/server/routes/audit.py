@@ -28,7 +28,8 @@ def audit_submission():
     username = submission_json.get("username")
     repo_owner = submission_json.get("repo_owner")
     repo_name = submission_json.get("repo_name")
-    submitter_staking_key = submission_json.get("stakingKey")
+    staking_key = submission_json.get("stakingKey")
+    submitter_staking_key = submission_json.get("submitterKey")
 
     if (
         not round_number

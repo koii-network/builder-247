@@ -13,6 +13,7 @@ function verifyRequestBody(req: Request): {
   submitterKey: string;
 } | null {
   try {
+    console.log("Request body:", req.body);
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
     const github_username = req.body.github_username as string;
