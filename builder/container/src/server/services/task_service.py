@@ -80,7 +80,9 @@ def run_todo_task(app, round_number, todo, signature, staking_key):
             )
 
             print("pr_url", pr_url)
-
+            if not pr_url:
+                logger.error("No PR URL found")
+                return
             try:
                 response = requests.post(
                     os.environ.get("MIDDLE_SERVER_URL") + "/api/add-pr-to-to-do",

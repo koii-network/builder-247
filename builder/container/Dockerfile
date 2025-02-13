@@ -25,6 +25,8 @@ ENV MIDDLE_SERVER_URL=https://builder247.api.koii.network
 # Force Flask to not buffer logs
 ENV PYTHONUNBUFFERED=1
 
+# Add this environment variable after other ENV declarations
+ENV DATABASE_PATH=/data/database.db
 
 # Make port 8080 available to the world outside this container
 EXPOSE 8080

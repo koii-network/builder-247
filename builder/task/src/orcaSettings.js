@@ -7,18 +7,21 @@ Do not change containers > name. You must specify your container image here.
 
 */
 
-import { TASK_ID } from "@_koii/namespace-wrapper";
+import { TASK_ID, namespaceWrapper } from "@_koii/namespace-wrapper";
 const podId = TASK_ID;
 import "dotenv/config";
 
-const podSpec = `apiVersion: v1
+async function createPodSpec() {
+  const basePath = await namespaceWrapper.getBasePath();
+
+  const podSpec = `apiVersion: v1
 kind: Pod
 metadata:
   name: 247-builder-test
 spec:
   containers:
     - name: user-${podId}
-      image: docker.io/labrocadabro/builder247:0.3
+      image: docker.io/labrocadabro/builder247:0.4
       env:
       - name: GITHUB_TOKEN
         value: "${process.env.GITHUB_TOKEN}"
@@ -26,15 +29,22 @@ spec:
         value: "${process.env.GITHUB_USERNAME}"
       - name: CLAUDE_API_KEY
         value: "${process.env.CLAUDE_API_KEY}"
+      volumeMounts:
+        - name: builder-data
+          mountPath: /data
+  volumes:
+    - name: builder-data
+      hostPath:
+        path: ${basePath}/orca/data
+        type: DirectoryOrCreate
 `;
+  return podSpec;
+}
 
-// const podSpec = null;
-
-export const config = {
-  // location of your docker image
-  imageURL: "docker.io/labrocadabro/builder247:0.3",
-  // if you are using a podSpec, edit it in podSpec.js
-  customPodSpec: podSpec,
-  // SSL
-  rootCA: null,
-};
+export async function getConfig() {
+  return {
+    imageURL: "docker.io/labrocadabro/builder247:0.4",
+    customPodSpec: await createPodSpec(),
+    rootCA: null,
+  };
+}

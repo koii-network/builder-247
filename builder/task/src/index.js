@@ -1,19 +1,19 @@
-import { initializeTaskManager } from '@_koii/task-manager';
-import { initializeOrcaClient } from '@_koii/task-manager/extensions';
-import { config } from './orcaSettings.js';
+import { initializeTaskManager } from "@_koii/task-manager";
+import { initializeOrcaClient } from "@_koii/task-manager/extensions";
+import { getConfig } from "./orcaSettings.js";
 // any custom setup logic you need
-import { setup } from './task/0-setup.js';
+import { setup } from "./task/0-setup.js";
 
 // your task, submission, and audit logic
-import { task } from './task/1-task.js';
-import { submission } from './task/2-submission.js';
-import { audit } from './task/3-audit.js';
+import { task } from "./task/1-task.js";
+import { submission } from "./task/2-submission.js";
+import { audit } from "./task/3-audit.js";
 
 // rewards calculation
-import { distribution } from './task/4-distribution.js';
+import { distribution } from "./task/4-distribution.js";
 
 // custom REST API routes
-import { routes } from './task/5-routes.js';
+import { routes } from "./task/5-routes.js";
 
 initializeTaskManager({
   setup,
@@ -23,4 +23,4 @@ initializeTaskManager({
   distribution,
   routes,
 });
-initializeOrcaClient(config);
+initializeOrcaClient(getConfig);

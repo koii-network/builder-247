@@ -87,24 +87,24 @@ class AnthropicClient:
     def __init__(
         self,
         api_key: str,
-        db_path: Optional[str] = "database.db",
         model: Optional[str] = None,
     ):
+        # Get database path from environment variable
+        db_path = os.getenv("DATABASE_PATH")
+        if not db_path:
+            raise ValueError("DATABASE_PATH environment variable is not set")
+        self.db_path = Path(db_path).expanduser().resolve()
 
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.client = self._create_client(api_key)
         self.model = model or "claude-3-5-haiku-latest"
         self.tools = []
         self.tool_functions = {}
-        self.db_path = db_path
         self._init_db()
 
     def _init_db(self):
         """Initialize the SQLite database with necessary tables."""
-        # Create parent directories if needed
-        db_dir = Path(self.db_path).parent
-        db_dir.mkdir(parents=True, exist_ok=True)
-
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS conversations (
@@ -131,7 +131,7 @@ class AnthropicClient:
     def create_conversation(self, system_prompt: Optional[str] = None) -> str:
         """Create a new conversation and return its ID."""
         conversation_id = str(uuid.uuid4())
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute(
                 "INSERT INTO conversations (conversation_id, model, system_prompt) VALUES (?, ?, ?)",
                 (conversation_id, self.model, system_prompt),
@@ -140,7 +140,7 @@ class AnthropicClient:
 
     def _get_conversation_messages(self, conversation_id: str) -> List[MessageContent]:
         """Retrieve all messages for a conversation in chronological order."""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(str(self.db_path)) as conn:
             cursor = conn.execute(
                 "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at",
                 (conversation_id,),
@@ -158,7 +158,7 @@ class AnthropicClient:
     ):
         """Save a message to the database."""
         formatted_content = _format_content_for_storage(content)
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute(
                 "INSERT INTO messages (message_id, conversation_id, role, content) VALUES (?, ?, ?, ?)",
                 (
@@ -283,7 +283,7 @@ class AnthropicClient:
             conversation_id = self.create_conversation()
 
         # Get conversation details including system prompt
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(str(self.db_path)) as conn:
             cursor = conn.execute(
                 "SELECT model, system_prompt FROM conversations WHERE conversation_id = ?",
                 (conversation_id,),
