@@ -29,19 +29,10 @@ function verifyRequestBody(req: Request): {
 async function verifySignatureData(signature: string, pubKey: string): Promise<{ roundNumber: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, pubKey);
-    console.log("Decoded Data:", data);
-    console.log("Decoded Error:", error);
     if (error || !data) {
       return null;
     }
     const body = JSON.parse(data);
-    console.log("Decoded JSON Body:", body);
-    console.log("TaskID comparison:", {
-      bodyTaskId: body.taskId,
-      constantTaskId: taskID,
-      bodyTaskIdType: typeof body.taskId,
-      constantTaskIdType: typeof taskID,
-    });
 
     if (!body.taskId || !body.roundNumber || body.taskId !== taskID || body.action !== "check") {
       return null;
@@ -60,15 +51,18 @@ async function checkToDoAssignment(
   prUrl: string,
 ): Promise<boolean> {
   try {
+    const data = {
+      stakingKey,
+      roundNumber,
+      githubUsername,
+      githubPullRequestUrl: prUrl,
+      taskId: taskID,
+    };
+    console.log("Data:", data);
+
     const result = await TodoModel.findOne({
       assignedTo: {
-        $elemMatch: {
-          stakingKey: stakingKey,
-          roundNumber: roundNumber,
-          githubUsername: githubUsername,
-          githubPullRequestUrl: prUrl,
-          taskId: taskID,
-        },
+        $elemMatch: data,
       },
     }).lean();
 
