@@ -113,6 +113,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
           acceptance_criteria: existingAssignment.todo.acceptanceCriteria,
           repo_owner: existingAssignment.todo.repoOwner,
           repo_name: existingAssignment.todo.repoName,
+          system_prompt: process.env.SYSTEM_PROMPT,
         },
       });
     }
