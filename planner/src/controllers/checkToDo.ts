@@ -56,7 +56,7 @@ async function checkToDoAssignment(
       stakingKey,
       roundNumber,
       githubUsername,
-      githubPullRequestUrl: prUrl,
+      prUrl,
       taskId: taskID,
     };
     console.log("Data:", data);
