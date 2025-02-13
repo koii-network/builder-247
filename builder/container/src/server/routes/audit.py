@@ -28,6 +28,7 @@ def audit_submission():
     username = submission_json.get("username")
     repo_owner = submission_json.get("repo_owner")
     repo_name = submission_json.get("repo_name")
+    submitter_staking_key = submission_json.get("stakingKey")
 
     if (
         not round_number
@@ -49,5 +50,6 @@ def audit_submission():
         expected_repo=repo_name,
         signature=signature,
         staking_key=staking_key,
+        submitter_staking_key=submitter_staking_key,
     )
     return jsonify(is_valid)

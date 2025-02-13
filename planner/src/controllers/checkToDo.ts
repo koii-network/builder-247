@@ -10,16 +10,18 @@ function verifyRequestBody(req: Request): {
   pubKey: string;
   github_username: string;
   prUrl: string;
+  submitterKey: string;
 } | null {
   try {
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
     const github_username = req.body.github_username as string;
     const prUrl = req.body.prUrl as string;
-    if (!signature || !pubKey || !github_username || !prUrl) {
+    const submitterKey = req.body.submitterKey as string;
+    if (!signature || !pubKey || !github_username || !prUrl || !submitterKey) {
       return null;
     }
-    return { signature, pubKey, github_username, prUrl };
+    return { signature, pubKey, github_username, prUrl, submitterKey };
   } catch {
     return null;
   }
@@ -102,7 +104,7 @@ export const checkToDo = async (req: Request, res: Response) => {
   }
 
   const isValid = await checkToDoAssignment(
-    requestBody.pubKey,
+    requestBody.submitterKey,
     signatureData.roundNumber,
     requestBody.github_username,
     requestBody.prUrl,

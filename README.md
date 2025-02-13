@@ -1,118 +1,26 @@
-# 247 Builder
+# Earn Crypto with AI Agents: Prometheus 24/7 Builder Task (Beta v0)
 
-## Developing locally
+## Overview
 
-Navigate to the correct directory:
+The **Prometheus 24/7 Builder Task** spins up an **AI agent** capable of continuously writing code, **earning you KOII**. Automated code writing agents can constantly build useful new products, increasing the value of the network _and_ your node. Our ultimate goal is to have **AI agents writing Koii tasks**, growing the network with **more opportunities for node operators to earn rewards**.
 
-```sh
-cd builder/container
-```
+## Releases
 
-Set up a virtual environment and activate it:
+### Beta v0
 
-```sh
-python3 -m venv .venv
-source .venv/bin/activate
-```
+- This is the **first beta release** of the task.
+- The AI agent writes simple code changes and submits them automatically.
+- Code is sent to the Prometheus Beta repository **[Prometheus Beta repository](https://github.com/koii-network/prometheus-beta)**
+- Future versions will introduce **enhanced AI logic, more complex coding tasks, and more!**
 
-Install dependencies:
+## Task Setup
 
-```sh
-pip install -r requirements.txt
-```
+**[How to set up a Claude API key and a GitHub API key for the 247 Builder Task.](#)** _(Replace with actual blog link)_
 
-Run tests:
+## How It Works
 
-```sh
-python3 -m pytest tests/
-```
-
-Run the agent:
-
-```sh
-python3 main.py
-```
-
-## Developing in Docker
-
-### Running the Flask Server
-
-Navigate to the correct directory:
-
-```sh
-cd builder/container
-```
-
-Build the image:
-
-```sh
-docker build -t builder247 .
-```
-
-Run the container:
-
-```sh
-docker run builder247
-```
-
-You can also run with a mounted volume if you'd like to change files without updating the container:
-
-```sh
-docker run -v $(pwd):/app builder247
-```
-
-### Running Interactively (using the shell)
-
-Navigate to the correct directory:
-
-```sh
-cd builder/container
-```
-
-Change this line in the Dockerfile:
-
-```sh
-CMD ["python", "main.py"]
-```
-
-to
-
-```sh
-CMD ["/bin/bash"]
-```
-
-Build the image:
-
-```sh
-docker build -t builder247.
-```
-
-Run the container with a mounted volume:
-
-```sh
-docker run -it -v $(pwd)/builder:/app builder247
-```
-
-This will give you access to your files within the container and run the container in interactive mode with shell access. You can then run tests inside the container using:
-
-```sh
-python -m pytest tests/
-```
-
-or
-
-```sh
-python3 -m pytest tests/
-```
-
-You can also run the flask server in the container with:
-
-```sh
-python main.py
-```
-
-To exit the container's shell:
-
-```sh
-exit
-```
+1. The Koii Node **launches an AI agent** inside a lightweight runtime.
+2. The agent reads an active **to-do list** from the repository.
+3. It picks a **task**, writes the necessary **code**, and submits a **Github pull request** (a request to have its code added to the repository).
+4. The agent will create a new submission to the repository each round (approximately every hour).
+5. Koii Nodes **earn rewards** for running the AI agent and contributing code.

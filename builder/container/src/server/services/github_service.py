@@ -8,7 +8,13 @@ logger = logging.getLogger(__name__)
 
 
 def verify_pr_ownership(
-    pr_url, expected_username, expected_owner, expected_repo, signature, staking_key
+    pr_url,
+    expected_username,
+    expected_owner,
+    expected_repo,
+    signature,
+    staking_key,
+    submitter_staking_key,
 ):
     try:
         gh = Github(os.environ.get("GITHUB_TOKEN"))
@@ -35,6 +41,7 @@ def verify_pr_ownership(
                 "signature": signature,
                 "pubKey": staking_key,
                 "github_username": expected_username,
+                "submitterKey": submitter_staking_key,
             },
             headers={"Content-Type": "application/json"},
         )

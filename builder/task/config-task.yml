@@ -5,7 +5,7 @@
 
 ## Task Name ##
 # Maximum 24 characters.
-task_name: "Builder 247 Test"
+task_name: "Prometheus 24/7 Builder Beta"
 
 ## Task Author ##
 author: "Koii"
@@ -13,7 +13,7 @@ author: "Koii"
 # Task Description Markdown ##
 # If you specify a markdown file, the description field will be ignored.
 # Markdown is recommended for better formatting.
-# markdownDescriptionPath: './TaskDescription.md'
+markdownDescriptionPath: "../../README.md"
 
 ## Task Description ##
 # Ignored if you specify a markdown file.
@@ -124,7 +124,7 @@ environment: "TEST"
 #################################### FOR UPDATING TASKS ONLY ####################################
 
 ## Old Task ID ##
-task_id: ""
+task_id: "EpKCGJR4rkzWEvjnn6ZKFhcYM39tjtBSXLBn2Bn6UbmW"
 
 ## Migration Description ##
-migrationDescription: ""
+migrationDescription: "fix staking key in audit"
