@@ -34,25 +34,4 @@ def initialize_database(db):
         )
     """
     )
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS conversations (
-            conversation_id TEXT PRIMARY KEY,
-            model TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """
-    )
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS messages (
-            message_id TEXT PRIMARY KEY,
-            conversation_id TEXT NOT NULL,
-            role TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id)
-        )
-    """
-    )
     db.commit()
