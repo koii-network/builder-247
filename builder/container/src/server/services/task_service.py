@@ -14,8 +14,12 @@ def handle_task_creation(round_number, fetch_signature, add_signature, staking_k
     if not todo:
         return jsonify({"error": "No todo found"}), 404
 
+    # Get the current app instance
+    app = current_app._get_current_object()
+
     Thread(
-        target=run_todo_task, args=(int(round_number), todo, add_signature, staking_key)
+        target=run_todo_task,
+        args=(app, int(round_number), todo, add_signature, staking_key),
     ).start()
 
     return jsonify({"roundNumber": round_number, "status": "Task started"})
@@ -50,9 +54,9 @@ def get_todo(signature, staking_key):
         return None
 
 
-def run_todo_task(round_number, todo, signature, staking_key):
+def run_todo_task(app, round_number, todo, signature, staking_key):
     """Wrapper function for background task execution"""
-    with current_app.app_context():
+    with app.app_context():
         try:
             db = get_db()
             cursor = db.cursor()
@@ -78,7 +82,7 @@ def run_todo_task(round_number, todo, signature, staking_key):
                 response = requests.post(
                     os.environ.get("MIDDLE_SERVER_URL") + "/api/add-pr-to-to-do",
                     json={
-                        "pr_url": pr_url,
+                        "prUrl": pr_url,  # Changed from pr_url to prUrl to match API
                         "signature": signature,
                         "pubKey": staking_key,
                     },
@@ -99,6 +103,7 @@ def run_todo_task(round_number, todo, signature, staking_key):
                 ("completed", pr_url, username, round_number),
             )
             db.commit()
+            logger.info("Database updated successfully")
         except Exception as e:
             logger.error(f"Background task failed: {str(e)}")
             if "cursor" in locals():
@@ -107,5 +112,6 @@ def run_todo_task(round_number, todo, signature, staking_key):
                     ("failed", round_number),
                 )
                 db.commit()
+                logger.info(f"Updated status to failed for round {round_number}")
         finally:
             close_db()
