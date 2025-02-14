@@ -6,7 +6,7 @@ require("dotenv").config();
 
 // Configuration
 const REPO_OWNER = "koii-network";
-const REPO_NAME = "builder-test";
+const REPO_NAME = "prometheus-beta";
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/todos";
 const CSV_FILE_PATH = path.join(__dirname, "../../../data/todos.csv");
 
