@@ -10,7 +10,7 @@ The **Prometheus 24/7 Builder Task** spins up an **AI agent** capable of continu
 
 - This is the **first beta release** of the task.
 - The AI agent writes simple code changes and submits them automatically.
-- Code is sent to the **[Prometheus Beta repository](https://github.com/koii-network/prometheus-beta)**
+- Code is sent to the **[Prometheus Beta repository](https://github.com/koii-network/prometheus-beta)**.
 - Future versions will introduce **enhanced AI logic, more complex coding tasks, and more!**
 
 ## Task Setup
