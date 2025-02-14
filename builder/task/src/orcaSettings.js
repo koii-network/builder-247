@@ -1,12 +1,3 @@
-/** EXAMPLE PODSPEC
- *
- * NOTE: The spacing is critical in YAML files
- * use template literal (``) to preserve whitespace
-
-Do not change containers > name. You must specify your container image here.
-
-*/
-
 import { TASK_ID, namespaceWrapper } from "@_koii/namespace-wrapper";
 const podId = TASK_ID;
 import "dotenv/config";
@@ -21,7 +12,7 @@ metadata:
 spec:
   containers:
     - name: user-${podId}
-      image: docker.io/labrocadabro/builder247:0.4
+      image: docker.io/labrocadabro/builder247:0.5
       env:
       - name: GITHUB_TOKEN
         value: "${process.env.GITHUB_TOKEN}"
@@ -43,7 +34,7 @@ spec:
 
 export async function getConfig() {
   return {
-    imageURL: "docker.io/labrocadabro/builder247:0.4",
+    imageURL: "docker.io/labrocadabro/builder247:0.5",
     customPodSpec: await createPodSpec(),
     rootCA: null,
   };
