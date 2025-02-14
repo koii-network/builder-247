@@ -15,7 +15,7 @@ The **Prometheus 24/7 Builder Task** spins up an **AI agent** capable of continu
 
 ## Task Setup
 
-**[How to set up a Claude API key and a GitHub API key for the 247 Builder Task.](#)** _(Replace with actual blog link)_
+**[How to set up a Claude API key and a GitHub API key for the 247 Builder Task.](https://www.koii.network/blog/Earn-Crypto-With-AI-Agent)**
 
 ## How It Works
 
