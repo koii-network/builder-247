@@ -12,7 +12,7 @@ metadata:
 spec:
   containers:
     - name: user-${podId}
-      image: docker.io/labrocadabro/builder247:0.5
+      image: docker.io/labrocadabro/prometheus:0.1
       env:
       - name: GITHUB_TOKEN
         value: "${process.env.GITHUB_TOKEN}"
@@ -34,7 +34,7 @@ spec:
 
 export async function getConfig() {
   return {
-    imageURL: "docker.io/labrocadabro/builder247:0.5",
+    imageURL: "docker.io/labrocadabro/prometheus:0.1",
     customPodSpec: await createPodSpec(),
     rootCA: null,
   };
