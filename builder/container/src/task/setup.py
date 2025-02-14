@@ -35,7 +35,7 @@ def setup_client() -> AnthropicClient:
     """Configure and return the Anthropic client with tools."""
     load_dotenv()
 
-    client = AnthropicClient(api_key=os.environ["CLAUDE_API_KEY"])
+    client = AnthropicClient(api_key=os.environ["ANTHROPIC_API_KEY"])
 
     register_tools(client)
 

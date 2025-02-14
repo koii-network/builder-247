@@ -14,8 +14,8 @@ from src.test_parser import (
 def setup_environment():
     """Set up environment variables before each test."""
     load_dotenv()
-    if not os.environ.get("CLAUDE_API_KEY"):
-        pytest.skip("CLAUDE_API_KEY environment variable not set")
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY environment variable not set")
     yield
 
 
@@ -93,14 +93,16 @@ def test_send_test_data_to_claude():
 
 def test_send_test_data_to_claude_no_api_key():
     """Test that appropriate error is raised when API key is missing."""
-    original_key = os.environ.get("CLAUDE_API_KEY")
+    original_key = os.environ.get("ANTHROPIC_API_KEY")
 
     try:
-        if "CLAUDE_API_KEY" in os.environ:
-            del os.environ["CLAUDE_API_KEY"]
+        if "ANTHROPIC_API_KEY" in os.environ:
+            del os.environ["ANTHROPIC_API_KEY"]
 
-        with pytest.raises(ValueError, match="CLAUDE_API_KEY must be set in .env file"):
+        with pytest.raises(
+            ValueError, match="ANTHROPIC_API_KEY must be set in .env file"
+        ):
             send_test_data_to_claude({})
     finally:
         if original_key is not None:
-            os.environ["CLAUDE_API_KEY"] = original_key
+            os.environ["ANTHROPIC_API_KEY"] = original_key

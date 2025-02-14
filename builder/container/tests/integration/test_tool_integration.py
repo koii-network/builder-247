@@ -13,9 +13,9 @@ load_dotenv()
 @pytest.fixture(autouse=True)
 def setup_environment(tmp_path):
     """Set up environment variables and client before each test."""
-    api_key = os.environ.get("CLAUDE_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        pytest.skip("CLAUDE_API_KEY environment variable not set")
+        pytest.skip("ANTHROPIC_API_KEY environment variable not set")
     temp_db = tmp_path / "test.db"
     client = AnthropicClient(api_key=api_key, db_path=temp_db)
     return client

@@ -172,7 +172,7 @@ class AnthropicClient:
     def _create_client(self, api_key: str):
         """Create a new Anthropic client."""
         if not api_key:
-            raise ValueError("Missing CLAUDE_API_KEY")
+            raise ValueError("Missing ANTHROPIC_API_KEY")
 
         return Anthropic(api_key=api_key)
 
@@ -356,7 +356,7 @@ class AnthropicClient:
             Dict[str, Any]: Claude's response including any tool calls
 
         Raises:
-            ValueError: If CLAUDE_API_KEY is not set
+            ValueError: If ANTHROPIC_API_KEY is not set
         """
 
         return self.client.messages.create(

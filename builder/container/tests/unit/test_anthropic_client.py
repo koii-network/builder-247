@@ -13,9 +13,9 @@ from pathlib import Path
 def setup_environment(tmp_path):
     """Set up environment variables before each test."""
     load_dotenv()
-    if not os.environ.get("CLAUDE_API_KEY"):
-        pytest.skip("CLAUDE_API_KEY environment variable not set")
-    api_key = os.environ.get("CLAUDE_API_KEY")
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY environment variable not set")
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
     temp_db = tmp_path / "test.db"
     yield AnthropicClient(api_key=api_key, db_path=temp_db)
 
@@ -120,10 +120,10 @@ def test_send_message(setup_environment):
 
 def test_send_test_message_no_api_key(monkeypatch):
     """Test that appropriate error is raised when API key is missing."""
-    # Remove the CLAUDE_API_KEY for this test
-    monkeypatch.delenv("CLAUDE_API_KEY", raising=False)
+    # Remove the ANTHROPIC_API_KEY for this test
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
-    with pytest.raises(ValueError, match="Missing CLAUDE_API_KEY"):
+    with pytest.raises(ValueError, match="Missing ANTHROPIC_API_KEY"):
         AnthropicClient(api_key="")
 
 
@@ -279,7 +279,7 @@ def test_bulk_tool_registration(temp_tools_dir, setup_environment):
 
 def test_bulk_registration_errors(tmp_path):
     """Test error handling in bulk tool registration."""
-    client = AnthropicClient(api_key=os.environ.get("CLAUDE_API_KEY"))
+    client = AnthropicClient(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
     # Test with non-existent directory
     with pytest.raises(ValueError, match="Directory not found"):

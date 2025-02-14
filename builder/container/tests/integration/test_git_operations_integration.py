@@ -20,13 +20,13 @@ def get_api_key(max_retries=3, retry_delay=1):
     """
     for attempt in range(max_retries):
         # Try environment variable first
-        api_key = os.environ.get("CLAUDE_API_KEY")
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
         if api_key:
             return api_key
 
         # Try loading from .env
         load_dotenv()
-        api_key = os.environ.get("CLAUDE_API_KEY")
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
         if api_key:
             return api_key
 
@@ -41,7 +41,7 @@ def setup_environment(tmp_path):
     """Set up environment variables and client before each test."""
     api_key = get_api_key()
     if not api_key:
-        pytest.skip("CLAUDE_API_KEY environment variable not set after retries")
+        pytest.skip("ANTHROPIC_API_KEY environment variable not set after retries")
     temp_db = tmp_path / "test.db"
     client = AnthropicClient(api_key=api_key, db_path=temp_db)
     client.register_tools_from_directory("src/tools/definitions/git_operations")

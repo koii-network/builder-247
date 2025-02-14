@@ -94,7 +94,7 @@ class GitHubFlow:
 def setup_environment():
     """Set environment variables"""
     load_dotenv()
-    api_key = os.environ.get("CLAUDE_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
 
     return AnthropicClient(api_key=api_key)
 

@@ -103,7 +103,7 @@ requirementsTags:
   - type: STORAGE
     value: "5 GB"
   - type: TASK_VARIABLE
-    value: "CLAUDE_API_KEY"
+    value: "ANTHROPIC_API_KEY"
     description: "Your Anthropic API key. You can get one here: https://console.anthropic.com/settings/keys"
   - type: TASK_VARIABLE
     value: "GITHUB_USERNAME"

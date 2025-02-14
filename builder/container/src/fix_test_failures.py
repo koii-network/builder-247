@@ -29,10 +29,10 @@ def get_fix_from_claude(test_output: str) -> List[Dict[str, Any]]:
     Returns:
         List[Dict[str, Any]]: List of fixes suggested by Claude
     """
-    api_key = os.environ.get("CLAUDE_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
 
     if not api_key:
-        raise ValueError("CLAUDE_API_KEY must be set in .env file")
+        raise ValueError("ANTHROPIC_API_KEY must be set in .env file")
 
     client = Anthropic(api_key=api_key)
 

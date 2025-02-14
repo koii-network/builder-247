@@ -92,12 +92,12 @@ def send_test_data_to_claude(test_data: Dict[str, Any]) -> Dict[str, Any]:
         Dict[str, Any]: Claude's structured response
 
     Raises:
-        ValueError: If CLAUDE_API_KEY is not set
+        ValueError: If ANTHROPIC_API_KEY is not set
     """
-    api_key = os.environ.get("CLAUDE_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
 
     if not api_key:
-        raise ValueError("CLAUDE_API_KEY must be set in .env file")
+        raise ValueError("ANTHROPIC_API_KEY must be set in .env file")
 
     client = Anthropic(api_key=api_key)
 

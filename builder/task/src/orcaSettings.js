@@ -18,8 +18,8 @@ spec:
         value: "${process.env.GITHUB_TOKEN}"
       - name: GITHUB_USERNAME
         value: "${process.env.GITHUB_USERNAME}"
-      - name: CLAUDE_API_KEY
-        value: "${process.env.CLAUDE_API_KEY}"
+      - name: ANTHROPIC_API_KEY
+        value: "${process.env.ANTHROPIC_API_KEY}"
       volumeMounts:
         - name: builder-data
           mountPath: /data
