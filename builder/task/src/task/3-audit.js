@@ -1,6 +1,5 @@
 import { getFile } from "../helpers.js";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
-import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 export async function audit(cid, roundNumber) {
   /**
    * Audit a submission
@@ -13,24 +12,12 @@ export async function audit(cid, roundNumber) {
   console.log({ submission });
   const orca = await getOrcaClient();
 
-  const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
-  const stakingKey = stakingKeypair.publicKey.toBase58();
-
-  const signature = await namespaceWrapper.payloadSigning(
-    {
-      taskId: TASK_ID,
-      roundNumber: roundNumber,
-      action: "check",
-    },
-    stakingKeypair.secretKey,
-  );
-
-  const result = await orca.podCall(`audit`, {
+  const result = await orca.podCall("audit", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ submission, signature, stakingKey }),
+    body: JSON.stringify({ submission }),
   });
   return result.data;
 }
