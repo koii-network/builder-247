@@ -28,7 +28,7 @@ async function verifySignatureData(signature: string, pubKey: string): Promise<{
       return null;
     }
     const body = JSON.parse(data);
-    if (!body.taskId || !body.roundNumber || body.taskId !== taskID) {
+    if (!body.taskId || typeof body.roundNumber !== "number" || body.taskId !== taskID) {
       return null;
     }
     return { roundNumber: body.roundNumber };

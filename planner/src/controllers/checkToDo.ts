@@ -35,7 +35,7 @@ async function verifySignatureData(signature: string, stakingKey: string): Promi
     }
     const body = JSON.parse(data);
 
-    if (!body.taskId || !body.roundNumber || body.taskId !== taskID || body.action !== "check") {
+    if (!body.taskId || typeof body.roundNumber !== "number" || body.taskId !== taskID || body.action !== "check") {
       return null;
     }
     return { roundNumber: body.roundNumber };
