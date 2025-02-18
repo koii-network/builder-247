@@ -27,6 +27,8 @@ metadata.json
 .npmrc
 *.pem
 .vscode
+data/chunks
+data/process
 
 
 # Ignore auto-generated repository directories
