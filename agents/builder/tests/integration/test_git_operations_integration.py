@@ -4,7 +4,7 @@ import os
 import time
 import pytest
 from dotenv import load_dotenv
-from src.anthropic_client import AnthropicClient
+from agents.builder.src.clients.anthropic_client import AnthropicClient
 from anthropic.types import Message
 from git import Repo
 from pathlib import Path

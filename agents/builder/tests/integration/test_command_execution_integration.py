@@ -2,7 +2,7 @@
 
 import os
 import pytest
-from src.anthropic_client import AnthropicClient
+from agents.builder.src.clients.anthropic_client import AnthropicClient
 from anthropic.types import Message
 
 

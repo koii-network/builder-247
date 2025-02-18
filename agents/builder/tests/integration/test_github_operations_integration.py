@@ -5,7 +5,7 @@ import pytest
 import time
 import tempfile
 from dotenv import load_dotenv
-from src.anthropic_client import AnthropicClient
+from agents.builder.src.clients.anthropic_client import AnthropicClient
 from anthropic.types import Message
 from src.tools.github_operations import fork_repository
 from github import Github, Auth

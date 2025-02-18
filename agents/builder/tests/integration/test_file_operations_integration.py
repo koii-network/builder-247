@@ -3,7 +3,7 @@
 import os
 import pytest
 from dotenv import load_dotenv
-from src.anthropic_client import AnthropicClient
+from agents.builder.src.clients.anthropic_client import AnthropicClient
 from anthropic.types import Message
 import time
 

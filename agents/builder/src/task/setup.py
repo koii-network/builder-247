@@ -1,7 +1,7 @@
 # check if a fork exists, sync if it does, create a fork if it doesn't
 from dotenv import load_dotenv
 import os
-from src.anthropic_client import AnthropicClient
+from agents.builder.src.clients.anthropic_client import AnthropicClient
 from pathlib import Path
 from git import Repo
 

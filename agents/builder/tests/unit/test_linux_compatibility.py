@@ -63,7 +63,7 @@ def test_path_handling():
     # Test importing client from different directory
     os.chdir(project_root)
     try:
-        from src.anthropic_client import AnthropicClient
+        from agents.builder.src.clients.anthropic_client import AnthropicClient
 
         assert AnthropicClient is not None
     except ImportError as e:

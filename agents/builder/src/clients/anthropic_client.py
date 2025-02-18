@@ -5,7 +5,7 @@ import sqlite3
 import uuid
 import importlib.util
 from pathlib import Path
-from typing import Dict, Any, Optional, List, TypedDict, Callable, Union
+from typing import Dict, Any, Optional, List, Callable, Union
 from anthropic import Anthropic
 from anthropic.types import (
     ToolParam,
@@ -16,16 +16,7 @@ from anthropic.types import (
     TextBlock,
 )
 import os
-
-
-class MessageContent(TypedDict):
-    role: str
-    content: List[ContentBlockParam]
-
-
-class ToolConfig(TypedDict):
-    tool_definitions: List[ToolParam]
-    tool_choice: ToolChoiceParam
+from .base_client import Client, MessageContent, ToolConfig
 
 
 def _format_content_for_storage(
@@ -82,7 +73,8 @@ def _format_message_for_api(message: MessageContent) -> Dict[str, Any]:
     }
 
 
-class AnthropicClient:
+class AnthropicClient(Client):
+    """Anthropic-specific implementation of the LLM client."""
 
     def __init__(
         self,
