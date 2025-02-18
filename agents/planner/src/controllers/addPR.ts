@@ -14,10 +14,12 @@ function verifyRequestBody(req: Request): { signature: string; pubKey: string; p
     if (!signature || !pubKey || !prUrl) {
       return null;
     }
+
     return { signature, pubKey, prUrl };
   } catch {
     return null;
   }
+  
 }
 
 // Helper function to verify signature
