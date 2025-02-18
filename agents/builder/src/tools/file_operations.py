@@ -1,27 +1,23 @@
 """Module for file operations."""
 
-import os
 import shutil
-from typing import Dict, Any
+from typing import Dict, Any, List
 from pathlib import Path
-from src.tools.execute_command import execute_command
+from agents.builder.src.tools.execute_command.tools import execute_command
+
+
+def ensure_relative_path(path: str) -> Path:
+    """Convert the path to be relative to the current working directory."""
+    if path.startswith("/"):
+        path = path[1:]  # Remove leading slash to treat as relative
+    return Path.cwd() / path
 
 
 def read_file(file_path: str) -> Dict[str, Any]:
-    """
-    Read the contents of a file.
-
-    Args:
-        file_path (str): Path to the file to read
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - content (str): The file contents if successful
-            - error (str): Error message if unsuccessful
-    """
+    """Read the contents of a file."""
     try:
-        with open(file_path, "r") as f:
+        file_path = ensure_relative_path(file_path)
+        with file_path.open("r") as f:
             return {"success": True, "content": f.read()}
     except FileNotFoundError:
         return {"success": False, "error": f"File not found: {file_path}"}
@@ -30,12 +26,12 @@ def read_file(file_path: str) -> Dict[str, Any]:
 
 
 def write_file(file_path: str, content: str) -> Dict[str, Any]:
-    """Write file with directory creation"""
+    """Write file with directory creation."""
     try:
-        full_path = Path(os.getcwd()) / file_path
-        full_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path = ensure_relative_path(file_path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(full_path, "w") as f:
+        with file_path.open("w") as f:
             f.write(content)
 
         return {"success": True}
@@ -44,52 +40,33 @@ def write_file(file_path: str, content: str) -> Dict[str, Any]:
 
 
 def copy_file(source: str, destination: str) -> Dict[str, Any]:
-    """
-    Copy a file from source to destination.
-
-    Args:
-        source (str): Path to the source file
-        destination (str): Path to the destination file
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
-    """
+    """Copy a file from source to destination."""
     try:
-        if not os.path.exists(source):
+        source_path = ensure_relative_path(source)
+        destination_path = ensure_relative_path(destination)
+
+        if not source_path.exists():
             return {"success": False, "error": "Source file not found"}
 
-        # Create destination directory if it doesn't exist
-        os.makedirs(os.path.dirname(destination), exist_ok=True)
-
-        shutil.copy2(source, destination)
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_path, destination_path)
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def move_file(source: str, destination: str) -> Dict[str, Any]:
-    """
-    Move a file from source to destination.
-
-    Args:
-        source (str): Path to the source file
-        destination (str): Path to the destination file
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
-    """
+    """Move a file from source to destination."""
     try:
-        if not os.path.exists(source):
+        source_path = ensure_relative_path(source)
+        destination_path = ensure_relative_path(destination)
+
+        if not source_path.exists():
             return {"success": False, "error": "Source file not found"}
 
-        # Create destination directory if it doesn't exist
-        os.makedirs(os.path.dirname(destination), exist_ok=True)
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
 
-        result = execute_command(f"mv {source} {destination}")
+        result = execute_command(f"mv {source_path} {destination_path}")
         if result[2] != 0:
             raise Exception("Failed to move file")
         return {"success": True}
@@ -98,21 +75,13 @@ def move_file(source: str, destination: str) -> Dict[str, Any]:
 
 
 def rename_file(source: str, destination: str) -> Dict[str, Any]:
-    """
-    Rename a file from source to destination.
-
-    Args:
-        source (str): Current file path
-        destination (str): New file path
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
-    """
+    """Rename a file from source to destination."""
     try:
-        os.makedirs(os.path.dirname(destination), exist_ok=True)
-        os.rename(source, destination)
+        source_path = ensure_relative_path(source)
+        destination_path = ensure_relative_path(destination)
+
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        source_path.rename(destination_path)
         return {"success": True}
     except FileNotFoundError:
         return {"success": False, "error": f"Source file not found: {source}"}
@@ -121,19 +90,10 @@ def rename_file(source: str, destination: str) -> Dict[str, Any]:
 
 
 def delete_file(file_path: str) -> Dict[str, Any]:
-    """
-    Delete a file.
-
-    Args:
-        file_path (str): Path to the file to delete
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
-    """
+    """Delete a file."""
     try:
-        if not os.path.exists(file_path):
+        file_path = ensure_relative_path(file_path)
+        if not file_path.exists():
             return {"success": False, "error": "File not found"}
 
         result = execute_command(f"rm {file_path}")
@@ -144,41 +104,30 @@ def delete_file(file_path: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def list_files(directory: str) -> list:
-    """
-    Return a list of all files in the specified directory and its subdirectories.
+def list_files(directory: str) -> List[str]:
+    """Return a list of all files in the specified directory and its subdirectories."""
+    try:
+        directory_path = ensure_relative_path(directory)
 
-    Parameters:
-    directory (str or Path): The directory to search for files.
+        if not directory_path.exists() or not directory_path.is_dir():
+            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
 
-    Returns:
-    list: A list of file paths relative to the specified directory or CWD.
-    """
-    directory = Path(directory)
-
-    # Check if the directory exists
-    if not directory.exists() or not directory.is_dir():
-        raise FileNotFoundError(f"The directory '{directory}' does not exist.")
-
-    # Check if the provided path is absolute
-    if not directory.is_absolute():
-        directory = Path.cwd() / directory
-
-    return [
-        str(file.relative_to(directory))
-        for file in directory.rglob("*")
-        if file.is_file()
-    ]
+        return [
+            str(file.relative_to(directory_path))
+            for file in directory_path.rglob("*")
+            if file.is_file()
+        ]
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
-def create_file(file_path: str, content: str) -> dict:
+def create_file(file_path: str, content: str) -> Dict[str, Any]:
     """Create a new file with specified content."""
     try:
-        # Use relative path from working directory
-        full_path = os.path.join(os.getcwd(), file_path)
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        full_path = ensure_relative_path(file_path)
+        full_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(full_path, "w") as f:
+        with full_path.open("w") as f:
             f.write(content)
         return {"success": True}
     except Exception as e:
