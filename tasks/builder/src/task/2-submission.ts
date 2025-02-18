@@ -2,7 +2,8 @@ import { storeFile } from "../helpers.js";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 
-export async function submission(roundNumber) {
+
+export async function submission(roundNumber: number): Promise<string | void>  {
   /**
    * Retrieve the task proofs from your container and submit for auditing
    * Must return a string of max 512 bytes to be submitted on chain
@@ -13,6 +14,9 @@ export async function submission(roundNumber) {
   try {
     const orcaClient = await getOrcaClient();
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
+        if (!stakingKeypair) {
+      throw new Error("No staking keypair found");
+    }
     const stakingKey = stakingKeypair.publicKey.toBase58();
     console.log("stakingKey", stakingKey);
     const result = await orcaClient.podCall(`submission/${roundNumber}`);

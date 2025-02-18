@@ -2,7 +2,7 @@ import { TASK_ID, namespaceWrapper } from "@_koii/namespace-wrapper";
 const podId = TASK_ID;
 import "dotenv/config";
 
-async function createPodSpec() {
+async function createPodSpec(): Promise<string> {
   const basePath = await namespaceWrapper.getBasePath();
 
   const podSpec = `apiVersion: v1
@@ -32,7 +32,11 @@ spec:
   return podSpec;
 }
 
-export async function getConfig() {
+export async function getConfig(): Promise<{
+  imageURL: string;
+  customPodSpec: string;
+  rootCA: string | null;
+}> {
   return {
     imageURL: "docker.io/labrocadabro/prometheus:0.1",
     customPodSpec: await createPodSpec(),
