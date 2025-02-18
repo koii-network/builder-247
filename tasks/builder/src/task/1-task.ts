@@ -1,7 +1,7 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 
-export async function task(roundNumber) {
+export async function task(roundNumber: number): Promise<void> {
   /**
    * Run your task and store the proofs to be submitted for auditing
    * It is expected you will store the proofs in your container
@@ -12,6 +12,9 @@ export async function task(roundNumber) {
     const orcaClient = await getOrcaClient();
 
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
+    if (!stakingKeypair) {
+      throw new Error("No staking keypair found");
+    }
     const stakingKey = stakingKeypair.publicKey.toBase58();
 
     const fetchSignature = await namespaceWrapper.payloadSigning(

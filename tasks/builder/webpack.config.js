@@ -1,17 +1,41 @@
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export default {
-  entry: './src/index.js',
-  target: 'node',
-  // When uploading to arweave use the production mode
-  // mode:"production",
-  mode: 'development',
-  devtool: 'source-map',
-  optimization: {
-    usedExports: false,
+  mode: "development",
+  entry: "./src/index.ts",
+  output: {
+    filename: "main.js",
+    path: path.resolve(__dirname, "dist"),
+    libraryTarget: "commonjs2",
+    clean: true
   },
-  stats: {
-    moduleTrace: false,
+  target: "node",
+  
+  resolve: {
+    extensions: [".ts", ".js"]
   },
-  node: {
-    __dirname: true,
+  
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        use: {
+          loader: "ts-loader",
+          options: {
+            transpileOnly: true
+          }
+        },
+        exclude: /node_modules/
+      }
+    ]
   },
+  
+  plugins: [
+
+  ],
+  devtool: "source-map",
 };

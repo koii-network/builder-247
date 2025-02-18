@@ -1,6 +1,11 @@
 import { getFile } from "../helpers.js";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
-export async function audit(cid, roundNumber) {
+
+export async function audit(
+  cid: string,
+  roundNumber: number,
+  submitterKey: string,
+): Promise<boolean | void>  {
   /**
    * Audit a submission
    * This function should return true if the submission is correct, false otherwise
