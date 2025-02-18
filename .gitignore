@@ -11,9 +11,22 @@ signature.js
 git-filter-repo
 task/orca/
 **/dist/
-**/node_modules/
 yarn.lock
 package-lock.json
+node_modules
+build
+migrate.sh
+*/dev.js
+executables/*
+namespace/*
+config/*
+.env.local
+taskStateInfoKeypair.json
+localKOIIDB.db
+metadata.json
+.npmrc
+*.pem
+
 
 # Ignore auto-generated repository directories
 repo_*/
