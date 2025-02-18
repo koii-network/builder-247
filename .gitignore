@@ -26,6 +26,7 @@ localKOIIDB.db
 metadata.json
 .npmrc
 *.pem
+.vscode
 
 
 # Ignore auto-generated repository directories
