@@ -5,6 +5,7 @@ from src.tools.github_operations import (
     sync_fork,
     check_fork_exists,
     create_pull_request,
+    review_pull_request,
 )
 
 TOOL_IMPLEMENTATIONS = {
@@ -12,4 +13,5 @@ TOOL_IMPLEMENTATIONS = {
     "sync_fork": sync_fork,
     "check_fork_exists": check_fork_exists,
     "create_pull_request": create_pull_request,
+    "review_pull_request": review_pull_request,
 }
