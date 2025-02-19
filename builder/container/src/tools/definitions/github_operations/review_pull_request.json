@@ -1,6 +1,6 @@
 {
-    "name": "comment_on_pull_request",
-    "description": "Add a comment to a pull request",
+    "name": "review_pull_request",
+    "description": "Review a pull request",
     "input_schema": {
         "type": "object",
         "properties": {

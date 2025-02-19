@@ -200,7 +200,7 @@ def check_fork_exists(owner: str, repo_name: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def comment_on_pull_request(
+def review_pull_request(
     repo_full_name: str, pr_number: int, comment: str
 ) -> Dict[str, Any]:
     """
@@ -224,52 +224,5 @@ def comment_on_pull_request(
         return {"success": True}
     except Exception as e:
         error_msg = f"Error commenting on PR #{pr_number}: {str(e)}"
-        print(error_msg)
-        return {"success": False, "error": error_msg}
-
-
-def close_pull_request(
-    repo_full_name: str, pr_number: int, merge: bool = False
-) -> Dict[str, Any]:
-    """
-    Close a pull request, optionally merging it.
-
-    Args:
-        repo_full_name (str): Full name of the repository (owner/repo)
-        pr_number (int): Pull request number
-        merge (bool): Whether to merge the PR before closing (default: False)
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
-            - merged (bool): Whether the PR was merged (only if success is True)
-    """
-    try:
-        gh = _get_github_client()
-        repo = gh.get_repo(repo_full_name)
-        pr = repo.get_pull(pr_number)
-
-        if merge:
-            if not pr.mergeable:
-                return {
-                    "success": False,
-                    "error": "PR cannot be merged - there are conflicts or checks failing",
-                }
-
-            # Merge the PR
-            merge_result = pr.merge(
-                merge_method="squash",
-                commit_title=f"Merge PR #{pr_number}: {pr.title}",
-                commit_message=pr.body,
-            )
-            return {"success": True, "merged": True, "sha": merge_result.sha}
-        else:
-            # Just close the PR
-            pr.edit(state="closed")
-            return {"success": True, "merged": False}
-
-    except Exception as e:
-        error_msg = f"Error closing PR #{pr_number}: {str(e)}"
         print(error_msg)
         return {"success": False, "error": error_msg}
