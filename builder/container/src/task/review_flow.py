@@ -28,12 +28,13 @@ PROMPTS = {
         "1. Examine the changes in the files provided\n"
         "2. Verify each requirement is met\n"
         "3. Run the tests and check they pass\n"
-        "4. Write a detailed report with your findings\n"
-        "5. Make a clear recommendation (approve/revise/reject)\n\n"
+        "4. Evaluate test comprehensiveness\n"
+        "5. Write a detailed report with your findings\n"
+        "6. Make a clear recommendation (approve/revise/reject)\n\n"
         "Your report should include:\n"
         "- Summary of changes\n"
         "- Requirements check (met/not met for each)\n"
-        "- Test results\n"
+        "- Test evaluation (coverage, quality, missing cases)\n"
         "- Recommendation with justification"
     ),
     "review_pr": (
@@ -42,6 +43,30 @@ PROMPTS = {
         "{files_list}\n\n"
         "Requirements to check:\n"
         "{requirements}\n\n"
+        "Test requirements to verify (where applicable):\n"
+        "1. Core Functionality Testing:\n"
+        "   - Tests the actual implementation, not just mocks\n"
+        "   - For external services (APIs, databases, etc.), includes both:\n"
+        "     * Integration tests with real services\n"
+        "     * Unit tests with mocks for edge cases\n"
+        "   - Tests the complete workflow, not just individual parts\n"
+        "2. Edge Cases and Input Validation:\n"
+        "   - Tests boundary values and limits\n"
+        "   - Tests invalid/malformed inputs\n"
+        "   - Tests empty/null cases\n"
+        "   - Tests type mismatches\n"
+        "3. Error Handling:\n"
+        "   - Tests error conditions (e.g., network failures, timeouts)\n"
+        "   - Tests error recovery and cleanup\n"
+        "4. Test Design:\n"
+        "   - Tests are independent and deterministic\n"
+        "   - No shared state between tests\n"
+        "   - Mocks are used appropriately\n"
+        "   - Tests all code paths and branches\n"
+        "5. Performance and Resources:\n"
+        "   - Tests with realistic data sizes\n"
+        "   - Verifies performance requirements\n"
+        "   - Tests resource cleanup\n\n"
         "Review criteria:\n"
         "- APPROVE if all requirements are met and tests pass\n"
         "- REVISE if there are minor issues: {minor_issues}\n"
@@ -265,7 +290,8 @@ if __name__ == "__main__":
 
     major_issues = (
         "Incorrect implementation, failing tests, missing critical features, "
-        "no error handling, security vulnerabilities, no tests"
+        "no error handling, security vulnerabilities, no tests",
+        "tests are poorly designed or rely too heavily on mocking",
     )
 
     review_all_pull_requests(
