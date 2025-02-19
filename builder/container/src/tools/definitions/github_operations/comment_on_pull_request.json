@@ -1,0 +1,22 @@
+{
+    "name": "comment_on_pull_request",
+    "description": "Add a comment to a pull request",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "repo_full_name": {
+                "type": "string",
+                "description": "Full repository name in format owner/repo"
+            },
+            "pr_number": {
+                "type": "integer",
+                "description": "Pull request number"
+            },
+            "comment": {
+                "type": "string",
+                "description": "Comment text to add to the pull request"
+            }
+        },
+        "required": ["repo_full_name", "pr_number", "comment"]
+    }
+}
