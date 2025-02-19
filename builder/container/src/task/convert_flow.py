@@ -51,7 +51,7 @@ PROMPTS = {
     ),
     "system_prompt": (
         "You are an expert data processor. Your task is to convert JSONL files containing coding challenges to CSV "
-        "files. For each challenge:\n\n"
+        "files. YOU DO NOT WRITE CODE. For each challenge:\n\n"
         "ESSENTIAL - You must preserve:\n"
         "1. Problem specifications (e.g., grid formats, data structures, valid values)\n"
         "2. Input/output formats and requirements\n"
