@@ -1,22 +1,88 @@
 {
-    "name": "review_pull_request",
-    "description": "Review a pull request",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "repo_full_name": {
-                "type": "string",
-                "description": "Full repository name in format owner/repo"
-            },
-            "pr_number": {
-                "type": "integer",
-                "description": "Pull request number"
-            },
-            "comment": {
-                "type": "string",
-                "description": "Comment text to add to the pull request"
-            }
-        },
-        "required": ["repo_full_name", "pr_number", "comment"]
-    }
+	"name": "review_pull_request",
+	"description": "Post a structured review comment on a pull request",
+	"input_schema": {
+		"type": "object",
+		"properties": {
+			"repo_full_name": {
+				"type": "string",
+				"description": "Full repository name in format owner/repo"
+			},
+			"pr_number": {
+				"type": "integer",
+				"description": "Pull request number"
+			},
+			"title": {
+				"type": "string",
+				"description": "Title of the PR"
+			},
+			"summary": {
+				"type": "string",
+				"description": "Brief summary of the changes made in the PR"
+			},
+			"requirements": {
+				"type": "object",
+				"description": "Dictionary of requirements and their status",
+				"properties": {
+					"met": {
+						"type": "array",
+						"description": "List of requirements that were met. Can be empty.",
+						"items": { "type": "string" }
+					},
+					"not_met": {
+						"type": "array",
+						"description": "List of requirements that were not met. Can be empty.",
+						"items": { "type": "string" }
+					}
+				}
+			},
+			"test_evaluation": {
+				"type": "object",
+				"description": "Evaluation of test quality",
+				"properties": {
+					"coverage": {
+						"type": "array",
+						"description": "List of areas with good test coverage",
+						"items": { "type": "string" }
+					},
+					"issues": {
+						"type": "array",
+						"description": "List of issues found in existing tests",
+						"items": { "type": "string" }
+					},
+					"missing": {
+						"type": "array",
+						"description": "List of missing test cases that should be added. Can be empty.",
+						"items": { "type": "string" }
+					}
+				}
+			},
+			"recommendation": {
+				"type": "string",
+				"description": "APPROVE, REVISE, or REJECT",
+				"enum": ["APPROVE", "REVISE", "REJECT"]
+			},
+			"recommendation_reason": {
+				"type": "array",
+				"description": "List of reasons for the recommendation",
+				"items": { "type": "string" }
+			},
+			"action_items": {
+				"type": "array",
+				"description": "List of required changes or improvements. Empty array if no changes needed.",
+				"items": { "type": "string" }
+			}
+		},
+		"required": [
+			"repo_full_name",
+			"pr_number",
+			"title",
+			"summary",
+			"requirements",
+			"test_evaluation",
+			"recommendation",
+			"recommendation_reason",
+			"action_items"
+		]
+	}
 }

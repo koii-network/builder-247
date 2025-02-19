@@ -24,14 +24,46 @@ PROMPTS = {
 
 PR_TEMPLATE = """# {title}
 
-## Task
+## Original Task
 {todo}
-
-## Acceptance Criteria
-{acceptance_criteria}
 
 ## Summary of Changes
 {summary}
 
-## Test Cases
-{tests}"""
+## Acceptance Criteria
+{acceptance_criteria}
+
+## Tests
+{tests}
+"""
+
+REVIEW_TEMPLATE = """# PR Review: {title}
+
+## Recommendation: {recommendation}
+
+### Justification
+{recommendation_reasons}
+
+## Summary of Changes
+{summary}
+
+## Requirements Review
+### ✅ Met Requirements
+{met_requirements}
+
+### ❌ Unmet Requirements
+{unmet_requirements}
+
+## Test Evaluation
+### Coverage
+{test_coverage}
+
+### Issues in Existing Tests
+{test_issues}
+
+### Missing Test Cases
+{missing_tests}
+
+## Action Items
+{action_items}
+"""

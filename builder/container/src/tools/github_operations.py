@@ -1,8 +1,7 @@
 """Module for GitHub operations."""
 
 import os
-
-from typing import Dict, Any
+from typing import Dict, Any, List
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
 import ast
@@ -14,7 +13,7 @@ from src.tools.git_operations import (
 
 import time
 from git import Repo
-from src.task.constants import PR_TEMPLATE
+from src.task.constants import PR_TEMPLATE, REVIEW_TEMPLATE
 
 # Load environment variables from .env file
 load_dotenv()
@@ -201,15 +200,29 @@ def check_fork_exists(owner: str, repo_name: str) -> Dict[str, Any]:
 
 
 def review_pull_request(
-    repo_full_name: str, pr_number: int, comment: str
+    repo_full_name: str,
+    pr_number: int,
+    title: str,
+    summary: str,
+    requirements: Dict[str, List[str]],
+    test_evaluation: Dict[str, List[str]],
+    recommendation: str,
+    recommendation_reason: List[str],
+    action_items: List[str],
 ) -> Dict[str, Any]:
     """
-    Add a comment to a pull request.
+    Post a structured review comment on a pull request.
 
     Args:
         repo_full_name (str): Full name of the repository (owner/repo)
         pr_number (int): Pull request number
-        comment (str): Comment text to add
+        title (str): Title of the PR
+        summary (str): Summary of the changes
+        requirements (Dict[str, List[str]]): Dictionary with 'met' and 'not_met' requirements
+        test_evaluation (Dict[str, List[str]]): Dictionary with test evaluation details
+        recommendation (str): APPROVE/REVISE/REJECT
+        recommendation_reason (List[str]): List of reasons for the recommendation
+        action_items (List[str]): List of required changes or improvements
 
     Returns:
         Dict[str, Any]: A dictionary containing:
@@ -220,9 +233,43 @@ def review_pull_request(
         gh = _get_github_client()
         repo = gh.get_repo(repo_full_name)
         pr = repo.get_pull(pr_number)
-        pr.create_issue_comment(comment)
+
+        # Format lists into markdown bullet points
+        def format_list(items: List[str], empty_message: str = "None") -> str:
+            if not items:
+                return f"*{empty_message}*"
+            return "- " + "\n- ".join(items)
+
+        # Format the review using the template
+        review_body = REVIEW_TEMPLATE.format(
+            title=title,
+            summary=summary,
+            met_requirements=format_list(
+                requirements.get("met", []), "All requirements need work"
+            ),
+            unmet_requirements=format_list(
+                requirements.get("not_met", []), "All requirements are met"
+            ),
+            test_coverage=format_list(
+                test_evaluation.get("coverage", []), "No adequate test coverage found"
+            ),
+            test_issues=format_list(
+                test_evaluation.get("issues", []), "No issues found in existing tests"
+            ),
+            missing_tests=format_list(
+                test_evaluation.get("missing", []), "No missing test cases identified"
+            ),
+            recommendation=recommendation,
+            recommendation_reasons=format_list(
+                recommendation_reason, "No specific reasons provided"
+            ),
+            action_items=format_list(action_items, "No action items required"),
+        )
+
+        # Post the review
+        pr.create_issue_comment(review_body)
         return {"success": True}
     except Exception as e:
-        error_msg = f"Error commenting on PR #{pr_number}: {str(e)}"
+        error_msg = f"Error posting review on PR #{pr_number}: {str(e)}"
         print(error_msg)
         return {"success": False, "error": error_msg}
