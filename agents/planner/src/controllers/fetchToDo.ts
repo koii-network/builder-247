@@ -8,6 +8,7 @@ import { isValidStakingKey } from "../utils/taskState";
 
 // Verify the request body contains the right data
 function verifyRequestBody(req: Request): { signature: string; pubKey: string } | null {
+  console.log("verifyRequestBody", req.body);
   try {
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
@@ -26,6 +27,7 @@ async function verifySignatureData(
   pubKey: string,
 ): Promise<{ roundNumber: number; githubUsername: string } | null> {
   try {
+    console.log({ signature, pubKey });
     const { data, error } = await verifySignature(signature, pubKey);
     if (error || !data) {
       console.log("bad signature");
