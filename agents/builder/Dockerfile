@@ -8,7 +8,8 @@ WORKDIR /app
 COPY requirements.txt .
 
 
-# Install Git and any other necessary packagesRUN apt-get update && apt-get install -y git sudo curl
+# Install Git and any other necessary packages
+RUN apt-get update && apt-get install -y git sudo curl
 
 # Install the dependencies
 RUN pip install -r requirements.txt
