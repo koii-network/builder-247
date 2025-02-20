@@ -7,22 +7,24 @@ import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 
 // Verify the request body contains the right data
-function verifyRequestBody(req: Request): { signature: string; pubKey: string; github_username: string } | null {
+function verifyRequestBody(req: Request): { signature: string; pubKey: string } | null {
   try {
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
-    const github_username = req.body.github_username as string;
-    if (!signature || !pubKey || !github_username) {
+    if (!signature || !pubKey) {
       return null;
     }
-    return { signature, pubKey, github_username };
+    return { signature, pubKey };
   } catch {
     return null;
   }
 }
 
 // Confirm the signature is valid and contains the right data
-async function verifySignatureData(signature: string, pubKey: string): Promise<{ roundNumber: number } | null> {
+async function verifySignatureData(
+  signature: string,
+  pubKey: string,
+): Promise<{ roundNumber: number; githubUsername: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, pubKey);
     if (error || !data) {
@@ -30,10 +32,16 @@ async function verifySignatureData(signature: string, pubKey: string): Promise<{
       return null;
     }
     const body = JSON.parse(data);
-    if (!body.taskId || typeof body.roundNumber !== "number" || body.taskId !== taskID || body.action !== "fetch") {
+    if (
+      !body.taskId ||
+      typeof body.roundNumber !== "number" ||
+      body.taskId !== taskID ||
+      body.action !== "fetch" ||
+      !body.githubUsername
+    ) {
       return null;
     }
-    return { roundNumber: body.roundNumber };
+    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername };
   } catch (error) {
     console.log("unexpected signature error", error);
     return null;
@@ -120,7 +128,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
       $expr: { $lt: [{ $size: "$assignedTo" }, 5] },
       $nor: [
         { "assignedTo.stakingKey": requestBody.pubKey },
-        { "assignedTo.githubUsername": requestBody.github_username },
+        { "assignedTo.githubUsername": signatureData.githubUsername },
       ],
     }).sort({ createdAt: 1 });
 
@@ -139,7 +147,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
         $expr: { $lt: [{ $size: "$assignedTo" }, 5] },
         $nor: [
           { "assignedTo.stakingKey": requestBody.pubKey },
-          { "assignedTo.githubUsername": requestBody.github_username },
+          { "assignedTo.githubUsername": signatureData.githubUsername },
         ],
       },
       {
@@ -148,7 +156,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
             stakingKey: requestBody.pubKey,
             taskId: taskID,
             roundNumber: signatureData.roundNumber,
-            githubUsername: requestBody.github_username,
+            githubUsername: signatureData.githubUsername,
           },
         },
       },

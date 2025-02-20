@@ -5,12 +5,13 @@ from flask import jsonify, current_app
 from src.server.services.database import get_db, close_db
 from src.task.flow import todo_to_pr
 import logging
+import utils.sign_message as sign
 
 logger = logging.getLogger(__name__)
 
 
-def handle_task_creation(round_number, fetch_signature, add_signature, staking_key):
-    todo = get_todo(fetch_signature, staking_key)
+def handle_task_creation(task_id, round_number, staking_key):
+    todo = get_todo(task_id, round_number, staking_key)
     if not todo:
         return jsonify({"error": "No todo found"}), 404
 
@@ -19,21 +20,30 @@ def handle_task_creation(round_number, fetch_signature, add_signature, staking_k
 
     Thread(
         target=run_todo_task,
-        args=(app, int(round_number), todo, add_signature, staking_key),
+        args=(app, task_id, int(round_number), todo, staking_key),
     ).start()
 
     return jsonify({"roundNumber": round_number, "status": "Task started"})
 
 
-def get_todo(signature, staking_key):
+def get_todo(task_id, round_number, staking_key):
     try:
         logger.info("Fetching todo")
+
+        payload = {
+            "taskId": task_id,
+            "roundNumber": round_number,
+            "action": "fetch",
+            "githubUsername": os.environ.get("GITHUB_USERNAME"),
+        }
+
+        signature = sign.payload_signing(payload, staking_key)
+
         response = requests.post(
             os.environ.get("MIDDLE_SERVER_URL") + "/api/fetch-to-do",
             json={
                 "signature": signature,
                 "pubKey": staking_key,
-                "github_username": os.environ.get("GITHUB_USERNAME"),
             },
             headers={"Content-Type": "application/json"},
         )
@@ -54,7 +64,7 @@ def get_todo(signature, staking_key):
         return None
 
 
-def run_todo_task(app, round_number, todo, signature, staking_key):
+def run_todo_task(app, task_id, round_number, todo, staking_key):
     """Wrapper function for background task execution"""
     with app.app_context():
         try:
@@ -84,10 +94,16 @@ def run_todo_task(app, round_number, todo, signature, staking_key):
                 logger.error("No PR URL found")
                 return
             try:
+                payload = {
+                    "taskId": task_id,
+                    "roundNumber": round_number,
+                    "action": "add",
+                    "prUrl": pr_url,
+                }
+                signature = sign.payload_signing(payload, staking_key)
                 response = requests.post(
                     os.environ.get("MIDDLE_SERVER_URL") + "/api/add-pr-to-to-do",
                     json={
-                        "prUrl": pr_url,
                         "signature": signature,
                         "pubKey": staking_key,
                     },

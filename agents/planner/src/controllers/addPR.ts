@@ -5,35 +5,36 @@ import { verifySignature } from "../utils/sign";
 import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 
-function verifyRequestBody(req: Request): { signature: string; pubKey: string; prUrl: string } | null {
+function verifyRequestBody(req: Request): { signature: string; pubKey: string } | null {
   try {
     console.log("req.body", req.body);
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
-    const prUrl = req.body.prUrl as string;
-    if (!signature || !pubKey || !prUrl) {
+    if (!signature || !pubKey) {
       return null;
     }
 
-    return { signature, pubKey, prUrl };
+    return { signature, pubKey };
   } catch {
     return null;
   }
-  
 }
 
 // Helper function to verify signature
-async function verifySignatureData(signature: string, pubKey: string): Promise<{ roundNumber: number } | null> {
+async function verifySignatureData(
+  signature: string,
+  pubKey: string,
+): Promise<{ roundNumber: number; prUrl: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, pubKey);
     if (error || !data) {
       return null;
     }
     const body = JSON.parse(data);
-    if (!body.taskId || typeof body.roundNumber !== "number" || body.taskId !== taskID) {
+    if (!body.taskId || typeof body.roundNumber !== "number" || body.taskId !== taskID || !body.prUrl) {
       return null;
     }
-    return { roundNumber: body.roundNumber };
+    return { roundNumber: body.roundNumber, prUrl: body.prUrl };
   } catch {
     return null;
   }
@@ -81,8 +82,8 @@ export const addPR = async (req: Request, res: Response) => {
     return;
   }
 
-  console.log("prUrl", requestBody.prUrl);
-  const result = await updateAssignedInfoWithPRUrl(requestBody.pubKey, signatureData.roundNumber, requestBody.prUrl);
+  console.log("prUrl", signatureData.prUrl);
+  const result = await updateAssignedInfoWithPRUrl(requestBody.pubKey, signatureData.roundNumber, signatureData.prUrl);
   if (!result) {
     res.status(401).json({
       success: false,

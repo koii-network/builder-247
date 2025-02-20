@@ -23,18 +23,17 @@ def audit_submission():
     print(submission_json)
 
     round_number = submission_json.get("roundNumber")
-    status = submission_json.get("status")
-    pr_url = submission_json.get("pr_url")
-    username = submission_json.get("username")
-    repo_owner = submission_json.get("repo_owner")
-    repo_name = submission_json.get("repo_name")
+    task_id = submission_json.get("taskId")
+    pr_url = submission_json.get("prUrl")
+    github_username = submission_json.get("githubUsername")
+    repo_owner = submission_json.get("repoOwner")
+    repo_name = submission_json.get("repoName")
     staking_key = submission_json.get("stakingKey")
-    signature = submission_json.get("signature")
     if (
         not round_number
-        or not status
+        or not task_id
         or not pr_url
-        or not username
+        or not github_username
         or not repo_owner
         or not repo_name
         or not staking_key
@@ -42,11 +41,12 @@ def audit_submission():
         return jsonify({"error": "Missing submission data"}), 400
 
     is_valid = verify_pr_ownership(
+        task_id=task_id,
+        round_number=round_number,
         pr_url=pr_url,
-        expected_username=username,
+        expected_username=github_username,
         expected_owner=repo_owner,
         expected_repo=repo_name,
         staking_key=staking_key,
-        signature=signature,
     )
     return jsonify(is_valid)

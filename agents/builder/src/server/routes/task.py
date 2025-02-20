@@ -10,10 +10,10 @@ def start_task(roundNumber):
     logger.info(f"Task started for round: {roundNumber}")
 
     data = request.get_json()
-    required_fields = ["fetchSignature", "addSignature", "stakingKey"]
+    required_fields = ["taskId", "roundNumber", "stakingKey"]
     if not all(data.get(field) for field in required_fields):
-        return jsonify({"error": "Missing signature or staking key"}), 401
+        return jsonify({"error": "Missing data"}), 401
 
     return task_service.handle_task_creation(
-        roundNumber, data["fetchSignature"], data["addSignature"], data["stakingKey"]
+        roundNumber, data["taskId"], data["roundNumber"], data["stakingKey"]
     )

@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { request, Request, Response } from "express";
 import { TodoModel } from "../models/Todo";
 import { verifySignature } from "../utils/sign";
 import { taskID } from "../constant";
@@ -8,26 +8,25 @@ import { isValidStakingKey } from "../utils/taskState";
 function verifyRequestBody(req: Request): {
   signature: string;
   stakingKey: string;
-  github_username: string;
-  prUrl: string;
 } | null {
   try {
     console.log("Request body:", req.body);
     const signature = req.body.signature as string;
     const stakingKey = req.body.stakingKey as string;
-    const github_username = req.body.github_username as string;
-    const prUrl = req.body.prUrl as string;
-    if (!signature || !stakingKey || !github_username || !prUrl) {
+    if (!signature || !stakingKey) {
       return null;
     }
-    return { signature, stakingKey, github_username, prUrl };
+    return { signature, stakingKey };
   } catch {
     return null;
   }
 }
 
 // Helper function to verify signature
-async function verifySignatureData(signature: string, stakingKey: string): Promise<{ roundNumber: string } | null> {
+async function verifySignatureData(
+  signature: string,
+  stakingKey: string,
+): Promise<{ roundNumber: string; githubUsername: string; prUrl: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -35,10 +34,17 @@ async function verifySignatureData(signature: string, stakingKey: string): Promi
     }
     const body = JSON.parse(data);
 
-    if (!body.taskId || typeof body.roundNumber !== "number" || body.taskId !== taskID || body.action !== "check") {
+    if (
+      !body.taskId ||
+      typeof body.roundNumber !== "number" ||
+      body.taskId !== taskID ||
+      body.action !== "check" ||
+      !body.prUrl ||
+      !body.githubUsername
+    ) {
       return null;
     }
-    return { roundNumber: body.roundNumber };
+    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername, prUrl: body.prUrl };
   } catch (error) {
     console.error("Error in verifySignatureData:", error);
     return null;
@@ -105,8 +111,8 @@ export const checkToDo = async (req: Request, res: Response) => {
   const isValid = await checkToDoAssignment(
     requestBody.stakingKey,
     signatureData.roundNumber,
-    requestBody.github_username,
-    requestBody.prUrl,
+    signatureData.githubUsername,
+    signatureData.prUrl,
   );
 
   if (!isValid) {

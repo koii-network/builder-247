@@ -27,6 +27,7 @@ metadata.json
 .npmrc
 *.pem
 .vscode
+todos-example.csv
 
 
 # Ignore auto-generated repository directories

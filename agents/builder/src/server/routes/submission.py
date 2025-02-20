@@ -28,11 +28,10 @@ def fetch_submission(roundNumber):
         return jsonify(
             {
                 "roundNumber": result["roundNumber"],
-                "status": result["status"],
-                "pr_url": result["pr_url"],
-                "username": result["username"],
-                "repo_owner": result["repo_owner"],
-                "repo_name": result["repo_name"],
+                "prUrl": result["pr_url"],
+                "githubUsername": result["username"],
+                "repoOwner": result["repo_owner"],
+                "repoName": result["repo_name"],
             }
         )
     else:

@@ -10,3 +10,5 @@ Flask>=3.0.0
 requests>=2.32.0
 cryptography>=42.0.0
 gunicorn>=22.0.0
+solders>=0.26.0
+base58>=2.1.0
