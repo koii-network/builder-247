@@ -34,6 +34,7 @@ async function verifySignatureData(
       return null;
     }
     const body = JSON.parse(data);
+    console.log({ body });
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
@@ -41,6 +42,7 @@ async function verifySignatureData(
       body.action !== "fetch" ||
       !body.githubUsername
     ) {
+      console.log("bad signature data");
       return null;
     }
     return { roundNumber: body.roundNumber, githubUsername: body.githubUsername };
