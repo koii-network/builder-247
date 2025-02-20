@@ -1,12 +1,8 @@
-import { getFile } from '../helpers.js';
-import { getOrcaClient } from '@_koii/task-manager/extensions';
-import { namespaceWrapper, TASK_ID } from '@_koii/namespace-wrapper';
+import { getFile } from "../helpers";
+import { getOrcaClient } from "@_koii/task-manager/extensions";
+import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 
-export async function audit(
-  cid: string,
-  roundNumber: number,
-  submitterKey: string,
-): Promise<boolean | void>  {
+export async function audit(cid: string, roundNumber: number, submitterKey: string): Promise<boolean | void> {
   /**
    * Audit a submission
    * This function should return true if the submission is correct, false otherwise
@@ -20,28 +16,20 @@ export async function audit(
   const submission = JSON.parse(submissionString);
   console.log({ submission });
 
-
   // verify the signature of the submission
-  const signaturePayload = await namespaceWrapper.verifySignature(
-    submission.signature,
-    submitterKey,
-  );
+  const signaturePayload = await namespaceWrapper.verifySignature(submission.signature, submitterKey);
 
   console.log({ signaturePayload });
 
   // verify the signature payload
   if (signaturePayload.error || !signaturePayload.data) {
-    console.error('INVALID SIGNATURE');
+    console.error("INVALID SIGNATURE");
     return false;
   }
   const data = JSON.parse(signaturePayload.data);
 
-  if (
-    data.taskId !== TASK_ID ||
-    data.roundNumber !== roundNumber ||
-    data.stakingKey !== submitterKey
-  ) {
-    console.error('INVALID SIGNATURE DATA');
+  if (data.taskId !== TASK_ID || data.roundNumber !== roundNumber || data.stakingKey !== submitterKey) {
+    console.error("INVALID SIGNATURE DATA");
     return false;
   }
 
@@ -49,9 +37,9 @@ export async function audit(
 
   // Send the submission to the ORCA container for auditing
   const result = await orca.podCall(`audit`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ submission: data }),
   });

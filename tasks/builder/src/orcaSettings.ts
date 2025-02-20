@@ -2,6 +2,8 @@ import { TASK_ID, namespaceWrapper } from "@_koii/namespace-wrapper";
 const podId = TASK_ID;
 import "dotenv/config";
 
+const imageUrl = "docker.io/labrocadabro/prometheus:0.2";
+
 async function createPodSpec(): Promise<string> {
   const basePath = await namespaceWrapper.getBasePath();
 
@@ -12,7 +14,7 @@ metadata:
 spec:
   containers:
     - name: user-${podId}
-      image: docker.io/labrocadabro/prometheus:0.1
+      image: ${imageUrl}
       env:
       - name: GITHUB_TOKEN
         value: "${process.env.GITHUB_TOKEN}"
@@ -38,7 +40,7 @@ export async function getConfig(): Promise<{
   rootCA: string | null;
 }> {
   return {
-    imageURL: "docker.io/labrocadabro/prometheus:0.1",
+    imageURL: imageUrl,
     customPodSpec: await createPodSpec(),
     rootCA: null,
   };

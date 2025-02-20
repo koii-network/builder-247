@@ -1,28 +1,34 @@
 {
-  "name": "koii-task-template",
-  "version": "2.0.0",
+  "name": "orca-task",
+  "version": "2.2.0",
   "description": "",
-  "main": "src/index.ts",
-  "scripts": {
-    "start": "tsx watch ./tests/prod-debug.ts",
-    "prod-debug": "yarn start",
-    "webpack": "webpack",
-    "webpack:test": "webpack --config ./tests/webpack.config.js",
-    "simulate": "tsx ./tests/simulateTask.ts",
-    "jest-test": "jest --detectOpenHandles",
-    "lint": "eslint . --fix",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
-    "test": "tsx ./tests/testTask.ts"
-  },
+  "main": "src/index.js",
   "type": "module",
-  "author": "Koii Network",
+  "scripts": {
+    "test": "node tests/simulateTask.js",
+    "jest-test": "jest --detectOpenHandles",
+    "start": "node index.js",
+    "prod-debug": "nodemon --ignore 'dist/*' tests/prod-debug.js",
+    "webpack": "webpack",
+    "webpack:test": "webpack --config tests/test.webpack.config.js",
+    "webpack:prod": "webpack --mode production"
+  },
+  "author": "",
   "license": "ISC",
   "dependencies": {
-    "@_koii/task-manager": "^1.0.11",
+    "@_koii/orca-node": "^0.1.18",
+    "@_koii/storage-task-sdk": "^1.2.7",
+    "@_koii/task-manager": "^1.0.13",
     "@_koii/web3.js": "^0.1.11",
-    "dotenv": "^16.3.0"
+    "axios": "^1.7.2",
+    "cross-spawn": "^7.0.3",
+    "dotenv": "^16.3.0",
+    "dotenv-webpack": "^8.1.0",
+    "js-yaml": "^4.1.0",
+    "lodash": "^4.17.21",
+    "nodemon": "^3.1.0",
+    "tail": "^2.2.6"
   },
-
   "devDependencies": {
     "@_koii/namespace-wrapper": "^1.0.23",
     "@babel/preset-env": "^7.26.0",

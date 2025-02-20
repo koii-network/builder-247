@@ -1,6 +1,6 @@
-import { storeFile } from '../helpers.js';
-import { getOrcaClient } from '@_koii/task-manager/extensions';
-import { namespaceWrapper, TASK_ID } from '@_koii/namespace-wrapper';
+import { storeFile } from "../helpers";
+import { getOrcaClient } from "@_koii/task-manager/extensions";
+import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 
 export async function submission(roundNumber: number) {
   /**
@@ -17,7 +17,7 @@ export async function submission(roundNumber: number) {
     const submission = result.data;
 
     if (submission.roundNumber !== roundNumber) {
-      throw new Error('Submission is not for the current round');
+      throw new Error("Submission is not for the current round");
     }
 
     // if you are writing a KPL task, use namespaceWrapper.getSubmitterAccount("KPL");
@@ -37,10 +37,10 @@ export async function submission(roundNumber: number) {
     );
 
     // store the submission on IPFS
-    const cid = await storeFile({signature}, 'submission.json');
-    console.log('SUBMISSION CID:', cid);
+    const cid = await storeFile({ signature }, "submission.json");
+    console.log("SUBMISSION CID:", cid);
     return cid;
   } catch (error) {
-    console.error('FETCH SUBMISSION ERROR:', error);
+    console.error("FETCH SUBMISSION ERROR:", error);
   }
 }

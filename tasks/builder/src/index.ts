@@ -7,7 +7,7 @@ import { distribution } from "./task/4-distribution";
 import { routes } from "./task/5-routes";
 
 import { initializeOrcaClient } from "@_koii/task-manager/extensions";
-import { getConfig } from "./orcaSettings.js";
+import { getConfig } from "./orcaSettings";
 
 initializeTaskManager({
   setup,
