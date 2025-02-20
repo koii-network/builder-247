@@ -61,7 +61,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
     if (!result) return null;
 
     // Find the specific assignment entry
-    const assignment = result.assignedTo.find((a) => a.stakingKey === stakingKey && a.roundNumber === roundNumber);
+    const assignment = result.assignedTo.find((a: any) => a.stakingKey === stakingKey && a.roundNumber === roundNumber);
 
     return {
       todo: result,
