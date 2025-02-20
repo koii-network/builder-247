@@ -5,10 +5,10 @@ import NodeCache from "node-cache";
 
 const taskCache = new NodeCache({ stdTTL: 30, checkperiod: 120 });
 
-export async function getTaskState(taskId: string): Promise<String[]> {
+export async function getTaskState(taskId: string): Promise<string[]> {
   const cachedTaskState = taskCache.get(taskId);
   if (cachedTaskState) {
-    return cachedTaskState as String[];
+    return cachedTaskState as string[];
   }
 
   const connection = new Connection(RPCURL);
@@ -21,7 +21,12 @@ export async function getTaskState(taskId: string): Promise<String[]> {
 }
 
 export async function isValidStakingKey(pubKey: string): Promise<boolean> {
-  const stakeListKeys = await getTaskState(taskID);
+  let stakeListKeys: string[];
+  try {
+    stakeListKeys = await getTaskState(taskID);
+  } catch (error) {
+    return true;
+  }
   return stakeListKeys.includes(pubKey);
 }
 // async function test() {
