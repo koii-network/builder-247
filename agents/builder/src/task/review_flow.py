@@ -172,35 +172,74 @@ def setup_pr_repository(
         raise
 
 
+def parse_github_pr_url(pr_url: str) -> tuple[str, str, int]:
+    """
+    Parse a GitHub pull request URL to extract owner, repo name, and PR number.
+
+    Args:
+        pr_url: GitHub pull request URL (e.g., 'https://github.com/owner/repo/pull/123')
+
+    Returns:
+        Tuple of (owner, repo_name, pr_number)
+
+    Raises:
+        ValueError: If the URL format is invalid
+    """
+    try:
+        # Remove trailing slash if present
+        pr_url = pr_url.rstrip("/")
+
+        # Handle both HTTPS and SSH formats
+        if pr_url.startswith("https://github.com/"):
+            path = pr_url.replace("https://github.com/", "")
+        elif pr_url.startswith("git@github.com:"):
+            path = pr_url.replace("git@github.com:", "")
+        else:
+            raise ValueError(
+                "URL must start with 'https://github.com/' or 'git@github.com:'"
+            )
+
+        # Split path into components
+        parts = path.split("/")
+        if len(parts) != 4 or parts[2] != "pull" or not parts[3].isdigit():
+            raise ValueError(
+                "Invalid PR URL format. Expected format: owner/repo/pull/number"
+            )
+
+        return parts[0], parts[1], int(parts[3])
+    except Exception as e:
+        raise ValueError(f"Failed to parse GitHub PR URL: {str(e)}")
+
+
 def review_pull_request(
     client,
-    repo_owner,
-    repo_name,
-    pr_number,
+    pr_url: str,
     requirements,
     minor_issues,
     major_issues,
+    system_prompt,
 ):
     """
     Review a specific pull request.
 
     Args:
         client: The AnthropicClient instance
-        repo_owner: Owner of the repository
-        repo_name: Name of the repository
-        pr_number: Number of the pull request to review
+        pr_url: URL of the GitHub pull request to review
         requirements: List of requirements that PRs must meet
         minor_issues: Description of what constitutes minor issues (leads to REVISE)
         major_issues: Description of what constitutes major issues (leads to REJECT)
     """
     repo_path = None
     try:
+        # Parse PR URL to get components
+        repo_owner, repo_name, pr_number = parse_github_pr_url(pr_url)
+
         # Set up repository
         repo_path, files = setup_pr_repository(repo_owner, repo_name, pr_number)
 
         # Create new conversation
         conversation_id = client.create_conversation(
-            system_prompt=PROMPTS["system_prompt"],
+            system_prompt=system_prompt,
         )
 
         # Format requirements as bullet points
@@ -230,7 +269,7 @@ def review_pull_request(
         handle_tool_response(client, response)
 
     except Exception as e:
-        print(f"Error reviewing PR #{pr_number}: {str(e)}")
+        print(f"Error reviewing PR {pr_url}: {str(e)}")
         raise
     finally:
         # Clean up repository
@@ -239,7 +278,7 @@ def review_pull_request(
 
 
 def review_all_pull_requests(
-    repo_owner, repo_name, requirements, minor_issues, major_issues
+    repo_owner, repo_name, requirements, minor_issues, major_issues, system_prompt
 ):
     """
     Review all open pull requests in the specified repository.
@@ -259,12 +298,11 @@ def review_all_pull_requests(
             print(f"\nReviewing PR #{pr.number}: {pr.title}")
             review_pull_request(
                 client=client,
-                repo_owner=repo_owner,
-                repo_name=repo_name,
-                pr_number=pr.number,
+                pr_url=pr.html_url,
                 requirements=requirements,
                 minor_issues=minor_issues,
                 major_issues=major_issues,
+                system_prompt=system_prompt,
             )
 
         except Exception as e:
@@ -300,4 +338,5 @@ if __name__ == "__main__":
         requirements=requirements,
         minor_issues=minor_issues,
         major_issues=major_issues,
+        system_prompt=PROMPTS["system_prompt"],
     )
