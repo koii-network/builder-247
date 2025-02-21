@@ -109,7 +109,7 @@ export const addPR = async (req: Request, res: Response) => {
 
   console.log("prUrl", signatureData.prUrl);
   const result = await updateAssignedInfoWithPRUrl(
-    requestBody.pubKey,
+    requestBody.stakingKey,
     signatureData.roundNumber,
     signatureData.prUrl,
     requestBody.signature,
