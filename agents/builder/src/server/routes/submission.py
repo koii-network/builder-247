@@ -4,10 +4,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-bp = Blueprint("submission", __name__, url_prefix="/submission")
+bp = Blueprint("submission", __name__)
 
 
-@bp.route("/<roundNumber>")
+@bp.route("/submission/<roundNumber>")
 def fetch_submission(roundNumber):
     logger.info(f"Fetching submission for round: {roundNumber}")
 

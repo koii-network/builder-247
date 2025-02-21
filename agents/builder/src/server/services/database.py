@@ -25,6 +25,7 @@ def initialize_database(db):
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS submissions (
+            taskId TEXT,
             roundNumber INTEGER PRIMARY KEY,
             status TEXT DEFAULT 'pending',
             pr_url TEXT,

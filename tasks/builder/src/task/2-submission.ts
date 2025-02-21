@@ -22,6 +22,11 @@ export async function submission(roundNumber: number) {
 
     // if you are writing a KPL task, use namespaceWrapper.getSubmitterAccount("KPL");
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
+
+    if (!stakingKeypair) {
+      throw new Error("No staking keypair found");
+    }
+
     const stakingKey = stakingKeypair.publicKey.toBase58();
 
     // sign the submission

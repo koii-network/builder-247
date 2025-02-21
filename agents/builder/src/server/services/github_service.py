@@ -3,18 +3,16 @@ import requests
 from github import Github
 import os
 import logging
-import utils.sign_message as sign
 
 logger = logging.getLogger(__name__)
 
 
 def verify_pr_ownership(
-    task_id,
-    round_number,
     pr_url,
     expected_username,
     expected_owner,
     expected_repo,
+    signature,
     staking_key,
 ):
     try:
@@ -34,15 +32,6 @@ def verify_pr_ownership(
 
         if pr.user.login != expected_username:
             return False
-
-        payload = {
-            "taskId": task_id,
-            "roundNumber": round_number,
-            "action": "check",
-            "prUrl": pr_url,
-            "githubUsername": expected_username,
-        }
-        signature = sign.payload_signing(payload, staking_key)
 
         response = requests.post(
             os.environ.get("MIDDLE_SERVER_URL") + "/api/check-to-do",

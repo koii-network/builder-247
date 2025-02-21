@@ -1,5 +1,6 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
+import "dotenv/config";
 
 export async function task(roundNumber: number): Promise<void> {
   /**
@@ -17,17 +18,67 @@ export async function task(roundNumber: number): Promise<void> {
     }
     const stakingKey = stakingKeypair.publicKey.toBase58();
 
-    await orcaClient.podCall(`task/${roundNumber}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const signature = await namespaceWrapper.payloadSigning(
+      {
         taskId: TASK_ID,
-        roundNumber: roundNumber,
+        roundNumber,
+        githubUsername: process.env.GITHUB_USERNAME,
         stakingKey,
-      }),
-    });
+        action: "fetch",
+      },
+      stakingKeypair.secretKey,
+    );
+
+    orcaClient
+      .podCall(`task/${roundNumber}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          taskId: TASK_ID,
+          roundNumber,
+          stakingKey,
+          signature,
+        }),
+      })
+      .then((result: any) => {
+        const prUrl = result.data.prUrl;
+        namespaceWrapper.getSubmitterAccount().then((stakingKeypair) => {
+          if (!stakingKeypair) {
+            throw new Error("No staking keypair found");
+          }
+          const stakingKey = stakingKeypair.publicKey.toBase58();
+          namespaceWrapper
+            .payloadSigning(
+              {
+                taskId: TASK_ID,
+                roundNumber,
+                prUrl,
+                stakingKey,
+                action: "add",
+              },
+              stakingKeypair.secretKey,
+            )
+            .then((signature) => {
+              orcaClient
+                .podCall(`submit-pr/${roundNumber}`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    signature,
+                    stakingKey,
+                    prUrl,
+                  }),
+                })
+                .then((result: any) => {
+                  console.log(`${roundNumber} task result: ${result.data.message}`);
+                });
+            });
+        });
+      });
   } catch (error) {
     console.error("EXECUTE TASK ERROR:", error);
   }

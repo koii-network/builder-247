@@ -41,7 +41,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ submission: data }),
+    body: JSON.stringify({ submission: data, signature: submission.signature, stakingKey: submitterKey }),
   });
 
   // return the result of the audit (true or false)
