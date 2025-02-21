@@ -25,6 +25,7 @@ export async function isValidStakingKey(pubKey: string): Promise<boolean> {
   try {
     stakeListKeys = await getTaskState(taskID);
   } catch (error) {
+    console.log("Error fetching task state", error);
     return true;
   }
   return stakeListKeys.includes(pubKey);

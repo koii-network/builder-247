@@ -19,11 +19,10 @@ function decodePayload(payload: Uint8Array): string {
 
 export async function verifySignature(
   signedMessage: string,
-  pubKey: string,
+  stakingKey: string,
 ): Promise<{ data?: string; error?: string }> {
   try {
-    console.log({ signedMessage, pubKey });
-    const payload = nacl.sign.open(await bs58Decode(signedMessage), await bs58Decode(pubKey));
+    const payload = nacl.sign.open(await bs58Decode(signedMessage), await bs58Decode(stakingKey));
     if (!payload) return { error: "Invalid signature" };
     return { data: decodePayload(payload) };
   } catch (e) {
