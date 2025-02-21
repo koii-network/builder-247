@@ -34,7 +34,7 @@ async function verifySignatureData(
       return null;
     }
     const body = JSON.parse(data);
-    console.log("signature body", body);
+    console.log("signature payload", { body, pubKey, stakingKey });
     if (
       !body.taskId ||
       body.taskId !== taskID ||
