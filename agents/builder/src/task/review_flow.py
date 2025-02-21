@@ -92,11 +92,26 @@ def handle_tool_response(client, response):
             print(f"Tool input: {tool_use.input}")
             print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-            # Execute the tool
-            tool_output = client.execute_tool(tool_use)
-            print(f"Tool output: {tool_output}")
+            try:
+                # Execute the tool
+                tool_output = client.execute_tool(tool_use)
+                print(f"Tool output: {tool_output}")
+                if tool_use.name == "review_pull_request":
+                    return tool_output
+            except Exception as e:
+                error_msg = f"Failed to execute tool {tool_use.name}: {str(e)}"
 
-            # Send tool result back to AI
+                print(error_msg)
+                # Send error back to Claude so it can try again
+                response = client.send_message(
+                    tool_response={"success": False, "error": error_msg},
+                    tool_use_id=tool_use.id,
+                    conversation_id=response.conversation_id,
+                )
+                print(f"Response: {response}")
+                continue
+
+            # Send successful tool result back to AI
             response = client.send_message(
                 tool_response=str(tool_output),
                 tool_use_id=tool_use.id,
@@ -211,7 +226,7 @@ def parse_github_pr_url(pr_url: str) -> tuple[str, str, int]:
         raise ValueError(f"Failed to parse GitHub PR URL: {str(e)}")
 
 
-def review_pull_request(
+def review_pr(
     pr_url: str,
     requirements,
     minor_issues,
@@ -264,7 +279,9 @@ def review_pull_request(
         print(f"Response: {response}")
 
         # Handle tool responses (read files, run tests, comment)
-        handle_tool_response(client, response)
+        pr_review = handle_tool_response(client, response)
+        if pr_review:
+            return pr_review
 
     except Exception as e:
         print(f"Error reviewing PR {pr_url}: {str(e)}")
@@ -293,7 +310,7 @@ def review_all_pull_requests(
     for pr in open_prs:
         try:
             print(f"\nReviewing PR #{pr.number}: {pr.title}")
-            review_pull_request(
+            review_pr(
                 pr_url=pr.html_url,
                 requirements=requirements,
                 minor_issues=minor_issues,
