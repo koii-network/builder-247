@@ -30,6 +30,7 @@ async function verifySignatureData(
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
+      console.log("signature error", error);
       return null;
     }
     const body = JSON.parse(data);
