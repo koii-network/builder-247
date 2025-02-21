@@ -73,6 +73,8 @@ async function updateAssignedInfoWithPRUrl(
     .select("_id")
     .lean();
 
+  console.log("pr update result", result);
+
   return result !== null;
 }
 
