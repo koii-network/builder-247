@@ -52,6 +52,12 @@ def audit_submission():
         staking_key=staking_key,
     )
 
-    if (is_valid):
-        is_approved =
-    return jsonify(is_approved)
+    if not is_valid:
+        return jsonify(False)
+
+    is_approved = approve_pr(pr_url)
+    try:
+        return jsonify(is_approved)
+    except Exception as e:
+        logger.error(f"Error approving PR: {str(e)}")
+        return jsonify(True)

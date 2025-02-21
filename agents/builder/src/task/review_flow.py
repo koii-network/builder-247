@@ -212,12 +212,11 @@ def parse_github_pr_url(pr_url: str) -> tuple[str, str, int]:
 
 
 def review_pull_request(
-    client,
     pr_url: str,
     requirements,
     minor_issues,
     major_issues,
-    system_prompt,
+    system_prompt=PROMPTS["system_prompt"],
 ):
     """
     Review a specific pull request.
@@ -238,9 +237,8 @@ def review_pull_request(
         repo_path, files = setup_pr_repository(repo_owner, repo_name, pr_number)
 
         # Create new conversation
-        conversation_id = client.create_conversation(
-            system_prompt=system_prompt,
-        )
+        client = setup_client()
+        conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Format requirements as bullet points
         formatted_reqs = "\n".join(f"- {req}" for req in requirements)
@@ -285,7 +283,6 @@ def review_all_pull_requests(
     """
     # Set up clients
     gh = Github(os.getenv("GITHUB_TOKEN"))
-    client = setup_client()
     repo = gh.get_repo(f"{repo_owner}/{repo_name}")
 
     # Get all open PRs
@@ -297,7 +294,6 @@ def review_all_pull_requests(
         try:
             print(f"\nReviewing PR #{pr.number}: {pr.title}")
             review_pull_request(
-                client=client,
                 pr_url=pr.html_url,
                 requirements=requirements,
                 minor_issues=minor_issues,

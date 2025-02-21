@@ -268,7 +268,8 @@ def review_pull_request(
 
         # Post the review
         pr.create_issue_comment(review_body)
-        return {"success": True}
+        validated = recommendation == "APPROVE"
+        return {"success": True, "validated": validated}
     except Exception as e:
         error_msg = f"Error posting review on PR #{pr_number}: {str(e)}"
         print(error_msg)

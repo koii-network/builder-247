@@ -117,6 +117,7 @@ def submit_pr(signature, staking_key, pr_url, round_number):
     finally:
         close_db()
 
+
 def approve_pr(pr_url):
     requirements = [
         "Implementation matches problem description",
@@ -138,3 +139,8 @@ def approve_pr(pr_url):
         "tests are poorly designed or rely too heavily on mocking",
     )
 
+    result = review_pull_request(pr_url, requirements, minor_issues, major_issues)
+    if result["success"]:
+        return result["validated"]
+    else:
+        raise Exception("PR review failed")
