@@ -8,15 +8,17 @@ import { isValidStakingKey } from "../utils/taskState";
 function verifyRequestBody(req: Request): {
   signature: string;
   stakingKey: string;
+  pubKey: string;
 } | null {
   try {
     console.log("Request body:", req.body);
     const signature = req.body.signature as string;
     const stakingKey = req.body.stakingKey as string;
-    if (!signature || !stakingKey) {
+    const pubKey = req.body.pubKey as string;
+    if (!signature || !stakingKey || !pubKey) {
       return null;
     }
-    return { signature, stakingKey };
+    return { signature, pubKey, stakingKey };
   } catch {
     return null;
   }
@@ -26,6 +28,7 @@ function verifyRequestBody(req: Request): {
 async function verifySignatureData(
   signature: string,
   stakingKey: string,
+  pubKey: string,
 ): Promise<{ roundNumber: string; githubUsername: string; prUrl: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
@@ -40,7 +43,11 @@ async function verifySignatureData(
       body.taskId !== taskID ||
       body.action !== "check" ||
       !body.prUrl ||
-      !body.githubUsername
+      !body.githubUsername ||
+      !body.pubKey ||
+      body.pubKey !== pubKey ||
+      !body.stakingKey ||
+      body.stakingKey !== stakingKey
     ) {
       return null;
     }
@@ -56,6 +63,7 @@ async function checkToDoAssignment(
   roundNumber: string,
   githubUsername: string,
   prUrl: string,
+  prSignature: string,
 ): Promise<boolean> {
   try {
     const data = {
@@ -67,11 +75,18 @@ async function checkToDoAssignment(
     };
     console.log("Data:", data);
 
-    const result = await TodoModel.findOne({
-      assignedTo: {
-        $elemMatch: data,
+    const result = await TodoModel.findOneAndUpdate(
+      {
+        assignedTo: {
+          $elemMatch: data,
+        },
       },
-    }).lean();
+      {
+        $set: { "assignedTo.$.prSignature": prSignature },
+      },
+    )
+      .select("_id")
+      .lean();
 
     console.log("Todo assignment check result:", result);
     return result !== null;
@@ -91,7 +106,7 @@ export const checkToDo = async (req: Request, res: Response) => {
     return;
   }
 
-  const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey);
+  const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey, requestBody.pubKey);
   if (!signatureData) {
     res.status(401).json({
       success: false,
@@ -113,6 +128,7 @@ export const checkToDo = async (req: Request, res: Response) => {
     signatureData.roundNumber,
     signatureData.githubUsername,
     signatureData.prUrl,
+    requestBody.signature,
   );
 
   if (!isValid) {

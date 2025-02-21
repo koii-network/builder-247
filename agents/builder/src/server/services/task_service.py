@@ -4,14 +4,14 @@ import os
 from flask import jsonify
 from src.server.services.database import get_db, close_db
 from src.task.flow import todo_to_pr
-from src.task.review_flow import review_pull_request
+from src.task.review_flow import review_pr
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def handle_task_creation(task_id, round_number, signature, staking_key):
-    todo = get_todo(signature, staking_key)
+def handle_task_creation(task_id, round_number, signature, staking_key, pub_key):
+    todo = get_todo(signature, staking_key, pub_key)
     if not todo:
         return jsonify({"error": "No todo found"}), 404
 
@@ -20,7 +20,7 @@ def handle_task_creation(task_id, round_number, signature, staking_key):
     return jsonify({"roundNumber": round_number, "prUrl": pr_url})
 
 
-def get_todo(signature, staking_key):
+def get_todo(signature, staking_key, pub_key):
     try:
         logger.info("Fetching todo")
 
@@ -28,7 +28,8 @@ def get_todo(signature, staking_key):
             os.environ.get("MIDDLE_SERVER_URL") + "/api/fetch-to-do",
             json={
                 "signature": signature,
-                "pubKey": staking_key,
+                "stakingKey": staking_key,
+                "pubKey": pub_key,
             },
             headers={"Content-Type": "application/json"},
         )
@@ -85,7 +86,7 @@ def run_todo_task(task_id, round_number, todo):
         close_db()
 
 
-def submit_pr(signature, staking_key, pr_url, round_number):
+def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
     try:
         db = get_db()
         cursor = db.cursor()
@@ -93,7 +94,8 @@ def submit_pr(signature, staking_key, pr_url, round_number):
             os.environ.get("MIDDLE_SERVER_URL") + "/api/add-pr-to-to-do",
             json={
                 "signature": signature,
-                "pubKey": staking_key,
+                "stakingKey": staking_key,
+                "pubKey": pub_key,
             },
             headers={"Content-Type": "application/json"},
         )
@@ -139,8 +141,8 @@ def approve_pr(pr_url):
         "tests are poorly designed or rely too heavily on mocking",
     )
 
-    result = review_pull_request(pr_url, requirements, minor_issues, major_issues)
-    if result["success"]:
+    result = review_pr(pr_url, requirements, minor_issues, major_issues)
+    if result.get("success"):
         return result["validated"]
     else:
         raise Exception("PR review failed")

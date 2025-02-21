@@ -1,7 +1,6 @@
 from flask import Blueprint, jsonify, request
 from src.server.services.github_service import verify_pr_ownership
 from src.server.services.task_service import approve_pr
-import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,17 +20,13 @@ def audit_submission():
     if not submission:
         return jsonify({"error": "Missing submission"}), 400
 
-    submission_json = json.loads(submission)
-
-    print(submission_json)
-
-    round_number = submission_json.get("roundNumber")
-    task_id = submission_json.get("taskId")
-    pr_url = submission_json.get("prUrl")
-    github_username = submission_json.get("githubUsername")
-    repo_owner = submission_json.get("repoOwner")
-    repo_name = submission_json.get("repoName")
-    staking_key = submission_json.get("stakingKey")
+    round_number = submission.get("roundNumber")
+    task_id = submission.get("taskId")
+    pr_url = submission.get("prUrl")
+    github_username = submission.get("githubUsername")
+    repo_owner = submission.get("repoOwner")
+    repo_name = submission.get("repoName")
+    staking_key = submission.get("stakingKey")
     if (
         not round_number
         or not task_id

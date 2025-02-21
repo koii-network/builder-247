@@ -17,6 +17,7 @@ export async function task(roundNumber: number): Promise<void> {
       throw new Error("No staking keypair found");
     }
     const stakingKey = stakingKeypair.publicKey.toBase58();
+    const pubKey = await namespaceWrapper.getMainAccountPubkey();
 
     const signature = await namespaceWrapper.payloadSigning(
       {
@@ -24,6 +25,7 @@ export async function task(roundNumber: number): Promise<void> {
         roundNumber,
         githubUsername: process.env.GITHUB_USERNAME,
         stakingKey,
+        pubKey,
         action: "fetch",
       },
       stakingKeypair.secretKey,
@@ -56,6 +58,7 @@ export async function task(roundNumber: number): Promise<void> {
                 roundNumber,
                 prUrl,
                 stakingKey,
+                pubKey,
                 action: "add",
               },
               stakingKeypair.secretKey,
@@ -70,6 +73,7 @@ export async function task(roundNumber: number): Promise<void> {
                   body: JSON.stringify({
                     signature,
                     stakingKey,
+                    pubKey,
                     prUrl,
                   }),
                 })

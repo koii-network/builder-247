@@ -7,15 +7,16 @@ import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 
 // Verify the request body contains the right data
-function verifyRequestBody(req: Request): { signature: string; pubKey: string } | null {
+function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
   console.log("verifyRequestBody", req.body);
   try {
     const signature = req.body.signature as string;
+    const stakingKey = req.body.stakingKey as string;
     const pubKey = req.body.pubKey as string;
-    if (!signature || !pubKey) {
+    if (!signature || !stakingKey || !pubKey) {
       return null;
     }
-    return { signature, pubKey };
+    return { signature, stakingKey, pubKey };
   } catch {
     return null;
   }
@@ -24,23 +25,27 @@ function verifyRequestBody(req: Request): { signature: string; pubKey: string } 
 // Confirm the signature is valid and contains the right data
 async function verifySignatureData(
   signature: string,
+  stakingKey: string,
   pubKey: string,
 ): Promise<{ roundNumber: number; githubUsername: string } | null> {
   try {
-    console.log({ signature, pubKey });
-    const { data, error } = await verifySignature(signature, pubKey);
+    const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
       console.log("bad signature");
       return null;
     }
     const body = JSON.parse(data);
-    console.log({ body });
+    console.log({ signature_payload: body });
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
       body.taskId !== taskID ||
       body.action !== "fetch" ||
-      !body.githubUsername
+      !body.githubUsername ||
+      !body.pubKey ||
+      body.pubKey !== pubKey ||
+      !body.stakingKey ||
+      body.stakingKey !== stakingKey
     ) {
       console.log("bad signature data");
       return null;
@@ -53,12 +58,12 @@ async function verifySignatureData(
 }
 
 // Check if the user has already completed the task
-async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
+async function checkExistingAssignment(pubKey: string, roundNumber: number) {
   try {
     const result = await TodoModel.findOne({
       assignedTo: {
         $elemMatch: {
-          stakingKey: stakingKey,
+          pubkey: pubKey,
           roundNumber: roundNumber,
         },
       },
@@ -69,7 +74,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
     if (!result) return null;
 
     // Find the specific assignment entry
-    const assignment = result.assignedTo.find((a: any) => a.stakingKey === stakingKey && a.roundNumber === roundNumber);
+    const assignment = result.assignedTo.find((a: any) => a.pubkey === pubKey && a.roundNumber === roundNumber);
 
     return {
       todo: result,
@@ -91,7 +96,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
     return;
   }
 
-  const signatureData = await verifySignatureData(requestBody.signature, requestBody.pubKey);
+  const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey, requestBody.pubKey);
   if (!signatureData) {
     res.status(401).json({
       success: false,
@@ -100,7 +105,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(requestBody.pubKey))) {
+  if (!(await isValidStakingKey(requestBody.stakingKey))) {
     res.status(401).json({
       success: false,
       message: "Invalid staking key",
@@ -161,10 +166,12 @@ export const fetchTodo = async (req: Request, res: Response) => {
       {
         $push: {
           assignedTo: {
-            stakingKey: requestBody.pubKey,
+            stakingKey: requestBody.stakingKey,
+            pubkey: requestBody.pubKey,
             taskId: taskID,
             roundNumber: signatureData.roundNumber,
             githubUsername: signatureData.githubUsername,
+            todoSignature: requestBody.signature,
           },
         },
       },

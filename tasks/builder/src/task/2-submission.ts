@@ -28,13 +28,15 @@ export async function submission(roundNumber: number) {
     }
 
     const stakingKey = stakingKeypair.publicKey.toBase58();
+    const pubKey = await namespaceWrapper.getMainAccountPubkey();
 
     // sign the submission
     const signature = await namespaceWrapper.payloadSigning(
       {
         taskId: TASK_ID,
-        roundNumber: roundNumber,
-        stakingKey: stakingKey,
+        roundNumber,
+        stakingKey,
+        pubKey,
         action: "check",
         ...submission,
       },

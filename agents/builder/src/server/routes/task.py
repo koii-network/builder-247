@@ -20,4 +20,5 @@ def start_task(roundNumber):
         round_number=int(roundNumber),
         signature=data["signature"],
         staking_key=data["stakingKey"],
+        pub_key=data["pubKey"],
     )

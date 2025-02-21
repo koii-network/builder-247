@@ -5,12 +5,13 @@ bp = Blueprint("submit_pr", __name__)
 
 
 @bp.route("/submit-pr/<roundNumber>", methods=["POST"])
-def get_github_username(roundNumber):
+def submit_pr_route(roundNumber):
     data = request.get_json()
     signature = data.get("signature")
     staking_key = data.get("stakingKey")
+    pub_key = data.get("pubKey")
     pr_url = data.get("prUrl")
 
-    message = submit_pr(signature, staking_key, pr_url, roundNumber)
+    message = submit_pr(signature, staking_key, pub_key, pr_url, roundNumber)
 
     return jsonify({"message": message})

@@ -1,8 +1,7 @@
-import { TASK_ID, namespaceWrapper } from "@_koii/namespace-wrapper";
-const podId = TASK_ID;
+import { namespaceWrapper } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 
-const imageUrl = "docker.io/labrocadabro/prometheus:0.4";
+const imageUrl = "docker.io/labrocadabro/prometheus:0.5";
 
 async function createPodSpec(): Promise<string> {
   const basePath = await namespaceWrapper.getBasePath();
@@ -13,7 +12,7 @@ metadata:
   name: 247-builder-test
 spec:
   containers:
-    - name: user-${podId}
+    - name: user
       image: ${imageUrl}
       env:
       - name: GITHUB_TOKEN
