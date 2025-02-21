@@ -56,8 +56,12 @@ async function verifySignatureData(
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
   try {
     const result = await TodoModel.findOne({
-      "assignedTo.stakingKey": stakingKey,
-      "assignedTo.roundNumber": roundNumber,
+      assignedTo: {
+        $elemMatch: {
+          stakingKey: stakingKey,
+          roundNumber: roundNumber,
+        },
+      },
     })
       .select("assignedTo title acceptanceCriteria repoOwner repoName")
       .lean();

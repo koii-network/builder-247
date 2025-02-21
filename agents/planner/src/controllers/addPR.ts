@@ -42,8 +42,12 @@ async function verifySignatureData(
 async function updateAssignedInfoWithPRUrl(stakingKey: string, roundNumber: number, prUrl: string): Promise<boolean> {
   const result = await TodoModel.findOneAndUpdate(
     {
-      "assignedTo.stakingKey": stakingKey,
-      "assignedTo.roundNumber": roundNumber,
+      assignedTo: {
+        $elemMatch: {
+          stakingKey: stakingKey,
+          roundNumber: roundNumber,
+        },
+      },
     },
     {
       $set: { "assignedTo.$.prUrl": prUrl },
