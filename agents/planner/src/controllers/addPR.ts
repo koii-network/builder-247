@@ -5,7 +5,7 @@ import { verifySignature } from "../utils/sign";
 import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 
-function verifyRequestBody(req: Request): { signature: string; pubKey: string; stakingKey: string  } | null {
+function verifyRequestBody(req: Request): { signature: string; pubKey: string; stakingKey: string } | null {
   try {
     console.log("req.body", req.body);
     const signature = req.body.signature as string;
@@ -51,7 +51,12 @@ async function verifySignatureData(
     return null;
   }
 }
-async function updateAssignedInfoWithPRUrl(stakingKey: string, roundNumber: number, prUrl: string, prSignature: string): Promise<boolean> {
+async function updateAssignedInfoWithPRUrl(
+  stakingKey: string,
+  roundNumber: number,
+  prUrl: string,
+  prSignature: string,
+): Promise<boolean> {
   const result = await TodoModel.findOneAndUpdate(
     {
       assignedTo: {
@@ -90,7 +95,7 @@ export const addPR = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(requestBody.pubKey))) {
+  if (!(await isValidStakingKey(requestBody.stakingKey))) {
     res.status(401).json({
       success: false,
       message: "Invalid staking key",
@@ -99,7 +104,12 @@ export const addPR = async (req: Request, res: Response) => {
   }
 
   console.log("prUrl", signatureData.prUrl);
-  const result = await updateAssignedInfoWithPRUrl(requestBody.pubKey, signatureData.roundNumber, signatureData.prUrl, requestBody.signature);
+  const result = await updateAssignedInfoWithPRUrl(
+    requestBody.pubKey,
+    signatureData.roundNumber,
+    signatureData.prUrl,
+    requestBody.signature,
+  );
   if (!result) {
     res.status(401).json({
       success: false,
