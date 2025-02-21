@@ -33,6 +33,7 @@ async function verifySignatureData(
       return null;
     }
     const body = JSON.parse(data);
+    console.log("signature body", body);
     if (
       !body.taskId ||
       body.taskId !== taskID ||
