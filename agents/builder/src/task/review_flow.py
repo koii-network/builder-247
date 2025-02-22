@@ -1,86 +1,63 @@
-"""Module for GitHub operations."""
-
-import sys
-from pathlib import Path
-import dotenv
-from datetime import datetime
-from anthropic.types import ToolUseBlock
-from github import Github
+# Standard library imports
 import os
+import sys
+from datetime import datetime
 import shutil
 from git import Repo
+import dotenv
 import logging
-from src.get_file_list import get_file_list
-from src.task.retry_utils import execute_tool_with_retry, send_message_with_retry
+from github import Github
+from src.task.constants import PROMPTS
 
 # Conditional path adjustment before any other imports
 if __name__ == "__main__":
     # Calculate path to project root
-    project_root = Path(__file__).parent.parent.parent.parent.parent
-    sys.path.insert(0, str(project_root))
+    project_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../../..")
+    )
+    sys.path.insert(0, project_root)
 
+# Regular imports (PEP 8 compliant)
+from anthropic.types import ToolUseBlock
+from src.get_file_list import get_file_list
 from src.task.setup import setup_client
+from src.task.retry_utils import (
+    execute_tool_with_retry,
+    send_message_with_retry,
+)
 
 logger = logging.getLogger(__name__)
 
+# Ensure environment variables are loaded
 dotenv.load_dotenv()
 
-PROMPTS = {
-    "system_prompt": (
-        "You are an expert code reviewer. Your task is to review pull requests and determine if they meet "
-        "requirements. For each PR:\n"
-        "1. Examine the changes in the files provided\n"
-        "2. Verify each requirement is met\n"
-        "3. Run the tests and check they pass\n"
-        "4. Evaluate test comprehensiveness\n"
-        "5. Write a detailed report with your findings\n"
-        "6. Make a clear recommendation (approve/revise/reject)\n\n"
-        "Your report should include:\n"
-        "- Summary of changes\n"
-        "- Requirements check (met/not met for each)\n"
-        "- Test evaluation (coverage, quality, missing cases)\n"
-        "- Recommendation with justification"
-    ),
-    "review_pr": (
-        "Review pull request #{pr_number} in repository {repo}.\n\n"
-        "The PR code has been checked out to {repo_path}. The following files are available:\n"
-        "{files_list}\n\n"
-        "Requirements to check:\n"
-        "{requirements}\n\n"
-        "Test requirements to verify (where applicable):\n"
-        "1. Core Functionality Testing:\n"
-        "   - Tests the actual implementation, not just mocks\n"
-        "   - For external services (APIs, databases, etc.), includes both:\n"
-        "     * Integration tests with real services\n"
-        "     * Unit tests with mocks for edge cases\n"
-        "   - Tests the complete workflow, not just individual parts\n"
-        "2. Edge Cases and Input Validation:\n"
-        "   - Tests boundary values and limits\n"
-        "   - Tests invalid/malformed inputs\n"
-        "   - Tests empty/null cases\n"
-        "   - Tests type mismatches\n"
-        "3. Error Handling:\n"
-        "   - Tests error conditions (e.g., network failures, timeouts)\n"
-        "   - Tests error recovery and cleanup\n"
-        "4. Test Design:\n"
-        "   - Tests are independent and deterministic\n"
-        "   - No shared state between tests\n"
-        "   - Mocks are used appropriately\n"
-        "   - Tests all code paths and branches\n"
-        "5. Performance and Resources:\n"
-        "   - Tests with realistic data sizes\n"
-        "   - Verifies performance requirements\n"
-        "   - Tests resource cleanup\n\n"
-        "Review criteria:\n"
-        "- APPROVE if all requirements are met and tests pass\n"
-        "- REVISE if there are minor issues: {minor_issues}\n"
-        "- REJECT if there are major issues: {major_issues}\n\n"
-        "Follow these steps:\n"
-        "1. Use read_file to examine changed files\n"
-        "2. Use run_tests to verify functionality\n"
-        "3. Use comment_on_pr to post your report"
-    ),
-}
+
+def check_required_env_vars():
+    """Check if all required environment variables are set."""
+    required_vars = ["GITHUB_TOKEN", "GITHUB_USERNAME", "REVIEW_SYSTEM_PROMPT"]
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+
+    if missing_vars:
+        raise EnvironmentError(
+            f"Missing required environment variables: {', '.join(missing_vars)}\n"
+            "Please ensure these are set in your .env file or environment."
+        )
+
+
+def validate_github_auth():
+    """Validate GitHub authentication."""
+
+    try:
+        gh = Github(os.getenv("GITHUB_TOKEN"))
+        user = gh.get_user()
+        username = user.login
+        if username != os.getenv("GITHUB_USERNAME"):
+            raise ValueError(
+                f"GitHub token belongs to {username}, but GITHUB_USERNAME is set to {os.getenv('GITHUB_USERNAME')}"
+            )
+        logger.info(f"Successfully authenticated as {username}")
+    except Exception as e:
+        raise RuntimeError(f"GitHub authentication failed: {str(e)}")
 
 
 def handle_tool_response(client, response):
@@ -88,6 +65,8 @@ def handle_tool_response(client, response):
     Handle tool responses until natural completion.
     """
     logger.info("Starting conversation")
+    tool_result = None  # Track the final tool execution result
+    conversation_id = response.conversation_id  # Store conversation ID
 
     while response.stop_reason == "tool_use":
         # Process all tool uses in the current response
@@ -99,9 +78,31 @@ def handle_tool_response(client, response):
             try:
                 # Execute the tool with retry logic
                 tool_output = execute_tool_with_retry(client, tool_use)
+                tool_result = tool_output  # Store the final tool result
                 logger.debug(f"Tool output: {tool_output}")
+
+                # Special handling for review_pull_request tool
                 if tool_use.name == "review_pull_request":
                     return tool_output
+
+                # Convert tool output to string if it's not already
+                tool_response_str = (
+                    str(tool_output) if tool_output is not None else None
+                )
+                if tool_response_str is None:
+                    logger.warning("Tool output is None, skipping message to Claude")
+                    continue
+
+                # Send successful tool result back to Claude with conversation state
+                response = send_message_with_retry(
+                    client,
+                    tool_response=tool_response_str,
+                    tool_use_id=tool_use.id,
+                    conversation_id=conversation_id,  # Use stored conversation ID
+                    prompt=None,  # Explicitly set prompt to None when sending tool response
+                )
+                logger.debug(f"Response from Claude: {response}")
+
             except Exception as e:
                 error_msg = f"Failed to execute tool {tool_use.name}: {str(e)}"
                 logger.error(error_msg)
@@ -120,33 +121,18 @@ def handle_tool_response(client, response):
                         client,
                         tool_response=error_response,
                         tool_use_id=tool_use.id,
-                        conversation_id=response.conversation_id,
+                        conversation_id=conversation_id,  # Use stored conversation ID
                     )
                 except Exception as send_error:
                     logger.error(
                         f"Failed to send error message to Claude: {str(send_error)}"
                     )
-                    # If we can't communicate with Claude after retries, we should probably raise
                     raise
                 logger.debug(f"Response: {response}")
                 continue
 
-            # Send successful tool result back to AI with retry logic
-            try:
-                response = send_message_with_retry(
-                    client,
-                    tool_response=str(tool_output),
-                    tool_use_id=tool_use.id,
-                    conversation_id=response.conversation_id,
-                )
-                logger.debug(f"Response: {response}")
-            except Exception as send_error:
-                logger.error(
-                    f"Failed to send success message to Claude: {str(send_error)}"
-                )
-                raise
-
     logger.info("Conversation ended")
+    return tool_result
 
 
 def setup_pr_repository(
@@ -253,72 +239,6 @@ def parse_github_pr_url(pr_url: str) -> tuple[str, str, int]:
         raise ValueError(f"Failed to parse GitHub PR URL: {str(e)}")
 
 
-def review_pr(
-    pr_url: str,
-    requirements,
-    minor_issues,
-    major_issues,
-    system_prompt=PROMPTS["system_prompt"],
-):
-    """
-    Review a specific pull request.
-
-    Args:
-        client: The AnthropicClient instance
-        pr_url: URL of the GitHub pull request to review
-        requirements: List of requirements that PRs must meet
-        minor_issues: Description of what constitutes minor issues (leads to REVISE)
-        major_issues: Description of what constitutes major issues (leads to REJECT)
-    """
-    repo_path = None
-    try:
-        # Parse PR URL to get components
-        repo_owner, repo_name, pr_number = parse_github_pr_url(pr_url)
-
-        # Set up repository
-        repo_path, files = setup_pr_repository(repo_owner, repo_name, pr_number)
-
-        # Create new conversation
-        client = setup_client()
-        conversation_id = client.create_conversation(system_prompt=system_prompt)
-
-        # Format requirements as bullet points
-        formatted_reqs = "\n".join(f"- {req}" for req in requirements)
-
-        # Format files list
-        files_list = "\n".join(f"- {f}" for f in files)
-
-        # Send review prompt
-        review_prompt = PROMPTS["review_pr"].format(
-            pr_number=pr_number,
-            repo=f"{repo_owner}/{repo_name}",
-            repo_path=repo_path,
-            files_list=files_list,
-            requirements=formatted_reqs,
-            minor_issues=minor_issues,
-            major_issues=major_issues,
-        )
-
-        response = client.send_message(
-            prompt=review_prompt, conversation_id=conversation_id
-        )
-
-        logger.debug(f"Response: {response}")
-
-        # Handle tool responses (read files, run tests, comment)
-        pr_review = handle_tool_response(client, response)
-        if pr_review:
-            return pr_review
-
-    except Exception as e:
-        logger.error(f"Error reviewing PR {pr_url}: {str(e)}", exc_info=True)
-        raise
-    finally:
-        # Clean up repository
-        if repo_path and os.path.exists(repo_path):
-            shutil.rmtree(repo_path)
-
-
 def review_all_pull_requests(
     repo_owner, repo_name, requirements, minor_issues, major_issues, system_prompt
 ):
@@ -350,8 +270,83 @@ def review_all_pull_requests(
             continue  # Continue with next PR even if one fails
 
 
+def review_pr(
+    pr_url: str,
+    requirements,
+    minor_issues,
+    major_issues,
+    system_prompt,
+):
+    """
+    Review a specific pull request.
+    """
+    repo_path = None
+    original_dir = os.getcwd()  # Store original directory
+    try:
+        # Parse PR URL to get components
+        repo_owner, repo_name, pr_number = parse_github_pr_url(pr_url)
+
+        # Set up repository
+        repo_path, files = setup_pr_repository(repo_owner, repo_name, pr_number)
+
+        # Change to repository directory
+        os.chdir(repo_path)
+
+        # Create new conversation
+        client = setup_client()
+
+        # Log system prompt
+        logger.info("\n=== SYSTEM PROMPT ===")
+        logger.info(system_prompt)
+        logger.info("\n=== END SYSTEM PROMPT ===")
+
+        # Create conversation with system prompt
+        conversation_id = client.create_conversation(system_prompt=system_prompt)
+
+        # Format requirements as bullet points
+        formatted_reqs = "\n".join(f"- {req}" for req in requirements)
+
+        # Format files list
+        files_list = "\n".join(f"- {f}" for f in files)
+
+        # Format review prompt
+        review_prompt = PROMPTS["review_pr"].format(
+            pr_number=pr_number,
+            repo=f"{repo_owner}/{repo_name}",
+            files_list=files_list,
+            requirements=formatted_reqs,
+            minor_issues=minor_issues,
+            major_issues=major_issues,
+        )
+
+        # Log the review prompt
+        logger.info("\n=== REVIEW PROMPT ===")
+        logger.info(review_prompt)
+        logger.info("\n=== END REVIEW PROMPT ===")
+
+        # Send initial message
+        response = send_message_with_retry(
+            client, prompt=review_prompt, conversation_id=conversation_id
+        )
+        logger.debug(f"Response from Claude: {response}")
+
+        # Handle tool responses
+        pr_review = handle_tool_response(client, response)
+        if pr_review:
+            return pr_review
+
+    except Exception as e:
+        logger.error(f"Error reviewing PR {pr_url}: {str(e)}", exc_info=True)
+        raise
+    finally:
+        # Clean up repository
+        if repo_path and os.path.exists(repo_path):
+            shutil.rmtree(repo_path)
+        # Restore original directory
+        os.chdir(original_dir)
+
+
 if __name__ == "__main__":
-    # Example usage
     requirements = [
         "Implementation matches problem description",
         "All tests pass",
@@ -367,16 +362,29 @@ if __name__ == "__main__":
     )
 
     major_issues = (
+        "no implementation or tests, implementation is not for the correct problem",
         "Incorrect implementation, failing tests, missing critical features, "
         "no error handling, security vulnerabilities, no tests",
         "tests are poorly designed or rely too heavily on mocking",
     )
+    try:
+        # Set up logging with DEBUG level
+        logging.basicConfig(
+            level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+        )
 
-    review_all_pull_requests(
-        repo_owner="koii-network",
-        repo_name="builder-test",
-        requirements=requirements,
-        minor_issues=minor_issues,
-        major_issues=major_issues,
-        system_prompt=PROMPTS["system_prompt"],
-    )
+        # Validate environment and authentication
+        check_required_env_vars()
+        validate_github_auth()
+
+        review_all_pull_requests(
+            repo_owner="koii-network",
+            repo_name="builder-test",
+            requirements=requirements,
+            minor_issues=minor_issues,
+            major_issues=major_issues,
+            system_prompt=os.getenv("REVIEW_SYSTEM_PROMPT"),
+        )
+    except Exception as e:
+        logger.error(f"Script failed: {str(e)}")
+        sys.exit(1)

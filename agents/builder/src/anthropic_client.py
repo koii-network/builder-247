@@ -259,6 +259,7 @@ class AnthropicClient:
         tool_choice: Optional[ToolChoiceParam] = None,
         tool_response: Optional[str] = None,
         tool_use_id: Optional[str] = None,
+        is_retry: bool = False,
     ) -> Message:
         """
         Send a message to Claude, automatically managing conversation history.
@@ -270,7 +271,7 @@ class AnthropicClient:
             tool_choice: Optional tool choice configuration
             tool_response: Optional response from a previous tool call
             tool_use_id: ID of the tool use when providing a tool response
-            system_prompt: Optional system prompt to include in the API request
+            is_retry: Whether this is a retry attempt. If True, won't save new messages to DB.
 
         Returns:
             Message: Claude's response
@@ -294,18 +295,19 @@ class AnthropicClient:
         # Get previous messages
         messages = self._get_conversation_messages(conversation_id)
 
-        # Add new message if it's a prompt or tool response
-        if prompt:
-            formatted_prompt = [{"type": "text", "text": prompt}]
-            self._save_message(conversation_id, "user", formatted_prompt)
-            messages.append({"role": "user", "content": formatted_prompt})
-        elif tool_response and tool_use_id:
-            # When sending a tool response, we need to include the previous messages
-            # that contain the tool use block
-            formatted_response = _format_tool_response(tool_response, tool_use_id)
-            self._save_message(conversation_id, "user", formatted_response)
-            # Get the messages again to ensure we have the complete history
-            messages = self._get_conversation_messages(conversation_id)
+        # Add new message if it's a prompt or tool response and not a retry
+        if not is_retry:
+            if prompt:
+                formatted_prompt = [{"type": "text", "text": prompt}]
+                self._save_message(conversation_id, "user", formatted_prompt)
+                messages.append({"role": "user", "content": formatted_prompt})
+            elif tool_response and tool_use_id:
+                # When sending a tool response, we need to include the previous messages
+                # that contain the tool use block
+                formatted_response = _format_tool_response(tool_response, tool_use_id)
+                self._save_message(conversation_id, "user", formatted_response)
+                # Get the messages again to ensure we have the complete history
+                messages = self._get_conversation_messages(conversation_id)
 
         # Format messages for API
         api_messages = [_format_message_for_api(msg) for msg in messages]
@@ -330,7 +332,6 @@ class AnthropicClient:
         # Send message to Claude
         response = self.client.messages.create(**create_params)
 
-        # Save assistant's response
         self._save_message(conversation_id, "assistant", response.content)
 
         # Add conversation_id to response

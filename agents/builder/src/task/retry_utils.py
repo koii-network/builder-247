@@ -7,8 +7,11 @@ from tenacity import (
     retry_if_exception_type,
 )
 from anthropic import InternalServerError, APIError, APIStatusError, BadRequestError
+from anthropic.types import Message
 import requests
 import logging
+import json
+from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +46,20 @@ def is_retryable_error(exception):
     before_sleep=lambda retry_state: logger.info(
         f"Attempt {retry_state.attempt_number} failed, retrying in {retry_state.next_action.sleep} seconds..."
     ),
+    before=lambda retry_state: (
+        retry_state.kwargs.update({"is_retry": True})
+        if retry_state.attempt_number > 1
+        else None
+    ),
 )
 def execute_tool_with_retry(client, tool_use):
     """Execute tool with retry logic"""
     try:
-        return client.execute_tool(tool_use)
+        logger.info(f"\n=== EXECUTING TOOL: {tool_use.name} ===")
+        logger.info(f"Tool input: {json.dumps(tool_use.input, indent=2)}")
+        result = client.execute_tool(tool_use)
+        logger.info(f"Tool result: {json.dumps(result, indent=2)}")
+        return result
     except Exception as e:
         if is_retryable_error(e):
             logger.warning(f"Retryable error encountered: {str(e)}")
@@ -56,19 +68,65 @@ def execute_tool_with_retry(client, tool_use):
         raise  # Re-raise other exceptions
 
 
-def send_message_with_retry(client, **kwargs):
-    """Send message with retry logic - no automatic retries for messages to maintain conversation state"""
+@retry(
+    retry=retry_if_exception_type(
+        (InternalServerError, APIError, requests.exceptions.RequestException)
+    ),
+    wait=wait_exponential(multiplier=4, min=1, max=60),
+    stop=stop_after_attempt(6),
+    before_sleep=lambda retry_state: logger.info(
+        f"Attempt {retry_state.attempt_number} failed, retrying in {retry_state.next_action.sleep} seconds..."
+    ),
+    before=lambda retry_state: (
+        retry_state.kwargs.update({"is_retry": True})
+        if retry_state.attempt_number > 1
+        else None
+    ),
+)
+def send_message_with_retry(
+    client,
+    prompt: Optional[str] = None,
+    conversation_id: Optional[str] = None,
+    max_tokens: Optional[int] = 2000,
+    tool_choice: Optional[Dict[str, Any]] = None,
+    tool_response: Optional[str] = None,
+    tool_use_id: Optional[str] = None,
+    is_retry: bool = False,
+) -> Message:
+    """
+    Send message with retry logic.
+
+    Args:
+        client: The AnthropicClient instance
+        prompt: The message to send to Claude
+        conversation_id: ID of the conversation to continue
+        max_tokens: Maximum tokens in the response
+        tool_choice: Optional tool choice configuration
+        tool_response: Optional response from a previous tool call
+        tool_use_id: ID of the tool use when providing a tool response
+        is_retry: Whether this is a retry attempt. If True, won't save new messages to DB.
+    """
     try:
-        return client.send_message(**kwargs)
+        # Send the message
+        response = client.send_message(
+            prompt=prompt,
+            conversation_id=conversation_id,
+            max_tokens=max_tokens,
+            tool_choice=tool_choice,
+            tool_response=tool_response,
+            tool_use_id=tool_use_id,
+            is_retry=is_retry,  # Pass is_retry to client to prevent duplicate DB entries
+        )
+
+        # Log the response
+        logger.info("\n=== CLAUDE RESPONSE ===\n%s", response.content)
+
+        return response
+
     except Exception as e:
         if isinstance(e, BadRequestError):
             logger.error(f"Invalid message structure: {str(e)}")
             raise
-        elif is_retryable_error(e):
-            logger.error(f"Server error encountered: {str(e)}")
-            # For server errors, we should let the caller handle retry logic
-            # since they need to maintain conversation state
-            raise
         else:
-            logger.error(f"Non-retryable error encountered: {str(e)}")
+            logger.error(f"Error sending message: {str(e)}")
             raise

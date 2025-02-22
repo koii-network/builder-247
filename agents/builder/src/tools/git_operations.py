@@ -166,19 +166,32 @@ def checkout_branch(branch_name: str) -> Dict[str, Any]:
         return {"success": False, "error": error_msg}
 
 
-def make_commit(message: str, add_all: bool = True) -> Dict[str, Any]:
-    """Stage changes and create a commit in the current repository."""
+def commit_and_push(message: str) -> Dict[str, Any]:
+    """Commit all changes and push to remote."""
     try:
-        repo_path = os.getcwd()
-        repo = _get_repo(repo_path)
-        if add_all:
-            repo.git.add(A=True)
-        else:
-            repo.git.add(u=True)
+        repo = Repo(os.getcwd())
+
+        # Stage all changes
+        repo.git.add(A=True)
+
+        # Create commit
         commit = repo.index.commit(message)
-        return {"success": True, "commit_hash": commit.hexsha}
+
+        # Try to push, with automatic pull if needed
+        try:
+            repo.git.push("origin", repo.active_branch.name)
+        except GitCommandError:
+            # If push failed, pull and try again
+            repo.git.pull("origin", repo.active_branch.name)
+            repo.git.push("origin", repo.active_branch.name)
+
+        return {
+            "success": True,
+            "commit_hash": commit.hexsha,
+            "message": f"Changes committed and pushed: {message}",
+        }
     except GitCommandError as e:
-        error_msg = f"Failed to commit: {str(e)}"
+        error_msg = f"Failed to commit and push: {str(e)}"
         logger.error(error_msg)
         return {"success": False, "error": error_msg}
 
@@ -256,52 +269,17 @@ def pull_remote(remote_name: str = "origin", branch: str = None) -> Dict[str, An
         return {"success": False, "error": error_msg}
 
 
-def push_remote(remote_name: str = "origin", branch: str = None) -> Dict[str, Any]:
-    """Push changes with automatic conflict resolution."""
-    try:
-        repo_path = os.getcwd()
-        repo = _get_repo(repo_path)
-        current_branch = repo.active_branch.name
-        branch = branch or current_branch
-
-        # First try normal push
-        try:
-            repo.git.push(remote_name, branch)
-            return {"success": True}
-        except GitCommandError:
-            # If failed, pull and try again
-            repo.git.pull(remote_name, branch)
-            repo.git.push(remote_name, branch)
-            return {"success": True}
-    except GitCommandError:
-        return {"success": False, "error": "Failed to push changes"}
-
-
-def can_access_repository(repo_url: str) -> bool:
+def can_access_repository(repo_url: str) -> Dict[str, Any]:
     """Check if a git repository is accessible."""
     try:
         # Use GitPython to check remote URLs
         repo = Repo(os.getcwd())
         for remote in repo.remotes:
             if any(repo_url in url for url in remote.urls):
-                return True
-        return False
+                return {"success": True}
+        return {"success": False}
     except GitCommandError:
-        return False
-
-
-def commit_and_push(message: str) -> Dict[str, Any]:
-    """Commit and push changes in the current working directory"""
-    try:
-        repo = Repo(os.getcwd())
-        repo.git.add(A=True)
-        repo.index.commit(message)
-        repo.git.push("origin", repo.active_branch.name)
-        return {"success": True}
-    except GitCommandError as e:
-        error_msg = f"Failed to commit and push: {str(e)}"
-        logger.error(error_msg)
-        return {"success": False, "error": error_msg}
+        return {"success": False}
 
 
 def check_for_conflicts() -> Dict[str, Any]:

@@ -12,9 +12,6 @@ def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
 
-    # Configure logging
-    configure_logging()
-
     # Add request ID middleware
     @app.before_request
     def before_request():
@@ -33,5 +30,9 @@ def create_app():
     # Apply middleware to all routes
     for endpoint in app.view_functions:
         app.view_functions[endpoint] = add_error_headers(app.view_functions[endpoint])
+
+    # Configure logging within app context
+    with app.app_context():
+        configure_logging()
 
     return app

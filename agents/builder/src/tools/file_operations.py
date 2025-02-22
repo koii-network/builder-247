@@ -4,7 +4,11 @@ import os
 import shutil
 from typing import Dict, Any
 from pathlib import Path
-from src.tools.execute_command import execute_command
+
+
+def _normalize_path(path: str) -> str:
+    """Helper function to normalize paths by stripping leading slashes."""
+    return path.lstrip("/")
 
 
 def read_file(file_path: str) -> Dict[str, Any]:
@@ -21,7 +25,9 @@ def read_file(file_path: str) -> Dict[str, Any]:
             - error (str): Error message if unsuccessful
     """
     try:
-        with open(file_path, "r") as f:
+        file_path = _normalize_path(file_path)
+        full_path = Path(os.getcwd()) / file_path
+        with open(full_path, "r") as f:
             return {"success": True, "content": f.read()}
     except FileNotFoundError:
         return {"success": False, "error": f"File not found: {file_path}"}
@@ -32,6 +38,7 @@ def read_file(file_path: str) -> Dict[str, Any]:
 def write_file(file_path: str, content: str) -> Dict[str, Any]:
     """Write file with directory creation"""
     try:
+        file_path = _normalize_path(file_path)
         full_path = Path(os.getcwd()) / file_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -57,13 +64,18 @@ def copy_file(source: str, destination: str) -> Dict[str, Any]:
             - error (str): Error message if unsuccessful
     """
     try:
-        if not os.path.exists(source):
+        source = _normalize_path(source)
+        destination = _normalize_path(destination)
+        source_path = Path(os.getcwd()) / source
+        dest_path = Path(os.getcwd()) / destination
+
+        if not source_path.exists():
             return {"success": False, "error": "Source file not found"}
 
         # Create destination directory if it doesn't exist
-        os.makedirs(os.path.dirname(destination), exist_ok=True)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
 
-        shutil.copy2(source, destination)
+        shutil.copy2(source_path, dest_path)
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -83,15 +95,18 @@ def move_file(source: str, destination: str) -> Dict[str, Any]:
             - error (str): Error message if unsuccessful
     """
     try:
-        if not os.path.exists(source):
+        source = _normalize_path(source)
+        destination = _normalize_path(destination)
+        source_path = Path(os.getcwd()) / source
+        dest_path = Path(os.getcwd()) / destination
+
+        if not source_path.exists():
             return {"success": False, "error": "Source file not found"}
 
         # Create destination directory if it doesn't exist
-        os.makedirs(os.path.dirname(destination), exist_ok=True)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
 
-        result = execute_command(f"mv {source} {destination}")
-        if result[2] != 0:
-            raise Exception("Failed to move file")
+        shutil.move(str(source_path), str(dest_path))
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -111,11 +126,17 @@ def rename_file(source: str, destination: str) -> Dict[str, Any]:
             - error (str): Error message if unsuccessful
     """
     try:
-        os.makedirs(os.path.dirname(destination), exist_ok=True)
-        os.rename(source, destination)
+        source = _normalize_path(source)
+        destination = _normalize_path(destination)
+        source_path = Path(os.getcwd()) / source
+        dest_path = Path(os.getcwd()) / destination
+
+        if not source_path.exists():
+            return {"success": False, "error": f"Source file not found: {source}"}
+
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        os.rename(source_path, dest_path)
         return {"success": True}
-    except FileNotFoundError:
-        return {"success": False, "error": f"Source file not found: {source}"}
     except Exception as e:
         return {"success": False, "error": f"Error renaming file: {str(e)}"}
 
@@ -133,12 +154,13 @@ def delete_file(file_path: str) -> Dict[str, Any]:
             - error (str): Error message if unsuccessful
     """
     try:
-        if not os.path.exists(file_path):
+        file_path = _normalize_path(file_path)
+        full_path = Path(os.getcwd()) / file_path
+
+        if not full_path.exists():
             return {"success": False, "error": "File not found"}
 
-        result = execute_command(f"rm {file_path}")
-        if result[2] != 0:
-            raise Exception("Failed to delete file")
+        os.remove(full_path)
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -154,29 +176,28 @@ def list_files(directory: str) -> list:
     Returns:
     list: A list of file paths relative to the specified directory or CWD.
     """
-    directory = Path(directory)
+    try:
+        directory = _normalize_path(directory)
+        directory = Path(os.getcwd()) / directory
 
-    # Check if the directory exists
-    if not directory.exists() or not directory.is_dir():
-        raise FileNotFoundError(f"The directory '{directory}' does not exist.")
+        if not directory.exists() or not directory.is_dir():
+            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
 
-    # Check if the provided path is absolute
-    if not directory.is_absolute():
-        directory = Path.cwd() / directory
-
-    return [
-        str(file.relative_to(directory))
-        for file in directory.rglob("*")
-        if file.is_file()
-    ]
+        return [
+            str(file.relative_to(directory))
+            for file in directory.rglob("*")
+            if file.is_file()
+        ]
+    except (FileNotFoundError, OSError):  # Catch specific file-related exceptions
+        return []
 
 
 def create_file(file_path: str, content: str) -> dict:
     """Create a new file with specified content."""
     try:
-        # Use relative path from working directory
-        full_path = os.path.join(os.getcwd(), file_path)
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        file_path = _normalize_path(file_path)
+        full_path = Path(os.getcwd()) / file_path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(full_path, "w") as f:
             f.write(content)

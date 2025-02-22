@@ -7,6 +7,7 @@ from pathlib import Path
 import csv
 import shutil
 from git import Repo
+from github import Github
 import dotenv
 import logging
 
@@ -28,20 +29,49 @@ from src.tools.github_operations import fork_repository
 from src.task.retry_utils import (
     execute_tool_with_retry,
     send_message_with_retry,
-    is_retryable_error,
 )
 
 logger = logging.getLogger(__name__)
 
+# Ensure environment variables are loaded
 dotenv.load_dotenv()
 
 
-def handle_tool_response(client, response, tool_choice={"type": "any"}):
+def check_required_env_vars():
+    """Check if all required environment variables are set."""
+    required_vars = ["GITHUB_TOKEN", "GITHUB_USERNAME", "TASK_SYSTEM_PROMPT"]
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+
+    if missing_vars:
+        raise EnvironmentError(
+            f"Missing required environment variables: {', '.join(missing_vars)}\n"
+            "Please ensure these are set in your .env file or environment."
+        )
+
+
+def validate_github_auth():
+    """Validate GitHub authentication."""
+
+    try:
+        gh = Github(os.getenv("GITHUB_TOKEN"))
+        user = gh.get_user()
+        username = user.login
+        if username != os.getenv("GITHUB_USERNAME"):
+            raise ValueError(
+                f"GitHub token belongs to {username}, but GITHUB_USERNAME is set to {os.getenv('GITHUB_USERNAME')}"
+            )
+        logger.info(f"Successfully authenticated as {username}")
+    except Exception as e:
+        raise RuntimeError(f"GitHub authentication failed: {str(e)}")
+
+
+def handle_tool_response(client, response):
     """
-    Handle tool responses recursively until natural completion.
+    Handle tool responses until natural completion.
     """
     logger.info("Starting conversation")
     tool_result = None  # Track the final tool execution result
+    conversation_id = response.conversation_id  # Store conversation ID
 
     while response.stop_reason == "tool_use":
         # Process all tool uses in the current response
@@ -55,6 +85,24 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
                 tool_output = execute_tool_with_retry(client, tool_use)
                 tool_result = tool_output  # Store the final tool result
                 logger.debug(f"Tool output: {tool_output}")
+
+                # Convert tool output to string if it's not already
+                tool_response_str = (
+                    str(tool_output) if tool_output is not None else None
+                )
+                if tool_response_str is None:
+                    logger.warning("Tool output is None, skipping message to Claude")
+                    continue
+
+                # Send successful tool result back to Claude with conversation state
+                response = send_message_with_retry(
+                    client,
+                    tool_response=tool_response_str,
+                    tool_use_id=tool_use.id,
+                    conversation_id=conversation_id,  # Use stored conversation ID
+                )
+                logger.debug(f"Response from Claude: {response}")
+
             except Exception as e:
                 error_msg = f"Failed to execute tool {tool_use.name}: {str(e)}"
                 logger.error(error_msg)
@@ -73,8 +121,7 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
                         client,
                         tool_response=error_response,
                         tool_use_id=tool_use.id,
-                        conversation_id=response.conversation_id,
-                        tool_choice=tool_choice,
+                        conversation_id=conversation_id,  # Use stored conversation ID
                     )
                 except Exception as send_error:
                     logger.error(
@@ -84,63 +131,25 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
                 logger.debug(f"Response: {response}")
                 continue
 
-            # Send successful tool result back to AI with retry logic for server errors
-            max_retries = 5
-            retry_count = 0
-            last_error = None
-            while retry_count < max_retries:
-                try:
-                    response = send_message_with_retry(
-                        client,
-                        tool_response=str(tool_output),
-                        tool_use_id=tool_use.id,
-                        conversation_id=response.conversation_id,
-                        tool_choice=tool_choice,
-                    )
-                    logger.debug(f"Response: {response}")
-                    break
-                except Exception as e:
-                    if not is_retryable_error(e):
-                        raise  # Don't retry client errors
-                    last_error = e
-                    retry_count += 1
-                    if retry_count < max_retries:
-                        sleep_time = min(4 * (2 ** (retry_count - 1)), 60)
-                        logger.info(
-                            f"Attempt {retry_count} failed, retrying in {sleep_time} seconds..."
-                        )
-                        time.sleep(sleep_time)
-                    else:
-                        logger.error(
-                            f"Failed to send message after {max_retries} attempts"
-                        )
-                        raise last_error
-
     logger.info("Conversation ended")
-    return tool_result  # Return the final tool execution result
+    return tool_result
 
 
-def validate_acceptance_criteria(
-    client, conversation_id, repo_path, todo, acceptance_criteria
-):
+def validate_acceptance_criteria(client, conversation_id, todo, acceptance_criteria):
     """
     Validate that all acceptance criteria are met, including passing tests.
     Returns tuple of (bool, str) indicating success/failure and reason for failure.
     """
     logger.info("Validating acceptance criteria...")
 
-    # Format validation prompt
-    validation_prompt = (
-        "Please validate that the implementation meets all acceptance criteria:\n"
-        f"Acceptance Criteria:\n{acceptance_criteria}\n\n"
-        "Follow these steps:\n"
-        "1. Run the tests and verify they all pass\n"
-        "2. Check each acceptance criterion\n"
-        "3. If any criteria are not met, explain what needs to be fixed\n"
-        "4. If all criteria are met, confirm success\n"
+    validation_prompt = PROMPTS["validate_criteria"].format(
+        todo=todo, acceptance_criteria=acceptance_criteria
     )
 
-    response = client.send_message(
+    log_prompt("validate_acceptance_criteria", validation_prompt)
+
+    response = send_message_with_retry(
+        client,
         prompt=validation_prompt,
         conversation_id=conversation_id,
     )
@@ -169,6 +178,8 @@ def todo_to_pr(
     # Generate sequential repo path
     base_dir = os.path.abspath("./repos")
     os.makedirs(base_dir, exist_ok=True)
+
+    log_prompt("system_prompt", system_prompt)
 
     # Find first available number
     counter = 0
@@ -214,9 +225,10 @@ def todo_to_pr(
 
         # Create branch
         setup_prompt = PROMPTS["setup_repository"].format(todo=todo)
-        logger.debug(f"Setup prompt: {setup_prompt}")
-        branch_response = client.send_message(
-            setup_prompt,
+        log_prompt("setup_repository", setup_prompt)
+        branch_response = send_message_with_retry(
+            client,
+            prompt=setup_prompt,
             conversation_id=conversation_id,
             tool_choice={"type": "tool", "name": "create_branch"},
         )
@@ -244,22 +256,24 @@ def todo_to_pr(
                     files_directory=files_directory,
                     previous_issues=validation_message,
                 )
+                log_prompt("fix_implementation", execute_todo_prompt)
             else:
                 execute_todo_prompt = PROMPTS["execute_todo"].format(
                     todo=todo,
                     files_directory=files_directory,
                 )
+                log_prompt("execute_todo", execute_todo_prompt)
 
-            logger.debug(f"Execute todo prompt: {execute_todo_prompt}")
-            execute_todo_response = client.send_message(
-                execute_todo_prompt,
+            execute_todo_response = send_message_with_retry(
+                client,
+                prompt=execute_todo_prompt,
                 conversation_id=conversation_id,
             )
             handle_tool_response(client, execute_todo_response)
 
             # Validate acceptance criteria
             is_valid, validation_message = validate_acceptance_criteria(
-                client, conversation_id, repo_path, todo, acceptance_criteria
+                client, conversation_id, todo, acceptance_criteria
             )
 
             if is_valid:
@@ -279,37 +293,29 @@ def todo_to_pr(
             time.sleep(5)  # Brief pause before retry
 
         # Create PR with retries
-        max_retries = 3
-        for attempt in range(max_retries):
-            create_pr_prompt = PROMPTS["create_pr"].format(
-                repo_full_name=f"{repo_owner}/{repo_name}",
-                head=branch_name,
-                base="main",
-                todo=todo,
-                acceptance_criteria=acceptance_criteria,
-            )
-            logger.debug(f"Create PR prompt: {create_pr_prompt}")
-            pr_response = client.send_message(
-                create_pr_prompt,
-                tool_choice={"type": "tool", "name": "create_pull_request"},
-            )
+        create_pr_prompt = PROMPTS["create_pr"].format(
+            repo_full_name=f"{repo_owner}/{repo_name}",
+            head=branch_name,
+            base="main",
+            todo=todo,
+            acceptance_criteria=acceptance_criteria,
+        )
+        log_prompt("create_pr", create_pr_prompt)
+        pr_response = send_message_with_retry(
+            client,
+            prompt=create_pr_prompt,
+            tool_choice={"type": "tool", "name": "create_pull_request"},
+        )
 
-            pr_result = handle_tool_response(client, pr_response)
+        pr_result = handle_tool_response(client, pr_response)
 
-            logger.debug(f"PR result: {pr_result}")
+        logger.debug(f"PR result: {pr_result}")
 
-            if pr_result.get("success"):
-                return pr_result.get("pr_url")
-            else:
-                logger.warning(
-                    f"PR creation attempt {attempt+1} failed: {pr_result.get('error')}"
-                )
-                if attempt < max_retries - 1:
-                    logger.info("Retrying PR creation...")
-                    time.sleep(5)
-
-        logger.error(f"PR creation failed after {max_retries} attempts")
-        return None
+        if pr_result.get("success"):
+            return pr_result.get("pr_url")
+        else:
+            logger.error(f"PR creation failed: {pr_result.get('error')}")
+            return None
 
     except Exception as e:
         logger.error(f"Error in todo_to_pr: {str(e)}", exc_info=True)
@@ -319,24 +325,54 @@ def todo_to_pr(
         os.chdir(original_dir)  # Restore original directory
 
 
-if __name__ == "__main__":
-    todos_path = (
-        Path(__file__).parent.parent.parent.parent.parent / "data" / "todos.csv"
-    )
+def log_prompt(name: str, prompt: str):
+    logger.info("\n=== PROMPT TO CLAUDE ===")
+    logger.info(f"PROMPT: {name}")
+    logger.info(prompt)
+    logger.info("\n=== END PROMPT TO CLAUDE ===")
 
-    with open(todos_path, "r") as f:
-        reader = csv.reader(f)
-        next(reader)  # Skip header
-        for i, row in enumerate(reader):
-            if len(row) >= 2:
-                todo, acceptance_criteria = row[0], row[1]
-                todo_to_pr(
-                    todo=todo.strip(),
-                    repo_owner="koii-network",
-                    repo_name="builder-test",
-                    acceptance_criteria=acceptance_criteria.strip(),
-                    repo_path=f"./repo_{i}",  # Unique path per task
-                    system_prompt=os.environ["SYSTEM_PROMPT"],
-                )
-            else:
-                print(f"Skipping invalid row: {row}")
+
+if __name__ == "__main__":
+    try:
+        # Set up logging with DEBUG level
+        logging.basicConfig(
+            level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+        )
+
+        # Validate environment and authentication
+        check_required_env_vars()
+        validate_github_auth()
+
+        todos_path = (
+            Path(__file__).parent.parent.parent.parent.parent
+            / "data"
+            / "test_todos.csv"
+        )
+
+        if not todos_path.exists():
+            logger.error(f"Todos file not found at {todos_path}")
+            sys.exit(1)
+
+        with open(todos_path, "r") as f:
+            reader = csv.reader(f)
+            next(reader)  # Skip header
+            for i, row in enumerate(reader):
+                if len(row) >= 2:
+                    todo, acceptance_criteria = row[0], row[1]
+                    try:
+                        todo_to_pr(
+                            todo=todo.strip(),
+                            repo_owner="koii-network",
+                            repo_name="builder-test",
+                            acceptance_criteria=acceptance_criteria.strip(),
+                            repo_path=f"./repo_{i}",  # Unique path per task
+                            system_prompt=os.environ["TASK_SYSTEM_PROMPT"],
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to process todo {i}: {str(e)}")
+                        continue
+                else:
+                    logger.warning(f"Skipping invalid row: {row}")
+    except Exception as e:
+        logger.error(f"Script failed: {str(e)}")
+        sys.exit(1)
