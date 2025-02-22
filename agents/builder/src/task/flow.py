@@ -120,6 +120,41 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
     return tool_result  # Return the final tool execution result
 
 
+def validate_acceptance_criteria(
+    client, conversation_id, repo_path, todo, acceptance_criteria
+):
+    """
+    Validate that all acceptance criteria are met, including passing tests.
+    Returns tuple of (bool, str) indicating success/failure and reason for failure.
+    """
+    logger.info("Validating acceptance criteria...")
+
+    # Format validation prompt
+    validation_prompt = (
+        "Please validate that the implementation meets all acceptance criteria:\n"
+        f"Acceptance Criteria:\n{acceptance_criteria}\n\n"
+        "Follow these steps:\n"
+        "1. Run the tests and verify they all pass\n"
+        "2. Check each acceptance criterion\n"
+        "3. If any criteria are not met, explain what needs to be fixed\n"
+        "4. If all criteria are met, confirm success\n"
+    )
+
+    response = client.send_message(
+        prompt=validation_prompt,
+        conversation_id=conversation_id,
+    )
+
+    validation_result = handle_tool_response(client, response)
+    if not validation_result:
+        return False, "Failed to get validation result"
+
+    if not validation_result.get("success", False):
+        return False, validation_result.get("error", "Unknown validation error")
+
+    return True, ""
+
+
 def todo_to_pr(
     repo_owner,
     repo_name,
@@ -189,23 +224,59 @@ def todo_to_pr(
         branch_info = get_current_branch()
         branch_name = branch_info.get("output") if branch_info.get("success") else None
 
-        # Get the list of files
-        files = get_file_list(repo_path)
-        logger.info(f"Found {len(files)} files")
-        files_directory = PROMPTS["files"].format(files=", ".join(map(str, files)))
-        execute_todo_prompt = PROMPTS["execute_todo"].format(
-            todo=todo,
-            files_directory=files_directory,
-        )
-        logger.debug(f"Execute todo prompt: {execute_todo_prompt}")
-        execute_todo_response = client.send_message(
-            execute_todo_prompt,
-            conversation_id=conversation_id,
-        )
-        time.sleep(10)
-        handle_tool_response(client, execute_todo_response)
+        # Implementation loop - try up to 3 times to meet all acceptance criteria
+        max_implementation_attempts = 3
+        validation_message = ""  # Initialize validation message
+        for attempt in range(max_implementation_attempts):
+            logger.info(
+                f"Implementation attempt {attempt + 1}/{max_implementation_attempts}"
+            )
 
-        time.sleep(10)
+            # Get the list of files
+            files = get_file_list(repo_path)
+            logger.info(f"Found {len(files)} files")
+            files_directory = PROMPTS["files"].format(files=", ".join(map(str, files)))
+
+            # If this is a retry, modify the prompt to focus on fixing issues
+            if attempt > 0:
+                execute_todo_prompt = PROMPTS["fix_implementation"].format(
+                    todo=todo,
+                    files_directory=files_directory,
+                    previous_issues=validation_message,
+                )
+            else:
+                execute_todo_prompt = PROMPTS["execute_todo"].format(
+                    todo=todo,
+                    files_directory=files_directory,
+                )
+
+            logger.debug(f"Execute todo prompt: {execute_todo_prompt}")
+            execute_todo_response = client.send_message(
+                execute_todo_prompt,
+                conversation_id=conversation_id,
+            )
+            handle_tool_response(client, execute_todo_response)
+
+            # Validate acceptance criteria
+            is_valid, validation_message = validate_acceptance_criteria(
+                client, conversation_id, repo_path, todo, acceptance_criteria
+            )
+
+            if is_valid:
+                logger.info("All acceptance criteria met, proceeding to create PR")
+                break
+
+            if attempt == max_implementation_attempts - 1:
+                logger.error(
+                    f"Failed to meet acceptance criteria after {max_implementation_attempts} attempts. "
+                    f"Last validation message: {validation_message}"
+                )
+                return None
+
+            logger.warning(
+                f"Acceptance criteria not met (attempt {attempt + 1}): {validation_message}"
+            )
+            time.sleep(5)  # Brief pause before retry
 
         # Create PR with retries
         max_retries = 3
