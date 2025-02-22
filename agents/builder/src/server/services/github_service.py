@@ -21,17 +21,24 @@ def verify_pr_ownership(
 
         match = re.match(r"https://github.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
         if not match:
+            logger.error(f"Invalid PR URL: {pr_url}")
             return False
 
         owner, repo_name, pr_number = match.groups()
 
         if owner != expected_owner or repo_name != expected_repo:
+            logger.error(
+                f"PR URL mismatch: {pr_url} != {expected_owner}/{expected_repo}"
+            )
             return False
 
         repo = gh.get_repo(f"{owner}/{repo_name}")
         pr = repo.get_pull(int(pr_number))
 
         if pr.user.login != expected_username:
+            logger.error(
+                f"PR username mismatch: {pr.user.login} != {expected_username}"
+            )
             return False
 
         response = requests.post(

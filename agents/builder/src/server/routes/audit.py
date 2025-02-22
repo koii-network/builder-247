@@ -39,6 +39,7 @@ def audit_submission(round_number: int):
         or not repo_owner
         or not repo_name
         or not staking_key
+        or not pub_key
     ):
         return jsonify({"error": "Missing submission data"}), 400
 

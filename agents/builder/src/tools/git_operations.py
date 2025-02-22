@@ -4,9 +4,12 @@ import os
 import shutil
 from pathlib import Path
 from typing import Dict, Any
-from git import Repo
+from git import Repo, GitCommandError
+import logging
 
 import time
+
+logger = logging.getLogger(__name__)
 
 
 def _get_repo(repo_path: str) -> Repo:
@@ -59,39 +62,39 @@ def clone_repository(
     Clone a Git repository with proper path handling and cleanup.
     """
     try:
-        print(f"Attempting to clone repository to: {os.path.abspath(path)}")
-        print(f"Source URL: {url}")
+        logger.info(f"Attempting to clone repository to: {os.path.abspath(path)}")
+        logger.debug(f"Source URL: {url}")
 
         # Clean up existing path if it exists
         if os.path.exists(path):
-            print(f"Removing existing path: {path}")
+            logger.info(f"Removing existing path: {path}")
             if os.path.isfile(path):
                 os.remove(path)
             else:
                 shutil.rmtree(path)
 
         # Create target directory
-        print(f"Creating directory: {path}")
+        logger.info(f"Creating directory: {path}")
         os.makedirs(path, exist_ok=True)
 
         # Add GitHub token authentication
         token = os.environ.get("GITHUB_TOKEN")
         if token and "github.com" in url:
-            print("Adding GitHub token authentication to URL")
+            logger.debug("Adding GitHub token authentication to URL")
             if url.startswith("https://"):
                 url = url.replace("https://", f"https://{token}@")
             elif url.startswith("git@"):
                 url = f"https://{token}@github.com/{url.split(':', 1)[1]}"
-            print(f"Modified URL: {url}")
+            logger.debug(f"Modified URL: {url}")
 
         # Clone repository
-        print("Starting clone operation...")
+        logger.info("Starting clone operation...")
         repo = Repo.clone_from(url, path)
-        print("Clone completed successfully")
+        logger.info("Clone completed successfully")
 
         # Configure user information
         if user_name or user_email:
-            print(f"Configuring user: {user_name} <{user_email}>")
+            logger.info(f"Configuring user: {user_name} <{user_email}>")
             with repo.config_writer() as config:
                 if user_name:
                     config.set_value("user", "name", user_name)
@@ -108,9 +111,10 @@ def clone_repository(
             )
 
         return {"success": True}
-    except Exception as e:
-        print(f"Clone failed with error: {str(e)}")
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Clone failed with error: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def create_branch(branch_base: str) -> dict:
@@ -125,7 +129,7 @@ def create_branch(branch_base: str) -> dict:
         branch_name = f"{branch_base}-{timestamp}"
 
         repo = Repo(os.getcwd())
-        print(f"Creating branch '{branch_name}' in {repo.working_dir}")
+        logger.info(f"Creating branch '{branch_name}' in {repo.working_dir}")
 
         # Create and checkout branch
         repo.git.checkout("-b", branch_name)
@@ -142,8 +146,10 @@ def create_branch(branch_base: str) -> dict:
             "branch_name": branch_name,
             "message": f"Created branch {branch_name}",
         }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to create branch: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def checkout_branch(branch_name: str) -> Dict[str, Any]:
@@ -154,8 +160,10 @@ def checkout_branch(branch_name: str) -> Dict[str, Any]:
         branch = repo.heads[branch_name]
         branch.checkout()
         return {"success": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to checkout branch: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def make_commit(message: str, add_all: bool = True) -> Dict[str, Any]:
@@ -169,17 +177,22 @@ def make_commit(message: str, add_all: bool = True) -> Dict[str, Any]:
             repo.git.add(u=True)
         commit = repo.index.commit(message)
         return {"success": True, "commit_hash": commit.hexsha}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to commit: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def get_current_branch() -> Dict[str, Any]:
     """Get the current branch name in the working directory"""
     try:
         repo = Repo(os.getcwd())
-        return {"success": True, "output": repo.active_branch.name}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+        branch = repo.active_branch.name
+        return {"success": True, "output": branch}
+    except GitCommandError as e:
+        error_msg = f"Failed to get current branch: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def list_branches() -> Dict[str, Any]:
@@ -189,8 +202,10 @@ def list_branches() -> Dict[str, Any]:
         repo = _get_repo(repo_path)
         branches = [head.name for head in repo.heads]
         return {"success": True, "output": branches}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to list branches: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def add_remote(name: str, url: str) -> Dict[str, Any]:
@@ -201,8 +216,10 @@ def add_remote(name: str, url: str) -> Dict[str, Any]:
         repo = _get_repo(repo_path)
         repo.create_remote(name, url)
         return {"success": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to add remote: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def fetch_remote(remote_name: str) -> Dict[str, Any]:
@@ -213,8 +230,10 @@ def fetch_remote(remote_name: str) -> Dict[str, Any]:
         remote = repo.remotes[remote_name]
         remote.fetch()
         return {"success": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to fetch from remote: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def pull_remote(remote_name: str = "origin", branch: str = None) -> Dict[str, Any]:
@@ -231,8 +250,10 @@ def pull_remote(remote_name: str = "origin", branch: str = None) -> Dict[str, An
             return {"success": False, "error": "Merge conflict detected after pull"}
 
         return {"success": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to pull changes: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def push_remote(remote_name: str = "origin", branch: str = None) -> Dict[str, Any]:
@@ -247,12 +268,12 @@ def push_remote(remote_name: str = "origin", branch: str = None) -> Dict[str, An
         try:
             repo.git.push(remote_name, branch)
             return {"success": True}
-        except Exception:
+        except GitCommandError:
             # If failed, pull and try again
             repo.git.pull(remote_name, branch)
             repo.git.push(remote_name, branch)
             return {"success": True}
-    except Exception:
+    except GitCommandError:
         return {"success": False, "error": "Failed to push changes"}
 
 
@@ -265,7 +286,7 @@ def can_access_repository(repo_url: str) -> bool:
             if any(repo_url in url for url in remote.urls):
                 return True
         return False
-    except Exception:
+    except GitCommandError:
         return False
 
 
@@ -277,8 +298,10 @@ def commit_and_push(message: str) -> Dict[str, Any]:
         repo.index.commit(message)
         repo.git.push("origin", repo.active_branch.name)
         return {"success": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to commit and push: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def check_for_conflicts() -> Dict[str, Any]:
@@ -293,8 +316,10 @@ def check_for_conflicts() -> Dict[str, Any]:
             "has_conflicts": bool(conflicting_files),
             "conflicting_files": conflicting_files,
         }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to check for conflicts: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def get_conflict_info() -> Dict[str, Any]:
@@ -317,8 +342,10 @@ def get_conflict_info() -> Dict[str, Any]:
             conflicts[path] = {"content": versions}
 
         return {"success": True, "conflicts": conflicts}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to get conflict info: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def resolve_conflict(
@@ -332,8 +359,10 @@ def resolve_conflict(
         full_path.write_text(resolution)
         repo.git.add(file_path)
         return {"success": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to resolve conflict: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def create_merge_commit(message: str) -> Dict[str, Any]:
@@ -348,5 +377,7 @@ def create_merge_commit(message: str) -> Dict[str, Any]:
             }
         commit = repo.index.commit(message)
         return {"success": True, "commit_id": commit.hexsha}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GitCommandError as e:
+        error_msg = f"Failed to create merge commit: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}

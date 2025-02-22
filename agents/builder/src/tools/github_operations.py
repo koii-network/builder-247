@@ -14,6 +14,9 @@ from src.tools.git_operations import (
 import time
 from git import Repo
 from src.task.constants import PR_TEMPLATE, REVIEW_TEMPLATE
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -35,46 +38,48 @@ def _get_github_client() -> Github:
     return Github(auth=Auth.Token(token))
 
 
-def fork_repository(repo_full_name: str, repo_path: str) -> dict:
-    """Forks a repository and configures proper remotes"""
+def fork_repository(repo_full_name: str, repo_path: str = None) -> dict:
+    """
+    Fork a repository and clone it locally.
+
+    Args:
+        repo_full_name: Full name of repository (owner/repo)
+        repo_path: Local path to clone to
+
+    Returns:
+        dict: Result with success status and error message if any
+    """
     try:
         gh = _get_github_client()
-
-        # Create fork using GitHub API
-        print(f"Forking repository: {repo_full_name}")
         original_repo = gh.get_repo(repo_full_name)
-        fork = gh.get_user().create_fork(original_repo)
 
-        # Wait for fork propagation
-        print("Waiting for fork to be ready...")
-        time.sleep(5)
+        logger.info(f"Forking repository: {repo_full_name}")
+        fork = original_repo.create_fork()
 
-        # Clone the fork with authentication
-        print(f"Cloning to {repo_path}")
-        authenticated_url = (
-            f"https://{os.environ['GITHUB_TOKEN']}@github.com/{fork.full_name}.git"
-        )
-        repo = Repo.clone_from(authenticated_url, repo_path)
+        # Wait for fork to be ready
+        logger.info("Waiting for fork to be ready...")
+        time.sleep(5)  # Give GitHub time to complete the fork
 
-        # Configure remotes
-        print("Configuring remotes:")
-        print(f"origin -> {fork.clone_url}")
-        print(f"upstream -> {original_repo.clone_url}")
+        # Clone fork if path provided
+        if repo_path:
+            logger.info(f"Cloning to {repo_path}")
+            repo = Repo.clone_from(fork.clone_url, repo_path)
 
-        # Set push URL for origin to include token
-        with repo.config_writer() as config:
-            config.set_value('remote "origin"', "url", authenticated_url)
+            # Set up remotes
+            logger.debug("Configuring remotes:")
+            logger.debug(f"origin -> {fork.clone_url}")
+            logger.debug(f"upstream -> {original_repo.clone_url}")
 
-        # Add upstream remote
-        repo.create_remote("upstream", original_repo.clone_url)
+            # Configure remotes - origin is already set by clone_from
+            repo.create_remote("upstream", original_repo.clone_url)
 
-        # Set default push/pull behavior
-        with repo.config_writer() as config:
-            config.set_value("push", "default", "current")
+            return {"success": True, "fork": fork, "repo": repo}
+        return {"success": True, "fork": fork}
 
-        return {"success": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except GithubException as e:
+        error_msg = f"Failed to fork repository: {str(e)}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def create_pull_request(
