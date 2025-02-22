@@ -1,0 +1,23 @@
+{
+  "useTabs": false,
+  "tabWidth": 2,
+  "singleQuote": false,
+  "trailingComma": "all",
+  "printWidth": 120,
+  "arrowParens": "always",
+  "semi": true,
+  "overrides": [
+    {
+      "files": ["*.py"],
+      "options": {
+        "tabWidth": 4
+      }
+    },
+    {
+      "files": ".eslintrc",
+      "options": {
+        "parser": "json"
+      }
+    }
+  ]
+}
