@@ -6,7 +6,6 @@ import time
 from pathlib import Path
 import csv
 import shutil
-import traceback
 from git import Repo
 import dotenv
 import logging
@@ -41,25 +40,49 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
     """
     Handle tool responses recursively until natural completion.
     """
-    print("Start Conversation")
+    logger.info("Starting conversation")
     tool_result = None  # Track the final tool execution result
 
     while response.stop_reason == "tool_use":
         # Process all tool uses in the current response
         for tool_use in [b for b in response.content if isinstance(b, ToolUseBlock)]:
-            print(f"Processing tool: {tool_use.name}")
-            print(f"Tool input: {tool_use.input}")
-            print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            logger.info(f"Processing tool: {tool_use.name}")
+            logger.debug(f"Tool input: {tool_use.input}")
+            logger.debug(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
             try:
                 # Execute the tool with retry logic
                 tool_output = execute_tool_with_retry(client, tool_use)
                 tool_result = tool_output  # Store the final tool result
-                print(f"Tool output: {tool_output}")
+                logger.debug(f"Tool output: {tool_output}")
             except Exception as e:
                 error_msg = f"Failed to execute tool {tool_use.name}: {str(e)}"
-                print(error_msg)
-                raise  # Let the caller handle tool execution failures
+                logger.error(error_msg)
+                # Send error back to Claude so it can try again
+                try:
+                    # Format error as a string for Claude
+                    error_response = str(
+                        {
+                            "success": False,
+                            "error": error_msg,
+                            "tool_name": tool_use.name,
+                            "input": tool_use.input,
+                        }
+                    )
+                    response = send_message_with_retry(
+                        client,
+                        tool_response=error_response,
+                        tool_use_id=tool_use.id,
+                        conversation_id=response.conversation_id,
+                        tool_choice=tool_choice,
+                    )
+                except Exception as send_error:
+                    logger.error(
+                        f"Failed to send error message to Claude: {str(send_error)}"
+                    )
+                    raise
+                logger.debug(f"Response: {response}")
+                continue
 
             # Send successful tool result back to AI with retry logic for server errors
             max_retries = 5
@@ -74,7 +97,7 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
                         conversation_id=response.conversation_id,
                         tool_choice=tool_choice,
                     )
-                    print(f"Response: {response}")
+                    logger.debug(f"Response: {response}")
                     break
                 except Exception as e:
                     if not is_retryable_error(e):
@@ -93,7 +116,7 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
                         )
                         raise last_error
 
-    print("End Conversation")
+    logger.info("Conversation ended")
     return tool_result  # Return the final tool execution result
 
 
@@ -144,7 +167,7 @@ def todo_to_pr(
         conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info
-        print("Configuring Git user information")
+        logger.info("Configuring Git user information")
         repo = Repo(repo_path)
         with repo.config_writer() as config:
             config.set_value("user", "name", os.environ["GITHUB_USERNAME"])
@@ -156,7 +179,7 @@ def todo_to_pr(
 
         # Create branch
         setup_prompt = PROMPTS["setup_repository"].format(todo=todo)
-        print("setup_prompt", setup_prompt)
+        logger.debug(f"Setup prompt: {setup_prompt}")
         branch_response = client.send_message(
             setup_prompt,
             conversation_id=conversation_id,
@@ -168,13 +191,13 @@ def todo_to_pr(
 
         # Get the list of files
         files = get_file_list(repo_path)
-        print("Use Files: ", files)
+        logger.info(f"Found {len(files)} files")
         files_directory = PROMPTS["files"].format(files=", ".join(map(str, files)))
         execute_todo_prompt = PROMPTS["execute_todo"].format(
             todo=todo,
             files_directory=files_directory,
         )
-        print("execute_todo_prompt", execute_todo_prompt)
+        logger.debug(f"Execute todo prompt: {execute_todo_prompt}")
         execute_todo_response = client.send_message(
             execute_todo_prompt,
             conversation_id=conversation_id,
@@ -194,7 +217,7 @@ def todo_to_pr(
                 todo=todo,
                 acceptance_criteria=acceptance_criteria,
             )
-            print("create_pr_prompt", create_pr_prompt)
+            logger.debug(f"Create PR prompt: {create_pr_prompt}")
             pr_response = client.send_message(
                 create_pr_prompt,
                 tool_choice={"type": "tool", "name": "create_pull_request"},
@@ -202,28 +225,24 @@ def todo_to_pr(
 
             pr_result = handle_tool_response(client, pr_response)
 
-            print("pr_result", pr_result)
+            logger.debug(f"PR result: {pr_result}")
 
             if pr_result.get("success"):
                 return pr_result.get("pr_url")
             else:
-                print(
+                logger.warning(
                     f"PR creation attempt {attempt+1} failed: {pr_result.get('error')}"
                 )
                 if attempt < max_retries - 1:
-                    print("Retrying...")
+                    logger.info("Retrying PR creation...")
                     time.sleep(5)
 
-        print(f"PR creation failed after {max_retries} attempts")
+        logger.error(f"PR creation failed after {max_retries} attempts")
         return None
 
     except Exception as e:
-        print(f"\n{' ERROR '.center(50, '=')}")
-        print(f"Error Type: {type(e).__name__}")
-        print(f"Error Message: {str(e)}")
-        print(f"Repo Path: {repo_path}")
-        traceback.print_exc()
-        print("=" * 50)
+        logger.error(f"Error in todo_to_pr: {str(e)}", exc_info=True)
+        raise
 
     finally:
         os.chdir(original_dir)  # Restore original directory
