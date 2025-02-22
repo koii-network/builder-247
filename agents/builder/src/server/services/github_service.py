@@ -14,6 +14,7 @@ def verify_pr_ownership(
     expected_repo,
     signature,
     staking_key,
+    pub_key,
 ):
     try:
         gh = Github(os.environ.get("GITHUB_TOKEN"))
@@ -37,6 +38,7 @@ def verify_pr_ownership(
             os.environ.get("MIDDLE_SERVER_URL") + "/api/check-to-do",
             json={
                 "stakingKey": staking_key,
+                "pubKey": pub_key,
                 "signature": signature,
             },
             headers={"Content-Type": "application/json"},

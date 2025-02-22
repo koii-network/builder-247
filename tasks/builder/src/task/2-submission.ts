@@ -20,6 +20,10 @@ export async function submission(roundNumber: number) {
       throw new Error("Submission is not for the current round");
     }
 
+    if (!submission.prUrl) {
+      throw new Error("Submission is missing PR URL");
+    }
+
     // if you are writing a KPL task, use namespaceWrapper.getSubmitterAccount("KPL");
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
 

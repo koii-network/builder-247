@@ -10,6 +10,7 @@ import os
 import shutil
 from git import Repo
 from src.get_file_list import get_file_list
+from src.task.retry_utils import execute_tool_with_retry, send_message_with_retry
 
 # Conditional path adjustment before any other imports
 if __name__ == "__main__":
@@ -93,31 +94,41 @@ def handle_tool_response(client, response):
             print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
             try:
-                # Execute the tool
-                tool_output = client.execute_tool(tool_use)
+                # Execute the tool with retry logic
+                tool_output = execute_tool_with_retry(client, tool_use)
                 print(f"Tool output: {tool_output}")
                 if tool_use.name == "review_pull_request":
                     return tool_output
             except Exception as e:
                 error_msg = f"Failed to execute tool {tool_use.name}: {str(e)}"
-
                 print(error_msg)
                 # Send error back to Claude so it can try again
-                response = client.send_message(
-                    tool_response={"success": False, "error": error_msg},
+                try:
+                    response = send_message_with_retry(
+                        client,
+                        tool_response={"success": False, "error": error_msg},
+                        tool_use_id=tool_use.id,
+                        conversation_id=response.conversation_id,
+                    )
+                except Exception as send_error:
+                    print(f"Failed to send error message to Claude: {str(send_error)}")
+                    # If we can't communicate with Claude after retries, we should probably raise
+                    raise
+                print(f"Response: {response}")
+                continue
+
+            # Send successful tool result back to AI with retry logic
+            try:
+                response = send_message_with_retry(
+                    client,
+                    tool_response=str(tool_output),
                     tool_use_id=tool_use.id,
                     conversation_id=response.conversation_id,
                 )
                 print(f"Response: {response}")
-                continue
-
-            # Send successful tool result back to AI
-            response = client.send_message(
-                tool_response=str(tool_output),
-                tool_use_id=tool_use.id,
-                conversation_id=response.conversation_id,
-            )
-            print(f"Response: {response}")
+            except Exception as send_error:
+                print(f"Failed to send success message to Claude: {str(send_error)}")
+                raise
 
     print("End Conversation")
 

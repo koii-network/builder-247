@@ -12,6 +12,9 @@ def submit_pr_route(roundNumber):
     pub_key = data.get("pubKey")
     pr_url = data.get("prUrl")
 
+    if not pr_url:
+        return jsonify({"error": "Missing PR URL"}), 400
+
     message = submit_pr(signature, staking_key, pub_key, pr_url, roundNumber)
 
     return jsonify({"message": message})

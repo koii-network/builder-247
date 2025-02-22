@@ -9,6 +9,7 @@ import shutil
 import traceback
 from git import Repo
 import dotenv
+import logging
 
 # Conditional path adjustment before any other imports
 if __name__ == "__main__":
@@ -25,7 +26,13 @@ from src.tools.git_operations import get_current_branch
 from src.task.setup import setup_client
 from src.task.constants import PROMPTS
 from src.tools.github_operations import fork_repository
+from src.task.retry_utils import (
+    execute_tool_with_retry,
+    send_message_with_retry,
+    is_retryable_error,
+)
 
+logger = logging.getLogger(__name__)
 
 dotenv.load_dotenv()
 
@@ -44,18 +51,47 @@ def handle_tool_response(client, response, tool_choice={"type": "any"}):
             print(f"Tool input: {tool_use.input}")
             print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-            # Execute the tool
-            tool_output = client.execute_tool(tool_use)
-            tool_result = tool_output  # Store the final tool result
-            print(f"Tool output: {tool_output}")
+            try:
+                # Execute the tool with retry logic
+                tool_output = execute_tool_with_retry(client, tool_use)
+                tool_result = tool_output  # Store the final tool result
+                print(f"Tool output: {tool_output}")
+            except Exception as e:
+                error_msg = f"Failed to execute tool {tool_use.name}: {str(e)}"
+                print(error_msg)
+                raise  # Let the caller handle tool execution failures
 
-            # Send tool result back to AI
-            response = client.send_message(
-                tool_response=str(tool_output),
-                tool_use_id=tool_use.id,
-                conversation_id=response.conversation_id,
-                tool_choice=tool_choice,
-            )
+            # Send successful tool result back to AI with retry logic for server errors
+            max_retries = 5
+            retry_count = 0
+            last_error = None
+            while retry_count < max_retries:
+                try:
+                    response = send_message_with_retry(
+                        client,
+                        tool_response=str(tool_output),
+                        tool_use_id=tool_use.id,
+                        conversation_id=response.conversation_id,
+                        tool_choice=tool_choice,
+                    )
+                    print(f"Response: {response}")
+                    break
+                except Exception as e:
+                    if not is_retryable_error(e):
+                        raise  # Don't retry client errors
+                    last_error = e
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        sleep_time = min(4 * (2 ** (retry_count - 1)), 60)
+                        logger.info(
+                            f"Attempt {retry_count} failed, retrying in {sleep_time} seconds..."
+                        )
+                        time.sleep(sleep_time)
+                    else:
+                        logger.error(
+                            f"Failed to send message after {max_retries} attempts"
+                        )
+                        raise last_error
 
     print("End Conversation")
     return tool_result  # Return the final tool execution result

@@ -38,8 +38,11 @@ CMD ["gunicorn", \
     "--access-logfile=-", \
     "--error-logfile=-", \
     "--capture-output", \
-    "--access-logformat=[REQ] %(r)s %(s)s %(L)sms", \
+    "--access-logformat=[REQ] %(r)s %(s)s %({X-Error-Message}o)s %(L)sms", \
     "--logger-class=gunicorn.glogging.Logger", \
+    "--timeout", "600", \
+    "--graceful-timeout", "600", \
+    "--keep-alive", "5", \
     "-w", "2", \
     "-b", "0.0.0.0:8080", \
     "main:app"]

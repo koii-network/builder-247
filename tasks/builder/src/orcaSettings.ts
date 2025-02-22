@@ -1,4 +1,4 @@
-import { namespaceWrapper } from "@_koii/namespace-wrapper";
+import { TASK_ID, namespaceWrapper } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 
 const imageUrl = "docker.io/labrocadabro/prometheus:0.6";
@@ -12,7 +12,7 @@ metadata:
   name: 247-builder-test
 spec:
   containers:
-    - name: user
+    - name: user-${TASK_ID}
       image: ${imageUrl}
       env:
       - name: GITHUB_TOKEN

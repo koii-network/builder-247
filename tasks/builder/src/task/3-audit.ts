@@ -28,7 +28,13 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
   }
   const data = JSON.parse(signaturePayload.data);
 
-  if (data.taskId !== TASK_ID || data.roundNumber !== roundNumber || data.stakingKey !== submitterKey) {
+  if (
+    data.taskId !== TASK_ID ||
+    data.roundNumber !== roundNumber ||
+    data.stakingKey !== submitterKey ||
+    !data.pubKey ||
+    !data.prUrl
+  ) {
     console.error("INVALID SIGNATURE DATA");
     return false;
   }
@@ -36,12 +42,17 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
   const orca = await getOrcaClient();
 
   // Send the submission to the ORCA container for auditing
-  const result = await orca.podCall(`audit`, {
+  const result = await orca.podCall(`audit/${roundNumber}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ submission: data, signature: submission.signature, stakingKey: submitterKey }),
+    body: JSON.stringify({
+      submission: data,
+      signature: submission.signature,
+      stakingKey: submitterKey,
+      pubKey: data.pubKey,
+    }),
   });
 
   // return the result of the audit (true or false)

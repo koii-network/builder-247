@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 bp = Blueprint("audit", __name__)
 
 
-@bp.route("/audit", methods=["POST"])
-def audit_submission():
+@bp.route("/audit/<round_number>", methods=["POST"])
+def audit_submission(round_number: int):
     logger.info("Auditing submission")
 
     data = request.get_json()
@@ -20,16 +20,20 @@ def audit_submission():
     if not submission:
         return jsonify({"error": "Missing submission"}), 400
 
-    round_number = submission.get("roundNumber")
+    submission_round_number = submission.get("roundNumber")
     task_id = submission.get("taskId")
     pr_url = submission.get("prUrl")
     github_username = submission.get("githubUsername")
     repo_owner = submission.get("repoOwner")
     repo_name = submission.get("repoName")
     staking_key = submission.get("stakingKey")
+    pub_key = submission.get("pubKey")
+
+    if int(round_number) != submission_round_number:
+        return jsonify({"error": "Round number mismatch"}), 400
+
     if (
-        not round_number
-        or not task_id
+        not task_id
         or not pr_url
         or not github_username
         or not repo_owner
@@ -45,6 +49,7 @@ def audit_submission():
         expected_repo=repo_name,
         signature=signature,
         staking_key=staking_key,
+        pub_key=pub_key,
     )
 
     if not is_valid:

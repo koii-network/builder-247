@@ -41,6 +41,7 @@ export async function task(roundNumber: number): Promise<void> {
           taskId: TASK_ID,
           roundNumber,
           stakingKey,
+          pubKey,
           signature,
         }),
       })
