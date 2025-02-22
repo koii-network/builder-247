@@ -63,6 +63,7 @@ async function updateAssignedInfoWithPRUrl(
     {
       assignedTo: {
         $elemMatch: {
+          taskId: taskID,
           stakingKey: stakingKey,
           roundNumber: roundNumber,
         },
