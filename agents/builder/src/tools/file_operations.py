@@ -2,8 +2,9 @@
 
 import os
 import shutil
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pathlib import Path
+from src.tools.git_operations import commit_and_push
 
 
 def _normalize_path(path: str) -> str:
@@ -35,8 +36,10 @@ def read_file(file_path: str) -> Dict[str, Any]:
         return {"success": False, "error": f"Error reading file: {str(e)}"}
 
 
-def write_file(file_path: str, content: str) -> Dict[str, Any]:
-    """Write file with directory creation"""
+def write_file(
+    file_path: str, content: str, commit_message: Optional[str] = None
+) -> Dict[str, Any]:
+    """Write file with directory creation and optional commit"""
     try:
         file_path = _normalize_path(file_path)
         full_path = Path(os.getcwd()) / file_path
@@ -45,24 +48,21 @@ def write_file(file_path: str, content: str) -> Dict[str, Any]:
         with open(full_path, "w") as f:
             f.write(content)
 
+        # If commit message provided, commit and push changes
+        if commit_message:
+            commit_result = commit_and_push(commit_message)
+            if not commit_result["success"]:
+                return commit_result
+
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def copy_file(source: str, destination: str) -> Dict[str, Any]:
-    """
-    Copy a file from source to destination.
-
-    Args:
-        source (str): Path to the source file
-        destination (str): Path to the destination file
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
-    """
+def copy_file(
+    source: str, destination: str, commit_message: Optional[str] = None
+) -> Dict[str, Any]:
+    """Copy a file and optionally commit the change."""
     try:
         source = _normalize_path(source)
         destination = _normalize_path(destination)
@@ -76,24 +76,22 @@ def copy_file(source: str, destination: str) -> Dict[str, Any]:
         dest_path.parent.mkdir(parents=True, exist_ok=True)
 
         shutil.copy2(source_path, dest_path)
+
+        # If commit message provided, commit and push changes
+        if commit_message:
+            commit_result = commit_and_push(commit_message)
+            if not commit_result["success"]:
+                return commit_result
+
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def move_file(source: str, destination: str) -> Dict[str, Any]:
-    """
-    Move a file from source to destination.
-
-    Args:
-        source (str): Path to the source file
-        destination (str): Path to the destination file
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
-    """
+def move_file(
+    source: str, destination: str, commit_message: Optional[str] = None
+) -> Dict[str, Any]:
+    """Move a file and optionally commit the change."""
     try:
         source = _normalize_path(source)
         destination = _normalize_path(destination)
@@ -107,24 +105,22 @@ def move_file(source: str, destination: str) -> Dict[str, Any]:
         dest_path.parent.mkdir(parents=True, exist_ok=True)
 
         shutil.move(str(source_path), str(dest_path))
+
+        # If commit message provided, commit and push changes
+        if commit_message:
+            commit_result = commit_and_push(commit_message)
+            if not commit_result["success"]:
+                return commit_result
+
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def rename_file(source: str, destination: str) -> Dict[str, Any]:
-    """
-    Rename a file from source to destination.
-
-    Args:
-        source (str): Current file path
-        destination (str): New file path
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
-    """
+def rename_file(
+    source: str, destination: str, commit_message: Optional[str] = None
+) -> Dict[str, Any]:
+    """Rename a file and optionally commit the change."""
     try:
         source = _normalize_path(source)
         destination = _normalize_path(destination)
@@ -136,23 +132,20 @@ def rename_file(source: str, destination: str) -> Dict[str, Any]:
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         os.rename(source_path, dest_path)
+
+        # If commit message provided, commit and push changes
+        if commit_message:
+            commit_result = commit_and_push(commit_message)
+            if not commit_result["success"]:
+                return commit_result
+
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": f"Error renaming file: {str(e)}"}
 
 
-def delete_file(file_path: str) -> Dict[str, Any]:
-    """
-    Delete a file.
-
-    Args:
-        file_path (str): Path to the file to delete
-
-    Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
-    """
+def delete_file(file_path: str, commit_message: Optional[str] = None) -> Dict[str, Any]:
+    """Delete a file and optionally commit the change."""
     try:
         file_path = _normalize_path(file_path)
         full_path = Path(os.getcwd()) / file_path
@@ -161,6 +154,13 @@ def delete_file(file_path: str) -> Dict[str, Any]:
             return {"success": False, "error": "File not found"}
 
         os.remove(full_path)
+
+        # If commit message provided, commit and push changes
+        if commit_message:
+            commit_result = commit_and_push(commit_message)
+            if not commit_result["success"]:
+                return commit_result
+
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -190,17 +190,3 @@ def list_files(directory: str) -> list:
         ]
     except (FileNotFoundError, OSError):  # Catch specific file-related exceptions
         return []
-
-
-def create_file(file_path: str, content: str) -> dict:
-    """Create a new file with specified content."""
-    try:
-        file_path = _normalize_path(file_path)
-        full_path = Path(os.getcwd()) / file_path
-        full_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(full_path, "w") as f:
-            f.write(content)
-        return {"success": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}

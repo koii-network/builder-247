@@ -1,17 +1,22 @@
 {
-	"name": "move_file",
-	"description": "Move a file from source to destination.",
-	"input_schema": {
-		"type": "object",
-		"properties": {
-			"source": {
-				"type": "string",
-				"description": "Path to the source file"
-			},
-			"destination": {
-				"type": "string",
-				"description": "Path to the destination file"
-			}
-		}
-	}
+  "name": "move_file",
+  "description": "Move a file from source to destination and commit the change.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "source": {
+        "type": "string",
+        "description": "Path to the source file"
+      },
+      "destination": {
+        "type": "string",
+        "description": "Path to the destination file"
+      },
+      "commit_message": {
+        "type": "string",
+        "description": "Commit message for the change"
+      }
+    },
+    "required": ["source", "destination", "commit_message"]
+  }
 }
