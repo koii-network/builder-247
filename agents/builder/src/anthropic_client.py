@@ -16,6 +16,22 @@ from anthropic.types import (
     TextBlock,
 )
 import os
+from src.utils.logging import (
+    log_section,
+    log_key_value,
+    log_tool_call,
+    log_tool_result,
+    log_claude_response,
+    log_message_to_claude,
+)
+
+
+def format_value(value: Any) -> str:
+    """Format a value for logging, handling multiline strings."""
+    if isinstance(value, str) and "\n" in value:
+        # Indent multiline strings
+        return "\n    " + value.replace("\n", "\n    ")
+    return str(value)
 
 
 class MessageContent(TypedDict):
@@ -136,6 +152,9 @@ class AnthropicClient:
                 "INSERT INTO conversations (conversation_id, model, system_prompt) VALUES (?, ?, ?)",
                 (conversation_id, self.model, system_prompt),
             )
+        if system_prompt:
+            log_section("SYSTEM PROMPT")
+            log_key_value("system_prompt", system_prompt)
         return conversation_id
 
     def _get_conversation_messages(self, conversation_id: str) -> List[MessageContent]:
@@ -187,6 +206,7 @@ class AnthropicClient:
         """Register a single tool with its implementation."""
         self.tools.append(tool_definition)
         self.tool_functions[tool_definition["name"]] = tool_function
+        log_key_value("tool_name", tool_definition["name"])
         return tool_definition["name"]
 
     def register_tools_from_directory(self, definitions_dir: str) -> List[str]:
@@ -329,8 +349,20 @@ class AnthropicClient:
             if tool_choice and not tool_response:
                 create_params["tool_choice"] = tool_choice
 
+        # Log request details
+        log_message_to_claude(
+            prompt=prompt,
+            tool_response=tool_response,
+            tool_use_id=tool_use_id,
+            conversation_id=conversation_id,
+            is_retry=is_retry,
+        )
+
         # Send message to Claude
         response = self.client.messages.create(**create_params)
+
+        # Log response
+        log_claude_response(response.content)
 
         self._save_message(conversation_id, "assistant", response.content)
 
@@ -404,6 +436,8 @@ class AnthropicClient:
         )
 
     def execute_tool(self, tool_call: ToolUseBlock) -> str:
+        log_tool_call(tool_call.name, tool_call.input)
         tool_function = self.tool_functions[tool_call.name]
         tool_result = tool_function(**tool_call.input)
+        log_tool_result(tool_result)
         return tool_result

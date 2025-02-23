@@ -1,4 +1,4 @@
-"""Logging configuration for the application."""
+"""Database logging handler and utilities."""
 
 import logging
 import traceback
@@ -7,6 +7,10 @@ import uuid
 import sys
 from flask import has_request_context, request, current_app
 from src.server.models.Log import save_log, init_logs_table
+from src.utils.logging import logger
+
+# Track if database logging has been configured
+_db_logging_configured = False
 
 
 class DatabaseLogHandler(logging.Handler):
@@ -66,51 +70,31 @@ class DatabaseLogHandler(logging.Handler):
             print(f"Failed to log to database: {e}", file=sys.stderr)
 
 
-def configure_logging():
-    """Configure logging for the application."""
+def setup_db_logging() -> None:
+    """Set up database logging for the application."""
+    global _db_logging_configured
+    if _db_logging_configured:
+        return
+
     try:
         # Initialize the logs table
         init_logs_table()
 
-        # Create console handler with INFO level (for all logs)
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.INFO)
-        console_formatter = logging.Formatter(
-            "\033[36m%(asctime)s.%(msecs)03d\033[0m [\033[33m%(levelname)s\033[0m] %(message)s",
-            datefmt="%H:%M:%S",
-        )
-        console_handler.setFormatter(console_formatter)
+        # Remove any existing database handlers
+        for handler in logger.handlers[:]:
+            if isinstance(handler, DatabaseLogHandler):
+                logger.removeHandler(handler)
 
         # Create and configure the database handler for ERROR and above only
         db_handler = DatabaseLogHandler()
-        db_handler.setLevel(logging.ERROR)  # Only log errors and above to the database
+        db_handler.setLevel(logging.ERROR)
         db_formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         db_handler.setFormatter(db_formatter)
+        logger.addHandler(db_handler)
 
-        # Get root logger and remove any existing handlers
-        root_logger = logging.getLogger()
-        for handler in root_logger.handlers[:]:
-            root_logger.removeHandler(handler)
-
-        # Set overall logging level to INFO to capture all logs
-        root_logger.setLevel(logging.INFO)
-
-        # Add both handlers to root logger
-        root_logger.addHandler(console_handler)
-        root_logger.addHandler(db_handler)
-
-        # Log a test message to verify configuration
-        logger = logging.getLogger(__name__)
-        logger.info("Logging configured: INFO+ to console, ERROR+ to database")
-
+        logger.info("Database logging enabled: ERROR+ to database")
+        _db_logging_configured = True
     except Exception as e:
-        # If logging setup fails, ensure basic console logging is available
-        logging.basicConfig(
-            level=logging.INFO,
-            format="\033[36m%(asctime)s.%(msecs)03d\033[0m [\033[33m%(levelname)s\033[0m] %(message)s",
-            datefmt="%H:%M:%S",
-            stream=sys.stdout,
-        )
-        logging.error(f"Failed to configure logging: {e}")
+        print(f"Failed to set up database logging: {e}", file=sys.stderr)

@@ -9,11 +9,8 @@ from tenacity import (
 from anthropic import InternalServerError, APIError, APIStatusError, BadRequestError
 from anthropic.types import Message
 import requests
-import logging
-import json
 from typing import Optional, Dict, Any
-
-logger = logging.getLogger(__name__)
+from src.utils.logging import log_error, log_key_value
 
 
 def is_retryable_error(exception):
@@ -39,12 +36,11 @@ def is_retryable_error(exception):
     retry=retry_if_exception_type(
         (InternalServerError, APIError, requests.exceptions.RequestException)
     ),
-    wait=wait_exponential(
-        multiplier=4, min=1, max=60
-    ),  # First retry at 4s, then 8s, 16s, 32s, 60s
-    stop=stop_after_attempt(6),  # Initial attempt + 5 retries = 6 total attempts
-    before_sleep=lambda retry_state: logger.info(
-        f"Attempt {retry_state.attempt_number} failed, retrying in {retry_state.next_action.sleep} seconds..."
+    wait=wait_exponential(multiplier=4, min=1, max=60),
+    stop=stop_after_attempt(6),
+    before_sleep=lambda retry_state: log_key_value(
+        "Retry attempt",
+        f"Attempt {retry_state.attempt_number} failed, retrying in {retry_state.next_action.sleep} seconds...",
     ),
     before=lambda retry_state: (
         retry_state.kwargs.update({"is_retry": True})
@@ -55,16 +51,13 @@ def is_retryable_error(exception):
 def execute_tool_with_retry(client, tool_use):
     """Execute tool with retry logic"""
     try:
-        logger.info(f"\n=== EXECUTING TOOL: {tool_use.name} ===")
-        logger.info(f"Tool input: {json.dumps(tool_use.input, indent=2)}")
         result = client.execute_tool(tool_use)
-        logger.info(f"Tool result: {json.dumps(result, indent=2)}")
         return result
     except Exception as e:
         if is_retryable_error(e):
-            logger.warning(f"Retryable error encountered: {str(e)}")
+            log_key_value("Warning", f"Retryable error encountered: {str(e)}")
             raise  # Let retry decorator handle it
-        logger.error(f"Non-retryable error encountered: {str(e)}")
+        log_error(e, "Non-retryable error encountered")
         raise  # Re-raise other exceptions
 
 
@@ -74,8 +67,9 @@ def execute_tool_with_retry(client, tool_use):
     ),
     wait=wait_exponential(multiplier=4, min=1, max=60),
     stop=stop_after_attempt(6),
-    before_sleep=lambda retry_state: logger.info(
-        f"Attempt {retry_state.attempt_number} failed, retrying in {retry_state.next_action.sleep} seconds..."
+    before_sleep=lambda retry_state: log_key_value(
+        "Retry attempt",
+        f"Attempt {retry_state.attempt_number} failed, retrying in {retry_state.next_action.sleep} seconds...",
     ),
     before=lambda retry_state: (
         retry_state.kwargs.update({"is_retry": True})
@@ -115,18 +109,15 @@ def send_message_with_retry(
             tool_choice=tool_choice,
             tool_response=tool_response,
             tool_use_id=tool_use_id,
-            is_retry=is_retry,  # Pass is_retry to client to prevent duplicate DB entries
+            is_retry=is_retry,
         )
-
-        # Log the response
-        logger.info("\n=== CLAUDE RESPONSE ===\n%s", response.content)
 
         return response
 
     except Exception as e:
         if isinstance(e, BadRequestError):
-            logger.error(f"Invalid message structure: {str(e)}")
+            log_error(e, "Invalid message structure")
             raise
         else:
-            logger.error(f"Error sending message: {str(e)}")
+            log_error(e, "Error sending message")
             raise

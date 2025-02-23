@@ -9,13 +9,11 @@ from src.tools.git_operations import (
     fetch_remote,
     pull_remote,
 )
+from src.utils.logging import log_key_value, log_error
 
 import time
 from git import Repo, GitCommandError
 from src.task.constants import PR_TEMPLATE, REVIEW_TEMPLATE
-import logging
-
-logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -57,33 +55,33 @@ def fork_repository(repo_full_name: str, repo_path: str = None) -> dict:
         try:
             fork = user.get_repo(repo_full_name.split("/")[1])
             if fork.fork and fork.parent.full_name == repo_full_name:
-                logger.info(f"Using existing fork of {repo_full_name}")
+                log_key_value("Using existing fork of", repo_full_name)
             else:
-                logger.info(f"Creating new fork of {repo_full_name}")
+                log_key_value("Creating new fork of", repo_full_name)
                 fork = original_repo.create_fork()
         except GithubException:
-            logger.info(f"Creating new fork of {repo_full_name}")
+            log_key_value("Creating new fork of", repo_full_name)
             fork = original_repo.create_fork()
 
         # Wait for fork to be ready
-        logger.info("Waiting for fork to be ready...")
+        log_key_value("Waiting for fork to be ready", "")
         time.sleep(5)  # Give GitHub time to complete the fork
 
         # Clone fork if path provided
         if repo_path:
-            logger.info(f"Cloning to {repo_path}")
+            log_key_value("Cloning to", repo_path)
             # Use token in clone URL for authentication
             clone_url = fork.clone_url.replace(
                 "https://", f"https://{os.getenv('GITHUB_TOKEN')}@"
             )
-            logger.debug(f"Using clone URL: {clone_url}")
+            log_key_value("Using clone URL", clone_url)
 
             repo = Repo.clone_from(clone_url, repo_path)
 
             # Set up remotes
-            logger.info("Configuring remotes:")
-            logger.info(f"origin -> {fork.html_url}")
-            logger.info(f"upstream -> {original_repo.html_url}")
+            log_key_value("Configuring remotes", "")
+            log_key_value("origin", fork.html_url)
+            log_key_value("upstream", original_repo.html_url)
 
             # Configure remotes - origin is already set by clone_from
             upstream_url = original_repo.clone_url.replace(
@@ -105,12 +103,12 @@ def fork_repository(repo_full_name: str, repo_path: str = None) -> dict:
 
     except Exception as e:
         error_msg = f"Failed to fork/clone repository: {str(e)}"
-        logger.error(error_msg)
+        log_error(e, error_msg)
         if "permission" in str(e).lower():
-            logger.error("This appears to be a permissions issue. Please check:")
-            logger.error("1. Your GitHub token has 'repo' scope")
-            logger.error("2. You have access to the repository")
-            logger.error("3. The repository name is correct")
+            log_key_value("This appears to be a permissions issue. Please check", "")
+            log_key_value("1.", "Your GitHub token has 'repo' scope")
+            log_key_value("2.", "You have access to the repository")
+            log_key_value("3.", "The repository name is correct")
         return {"success": False, "error": error_msg}
 
 
@@ -197,7 +195,7 @@ def sync_fork(repo_path: str, branch: str = "main") -> Dict[str, Any]:
                 repo.git.push("origin", branch)
         except GitCommandError as e:
             error_msg = f"Failed to push changes: {str(e)}"
-            logger.error(error_msg)
+            print(error_msg)
             return {"success": False, "error": error_msg}
 
         print("Successfully synced fork with upstream")

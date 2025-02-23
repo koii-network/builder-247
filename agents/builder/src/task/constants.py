@@ -7,11 +7,11 @@ PROMPTS = {
         "4. Not include special characters\n"
         "STOP after creating the branch, do not being writing code."
     ),
-    "files": "Available files: {files}",
     "execute_todo": (
         "You are working on implementing the following task:\n"
         "{todo}\n\n"
         "Available files: {files_directory}\n\n"
+        "IMPORTANT: ALWAYS use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
         "Use the available tools to:\n"
         "Create/edit necessary files using relative paths\n"
         "Run tests to verify your implementation\n"
@@ -30,6 +30,7 @@ PROMPTS = {
         "You are working on fixing the implementation for:\n"
         "{todo}\n\n"
         "Available files: {files_directory}\n\n"
+        "IMPORTANT: ALWAYS use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
         "Use the available tools to:\n"
         "Read and analyze the current code\n"
         "Make necessary modifications\n"
@@ -89,6 +90,7 @@ PROMPTS = {
         "{files_list}\n\n"
         "Requirements to check:\n"
         "{requirements}\n\n"
+        "IMPORTANT: ALWAYS use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
         "Test requirements to verify (where applicable):\n"
         "1. Core Functionality Testing:\n"
         "   - Tests the actual implementation, not just mocks\n"
