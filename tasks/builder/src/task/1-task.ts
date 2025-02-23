@@ -47,6 +47,9 @@ export async function task(roundNumber: number): Promise<void> {
       })
       .then((result: any) => {
         const prUrl = result.data.prUrl;
+        if (!prUrl) {
+          throw new Error("No PR URL found");
+        }
         namespaceWrapper.getSubmitterAccount().then((stakingKeypair) => {
           if (!stakingKeypair) {
             throw new Error("No staking keypair found");
@@ -80,9 +83,15 @@ export async function task(roundNumber: number): Promise<void> {
                 })
                 .then((result: any) => {
                   console.log(`${roundNumber} task result: ${result.data.message}`);
+                })
+                .catch((error: any) => {
+                  console.error("EXECUTE TASK ERROR:", error);
                 });
             });
         });
+      })
+      .catch((error: any) => {
+        console.error("EXECUTE TASK ERROR:", error);
       });
   } catch (error) {
     console.error("EXECUTE TASK ERROR:", error);
