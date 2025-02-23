@@ -74,7 +74,9 @@ async function checkExistingAssignment(pubKey: string, roundNumber: number) {
     if (!result) return null;
 
     // Find the specific assignment entry
-    const assignment = result.assignedTo.find((a: any) => a.pubkey === pubKey && a.roundNumber === roundNumber);
+    const assignment = result.assignedTo.find(
+      (a: any) => a.pubkey === pubKey && a.roundNumber === roundNumber && a.taskId === taskID,
+    );
 
     return {
       todo: result,
