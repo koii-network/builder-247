@@ -34,11 +34,8 @@ EXPOSE 8080
 
 # Set the command to run your application
 CMD ["gunicorn", \
-    "--log-level=info", \
-    "--access-logfile=-", \
+    "--log-level=error", \
     "--error-logfile=-", \
-    "--capture-output", \
-    "--access-logformat=[REQ] %(r)s %(s)s %({X-Error-Message}o)s %(L)sms", \
     "--logger-class=gunicorn.glogging.Logger", \
     "--timeout", "600", \
     "--graceful-timeout", "600", \

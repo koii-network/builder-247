@@ -1,7 +1,7 @@
 import { TASK_ID, namespaceWrapper } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 
-const imageUrl = "docker.io/labrocadabro/prometheus:0.8";
+const imageUrl = "docker.io/labrocadabro/prometheus:0.9";
 
 async function createPodSpec(): Promise<string> {
   const basePath = await namespaceWrapper.getBasePath();
