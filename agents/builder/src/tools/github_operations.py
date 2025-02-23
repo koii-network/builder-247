@@ -70,35 +70,35 @@ def fork_repository(repo_full_name: str, repo_path: str = None) -> dict:
         # Clone fork if path provided
         if repo_path:
             log_key_value("Cloning to", repo_path)
-            # Use token in clone URL for authentication
-            clone_url = fork.clone_url.replace(
-                "https://", f"https://{os.getenv('GITHUB_TOKEN')}@"
-            )
-            log_key_value("Using clone URL", clone_url)
+            # Add GitHub token authentication
+            if "github.com" in fork.clone_url:
+                token = os.environ["GITHUB_TOKEN"]
+                clone_url = fork.clone_url.replace("https://", f"https://{token}@")
+                log_key_value("Using clone URL", clone_url)
 
-            repo = Repo.clone_from(clone_url, repo_path)
+                repo = Repo.clone_from(clone_url, repo_path)
 
-            # Set up remotes
-            log_key_value("Configuring remotes", "")
-            log_key_value("origin", fork.html_url)
-            log_key_value("upstream", original_repo.html_url)
+                # Set up remotes
+                log_key_value("Configuring remotes", "")
+                log_key_value("origin", fork.html_url)
+                log_key_value("upstream", original_repo.html_url)
 
-            # Configure remotes - origin is already set by clone_from
-            upstream_url = original_repo.clone_url.replace(
-                "https://", f"https://{os.getenv('GITHUB_TOKEN')}@"
-            )
-            repo.create_remote("upstream", upstream_url)
-
-            # Configure Git user info
-            with repo.config_writer() as config:
-                config.set_value("user", "name", os.environ["GITHUB_USERNAME"])
-                config.set_value(
-                    "user",
-                    "email",
-                    f"{os.environ['GITHUB_USERNAME']}@users.noreply.github.com",
+                # Configure remotes - origin is already set by clone_from
+                upstream_url = original_repo.clone_url.replace(
+                    "https://", f"https://{token}@"
                 )
+                repo.create_remote("upstream", upstream_url)
 
-            return {"success": True, "fork": fork, "repo": repo}
+                # Configure Git user info
+                with repo.config_writer() as config:
+                    config.set_value("user", "name", os.environ["GITHUB_USERNAME"])
+                    config.set_value(
+                        "user",
+                        "email",
+                        f"{os.environ['GITHUB_USERNAME']}@users.noreply.github.com",
+                    )
+
+                return {"success": True, "fork": fork, "repo": repo}
         return {"success": True, "fork": fork}
 
     except Exception as e:

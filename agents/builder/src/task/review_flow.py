@@ -38,8 +38,8 @@ dotenv.load_dotenv()
 
 def check_required_env_vars():
     """Check if all required environment variables are set."""
-    required_vars = ["GITHUB_TOKEN", "GITHUB_USERNAME", "REVIEW_SYSTEM_PROMPT"]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    required_vars = ["GITHUB_TOKEN", "GITHUB_USERNAME"]
+    missing_vars = [var for var in required_vars if var not in os.environ]
 
     if missing_vars:
         raise EnvironmentError(
@@ -51,12 +51,12 @@ def check_required_env_vars():
 def validate_github_auth():
     """Validate GitHub authentication."""
     try:
-        gh = Github(os.getenv("GITHUB_TOKEN"))
+        gh = Github(os.environ["GITHUB_TOKEN"])
         user = gh.get_user()
         username = user.login
-        if username != os.getenv("GITHUB_USERNAME"):
+        if username != os.environ["GITHUB_USERNAME"]:
             raise ValueError(
-                f"GitHub token belongs to {username}, but GITHUB_USERNAME is set to {os.getenv('GITHUB_USERNAME')}"
+                f"GitHub token belongs to {username}, but GITHUB_USERNAME is set to {os.environ['GITHUB_USERNAME']}"
             )
         log_key_value("Successfully authenticated as", username)
     except Exception as e:
@@ -162,7 +162,7 @@ def setup_pr_repository(
         os.makedirs(os.path.dirname(repo_path), exist_ok=True)
 
         # Clone repository
-        gh = Github(os.getenv("GITHUB_TOKEN"))
+        gh = Github(os.environ["GITHUB_TOKEN"])
         repo = gh.get_repo(f"{repo_owner}/{repo_name}")
 
         log_key_value("Cloning repository to", repo_path)
@@ -173,7 +173,7 @@ def setup_pr_repository(
         git_repo.remote().fetch(f"pull/{pr_number}/head:pr_{pr_number}")
 
         # Checkout PR branch
-        log_key_value("Checking out PR branch")
+        log_key_value("Checking out PR branch", f"pr_{pr_number}")
         git_repo.git.checkout(f"pr_{pr_number}")
 
         # Get list of files
@@ -235,7 +235,7 @@ def review_all_pull_requests(
     Review all open pull requests in the specified repository.
     """
     # Set up clients
-    gh = Github(os.getenv("GITHUB_TOKEN"))
+    gh = Github(os.environ["GITHUB_TOKEN"])
     repo = gh.get_repo(f"{repo_owner}/{repo_name}")
 
     # Get all open PRs
@@ -363,7 +363,7 @@ if __name__ == "__main__":
             requirements=requirements,
             minor_issues=minor_issues,
             major_issues=major_issues,
-            system_prompt=os.getenv("REVIEW_SYSTEM_PROMPT"),
+            system_prompt=os.environ["REVIEW_SYSTEM_PROMPT"],
         )
     except Exception as e:
         log_error(e, "Script failed")

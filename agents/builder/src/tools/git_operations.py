@@ -78,9 +78,11 @@ def clone_repository(
         os.makedirs(path, exist_ok=True)
 
         # Add GitHub token authentication
-        token = os.environ.get("GITHUB_TOKEN")
-        if token and "github.com" in url:
-            log_key_value("Adding GitHub token authentication", "")
+        if "github.com" in url and "GITHUB_TOKEN" in os.environ:
+            token = os.environ["GITHUB_TOKEN"]
+            log_key_value(
+                "Adding GitHub token authentication", "Using token for authentication"
+            )
             if url.startswith("https://"):
                 url = url.replace("https://", f"https://{token}@")
             elif url.startswith("git@"):
@@ -88,7 +90,7 @@ def clone_repository(
             log_key_value("Modified URL", url)
 
         # Clone repository
-        log_key_value("Starting clone operation", "")
+        log_key_value("Starting clone operation", "Cloning repository...")
         repo = Repo.clone_from(url, path)
         log_key_value("Clone completed", "successfully")
 

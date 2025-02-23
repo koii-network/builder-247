@@ -5,6 +5,7 @@ from flask import jsonify
 from src.server.services.database import get_db, close_db
 from src.task.flow import todo_to_pr
 from src.task.review_flow import review_pr
+from src.task.constants import REVIEW_SYSTEM_PROMPT
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ def get_todo(signature, staking_key, pub_key):
         logger.info("Fetching todo")
 
         response = requests.post(
-            os.environ.get("MIDDLE_SERVER_URL") + "/api/fetch-to-do",
+            os.environ["MIDDLE_SERVER_URL"] + "/api/fetch-to-do",
             json={
                 "signature": signature,
                 "stakingKey": staking_key,
@@ -91,7 +92,7 @@ def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
         db = get_db()
         cursor = db.cursor()
         response = requests.post(
-            os.environ.get("MIDDLE_SERVER_URL") + "/api/add-pr-to-to-do",
+            os.environ["MIDDLE_SERVER_URL"] + "/api/add-pr-to-to-do",
             json={
                 "signature": signature,
                 "stakingKey": staking_key,
@@ -100,7 +101,7 @@ def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
             headers={"Content-Type": "application/json"},
         )
         response.raise_for_status()
-        username = os.environ.get("GITHUB_USERNAME")
+        username = os.environ["GITHUB_USERNAME"]
 
         cursor.execute(
             """
@@ -141,7 +142,13 @@ def approve_pr(pr_url):
         "tests are poorly designed or rely too heavily on mocking",
     )
 
-    result = review_pr(pr_url, requirements, minor_issues, major_issues)
+    result = review_pr(
+        pr_url=pr_url,
+        requirements=requirements,
+        minor_issues=minor_issues,
+        major_issues=major_issues,
+        system_prompt=REVIEW_SYSTEM_PROMPT,
+    )
     if result.get("success"):
         return result["validated"]
     else:
