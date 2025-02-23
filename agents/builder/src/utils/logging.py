@@ -171,15 +171,17 @@ def log_claude_response(response: Any) -> None:
             logger.info(f"\nTOOL REQUEST: {block.name} (ID: {block.id})")
 
 
-def log_error(error: Exception, context: str = "") -> None:
-    """Log an error with consistent formatting and stack trace."""
+def log_error(
+    error: Exception, context: str = "", include_traceback: bool = True
+) -> None:
+    """Log an error with consistent formatting and optional stack trace."""
     if not _logging_configured:
         configure_logging()
     logger.error("\n=== ERROR ===")
     if context:
         logger.info(f"Context: {context}")
     logger.info(f"Error: {str(error)}")
-    if error.__traceback__:
+    if include_traceback and error.__traceback__:
         logger.info("Stack trace:")
         for line in traceback.format_tb(error.__traceback__):
             logger.info(line.rstrip())

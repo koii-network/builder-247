@@ -57,7 +57,7 @@ def execute_tool_with_retry(client, tool_use):
         if is_retryable_error(e):
             log_key_value("Warning", f"Retryable error encountered: {str(e)}")
             raise  # Let retry decorator handle it
-        log_error(e, "Non-retryable error encountered")
+        log_error(e, "Non-retryable error encountered", include_traceback=False)
         raise  # Re-raise other exceptions
 
 
@@ -116,8 +116,8 @@ def send_message_with_retry(
 
     except Exception as e:
         if isinstance(e, BadRequestError):
-            log_error(e, "Invalid message structure")
+            log_error(e, "Invalid message structure", include_traceback=False)
             raise
         else:
-            log_error(e, "Error sending message")
+            log_error(e, "Error sending message", include_traceback=False)
             raise

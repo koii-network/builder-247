@@ -7,7 +7,7 @@ import uuid
 import sys
 from flask import has_request_context, request, current_app
 from src.server.models.Log import save_log, init_logs_table
-from src.utils.logging import logger
+from src.utils.logging import log_key_value
 
 # Track if database logging has been configured
 _db_logging_configured = False
@@ -80,11 +80,6 @@ def setup_db_logging() -> None:
         # Initialize the logs table
         init_logs_table()
 
-        # Remove any existing database handlers
-        for handler in logger.handlers[:]:
-            if isinstance(handler, DatabaseLogHandler):
-                logger.removeHandler(handler)
-
         # Create and configure the database handler for ERROR and above only
         db_handler = DatabaseLogHandler()
         db_handler.setLevel(logging.ERROR)
@@ -92,9 +87,10 @@ def setup_db_logging() -> None:
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         db_handler.setFormatter(db_formatter)
+        logger = logging.getLogger("builder")
         logger.addHandler(db_handler)
 
-        logger.info("Database logging enabled: ERROR+ to database")
+        log_key_value("Database logging enabled", "ERROR+ to database")
         _db_logging_configured = True
     except Exception as e:
         print(f"Failed to set up database logging: {e}", file=sys.stderr)

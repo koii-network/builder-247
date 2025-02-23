@@ -2,10 +2,13 @@
 
 from flask import Flask, request
 from .routes import task, submission, audit, healthz, submit_pr
-from .utils.logging import configure_logging
+from src.utils.logging import configure_logging, log_section, log_key_value
+from src.server.utils.db_logging import setup_db_logging
 from .services.database import close_db
 from .middleware import add_error_headers
 import uuid
+import multiprocessing
+import os
 
 
 def create_app():
@@ -33,6 +36,19 @@ def create_app():
 
     # Configure logging within app context
     with app.app_context():
+        # Set up basic logging first
         configure_logging()
+        # Then add database logging
+        setup_db_logging()
+        # Disable Flask's default logging
+        app.logger.disabled = True
+
+        # Only log startup info in the main worker (worker 0)
+        if os.environ.get("GUNICORN_WORKER_ID", "0") == "0":
+            # Log startup information
+            log_section("SERVER STARTUP")
+            log_key_value("Workers", multiprocessing.cpu_count())
+            log_key_value("Host", "0.0.0.0:8080")
+            log_key_value("Database", os.getenv("DATABASE_PATH", "Not configured"))
 
     return app
