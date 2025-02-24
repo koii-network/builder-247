@@ -58,12 +58,13 @@ async function verifySignatureData(
 }
 
 // Check if the user has already completed the task
-async function checkExistingAssignment(pubKey: string, roundNumber: number) {
+async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
   try {
     const result = await TodoModel.findOne({
       assignedTo: {
         $elemMatch: {
-          pubkey: pubKey,
+          taskId: taskID,
+          stakingKey: stakingKey,
           roundNumber: roundNumber,
         },
       },
@@ -75,12 +76,12 @@ async function checkExistingAssignment(pubKey: string, roundNumber: number) {
 
     // Find the specific assignment entry
     const assignment = result.assignedTo.find(
-      (a: any) => a.pubkey === pubKey && a.roundNumber === roundNumber && a.taskId === taskID,
+      (a: any) => a.stakingKey === stakingKey && a.roundNumber === roundNumber && a.taskId === taskID,
     );
 
     return {
       todo: result,
-      hasPR: assignment?.prUrl ? true : false,
+      hasPR: Boolean(assignment?.prUrl),
     };
   } catch (error) {
     console.error("Error checking assigned info:", error);

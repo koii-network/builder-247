@@ -59,6 +59,7 @@ async function updateAssignedInfoWithPRUrl(
   prUrl: string,
   prSignature: string,
 ): Promise<boolean> {
+  console.log("updateAssignedInfoWithPRUrl", { stakingKey, roundNumber, prUrl, prSignature });
   const result = await TodoModel.findOneAndUpdate(
     {
       assignedTo: {
