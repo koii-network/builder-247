@@ -7,6 +7,10 @@ from typing import Any
 from pathlib import Path
 from functools import wraps
 import ast
+from colorama import init, Fore, Style
+
+# Initialize colorama for cross-platform color support
+init()
 
 # Create our logger
 logger = logging.getLogger("builder")
@@ -34,14 +38,14 @@ class SectionFormatter(logging.Formatter):
             # Full timestamp format for sections and errors
             if is_error:
                 # Red timestamp and level for errors
-                self._style._fmt = (
-                    "\033[31m%(asctime)s\033[0m [\033[31mERROR\033[0m] %(message)s"
-                )
+                fmt = f"{Fore.RED}%(asctime)s{Style.RESET_ALL}"
+                fmt += f" [{Fore.RED}ERROR{Style.RESET_ALL}] %(message)s"
+                self._style._fmt = fmt
             else:
                 # Cyan timestamp and yellow level for sections
-                self._style._fmt = (
-                    "\n\033[36m%(asctime)s\033[0m [\033[33mINFO\033[0m] %(message)s"
-                )
+                fmt = f"\n{Fore.CYAN}%(asctime)s{Style.RESET_ALL}"
+                fmt += f" [{Fore.YELLOW}INFO{Style.RESET_ALL}] %(message)s"
+                self._style._fmt = fmt
             self.datefmt = "%Y-%m-%d %H:%M:%S"
         else:
             # No timestamp or level for other logs
@@ -57,9 +61,11 @@ class SectionFormatter(logging.Formatter):
             if len(parts) == 3:  # Should be ["\n", " HEADER ", ""]
                 # Color the middle part (the header text) while keeping === black
                 color = (
-                    "\033[31m" if is_error else "\033[35m"
+                    Fore.RED if is_error else Fore.MAGENTA
                 )  # Red for errors, purple for info
-                formatted_msg = parts[0] + "===" + color + parts[1] + "\033[0m" + "==="
+                formatted_msg = (
+                    parts[0] + "===" + color + parts[1] + Style.RESET_ALL + "==="
+                )
 
         return formatted_msg
 
@@ -110,6 +116,13 @@ def log_key_value(key: str, value: Any) -> None:
     if not _logging_configured:
         configure_logging()
     logger.info(f"{key}: {format_value(value)}")
+
+
+def log_value(value: str) -> None:
+    """Log a value with consistent formatting."""
+    if not _logging_configured:
+        configure_logging()
+    logger.info(format_value(value))
 
 
 def log_dict(data: dict, prefix: str = "") -> None:

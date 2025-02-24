@@ -2,7 +2,8 @@
 
 from functools import wraps
 from flask import request, make_response, jsonify
-from src.utils.logging import log_key_value, log_error
+from src.utils.logging import log_value, log_error
+from colorama import Fore, Style
 
 
 def add_error_headers(fn):
@@ -37,10 +38,10 @@ def add_error_headers(fn):
 
             # Format: [REQ] METHOD /path STATUS error_msg duration
             duration = request.environ.get("REQUEST_TIME", 0) * 1000  # Convert to ms
-            status_color = "\033[32m" if status_code < 400 else "\033[31m"
-            log_key_value(
-                "[REQ]",
-                f"{request.method} {request.path} {status_color}{status_code}\033[0m {error_msg} {duration}ms",
+            color = Fore.GREEN if status_code < 400 else Fore.RED
+            log_value(
+                f"[{color}REQ{Style.RESET_ALL}] {request.method} {request.path} {color}{status_code}{Style.RESET_ALL} "
+                f"{error_msg} {duration}ms",
             )
 
             # For error responses, add the error message to headers
@@ -75,9 +76,9 @@ def add_error_headers(fn):
             error_response.headers["X-Error-Message"] = error_msg
 
             # Log request with error
-            log_key_value(
-                "[REQ]",
-                f"{request.method} {request.path} \033[31m{status_code}\033[0m {error_msg} {duration}ms",
+            log_value(
+                f"{Fore.RED}[REQ{Style.RESET_ALL}] {request.method} {request.path} "
+                f"{Fore.RED}{status_code}{Style.RESET_ALL} {error_msg} {duration}ms",
             )
 
             return error_response, status_code
