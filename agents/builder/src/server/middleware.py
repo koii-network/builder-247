@@ -2,8 +2,19 @@
 
 from functools import wraps
 from flask import request, make_response, jsonify
-from src.utils.logging import log_value, log_error
+from src.utils.logging import log_key_value, log_error
 from colorama import Fore, Style
+
+
+def log_request(
+    method: str, path: str, status_code: int, error_msg: str = "", duration: float = 0
+):
+    """Log a request with consistent formatting."""
+    color = Fore.GREEN if status_code < 400 else Fore.RED
+    log_key_value(
+        f"{color}[REQ]\033[0m",
+        f"{method} {path} {color}{status_code}\033[0m {error_msg} {duration}ms",
+    )
 
 
 def add_error_headers(fn):
@@ -38,18 +49,17 @@ def add_error_headers(fn):
 
             # Format: [REQ] METHOD /path STATUS error_msg duration
             duration = request.environ.get("REQUEST_TIME", 0) * 1000  # Convert to ms
-            color = Fore.GREEN if status_code < 400 else Fore.RED
-            log_value(
-                f"[{color}REQ{Style.RESET_ALL}] {request.method} {request.path} {color}{status_code}{Style.RESET_ALL} "
-                f"{error_msg} {duration}ms",
-            )
+            log_request(request.method, request.path, status_code, error_msg, duration)
 
             # For error responses, add the error message to headers
             if status_code >= 400:
                 if error_msg:
                     response_obj.headers["X-Error-Message"] = error_msg
+                    # Create an error without a traceback
+                    error = Exception()
+                    error.args = (error_msg,)
                     log_error(
-                        Exception(error_msg),
+                        error,
                         context=f"Error handling request {request.method} {request.path}",
                         include_traceback=False,
                     )
@@ -61,9 +71,11 @@ def add_error_headers(fn):
             status_code = 500
             duration = request.environ.get("REQUEST_TIME", 0) * 1000
 
-            # Log the error without stack trace for API errors
+            # Create an error without a traceback
+            error = Exception()
+            error.args = (error_msg,)
             log_error(
-                e,
+                error,
                 context=f"Unexpected error handling request {request.method} {request.path}",
                 include_traceback=False,
             )
@@ -76,10 +88,7 @@ def add_error_headers(fn):
             error_response.headers["X-Error-Message"] = error_msg
 
             # Log request with error
-            log_value(
-                f"{Fore.RED}[REQ{Style.RESET_ALL}] {request.method} {request.path} "
-                f"{Fore.RED}{status_code}{Style.RESET_ALL} {error_msg} {duration}ms",
-            )
+            log_request(request.method, request.path, status_code, error_msg, duration)
 
             return error_response, status_code
 
