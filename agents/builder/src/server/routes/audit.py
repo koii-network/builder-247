@@ -56,8 +56,8 @@ def audit_submission(round_number: int):
     if not is_valid:
         return jsonify(False)
 
-    is_approved = approve_pr(pr_url)
     try:
+        is_approved = approve_pr(pr_url)
         return jsonify(is_approved)
     except Exception as e:
         logger.error(f"Error approving PR: {str(e)}")

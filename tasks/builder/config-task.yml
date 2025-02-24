@@ -124,7 +124,7 @@ environment: "PRODUCTION"
 #################################### FOR UPDATING TASKS ONLY ####################################
 
 ## Old Task ID ##
-task_id: "DgXDqip1STZH4WprubTP5ewU8ncH9JYhDNxsYXeESHBD"
+task_id: "hF7G6BR59L6F3dDfJFrL3N8AtvKpS4GJjrAJL5cQA5V"
 
 ## Migration Description ##
-migrationDescription: "Upgrades to agent logic, retry logic for API errors"
+migrationDescription: "Fix audit bug"

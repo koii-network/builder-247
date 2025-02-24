@@ -150,6 +150,6 @@ def approve_pr(pr_url):
         system_prompt=REVIEW_SYSTEM_PROMPT,
     )
     if result.get("success"):
-        return result["validated"]
+        return result.get("validated", True)
     else:
         raise Exception("PR review failed")

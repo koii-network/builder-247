@@ -12,7 +12,7 @@ def start_task(roundNumber):
     data = request.get_json()
     logger.info(f"Task data: {data}")
     required_fields = ["taskId", "roundNumber", "stakingKey", "signature"]
-    if not all(data.get(field) for field in required_fields):
+    if any(data.get(field) is None for field in required_fields):
         return jsonify({"error": "Missing data"}), 401
 
     return task_service.handle_task_creation(

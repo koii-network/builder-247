@@ -79,6 +79,9 @@ def handle_tool_response(client, response):
                 tool_output = execute_tool_with_retry(client, tool_use)
                 tool_result = tool_output  # Store the final tool result
 
+                if tool_use.name == "review_pull_request":
+                    return tool_output
+
                 # Convert tool output to string if it's not already
                 tool_response_str = (
                     str(tool_output) if tool_output is not None else None
