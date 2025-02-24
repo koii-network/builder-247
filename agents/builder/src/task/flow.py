@@ -32,7 +32,7 @@ from src.tools.git_operations import get_current_branch
 from src.task.setup import setup_client
 from src.task.constants import PROMPTS
 from src.tools.github_operations import fork_repository
-from src.task.retry_utils import (
+from src.utils.retry import (
     execute_tool_with_retry,
     send_message_with_retry,
 )
@@ -345,7 +345,7 @@ if __name__ == "__main__":
                             repo_name="builder-test",
                             acceptance_criteria=acceptance_criteria.strip(),
                             repo_path=f"./repo_{i}",  # Unique path per task
-                            system_prompt=os.getenv["TASK_SYSTEM_PROMPT"],
+                            system_prompt=os.environ["TASK_SYSTEM_PROMPT"],
                         )
                     except Exception as e:
                         log_error(e, f"Failed to process todo {i}")
