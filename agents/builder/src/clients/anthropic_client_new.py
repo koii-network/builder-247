@@ -25,7 +25,7 @@ class AnthropicClient(Client):
         self.client = Anthropic(api_key=api_key)
 
     def _get_default_model(self) -> str:
-        return "claude-3-haiku-20240307"
+        return "claude-3-5-haiku-latest"
 
     def _convert_tool_to_api_format(self, tool: ToolDefinition) -> Dict[str, Any]:
         """Convert our tool definition to Anthropic's format."""

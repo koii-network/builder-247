@@ -12,7 +12,7 @@ from src.utils.logging import log_key_value, log_error
 
 import time
 from git import Repo, GitCommandError
-from src.workflows.constants import PR_TEMPLATE, REVIEW_TEMPLATE
+from src.workflows.prompts import PR_TEMPLATE, REVIEW_TEMPLATE
 
 # Load environment variables from .env file
 load_dotenv()

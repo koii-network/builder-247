@@ -174,7 +174,6 @@ class Client(ABC):
         if prompt:
             log_key_value("PROMPT", prompt)
         if tool_response:
-            log_section("TOOL RESPONSE")
             results = json.loads(tool_response)
             for result in results:
                 log_key_value("Tool Use ID", result["tool_call_id"])

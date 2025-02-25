@@ -34,7 +34,7 @@ if __name__ == "__main__":
 from src.get_file_list import get_file_list
 from src.tools.git_operations.implementations import get_current_branch
 from src.workflows.setup_new import setup_client
-from src.workflows.constants import PROMPTS
+from src.workflows.prompts import PROMPTS
 from src.tools.github_operations.implementations import fork_repository
 from src.utils.retry import (
     execute_tool_with_retry,

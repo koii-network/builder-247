@@ -7,7 +7,7 @@ import tempfile
 from dotenv import load_dotenv
 from src.anthropic_client import AnthropicClient
 from anthropic.types import Message
-from agents.builder.src.tools.github_operations_old import fork_repository
+from src.tools.github_operations_old import fork_repository
 from github import Github, Auth
 
 # Load environment variables before any tests

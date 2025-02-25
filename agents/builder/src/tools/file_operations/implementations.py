@@ -5,6 +5,7 @@ import shutil
 from typing import Dict, Any, Optional
 from pathlib import Path
 from src.tools.git_operations.implementations import commit_and_push
+from git import Repo
 
 
 def _normalize_path(path: str) -> str:
@@ -168,7 +169,8 @@ def delete_file(file_path: str, commit_message: Optional[str] = None) -> Dict[st
 
 def list_files(directory: str) -> list:
     """
-    Return a list of all files in the specified directory and its subdirectories.
+    Return a list of all files in the specified directory and its subdirectories,
+    excluding .git directory and respecting .gitignore.
 
     Parameters:
     directory (str or Path): The directory to search for files.
@@ -183,11 +185,21 @@ def list_files(directory: str) -> list:
         if not directory.exists() or not directory.is_dir():
             raise FileNotFoundError(f"The directory '{directory}' does not exist.")
 
-        return [
-            str(file.relative_to(directory))
-            for file in directory.rglob("*")
-            if file.is_file()
-        ]
+        # Use git to list all tracked and untracked files, respecting .gitignore
+        repo = Repo(directory)
+
+        # Get tracked files
+        tracked_files = set(repo.git.ls_files().splitlines())
+
+        # Get untracked files (excluding .gitignored)
+        untracked_files = set(
+            repo.git.ls_files("--others", "--exclude-standard").splitlines()
+        )
+
+        # Combine and filter out .git directory
+        all_files = tracked_files.union(untracked_files)
+        return sorted([f for f in all_files if not f.startswith(".git/")])
+
     except (FileNotFoundError, OSError):  # Catch specific file-related exceptions
         return []
 

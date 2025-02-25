@@ -7,7 +7,7 @@ import shutil
 from git import Repo
 import dotenv
 from github import Github
-from src.workflows.constants import PROMPTS
+from src.workflows.prompts import PROMPTS
 from src.utils.logging import (
     log_section,
     log_key_value,

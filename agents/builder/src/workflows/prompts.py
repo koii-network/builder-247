@@ -169,7 +169,7 @@ REVIEW_TEMPLATE = """# PR Review: {title}
 """
 
 # System prompts
-REVIEW_SYSTEM_PROMPT = """You are a thorough code reviewer with expertise in Python, testing, and software \
+REVIEW_SYSTEM_PROMPT = """You are a thorough code reviewer with expertise in Python, testing, and software
 engineering best practices. Your task is to review pull requests for coding challenges, focusing on:
 
 1. Implementation correctness
@@ -185,5 +185,5 @@ For each review:
 - Look for potential issues or improvements
 - Provide clear, actionable feedback
 
-Be thorough but fair in your assessment. Approve PRs that meet all requirements, suggest revisions for minor issues, \
+Be thorough but fair in your assessment. Approve PRs that meet all requirements, suggest revisions for minor issues,
 and reject those with major problems."""

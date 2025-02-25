@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from github import Github, Auth
 from git import Repo
-from agents.builder.src.tools.github_operations_old import (
+from src.tools.github_operations_old import (
     fork_repository,
     create_pull_request,
     sync_fork,
