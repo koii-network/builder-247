@@ -7,7 +7,7 @@ import shutil
 from git import Repo
 import dotenv
 from github import Github
-from src.workflows.prompts import PROMPTS
+from src.workflows.prompts import PROMPTS, REVIEW_SYSTEM_PROMPT
 from src.utils.errors import ClientAPIError
 from src.utils.logging import (
     log_section,
@@ -16,7 +16,7 @@ from src.utils.logging import (
     configure_logging,
 )
 from src.clients.types import MessageContent, ToolCallContent
-from src.workflows.prompts import REVIEW_SYSTEM_PROMPT
+from src.database import get_db
 from typing import List
 import json
 import ast
@@ -39,6 +39,9 @@ from src.utils.retry import (
 
 # Ensure environment variables are loaded
 dotenv.load_dotenv()
+
+# Get database instance
+db = get_db()
 
 
 def check_required_env_vars():
@@ -65,7 +68,8 @@ def validate_github_auth():
             )
         log_key_value("Successfully authenticated as", username)
     except Exception as e:
-        raise RuntimeError(f"GitHub authentication failed: {str(e)}")
+        log_error(e, "GitHub authentication failed")
+        raise RuntimeError(str(e))
 
 
 def get_tool_calls(msg: MessageContent) -> List[ToolCallContent]:
@@ -107,7 +111,6 @@ def handle_tool_response(client, response):
                     str(tool_output) if tool_output is not None else None
                 )
                 if tool_response_str is None:
-                    # This is our code's error, so we log it
                     log_error(
                         Exception("Tool output is None, skipping message to Claude"),
                         "Warning",
@@ -147,7 +150,6 @@ def handle_tool_response(client, response):
                 conversation_id=conversation_id,
             )
         except Exception as send_error:
-            # This is our code's error, so we log it
             log_error(send_error, "Failed to send tool results to Claude")
             raise
 

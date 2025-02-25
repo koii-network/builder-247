@@ -13,3 +13,4 @@ gunicorn>=22.0.0
 solders>=0.26.0
 base58>=2.1.0
 tenacity>=9.0.0
+sqlmodel>=0.0.22

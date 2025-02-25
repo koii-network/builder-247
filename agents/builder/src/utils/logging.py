@@ -197,6 +197,23 @@ def log_error(
         for line in traceback.format_tb(error.__traceback__):
             logger.info(line.rstrip())
 
+    # Also save to database
+    from src.database import get_db
+
+    db = get_db()
+    db.save_log(
+        level="ERROR",
+        message=str(error),
+        module=error.__class__.__module__,
+        function=error.__class__.__name__,
+        stack_trace=(
+            "\n".join(traceback.format_tb(error.__traceback__))
+            if include_traceback and error.__traceback__
+            else None
+        ),
+        additional_data={"context": context} if context else None,
+    )
+
 
 def log_execution_time(func):
     """Decorator to log function execution time."""

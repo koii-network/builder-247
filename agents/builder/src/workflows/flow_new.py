@@ -18,6 +18,7 @@ from src.utils.logging import (
     configure_logging,
 )
 from src.clients.types import MessageContent, ToolCallContent
+from src.database import get_db
 from typing import List
 import json
 import ast
@@ -44,6 +45,9 @@ from src.utils.retry import (
 # Ensure environment variables are loaded
 dotenv.load_dotenv()
 
+# Get database instance
+db = get_db()
+
 
 def check_required_env_vars():
     """Check if all required environment variables are set."""
@@ -69,7 +73,8 @@ def validate_github_auth():
             )
         log_key_value("Successfully authenticated as", username)
     except Exception as e:
-        raise RuntimeError(f"GitHub authentication failed: {str(e)}")
+        log_error(e, "GitHub authentication failed")
+        raise RuntimeError(str(e))
 
 
 def get_tool_calls(msg: MessageContent) -> List[ToolCallContent]:
@@ -127,16 +132,14 @@ def handle_tool_response(client, response):
                     return tool_results
 
             except ClientAPIError:
-                # Let API errors propagate up unchanged
+                # API errors are from our code, so we log them
                 raise
 
             except Exception as e:
-                error_msg = f"Failed to execute tool {tool_call['name']}: {str(e)}"
-                log_error(e, error_msg)
-                # Format error as a string for Claude
+                # Format error as a string for Claude but don't log it
                 error_response = {
                     "success": False,
-                    "error": error_msg,
+                    "error": str(e),
                     "tool_name": tool_call["name"],
                     "input": tool_call["arguments"],
                 }
@@ -229,7 +232,9 @@ def todo_to_pr(
         log_section("FORKING AND CLONING REPOSITORY")
         fork_result = fork_repository(f"{repo_owner}/{repo_name}", repo_path)
         if not fork_result["success"]:
-            raise Exception(f"Fork failed: {fork_result.get('error')}")
+            error = fork_result.get("error", "Unknown error")
+            log_error(Exception(error), "Fork failed")
+            raise Exception(error)
 
         # Enter repo directory
         os.chdir(repo_path)
@@ -306,10 +311,8 @@ def todo_to_pr(
                 break
 
             if attempt == max_implementation_attempts - 1:
-                log_error(
-                    Exception(validation_message),
-                    f"Failed to meet acceptance criteria after {max_implementation_attempts} attempts",
-                )
+                msg = f"Failed to meet acceptance criteria after {max_implementation_attempts} attempts"
+                log_error(Exception(validation_message), msg)
                 return None
 
             log_key_value(f"Validation attempt {attempt + 1}", validation_message)
@@ -355,7 +358,7 @@ def todo_to_pr(
 
 if __name__ == "__main__":
     try:
-        # Set up logging with DEBUG level
+        # Set up logging
         configure_logging()
 
         # Validate environment and authentication
@@ -369,9 +372,8 @@ if __name__ == "__main__":
         )
 
         if not todos_path.exists():
-            log_error(
-                Exception(f"Todos file not found at {todos_path}"), "File not found"
-            )
+            error = f"Todos file not found at {todos_path}"
+            db.save_log(level="ERROR", message=error)
             sys.exit(1)
 
         with open(todos_path, "r") as f:
@@ -391,10 +393,16 @@ if __name__ == "__main__":
                             system_prompt=os.environ["TASK_SYSTEM_PROMPT"],
                         )
                     except Exception as e:
-                        log_error(e, "Script failed", False)
+                        error = f"Script failed: {str(e)}"
+                        db.save_log(
+                            level="ERROR",
+                            message=error,
+                            additional_data={"todo_index": i},
+                        )
                         sys.exit(1)
                 else:
                     log_key_value("Skipping invalid row", row)
     except Exception as e:
-        log_error(e, "Script failed")
+        error = f"Script failed: {str(e)}"
+        db.save_log(level="ERROR", message=error)
         sys.exit(1)
