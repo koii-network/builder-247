@@ -109,7 +109,7 @@ def send_test_data_to_claude(test_data: Dict[str, Any]) -> Dict[str, Any]:
                 "Analyze test output and extract key information about test failures. "
                 "The output should include the test name, file, error message and full output."
             ),
-            "input_schema": {
+            "parameters": {
                 "type": "object",
                 "properties": {
                     "test_name": {

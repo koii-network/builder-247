@@ -3,9 +3,9 @@ import os
 
 from flask import jsonify
 from src.server.services.database import get_db, close_db
-from src.task.flow import todo_to_pr
-from src.task.review_flow import review_pr
-from src.task.constants import REVIEW_SYSTEM_PROMPT
+from src.workflows.flow import todo_to_pr
+from src.workflows.review_flow import review_pr
+from src.workflows.constants import REVIEW_SYSTEM_PROMPT
 import logging
 
 logger = logging.getLogger(__name__)

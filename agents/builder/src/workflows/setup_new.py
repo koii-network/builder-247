@@ -46,13 +46,13 @@ def register_tools(client: AnthropicClient):
     """Register tools using paths relative to container directory"""
     container_root = Path(__file__).parent.parent.parent  # Points to container/
     tool_dirs = [
-        container_root / "src/tools/definitions/execute_command",
-        container_root / "src/tools/definitions/file_operations",
-        container_root / "src/tools/definitions/git_operations",
-        container_root / "src/tools/definitions/github_operations",
+        container_root / "src/tools/execute_command",
+        container_root / "src/tools/file_operations",
+        container_root / "src/tools/git_operations",
+        container_root / "src/tools/github_operations",
     ]
 
     for tool_dir in tool_dirs:
         if not tool_dir.exists():
             raise FileNotFoundError(f"Tool directory not found: {tool_dir}")
-        client.register_tools_from_directory(str(tool_dir))
+        client.register_tools(str(tool_dir))

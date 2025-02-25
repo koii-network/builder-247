@@ -1,4 +1,4 @@
-"""Task flow implementation."""
+"""Flow for processing todos and creating PRs."""
 
 # Standard library imports
 import os
@@ -10,12 +10,17 @@ import shutil
 from git import Repo
 from github import Github
 import dotenv
+from src.utils.errors import ClientAPIError
 from src.utils.logging import (
     log_section,
     log_key_value,
     log_error,
     configure_logging,
 )
+from src.clients.types import MessageContent, ToolCallContent
+from typing import List
+import json
+import ast
 
 # Conditional path adjustment before any other imports
 if __name__ == "__main__":
@@ -27,10 +32,10 @@ if __name__ == "__main__":
 
 # Regular imports (PEP 8 compliant)
 from src.get_file_list import get_file_list
-from src.tools.git_operations import get_current_branch
-from src.task.setup_new import setup_client
-from src.task.constants import PROMPTS
-from src.tools.github_operations import fork_repository
+from src.tools.git_operations.implementations import get_current_branch
+from src.workflows.setup_new import setup_client
+from src.workflows.constants import PROMPTS
+from src.tools.github_operations.implementations import fork_repository
 from src.utils.retry import (
     execute_tool_with_retry,
     send_message_with_retry,
@@ -67,24 +72,39 @@ def validate_github_auth():
         raise RuntimeError(f"GitHub authentication failed: {str(e)}")
 
 
+def get_tool_calls(msg: MessageContent) -> List[ToolCallContent]:
+    """Return all tool call blocks from the message."""
+    tool_calls = []
+    for block in msg["content"]:
+        if block["type"] == "tool_call":
+            tool_calls.append(block["tool_call"])
+    return tool_calls
+
+
 def handle_tool_response(client, response):
     """
     Handle tool responses until natural completion.
+    If a tool has return_value=True, returns immediately after executing that tool.
     """
-    tool_result = None  # Track the final tool execution result
-    conversation_id = response.get("conversation_id")  # Store conversation ID
+    conversation_id = response["conversation_id"]  # Store conversation ID
 
-    while response.get("stop_reason") == "tool_use":
-        # Process all tool uses in the current response
-        for tool_call in [
-            block["tool_call"]
-            for block in response.get("content", [])
-            if block.get("type") == "tool_call"
-        ]:
+    while True:
+        tool_calls = get_tool_calls(response)
+        if not tool_calls:
+            break
+
+        # Process all tool calls in the current response
+        tool_results = []
+        for tool_call in tool_calls:
             try:
+                # Check if this tool has return_value set
+                tool_definition = client.tools.get(tool_call["name"])
+                should_return = tool_definition and tool_definition.get(
+                    "return_value", False
+                )
+
                 # Execute the tool with retry logic
                 tool_output = execute_tool_with_retry(client, tool_call)
-                tool_result = tool_output  # Store the final tool result
 
                 # Convert tool output to string if it's not already
                 tool_response_str = (
@@ -97,37 +117,45 @@ def handle_tool_response(client, response):
                     )
                     continue
 
-                # Send successful tool result back to Claude with conversation state
-                response = send_message_with_retry(
-                    client,
-                    tool_response=tool_response_str,
-                    tool_use_id=tool_call["id"],
-                    conversation_id=conversation_id,
+                # Add to results list
+                tool_results.append(
+                    {"tool_call_id": tool_call["id"], "response": tool_response_str}
                 )
+
+                # If this tool has return_value=True, return its result immediately
+                if should_return:
+                    return tool_results
+
+            except ClientAPIError:
+                # Let API errors propagate up unchanged
+                raise
 
             except Exception as e:
                 error_msg = f"Failed to execute tool {tool_call['name']}: {str(e)}"
                 log_error(e, error_msg)
-                # Send error back to Claude so it can try again
-                try:
-                    # Format error as a string for Claude
-                    error_response = {
-                        "success": False,
-                        "error": error_msg,
-                        "tool_name": tool_call["name"],
-                        "input": tool_call["arguments"],
-                    }
-                    response = send_message_with_retry(
-                        client,
-                        tool_response=str(error_response),
-                        tool_use_id=tool_call["id"],
-                        conversation_id=conversation_id,
-                    )
-                except Exception as send_error:
-                    log_error(send_error, "Failed to send error message to Claude")
-                    raise
-                continue
-    return tool_result
+                # Format error as a string for Claude
+                error_response = {
+                    "success": False,
+                    "error": error_msg,
+                    "tool_name": tool_call["name"],
+                    "input": tool_call["arguments"],
+                }
+                tool_results.append(
+                    {"tool_call_id": tool_call["id"], "response": str(error_response)}
+                )
+
+        # Send all tool results back to Claude in a single message
+        try:
+            response = send_message_with_retry(
+                client,
+                tool_response=json.dumps(tool_results),
+                conversation_id=conversation_id,
+            )
+        except Exception as send_error:
+            log_error(send_error, "Failed to send tool results to Claude")
+            raise
+
+    return tool_results
 
 
 def validate_acceptance_criteria(client, conversation_id, todo, acceptance_criteria):
@@ -147,12 +175,18 @@ def validate_acceptance_criteria(client, conversation_id, todo, acceptance_crite
         conversation_id=conversation_id,
     )
 
-    validation_result = handle_tool_response(client, response)
-    if not validation_result:
+    validation_results = handle_tool_response(client, response)
+    if not validation_results:
         return False, "Failed to get validation result"
 
-    if not validation_result.get("success", False):
-        return False, validation_result.get("error", "Unknown validation error")
+    # Get the last result since that's the final validation
+    last_result = validation_results[-1]
+    try:
+        response_dict = ast.literal_eval(last_result["response"])
+        if not response_dict.get("success", False):
+            return False, response_dict.get("error", "Unknown validation error")
+    except (ValueError, SyntaxError, AttributeError):
+        return False, f"Invalid validation response: {last_result['response']}"
 
     return True, ""
 
@@ -202,9 +236,7 @@ def todo_to_pr(
 
         # Create client and conversation with system prompt
         client = setup_client()
-        conversation_id = client.storage.create_conversation(
-            system_prompt=system_prompt
-        )
+        conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info
         repo = Repo(repo_path)
@@ -223,7 +255,7 @@ def todo_to_pr(
             client,
             prompt=setup_prompt,
             conversation_id=conversation_id,
-            tool_choice={"type": "tool", "name": "create_branch"},
+            tool_choice={"type": "required", "tool": "create_branch"},
         )
         handle_tool_response(client, branch_response)
         branch_info = get_current_branch()
@@ -295,11 +327,16 @@ def todo_to_pr(
         pr_response = send_message_with_retry(
             client,
             prompt=create_pr_prompt,
-            tool_choice={"type": "tool", "name": "create_pull_request"},
+            tool_choice={"type": "required", "tool": "create_pull_request"},
         )
 
-        pr_result = handle_tool_response(client, pr_response)
+        pr_results = handle_tool_response(client, pr_response)
+        if not pr_results:
+            log_error(Exception("No PR result returned"), "PR creation failed")
+            return None
 
+        # Get the last result since that's the final PR creation attempt
+        pr_result = ast.literal_eval(pr_results[-1]["response"])
         if pr_result.get("success"):
             log_key_value("PR created successfully", pr_result.get("pr_url"))
             return pr_result.get("pr_url")
@@ -308,8 +345,9 @@ def todo_to_pr(
             return None
 
     except Exception as e:
-        log_error(e, "Error in todo_to_pr")
-        raise
+        if not isinstance(e, ClientAPIError):
+            log_error(e, "Error in todo_to_pr")
+        raise e
 
     finally:
         os.chdir(original_dir)  # Restore original directory
@@ -353,8 +391,8 @@ if __name__ == "__main__":
                             system_prompt=os.environ["TASK_SYSTEM_PROMPT"],
                         )
                     except Exception as e:
-                        log_error(e, f"Failed to process todo {i}")
-                        continue
+                        log_error(e, "Script failed", False)
+                        sys.exit(1)
                 else:
                     log_key_value("Skipping invalid row", row)
     except Exception as e:

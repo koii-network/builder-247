@@ -4,7 +4,7 @@ import os
 import shutil
 from typing import Dict, Any, Optional
 from pathlib import Path
-from src.tools.git_operations import commit_and_push
+from src.tools.git_operations.implementations import commit_and_push
 
 
 def _normalize_path(path: str) -> str:
@@ -190,3 +190,23 @@ def list_files(directory: str) -> list:
         ]
     except (FileNotFoundError, OSError):  # Catch specific file-related exceptions
         return []
+
+
+def create_directory(path: str) -> Dict[str, Any]:
+    """Create a directory and any necessary parent directories.
+
+    Args:
+        path (str): Path to the directory to create
+
+    Returns:
+        Dict[str, Any]: A dictionary containing:
+            - success (bool): Whether the operation succeeded
+            - error (str): Error message if unsuccessful
+    """
+    try:
+        path = _normalize_path(path)
+        full_path = Path(os.getcwd()) / path
+        full_path.mkdir(parents=True, exist_ok=True)
+        return {"success": True, "message": f"Created directory: {path}"}
+    except Exception as e:
+        return {"success": False, "error": f"Failed to create directory: {str(e)}"}

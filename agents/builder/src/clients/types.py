@@ -6,8 +6,9 @@ class ToolDefinition(TypedDict):
 
     name: str
     description: str
-    input_schema: Dict[str, str]  # JSON Schema object
+    parameters: Dict[str, str]  # JSON Schema object
     required: List[str]
+    return_value: bool
     function: Callable
 
 
@@ -30,7 +31,7 @@ class ToolResponse(TypedDict):
 class ToolChoice(TypedDict):
     """Configuration for tool usage."""
 
-    type: Literal["auto", "required", "any"]
+    type: Literal["optional", "required", "required_any"]
     tool: Optional[str]  # Required only when type is "required"
 
 

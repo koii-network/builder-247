@@ -3,9 +3,18 @@
 from typing import Dict, Any, Optional, List, Union
 from anthropic import Anthropic
 from anthropic.types import Message, TextBlock, ToolUseBlock
-import ast
+import json
 from .base_client import Client
-from .types import ToolDefinition, MessageContent, TextContent, ToolCallContent
+from .types import (
+    ToolDefinition,
+    MessageContent,
+    TextContent,
+    ToolCallContent,
+    ToolChoice,
+)
+from src.utils.retry import is_retryable_error
+from src.utils.logging import log_error
+from src.utils.errors import ClientAPIError
 
 
 class AnthropicClient(Client):
@@ -23,21 +32,20 @@ class AnthropicClient(Client):
         return {
             "name": tool["name"],
             "description": tool["description"],
-            "parameters": {
-                "type": "object",
-                "properties": tool["input_schema"],
-                "required": tool["required"],
-            },
+            "input_schema": tool["parameters"],
         }
 
     def _convert_message_to_api_format(self, message: MessageContent) -> Dict[str, Any]:
         """Convert our message format to Anthropic's format."""
         content = message["content"]
 
+        # Map our roles to Anthropic roles
+        role = "user" if message["role"] == "tool" else message["role"]
+
         # Handle string content (convert to text block)
         if isinstance(content, str):
             return {
-                "role": message["role"],
+                "role": role,
                 "content": [{"type": "text", "text": content}],
             }
 
@@ -49,26 +57,22 @@ class AnthropicClient(Client):
             elif block["type"] == "tool_call":
                 api_content.append(
                     {
-                        "type": "tool_calls",
-                        "tool_calls": [
-                            {
-                                "id": block["tool_call"]["id"],
-                                "name": block["tool_call"]["name"],
-                                "parameters": block["tool_call"]["arguments"],
-                            }
-                        ],
+                        "type": "tool_use",
+                        "id": block["tool_call"]["id"],
+                        "name": block["tool_call"]["name"],
+                        "input": block["tool_call"]["arguments"],
                     }
                 )
             elif block["type"] == "tool_response":
                 api_content.append(
                     {
-                        "type": "tool_response",
-                        "tool_call_id": block["tool_response"]["tool_call_id"],
+                        "type": "tool_result",
+                        "tool_use_id": block["tool_response"]["tool_call_id"],
                         "content": block["tool_response"]["content"],
                     }
                 )
 
-        return {"role": message["role"], "content": api_content}
+        return {"role": role, "content": api_content}
 
     def _convert_api_response_to_message(self, response: Message) -> MessageContent:
         """Convert Anthropic's response to our message format."""
@@ -91,54 +95,105 @@ class AnthropicClient(Client):
 
         return {"role": "assistant", "content": content}
 
+    def _convert_tool_choice_to_api_format(
+        self, tool_choice: ToolChoice
+    ) -> Dict[str, Any]:
+        """Convert our tool choice format to Anthropic's format."""
+        # Map our tool choice types to Anthropic's format
+        if tool_choice["type"] == "optional":
+            return {"type": "auto"}
+        elif tool_choice["type"] == "required":
+            if not tool_choice.get("tool"):
+                raise ValueError("Tool name required when type is 'required'")
+            return {"type": "tool", "name": tool_choice["tool"]}
+        elif tool_choice["type"] == "required_any":
+            return {"type": "any"}
+        else:
+            raise ValueError(f"Invalid tool choice type: {tool_choice['type']}")
+
     def _make_api_call(
         self,
         messages: List[MessageContent],
         system_prompt: Optional[str] = None,
-        tools: Optional[List[ToolDefinition]] = None,
         max_tokens: Optional[int] = None,
+        tool_choice: Optional[ToolChoice] = None,
     ) -> Message:
         """Make API call to Anthropic."""
-        # Convert messages and tools to Anthropic format
-        api_messages = [self._convert_message_to_api_format(msg) for msg in messages]
-        api_tools = (
-            [self._convert_tool_to_api_format(tool) for tool in tools]
-            if tools
-            else None
-        )
-
-        # Create API request parameters
-        params = {
-            "model": self.model,
-            "messages": api_messages,
-            "max_tokens": max_tokens or 2000,
-        }
-        if system_prompt:
-            params["system"] = system_prompt
-        if api_tools:
-            params["tools"] = api_tools
-
-        # Make API call
-        return self.client.messages.create(**params)
-
-    def _format_tool_response(self, response: str, tool_call_id: str) -> MessageContent:
-        """Format a tool response into a message."""
         try:
-            # Try to parse as Python dict string
-            response_dict = ast.literal_eval(response)
-            if isinstance(response_dict, dict):
-                content = str(response_dict)
-            else:
-                content = response
-        except (ValueError, SyntaxError):
-            content = response
+            # Convert messages and tools to Anthropic format
+            api_messages = [
+                self._convert_message_to_api_format(msg) for msg in messages
+            ]
+            api_tools = (
+                [self._convert_tool_to_api_format(tool) for tool in self.tools.values()]
+                if self.tools
+                else None
+            )
 
+            # Create API request parameters
+            params = {
+                "model": self.model,
+                "messages": api_messages,
+                "max_tokens": max_tokens or 2000,
+            }
+            if system_prompt:
+                params["system"] = system_prompt
+            if api_tools:
+                params["tools"] = api_tools
+                if tool_choice:
+                    params["tool_choice"] = self._convert_tool_choice_to_api_format(
+                        tool_choice
+                    )
+
+            # Make API call
+            return self.client.messages.create(**params)
+
+        except Exception as e:
+            # Only wrap actual API errors
+            log_error(
+                e,
+                context="Error making API call to Anthropic",
+                include_traceback=not is_retryable_error(e),
+            )
+            raise ClientAPIError(e)
+
+    def _format_tool_response(self, response: str) -> MessageContent:
+        """Format a tool response into a message.
+
+        The response must be a JSON string of [{tool_call_id, response}, ...] representing
+        one or more tool results.
+        """
+        results = json.loads(response)
         return {
             "role": "tool",
             "content": [
                 {
                     "type": "tool_response",
-                    "tool_response": {"tool_call_id": tool_call_id, "content": content},
+                    "tool_response": {
+                        "tool_call_id": result["tool_call_id"],
+                        "content": result["response"],
+                    },
                 }
+                for result in results
             ],
         }
+
+    def send_message(
+        self,
+        prompt: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        tool_choice: Optional[ToolChoice] = None,
+        tool_response: Optional[str] = None,
+        tool_use_id: Optional[str] = None,
+        is_retry: bool = False,
+    ) -> Message:
+        """Send a message to Claude, automatically managing conversation history."""
+        return super().send_message(
+            prompt=prompt,
+            conversation_id=conversation_id,
+            max_tokens=max_tokens,
+            tool_choice=tool_choice,
+            tool_response=tool_response,
+            is_retry=is_retry,
+        )

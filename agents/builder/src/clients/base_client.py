@@ -6,7 +6,10 @@ from pathlib import Path
 import os
 import importlib.util
 from .conversation_manager import ConversationManager
-from .types import ToolDefinition, MessageContent, ToolCall
+from .types import ToolDefinition, MessageContent, ToolCall, ToolChoice
+from src.utils.logging import log_section, log_key_value
+import json
+import ast
 
 
 class Client(ABC):
@@ -17,6 +20,7 @@ class Client(ABC):
         model: Optional[str] = None,
         db_path: Optional[Path] = None,
     ):
+        """Initialize the client."""
         if not db_path:
             db_path = Path(os.getenv("DATABASE_PATH", "./conversations.db"))
 
@@ -50,8 +54,8 @@ class Client(ABC):
         self,
         messages: List[MessageContent],
         system_prompt: Optional[str] = None,
-        tools: Optional[List[ToolDefinition]] = None,
         max_tokens: Optional[int] = None,
+        tool_choice: Optional[ToolChoice] = None,
     ) -> Any:
         """Make API call with standardized parameters."""
         pass
@@ -60,17 +64,17 @@ class Client(ABC):
         """Register tools from a definitions file.
 
         Args:
-            definitions_path: Path to the definitions.py file containing TOOL_DEFINITIONS
+            definitions_path: Path to the folder containing the definitions.py file
 
         Returns:
             List of registered tool names
 
         Raises:
-            ValueError: If file doesn't exist or doesn't contain TOOL_DEFINITIONS
+            ValueError: If file doesn't exist or doesn't contain DEFINITIONS
             ImportError: If module cannot be loaded
             ValueError: If attempting to register a tool that already exists
         """
-        path = Path(definitions_path)
+        path = Path(definitions_path) / "definitions.py"
         if not path.exists():
             raise ValueError(f"Definitions file not found: {path}")
 
@@ -82,81 +86,201 @@ class Client(ABC):
         definitions_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(definitions_module)
 
-        if not hasattr(definitions_module, "TOOL_DEFINITIONS"):
-            raise ValueError(f"{path} must contain TOOL_DEFINITIONS dictionary")
+        if not hasattr(definitions_module, "DEFINITIONS"):
+            raise ValueError(f"{path} must contain DEFINITIONS dictionary")
 
         # Check for duplicate tools before registering any
-        for tool_name in definitions_module.TOOL_DEFINITIONS:
+        for tool_name in definitions_module.DEFINITIONS:
             if tool_name in self.tools:
                 raise ValueError(f"Tool already exists: {tool_name}")
 
         # Update tools dictionary with new definitions
-        self.tools.update(definitions_module.TOOL_DEFINITIONS)
-        return list(definitions_module.TOOL_DEFINITIONS.keys())
+        for name, tool in definitions_module.DEFINITIONS.items():
+            self.tools[name] = tool
+        return list(definitions_module.DEFINITIONS.keys())
+
+    def create_conversation(self, system_prompt: Optional[str] = None) -> str:
+        """Create a new conversation and return its ID."""
+        return self.storage.create_conversation(self.model, system_prompt)
 
     def execute_tool(self, tool_call: ToolCall) -> str:
-        """Execute a tool and return its response.
-
-        Args:
-            tool_call: API-specific tool call format
-
-        Returns:
-            Tool execution result as a string
-        """
+        """Execute a tool and return its response."""
         tool_name = tool_call["name"]
         tool_args = tool_call["arguments"]
 
         if tool_name not in self.tools:
             raise ValueError(f"Unknown tool: {tool_name}")
 
+        # Log tool call
+        log_section("EXECUTING TOOL")
+        log_key_value("Tool", tool_name)
+        if tool_args:
+            log_key_value("INPUTS:", "")
+            for key, value in tool_args.items():
+                log_key_value(key, value)
+
         tool = self.tools[tool_name]
-        return tool["function"](**tool_args)
+        result = tool["function"](**tool_args)
+
+        # Log result
+        log_key_value("RESULT:", "")
+        if isinstance(result, dict):
+            # Handle success/failure responses
+            if "success" in result:
+                if result["success"]:
+                    log_key_value("Status", "✓ Success")
+                    # For successful operations, show the main result or message
+                    if "message" in result:
+                        log_key_value("Message", result["message"])
+                    # Show other relevant fields (excluding success flag and error)
+                    for key, value in result.items():
+                        if key not in ["success", "error", "message"]:
+                            log_key_value(key, value)
+                else:
+                    log_key_value("Status", "✗ Failed")
+                    if "error" in result:
+                        log_key_value("Error", result["error"])
+            else:
+                # For other responses, just show key-value pairs
+                for key, value in result.items():
+                    log_key_value(key, value)
+        else:
+            log_key_value("Output", result)
+
+        return result
 
     def send_message(
         self,
         prompt: Optional[str] = None,
         conversation_id: Optional[str] = None,
-        max_tokens: Optional[int] = 2000,
+        max_tokens: Optional[int] = None,
+        tool_choice: Optional[ToolChoice] = None,
         tool_response: Optional[str] = None,
-        tool_use_id: Optional[str] = None,
-    ) -> MessageContent:
-        """Send a message using internal formats."""
+        is_retry: bool = False,
+    ) -> Any:
+        """Send a message to the LLM."""
+        if not self.storage:
+            raise ValueError("Storage not configured - db_path required")
+
         if not prompt and not tool_response:
-            raise ValueError("Either prompt or tool_response must be provided")
+            raise ValueError("Prompt or tool response must be provided")
+
+        # Log message being sent
+        log_section("SENDING MESSAGE TO AGENT")
+        if is_retry:
+            log_key_value("Is Retry", "True")
+        if conversation_id:
+            log_key_value("Conversation ID", conversation_id)
+        if prompt:
+            log_key_value("PROMPT", prompt)
+        if tool_response:
+            log_section("TOOL RESPONSE")
+            results = json.loads(tool_response)
+            for result in results:
+                log_key_value("Tool Use ID", result["tool_call_id"])
+                try:
+                    response_dict = ast.literal_eval(result["response"])
+                    if isinstance(response_dict, dict):
+                        if "success" in response_dict:
+                            log_key_value(
+                                "Status",
+                                "✓ Success" if response_dict["success"] else "✗ Failed",
+                            )
+                            if response_dict.get("message"):
+                                log_key_value("Message", response_dict["message"])
+                            # Show other fields
+                            for key, value in response_dict.items():
+                                if key not in ["success", "message"]:
+                                    log_key_value(key, value)
+                        else:
+                            # Just show all key-value pairs
+                            for key, value in response_dict.items():
+                                log_key_value(key, value)
+                    else:
+                        log_key_value("Response", result["response"])
+                except (ValueError, SyntaxError):
+                    log_key_value("Response", result["response"])
 
         # Create or get conversation
         if not conversation_id:
-            conversation_id = self.storage.create_conversation(self.model)
+            conversation_id = self.storage.create_conversation(model=self.model)
 
-        # Get conversation details and history
-        conv_details = self.storage.get_conversation(conversation_id)
+        # Get conversation details including system prompt
+        conversation = self.storage.get_conversation(conversation_id)
+        system_prompt = conversation.get("system_prompt")
+
+        # Get previous messages
         messages = self.storage.get_messages(conversation_id)
 
-        # Add new message if applicable
-        if prompt:
-            new_message = {"role": "user", "content": prompt}
-            messages.append(new_message)
-            self.storage.save_message(conversation_id, "user", prompt)
-        elif tool_response and tool_use_id:
-            # Format will vary by API implementation
-            new_message = self._format_tool_response(tool_response, tool_use_id)
-            messages.append(new_message)
-            self.storage.save_message(
-                conversation_id, new_message["role"], new_message["content"]
-            )
+        # Add new message if it's a prompt or tool response and not a retry
+        if not is_retry:
+            if prompt:
+                self.storage.save_message(conversation_id, "user", prompt)
+                messages.append({"role": "user", "content": prompt})
+            elif tool_response:
+                formatted_response = self._format_tool_response(tool_response)
+                self.storage.save_message(
+                    conversation_id,
+                    formatted_response["role"],
+                    formatted_response["content"],
+                )
+                messages.append(formatted_response)
 
         # Make API call
-        api_response = self._make_api_call(
+        response = self._make_api_call(
             messages=messages,
-            system_prompt=conv_details["system_prompt"],
-            tools=list(self.tools.values()) if self.tools else None,
+            system_prompt=system_prompt,
             max_tokens=max_tokens,
+            tool_choice=tool_choice,
         )
 
-        # Convert and store response
-        response_message = self._convert_api_response_to_message(api_response)
-        self.storage.save_message(
-            conversation_id, response_message["role"], response_message["content"]
-        )
+        # Convert response to internal format
+        converted_response = self._convert_api_response_to_message(response)
 
-        return response_message
+        # Log LLM response
+        log_section("AGENT'S RESPONSE")
+        for block in converted_response["content"]:
+            if block["type"] == "text":
+                log_key_value("REPLY", block["text"])
+            elif block["type"] == "tool_call":
+                log_key_value(
+                    "TOOL REQUEST",
+                    f"{block['tool_call']['name']} (ID: {block['tool_call']['id']})",
+                )
+
+        # Add conversation_id to converted response
+        converted_response["conversation_id"] = conversation_id
+
+        # Save to storage if not a retry
+        if not is_retry:
+            self.storage.save_message(
+                conversation_id, "assistant", converted_response["content"]
+            )
+
+        return converted_response
+
+    @abstractmethod
+    def _format_tool_response(self, response: str) -> MessageContent:
+        """Format a tool response into a message.
+
+        The response must be a JSON string of [{tool_call_id, response}, ...] representing
+        one or more tool results.
+        """
+        pass
+
+
+class PreLoggedError(Exception):
+    """Error that has already been logged at source.
+
+    Used to wrap API errors that have been logged where they occurred,
+    to prevent duplicate logging higher up the stack.
+    """
+
+    def __init__(self, original_error: Exception):
+        self.original_error = original_error
+        super().__init__(str(original_error))
+
+    @property
+    def status_code(self) -> int:
+        """Preserve status code from original error if it exists."""
+        return getattr(self.original_error, "status_code", None)

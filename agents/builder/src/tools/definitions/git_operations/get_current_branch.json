@@ -1,9 +1,0 @@
-{
-	"name": "get_current_branch",
-	"description": "Get the name of the current Git branch",
-	"input_schema": {
-		"type": "object",
-		"properties": {},
-		"required": []
-	}
-}

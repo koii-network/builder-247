@@ -28,10 +28,10 @@ if __name__ == "__main__":
 # Regular imports (PEP 8 compliant)
 from anthropic.types import ToolUseBlock
 from src.get_file_list import get_file_list
-from src.tools.git_operations import get_current_branch
-from src.task.setup import setup_client
-from src.task.constants import PROMPTS
-from src.tools.github_operations import fork_repository
+from agents.builder.src.tools.git_operations_old import get_current_branch
+from src.workflows.setup import setup_client
+from src.workflows.constants import PROMPTS
+from agents.builder.src.tools.github_operations_old import fork_repository
 from src.utils.retry import (
     execute_tool_with_retry,
     send_message_with_retry,

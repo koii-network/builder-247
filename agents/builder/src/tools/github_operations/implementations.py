@@ -1,11 +1,10 @@
 """Module for GitHub operations."""
 
 import os
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
-import ast
-from src.tools.git_operations import (
+from src.tools.git_operations.implementations import (
     fetch_remote,
     pull_remote,
 )
@@ -13,7 +12,7 @@ from src.utils.logging import log_key_value, log_error
 
 import time
 from git import Repo, GitCommandError
-from src.task.constants import PR_TEMPLATE, REVIEW_TEMPLATE
+from src.workflows.constants import PR_TEMPLATE, REVIEW_TEMPLATE
 
 # Load environment variables from .env file
 load_dotenv()
@@ -117,7 +116,7 @@ def create_pull_request(
     title: str,
     head: str,
     summary: str,
-    tests: str,
+    tests: List[str],
     todo: str,
     acceptance_criteria: str,
     base: str = "main",
@@ -134,7 +133,7 @@ def create_pull_request(
         base = base.split(":")[-1]  # Remove owner prefix if present
 
         # Format tests into markdown bullets
-        tests_bullets = " - " + "\n - ".join(ast.literal_eval(tests))
+        tests_bullets = " - " + "\n - ".join(tests)
 
         body = PR_TEMPLATE.format(
             todo=todo,
@@ -319,3 +318,21 @@ def review_pull_request(
         error_msg = f"Error posting review on PR #{pr_number}: {str(e)}"
         print(error_msg)
         return {"success": False, "error": error_msg}
+
+
+def validate_implementation(
+    success: bool, reason: Optional[str] = ""
+) -> Dict[str, Any]:
+    """Submit a validation result.
+
+    Args:
+        success: Whether the validation passed
+        reason: Optional reason for failure
+
+    Returns:
+        Dict containing the validation result
+    """
+    return {
+        "success": success,
+        "reason": reason,
+    }

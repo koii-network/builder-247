@@ -7,7 +7,7 @@ import shutil
 from git import Repo
 import dotenv
 from github import Github
-from src.task.constants import PROMPTS
+from src.workflows.constants import PROMPTS
 from src.utils.logging import (
     log_section,
     log_key_value,
@@ -24,8 +24,9 @@ if __name__ == "__main__":
     sys.path.insert(0, project_root)
 
 # Regular imports (PEP 8 compliant)
+from anthropic.types import ToolUseBlock
 from src.get_file_list import get_file_list
-from src.task.setup_new import setup_client
+from src.workflows.setup import setup_client
 from src.utils.retry import (
     execute_tool_with_retry,
     send_message_with_retry,
@@ -68,21 +69,17 @@ def handle_tool_response(client, response):
     """
     log_section("STARTING CONVERSATION")
     tool_result = None  # Track the final tool execution result
-    conversation_id = response.get("conversation_id")  # Store conversation ID
+    conversation_id = response.conversation_id  # Store conversation ID
 
-    while response.get("stop_reason") == "tool_use":
+    while response.stop_reason == "tool_use":
         # Process all tool uses in the current response
-        for tool_call in [
-            block["tool_call"]
-            for block in response.get("content", [])
-            if block.get("type") == "tool_call"
-        ]:
+        for tool_use in [b for b in response.content if isinstance(b, ToolUseBlock)]:
             try:
                 # Execute the tool with retry logic
-                tool_output = execute_tool_with_retry(client, tool_call)
+                tool_output = execute_tool_with_retry(client, tool_use)
                 tool_result = tool_output  # Store the final tool result
 
-                if tool_call["name"] == "review_pull_request":
+                if tool_use.name == "review_pull_request":
                     return tool_output
 
                 # Convert tool output to string if it's not already
@@ -99,12 +96,12 @@ def handle_tool_response(client, response):
                 response = send_message_with_retry(
                     client,
                     tool_response=tool_response_str,
-                    tool_use_id=tool_call["id"],
+                    tool_use_id=tool_use.id,
                     conversation_id=conversation_id,
                 )
 
             except Exception as e:
-                error_msg = f"Failed to execute tool {tool_call['name']}: {str(e)}"
+                error_msg = f"Failed to execute tool {tool_use.name}: {str(e)}"
                 log_error(e, error_msg)
                 # Send error back to Claude so it can try again
                 try:
@@ -112,13 +109,13 @@ def handle_tool_response(client, response):
                     error_response = {
                         "success": False,
                         "error": error_msg,
-                        "tool_name": tool_call["name"],
-                        "input": tool_call["arguments"],
+                        "tool_name": tool_use.name,
+                        "input": tool_use.input,
                     }
                     response = send_message_with_retry(
                         client,
                         tool_response=str(error_response),
-                        tool_use_id=tool_call["id"],
+                        tool_use_id=tool_use.id,
                         conversation_id=conversation_id,
                     )
                 except Exception as send_error:
@@ -295,9 +292,7 @@ def review_pr(
         log_key_value("System prompt", system_prompt)
 
         # Create conversation with system prompt
-        conversation_id = client.storage.create_conversation(
-            system_prompt=system_prompt
-        )
+        conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Format requirements as bullet points
         formatted_reqs = "\n".join(f"- {req}" for req in requirements)
