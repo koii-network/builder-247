@@ -7,13 +7,19 @@ import shutil
 from git import Repo
 import dotenv
 from github import Github
-from src.workflows.constants import PROMPTS
+from src.workflows.prompts import PROMPTS
+from src.utils.errors import ClientAPIError
 from src.utils.logging import (
     log_section,
     log_key_value,
     log_error,
     configure_logging,
 )
+from src.clients.types import MessageContent, ToolCallContent
+from src.workflows.prompts import REVIEW_SYSTEM_PROMPT
+from typing import List
+import json
+import ast
 
 # Conditional path adjustment before any other imports
 if __name__ == "__main__":
@@ -62,72 +68,90 @@ def validate_github_auth():
         raise RuntimeError(f"GitHub authentication failed: {str(e)}")
 
 
+def get_tool_calls(msg: MessageContent) -> List[ToolCallContent]:
+    """Return all tool call blocks from the message."""
+    tool_calls = []
+    for block in msg["content"]:
+        if block["type"] == "tool_call":
+            tool_calls.append(block["tool_call"])
+    return tool_calls
+
+
 def handle_tool_response(client, response):
     """
     Handle tool responses until natural completion.
+    If a tool has return_value=True, returns immediately after executing that tool.
     """
-    log_section("STARTING CONVERSATION")
-    tool_result = None  # Track the final tool execution result
-    conversation_id = response.get("conversation_id")  # Store conversation ID
+    conversation_id = response["conversation_id"]  # Store conversation ID
 
-    while response.get("stop_reason") == "tool_use":
-        # Process all tool uses in the current response
-        for tool_call in [
-            block["tool_call"]
-            for block in response.get("content", [])
-            if block.get("type") == "tool_call"
-        ]:
+    while True:
+        tool_calls = get_tool_calls(response)
+        if not tool_calls:
+            break
+
+        # Process all tool calls in the current response
+        tool_results = []
+        for tool_call in tool_calls:
             try:
+                # Check if this tool has return_value set
+                tool_definition = client.tools.get(tool_call["name"])
+                should_return = tool_definition and tool_definition.get(
+                    "return_value", False
+                )
+
                 # Execute the tool with retry logic
                 tool_output = execute_tool_with_retry(client, tool_call)
-                tool_result = tool_output  # Store the final tool result
-
-                if tool_call["name"] == "review_pull_request":
-                    return tool_output
 
                 # Convert tool output to string if it's not already
                 tool_response_str = (
                     str(tool_output) if tool_output is not None else None
                 )
                 if tool_response_str is None:
-                    log_key_value(
-                        "Warning", "Tool output is None, skipping message to Claude"
+                    # This is our code's error, so we log it
+                    log_error(
+                        Exception("Tool output is None, skipping message to Claude"),
+                        "Warning",
                     )
                     continue
 
-                # Send successful tool result back to Claude with conversation state
-                response = send_message_with_retry(
-                    client,
-                    tool_response=tool_response_str,
-                    tool_use_id=tool_call["id"],
-                    conversation_id=conversation_id,
+                # Add to results list
+                tool_results.append(
+                    {"tool_call_id": tool_call["id"], "response": tool_response_str}
                 )
 
-            except Exception as e:
-                error_msg = f"Failed to execute tool {tool_call['name']}: {str(e)}"
-                log_error(e, error_msg)
-                # Send error back to Claude so it can try again
-                try:
-                    # Format error as a string for Claude
-                    error_response = {
-                        "success": False,
-                        "error": error_msg,
-                        "tool_name": tool_call["name"],
-                        "input": tool_call["arguments"],
-                    }
-                    response = send_message_with_retry(
-                        client,
-                        tool_response=str(error_response),
-                        tool_use_id=tool_call["id"],
-                        conversation_id=conversation_id,
-                    )
-                except Exception as send_error:
-                    log_error(send_error, "Failed to send error message to Claude")
-                    raise
-                continue
+                # If this tool has return_value=True, return its result immediately
+                if should_return:
+                    return tool_results
 
-    log_section("CONVERSATION ENDED")
-    return tool_result
+            except ClientAPIError:
+                # API errors are from our code, so we log them
+                raise
+
+            except Exception as e:
+                # Format error as a string for Claude but don't log it
+                error_response = {
+                    "success": False,
+                    "error": str(e),
+                    "tool_name": tool_call["name"],
+                    "input": tool_call["arguments"],
+                }
+                tool_results.append(
+                    {"tool_call_id": tool_call["id"], "response": str(error_response)}
+                )
+
+        # Send all tool results back to Claude in a single message
+        try:
+            response = send_message_with_retry(
+                client,
+                tool_response=json.dumps(tool_results),
+                conversation_id=conversation_id,
+            )
+        except Exception as send_error:
+            # This is our code's error, so we log it
+            log_error(send_error, "Failed to send tool results to Claude")
+            raise
+
+    return tool_results
 
 
 def setup_pr_repository(
@@ -251,18 +275,16 @@ def review_all_pull_requests(
     # Review each PR
     for pr in open_prs:
         try:
-            log_section(f"REVIEWING PR #{pr.number}: {pr.title}")
+            log_section(f"REVIEWING PR #{pr.number}")
             review_pr(
-                pr_url=pr.html_url,
-                requirements=requirements,
-                minor_issues=minor_issues,
-                major_issues=major_issues,
-                system_prompt=system_prompt,
+                pr.html_url,
+                requirements,
+                minor_issues,
+                major_issues,
+                system_prompt,
             )
-
         except Exception as e:
             log_error(e, f"Error reviewing PR #{pr.number}")
-            continue  # Continue with next PR even if one fails
 
 
 def review_pr(
@@ -273,104 +295,123 @@ def review_pr(
     system_prompt,
 ):
     """
-    Review a specific pull request.
+    Review a pull request and return the validation result.
+
+    Args:
+        pr_url: URL of the pull request to review
+        requirements: List of requirements to check
+        minor_issues: List of minor issues to check for
+        major_issues: List of major issues to check for
+        system_prompt: System prompt for Claude
+
+    Returns:
+        bool: True if PR is approved, False otherwise
     """
-    repo_path = None
-    original_dir = os.getcwd()  # Store original directory
     try:
-        # Parse PR URL to get components
+        # Parse PR URL
         repo_owner, repo_name, pr_number = parse_github_pr_url(pr_url)
 
         # Set up repository
         repo_path, files = setup_pr_repository(repo_owner, repo_name, pr_number)
 
-        # Change to repository directory
-        os.chdir(repo_path)
+        try:
+            # Create client and conversation
+            client = setup_client()
+            log_section("SYSTEM PROMPT")
+            log_key_value("System prompt", system_prompt)
+            conversation_id = client.create_conversation(system_prompt=system_prompt)
 
-        # Create new conversation
-        client = setup_client()
+            # Change to repository directory
+            os.chdir(repo_path)
 
-        # Log system prompt
-        log_section("SYSTEM PROMPT")
-        log_key_value("System prompt", system_prompt)
+            # Send review prompt
+            review_prompt = PROMPTS["review_pr"].format(
+                pr_number=pr_number,
+                repo=f"{repo_owner}/{repo_name}",
+                files_list=", ".join(files),
+                requirements=requirements,
+                minor_issues=minor_issues,
+                major_issues=major_issues,
+            )
 
-        # Create conversation with system prompt
-        conversation_id = client.create_conversation(system_prompt=system_prompt)
+            # Let the agent analyze code and run tests first
+            response = send_message_with_retry(
+                client,
+                prompt=review_prompt,
+                conversation_id=conversation_id,
+            )
 
-        # Format requirements as bullet points
-        formatted_reqs = "\n".join(f"- {req}" for req in requirements)
+            # Handle tool responses until we get a review result
+            review_results = handle_tool_response(client, response)
+            if not review_results:
+                log_error(Exception("No review result returned"), "Review failed")
+                return False
 
-        # Format files list
-        files_list = "\n".join(f"- {f}" for f in files)
+            # Get the last result since that's the final review
+            last_result = review_results[-1]
+            review_result = ast.literal_eval(last_result["response"])
+            if review_result.get("success"):
+                log_key_value("Review completed", "PR reviewed successfully")
+                return review_result.get("validated", False)
+            else:
+                log_error(Exception(review_result.get("error")), "Review failed")
+                return False
 
-        # Format review prompt
-        review_prompt = PROMPTS["review_pr"].format(
-            pr_number=pr_number,
-            repo=f"{repo_owner}/{repo_name}",
-            files_list=files_list,
-            requirements=formatted_reqs,
-            minor_issues=minor_issues,
-            major_issues=major_issues,
-        )
-
-        # Send initial message
-        response = send_message_with_retry(
-            client, prompt=review_prompt, conversation_id=conversation_id
-        )
-
-        # Handle tool responses
-        pr_review = handle_tool_response(client, response)
-        if pr_review:
-            return pr_review
+        finally:
+            # Clean up repository
+            os.chdir("..")
+            shutil.rmtree(repo_path)
 
     except Exception as e:
-        log_error(e, f"Error reviewing PR {pr_url}")
-        raise
-    finally:
-        # Clean up repository
-        if repo_path and os.path.exists(repo_path):
-            shutil.rmtree(repo_path)
-        # Restore original directory
-        os.chdir(original_dir)
+        if not isinstance(e, ClientAPIError):
+            log_error(e, "Error reviewing PR")
+        raise e
 
 
 if __name__ == "__main__":
-    requirements = [
-        "Implementation matches problem description",
-        "All tests pass",
-        "Implementation is in a single file in the /src directory",
-        "tests are in a single file in the /tests directory",
-        "No other files are modified",
-    ]
-
-    minor_issues = (
-        "test coverage could be improved but core functionality is tested",
-        "implementation and tests exist but are not in the /src and /tests directories",
-        "other files are modified",
-    )
-
-    major_issues = (
-        "no implementation or tests, implementation is not for the correct problem",
-        "Incorrect implementation, failing tests, missing critical features, "
-        "no error handling, security vulnerabilities, no tests",
-        "tests are poorly designed or rely too heavily on mocking",
-    )
     try:
-        # Set up logging with DEBUG level
+        # Set up logging
         configure_logging()
 
         # Validate environment and authentication
         check_required_env_vars()
         validate_github_auth()
 
-        review_all_pull_requests(
-            repo_owner="koii-network",
-            repo_name="builder-test",
+        # Get command line arguments
+        if len(sys.argv) < 2:
+            print("Usage: python review_flow_new.py <pr_url>")
+            sys.exit(1)
+
+        pr_url = sys.argv[1]
+        requirements = [
+            "Implementation matches problem description",
+            "All tests pass",
+            "Implementation is in a single file in the /src directory",
+            "tests are in a single file in the /tests directory",
+            "No other files are modified",
+        ]
+
+        minor_issues = (
+            "test coverage could be improved but core functionality is tested",
+            "implementation and tests exist but are not in the /src and /tests directories",
+            "other files are modified",
+        )
+
+        major_issues = (
+            "Incorrect implementation, failing tests, missing critical features, "
+            "no error handling, security vulnerabilities, no tests",
+            "tests are poorly designed or rely too heavily on mocking",
+        )
+
+        # Review PR
+        review_pr(
+            pr_url=pr_url,
             requirements=requirements,
             minor_issues=minor_issues,
             major_issues=major_issues,
-            system_prompt=os.environ["REVIEW_SYSTEM_PROMPT"],
+            system_prompt=REVIEW_SYSTEM_PROMPT,
         )
+
     except Exception as e:
         log_error(e, "Script failed")
         sys.exit(1)
