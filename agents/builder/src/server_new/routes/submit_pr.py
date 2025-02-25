@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from src.server.services.task_service import submit_pr
+from src.server_new.services.task_service import submit_pr
 
 bp = Blueprint("submit_pr", __name__)
 

@@ -1,25 +1,8 @@
-"""Database models for the application."""
+"""Database models."""
 
 from datetime import datetime
 from typing import Optional, List
-from sqlmodel import SQLModel, Field, JSON, Relationship
-
-
-class Log(SQLModel, table=True):
-    """Log entry model."""
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    level: str
-    message: str
-    module: Optional[str] = None
-    function: Optional[str] = None
-    path: Optional[str] = None
-    line_no: Optional[int] = None
-    exception: Optional[str] = None
-    stack_trace: Optional[str] = None
-    request_id: Optional[str] = None
-    additional_data: Optional[str] = None
+from sqlmodel import SQLModel, Field, Relationship
 
 
 class Conversation(SQLModel, table=True):
@@ -53,3 +36,20 @@ class Submission(SQLModel, table=True):
     username: Optional[str] = None
     repo_owner: str
     repo_name: str
+
+
+class Log(SQLModel, table=True):
+    """Log entry model."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    level: str
+    message: str
+    module: Optional[str] = None
+    function: Optional[str] = None
+    path: Optional[str] = None
+    line_no: Optional[int] = None
+    exception: Optional[str] = None
+    stack_trace: Optional[str] = None
+    request_id: Optional[str] = None
+    additional_data: Optional[str] = None

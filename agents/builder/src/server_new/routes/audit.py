@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
-from src.server.services.github_service import verify_pr_ownership
-from src.server.services.task_service import approve_pr
+from src.server_new.services.github_service import verify_pr_ownership
+from src.server_new.services.task_service import approve_pr
 import logging
 
 logger = logging.getLogger(__name__)

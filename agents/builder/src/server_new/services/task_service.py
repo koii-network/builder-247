@@ -2,12 +2,10 @@
 
 import requests
 import os
-from datetime import datetime
 from flask import jsonify
-from src.server_new.services.database import get_db
-from src.database.models import Submission
-from src.workflows.flow import todo_to_pr
-from src.workflows.review_flow import review_pr
+from src.database import get_db, Submission
+from src.workflows.flow_new import todo_to_pr
+from src.workflows.review_flow_new import review_pr
 from src.workflows.prompts import REVIEW_SYSTEM_PROMPT
 import logging
 
@@ -68,8 +66,6 @@ def run_todo_task(task_id, round_number, todo):
             status="running",
             repo_owner=todo["repo_owner"],
             repo_name=todo["repo_name"],
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
         )
         db.add(submission)
         db.commit()
@@ -93,7 +89,6 @@ def run_todo_task(task_id, round_number, todo):
             )
             if submission:
                 submission.status = "failed"
-                submission.updated_at = datetime.utcnow()
                 db.commit()
                 logger.info(f"Updated status to failed for round {round_number}")
         raise
@@ -123,7 +118,6 @@ def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
             submission.status = "completed"
             submission.pr_url = pr_url
             submission.username = username
-            submission.updated_at = datetime.utcnow()
             db.commit()
             logger.info("Database updated successfully")
             return "PR submitted successfully"
