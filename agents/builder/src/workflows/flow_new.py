@@ -18,7 +18,7 @@ from src.utils.logging import (
     configure_logging,
 )
 from src.clients.types import MessageContent, ToolCallContent
-from src.database import get_db
+from src.database import get_db, Log
 from typing import List
 import json
 import ast
@@ -240,7 +240,7 @@ def todo_to_pr(
         os.chdir(repo_path)
 
         # Create client and conversation with system prompt
-        client = setup_client()
+        client = setup_client("xai")
         conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info
@@ -372,8 +372,10 @@ if __name__ == "__main__":
         )
 
         if not todos_path.exists():
-            error = f"Todos file not found at {todos_path}"
-            db.save_log(level="ERROR", message=error)
+            db = get_db()
+            log = Log(level="ERROR", message=f"Todos file not found at {todos_path}")
+            db.add(log)
+            db.commit()
             sys.exit(1)
 
         with open(todos_path, "r") as f:
@@ -393,16 +395,20 @@ if __name__ == "__main__":
                             system_prompt=os.environ["TASK_SYSTEM_PROMPT"],
                         )
                     except Exception as e:
-                        error = f"Script failed: {str(e)}"
-                        db.save_log(
+                        db = get_db()
+                        log = Log(
                             level="ERROR",
-                            message=error,
-                            additional_data={"todo_index": i},
+                            message=str(e),
+                            additional_data=json.dumps({"todo_index": i}),
                         )
+                        db.add(log)
+                        db.commit()
                         sys.exit(1)
                 else:
                     log_key_value("Skipping invalid row", row)
     except Exception as e:
-        error = f"Script failed: {str(e)}"
-        db.save_log(level="ERROR", message=error)
+        db = get_db()
+        log = Log(level="ERROR", message=str(e))
+        db.add(log)
+        db.commit()
         sys.exit(1)

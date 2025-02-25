@@ -253,7 +253,7 @@ def log_error(
         db.add(log)
         db.commit()
     except Exception as e:
-        # Fallback to standard error output if database logging fails
+        # Fallback to stderr if database logging fails
         print(f"Failed to log to database: {e}", file=sys.stderr)
 
 

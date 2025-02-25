@@ -2,8 +2,11 @@
 from dotenv import load_dotenv
 import os
 from src.clients.anthropic_client_new import AnthropicClient
+from src.clients.xai_client import XAIClient
+from src.clients.openai_client import OpenAIClient
 from pathlib import Path
 from git import Repo
+from src.clients.base_client import Client
 
 
 def setup_repository(repo_owner, repo_name, repo_path):
@@ -31,18 +34,18 @@ def setup_repository(repo_owner, repo_name, repo_path):
     return repo_path
 
 
-def setup_client() -> AnthropicClient:
-    """Configure and return the Anthropic client with tools."""
+def setup_client(client: str) -> Client:
+    """Configure and return the an LLM client with tools."""
     load_dotenv()
 
-    client = AnthropicClient(api_key=os.environ["ANTHROPIC_API_KEY"])
+    client = clients[client](api_key=os.environ[api_keys[client]])
 
     register_tools(client)
 
     return client
 
 
-def register_tools(client: AnthropicClient):
+def register_tools(client: Client):
     """Register tools using paths relative to container directory"""
     container_root = Path(__file__).parent.parent.parent  # Points to container/
     tool_dirs = [
@@ -56,3 +59,16 @@ def register_tools(client: AnthropicClient):
         if not tool_dir.exists():
             raise FileNotFoundError(f"Tool directory not found: {tool_dir}")
         client.register_tools(str(tool_dir))
+
+
+clients = {
+    "anthropic": AnthropicClient,
+    "xai": XAIClient,
+    "openai": OpenAIClient,
+}
+
+api_keys = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "xai": "XAI_API_KEY",
+    "openai": "OPENAI_API_KEY",
+}
