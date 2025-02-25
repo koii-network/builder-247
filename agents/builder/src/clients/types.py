@@ -8,7 +8,7 @@ class ToolDefinition(TypedDict):
     description: str
     parameters: Dict[str, str]  # JSON Schema object
     required: List[str]
-    return_value: bool
+    final_tool: bool
     function: Callable
 
 

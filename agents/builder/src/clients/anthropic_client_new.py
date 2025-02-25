@@ -1,4 +1,4 @@
-"""Anthropic/Claude API client implementation."""
+"""Anthropic API client implementation."""
 
 from typing import Dict, Any, Optional, List, Union
 from anthropic import Anthropic
@@ -18,14 +18,18 @@ from src.utils.errors import ClientAPIError
 
 
 class AnthropicClient(Client):
-    """Anthropic/Claude API client implementation."""
+    """Anthropic API client implementation."""
 
     def __init__(self, api_key: str, model: Optional[str] = None, **kwargs):
         super().__init__(model=model, **kwargs)
         self.client = Anthropic(api_key=api_key)
 
     def _get_default_model(self) -> str:
-        return "claude-3-haiku-20240307"
+        return "claude-3-5-haiku-latest"
+
+    def _get_api_name(self) -> str:
+        """Get API name for logging."""
+        return "Anthropic"
 
     def _convert_tool_to_api_format(self, tool: ToolDefinition) -> Dict[str, Any]:
         """Convert our tool definition to Anthropic's format."""

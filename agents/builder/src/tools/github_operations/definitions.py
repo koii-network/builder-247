@@ -62,7 +62,7 @@ DEFINITIONS = {
                 "acceptance_criteria",
             ],
         },
-        "return_value": True,
+        "final_tool": True,
         "function": create_pull_request,
     },
     "review_pull_request": {
@@ -122,7 +122,7 @@ DEFINITIONS = {
                 "action_items",
             ],
         },
-        "return_value": True,
+        "final_tool": True,
         "function": review_pull_request,
     },
     "validate_implementation": {
@@ -135,14 +135,51 @@ DEFINITIONS = {
                     "type": "boolean",
                     "description": "Whether the validation passed",
                 },
-                "reason": {
-                    "type": "string",
-                    "description": "Reason for failure if validation failed",
+                "test_results": {
+                    "type": "object",
+                    "description": "Results from running tests",
+                    "properties": {
+                        "passed": {"type": "array", "items": {"type": "string"}},
+                        "failed": {"type": "array", "items": {"type": "string"}},
+                    },
+                },
+                "criteria_status": {
+                    "type": "object",
+                    "description": "Status of each acceptance criterion",
+                    "properties": {
+                        "met": {"type": "array", "items": {"type": "string"}},
+                        "not_met": {"type": "array", "items": {"type": "string"}},
+                    },
+                },
+                "directory_check": {
+                    "type": "object",
+                    "description": "Results of directory structure validation",
+                    "properties": {
+                        "valid": {"type": "boolean"},
+                        "issues": {"type": "array", "items": {"type": "string"}},
+                    },
+                },
+                "issues": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of issues found during validation",
+                },
+                "required_fixes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of fixes needed to meet requirements",
                 },
             },
-            "required": ["success"],
+            "required": [
+                "success",
+                "test_results",
+                "criteria_status",
+                "directory_check",
+                "issues",
+                "required_fixes",
+            ],
         },
-        "return_value": True,
+        "final_tool": True,
         "function": validate_implementation,
     },
 }

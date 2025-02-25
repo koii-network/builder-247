@@ -33,14 +33,10 @@ if __name__ == "__main__":
 
 # Regular imports (PEP 8 compliant)
 from src.get_file_list import get_file_list
-from src.tools.git_operations.implementations import get_current_branch
 from src.workflows.setup_new import setup_client
 from src.workflows.prompts import PROMPTS
 from src.tools.github_operations.implementations import fork_repository
-from src.utils.retry import (
-    execute_tool_with_retry,
-    send_message_with_retry,
-)
+from src.utils.retry import send_message_with_retry
 
 # Ensure environment variables are loaded
 dotenv.load_dotenv()
@@ -91,107 +87,62 @@ def handle_tool_response(client, response):
     Handle tool responses until natural completion.
     If a tool has return_value=True, returns immediately after executing that tool.
     """
-    conversation_id = response["conversation_id"]  # Store conversation ID
-
-    while True:
-        tool_calls = get_tool_calls(response)
-        if not tool_calls:
-            break
-
-        # Process all tool calls in the current response
-        tool_results = []
-        for tool_call in tool_calls:
-            try:
-                # Check if this tool has return_value set
-                tool_definition = client.tools.get(tool_call["name"])
-                should_return = tool_definition and tool_definition.get(
-                    "return_value", False
-                )
-
-                # Execute the tool with retry logic
-                tool_output = execute_tool_with_retry(client, tool_call)
-
-                # Convert tool output to string if it's not already
-                tool_response_str = (
-                    str(tool_output) if tool_output is not None else None
-                )
-                if tool_response_str is None:
-                    log_error(
-                        Exception("Tool output is None, skipping message to Claude"),
-                        "Warning",
-                    )
-                    continue
-
-                # Add to results list
-                tool_results.append(
-                    {"tool_call_id": tool_call["id"], "response": tool_response_str}
-                )
-
-                # If this tool has return_value=True, return its result immediately
-                if should_return:
-                    return tool_results
-
-            except ClientAPIError:
-                # API errors are from our code, so we log them
-                raise
-
-            except Exception as e:
-                # Format error as a string for Claude but don't log it
-                error_response = {
-                    "success": False,
-                    "error": str(e),
-                    "tool_name": tool_call["name"],
-                    "input": tool_call["arguments"],
-                }
-                tool_results.append(
-                    {"tool_call_id": tool_call["id"], "response": str(error_response)}
-                )
-
-        # Send all tool results back to Claude in a single message
-        try:
-            response = send_message_with_retry(
-                client,
-                tool_response=json.dumps(tool_results),
-                conversation_id=conversation_id,
-            )
-        except Exception as send_error:
-            log_error(send_error, "Failed to send tool results to Claude")
-            raise
-
-    return tool_results
+    return client.handle_tool_response(response)
 
 
-def validate_acceptance_criteria(client, conversation_id, todo, acceptance_criteria):
+def validate_acceptance_criteria(client, todo, acceptance_criteria):
     """
     Validate that all acceptance criteria are met, including passing tests.
     Returns tuple of (bool, str) indicating success/failure and reason for failure.
     """
     log_section("VALIDATING ACCEPTANCE CRITERIA")
 
+    # Get the list of files
+    files = get_file_list(os.getcwd())
+    files_directory = ", ".join(map(str, files))
+
     validation_prompt = PROMPTS["validate_criteria"].format(
-        todo=todo, acceptance_criteria=acceptance_criteria
+        todo=todo,
+        acceptance_criteria=acceptance_criteria,
+        files_directory=files_directory,
     )
 
+    # Start a new conversation for validation
+    validation_conversation_id = client.create_conversation(system_prompt=None)
     response = send_message_with_retry(
         client,
         prompt=validation_prompt,
-        conversation_id=conversation_id,
+        conversation_id=validation_conversation_id,
     )
 
-    validation_results = handle_tool_response(client, response)
+    validation_results = client.handle_tool_response(response)
     if not validation_results:
         return False, "Failed to get validation result"
 
-    # Get the last result since that's the final validation
-    last_result = validation_results[-1]
+    # Find the validate_implementation result
     try:
-        response_dict = ast.literal_eval(last_result["response"])
-        if not response_dict.get("success", False):
-            return False, response_dict.get("error", "Unknown validation error")
-    except (ValueError, SyntaxError, AttributeError):
-        return False, f"Invalid validation response: {last_result['response']}"
+        # Look for the last validate_implementation result
+        validation_result = None
+        for result in validation_results:
+            try:
+                parsed = ast.literal_eval(result["response"])
+                if (
+                    isinstance(parsed, dict)
+                    and "success" in parsed
+                    and "message" in parsed
+                ):
+                    validation_result = parsed
+            except (ValueError, SyntaxError, AttributeError):
+                continue
 
-    return True, ""
+        if validation_result is None:
+            return False, "No validation result found in response"
+
+        return validation_result["success"], validation_result.get(
+            "message", "No validation message provided"
+        )
+    except Exception as e:
+        return False, f"Error processing validation result: {str(e)}"
 
 
 def todo_to_pr(
@@ -240,7 +191,7 @@ def todo_to_pr(
         os.chdir(repo_path)
 
         # Create client and conversation with system prompt
-        client = setup_client("xai")
+        client = setup_client("openai")
         conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info
@@ -262,9 +213,19 @@ def todo_to_pr(
             conversation_id=conversation_id,
             tool_choice={"type": "required", "tool": "create_branch"},
         )
-        handle_tool_response(client, branch_response)
-        branch_info = get_current_branch()
-        branch_name = branch_info.get("output") if branch_info.get("success") else None
+        branch_results = client.handle_tool_response(branch_response)
+        if not branch_results:
+            raise Exception("Failed to create branch")
+
+        # Get branch name from the result
+        branch_result = ast.literal_eval(branch_results[-1]["response"])
+        if not branch_result.get("success"):
+            raise Exception(f"Failed to create branch: {branch_result.get('error')}")
+        branch_name = branch_result.get("branch_name")
+
+        # Start new conversation for implementation phase
+        log_section("STARTING IMPLEMENTATION")
+        conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Implementation loop - try up to 3 times to meet all acceptance criteria
         max_implementation_attempts = 3
@@ -297,11 +258,11 @@ def todo_to_pr(
                 prompt=execute_todo_prompt,
                 conversation_id=conversation_id,
             )
-            handle_tool_response(client, execute_todo_response)
+            client.handle_tool_response(execute_todo_response)
 
             # Validate acceptance criteria
             is_valid, validation_message = validate_acceptance_criteria(
-                client, conversation_id, todo, acceptance_criteria
+                client, todo, acceptance_criteria
             )
 
             if is_valid:
@@ -320,20 +281,29 @@ def todo_to_pr(
 
         # Create PR with retries
         log_section("CREATING PULL REQUEST")
+
+        # Get the list of files
+        files = get_file_list(os.getcwd())
+        files_directory = ", ".join(map(str, files))
+
         create_pr_prompt = PROMPTS["create_pr"].format(
             repo_full_name=f"{repo_owner}/{repo_name}",
             head=branch_name,
             base="main",
             todo=todo,
             acceptance_criteria=acceptance_criteria,
+            files_directory=files_directory,
         )
+        # Start a new conversation for PR creation
+        pr_conversation_id = client.create_conversation(system_prompt=None)
         pr_response = send_message_with_retry(
             client,
             prompt=create_pr_prompt,
+            conversation_id=pr_conversation_id,
             tool_choice={"type": "required", "tool": "create_pull_request"},
         )
 
-        pr_results = handle_tool_response(client, pr_response)
+        pr_results = client.handle_tool_response(pr_response)
         if not pr_results:
             log_error(Exception("No PR result returned"), "PR creation failed")
             return None

@@ -1,7 +1,7 @@
 """Module for GitHub operations."""
 
 import os
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
 from src.tools.git_operations.implementations import (
@@ -115,7 +115,7 @@ def create_pull_request(
     repo_full_name: str,
     title: str,
     head: str,
-    summary: str,
+    description: str,
     tests: List[str],
     todo: str,
     acceptance_criteria: str,
@@ -139,7 +139,7 @@ def create_pull_request(
             todo=todo,
             title=title,
             acceptance_criteria=acceptance_criteria,
-            summary=summary,
+            description=description,
             tests=tests_bullets,
         )
 
@@ -321,18 +321,78 @@ def review_pull_request(
 
 
 def validate_implementation(
-    success: bool, reason: Optional[str] = ""
+    success: bool,
+    test_results: dict = None,
+    criteria_status: dict = None,
+    directory_check: dict = None,
+    issues: list = None,
+    required_fixes: list = None,
 ) -> Dict[str, Any]:
-    """Submit a validation result.
+    """Submit a validation result with formatted message.
 
     Args:
         success: Whether the validation passed
-        reason: Optional reason for failure
+        test_results: Dict with passed and failed test lists
+        criteria_status: Dict with met and not_met criteria lists
+        directory_check: Dict with valid boolean and issues list
+        issues: List of issues found
+        required_fixes: List of fixes needed
 
     Returns:
-        Dict containing the validation result
+        Dict containing the validation result and formatted message
     """
-    return {
-        "success": success,
-        "reason": reason,
-    }
+    try:
+        # Format a detailed validation message
+        message = []
+
+        # Add test results
+        if test_results and test_results.get("failed"):
+            message.append("Failed Tests:")
+            message.extend(f"- {test}" for test in test_results["failed"])
+            message.append("")
+
+        # Add unmet criteria
+        if criteria_status and criteria_status.get("not_met"):
+            message.append("Unmet Acceptance Criteria:")
+            message.extend(f"- {criterion}" for criterion in criteria_status["not_met"])
+            message.append("")
+
+        # Add directory issues
+        if directory_check and directory_check.get("issues"):
+            message.append("Directory Structure Issues:")
+            message.extend(f"- {issue}" for issue in directory_check["issues"])
+            message.append("")
+
+        # Add other issues
+        if issues:
+            message.append("Other Issues:")
+            message.extend(f"- {issue}" for issue in issues)
+            message.append("")
+
+        # Add required fixes
+        if required_fixes:
+            message.append("Required Fixes:")
+            message.extend(f"- {fix}" for fix in required_fixes)
+
+        return {
+            "success": success,
+            "message": (
+                "\n".join(message) if not success else "All acceptance criteria met"
+            ),
+            "test_results": test_results or {"passed": [], "failed": []},
+            "criteria_status": criteria_status or {"met": [], "not_met": []},
+            "directory_check": directory_check or {"valid": False, "issues": []},
+            "issues": issues or [],
+            "required_fixes": required_fixes or [],
+        }
+    except Exception as e:
+        # If anything goes wrong, return a properly formatted error response
+        return {
+            "success": False,
+            "message": f"Validation failed: {str(e)}",
+            "test_results": {"passed": [], "failed": []},
+            "criteria_status": {"met": [], "not_met": []},
+            "directory_check": {"valid": False, "issues": []},
+            "issues": [str(e)],
+            "required_fixes": [],
+        }

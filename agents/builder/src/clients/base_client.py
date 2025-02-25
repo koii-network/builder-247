@@ -5,8 +5,9 @@ from typing import Dict, Any, Optional, List, Callable
 from pathlib import Path
 import importlib.util
 from .conversation_manager import ConversationManager
-from .types import ToolDefinition, MessageContent, ToolCall, ToolChoice
-from src.utils.logging import log_section, log_key_value
+from .types import ToolDefinition, MessageContent, ToolCall, ToolChoice, ToolCallContent
+from src.utils.logging import log_section, log_key_value, log_error
+from src.utils.errors import ClientAPIError
 import json
 import ast
 
@@ -23,10 +24,16 @@ class Client(ABC):
         self.model = self._get_default_model() if model is None else model
         self.tools: Dict[str, ToolDefinition] = {}
         self.tool_functions: Dict[str, Callable] = {}
+        self.api_name = self._get_api_name()
 
     @abstractmethod
     def _get_default_model(self) -> str:
         """Get the default model for this API."""
+        pass
+
+    @abstractmethod
+    def _get_api_name(self) -> str:
+        """Get the name of the API."""
         pass
 
     @abstractmethod
@@ -132,6 +139,23 @@ class Client(ABC):
 
         return result
 
+    @abstractmethod
+    def _format_tool_response(self, response: str) -> MessageContent:
+        """Format a tool response into a message.
+
+        The response must be a JSON string of [{tool_call_id, response}, ...] representing
+        one or more tool results.
+        """
+        pass
+
+    def _should_split_tool_responses(self) -> bool:
+        """Whether to send each tool response as a separate message.
+
+        Override this in client implementations that require separate messages
+        for each tool response (e.g. OpenAI).
+        """
+        return False
+
     def send_message(
         self,
         prompt: Optional[str] = None,
@@ -149,6 +173,7 @@ class Client(ABC):
         log_section("SENDING MESSAGE TO AGENT")
         if is_retry:
             log_key_value("Is Retry", "True")
+
         if conversation_id:
             log_key_value("Conversation ID", conversation_id)
         if prompt:
@@ -197,13 +222,28 @@ class Client(ABC):
                 self.storage.save_message(conversation_id, "user", prompt)
                 messages.append({"role": "user", "content": prompt})
             elif tool_response:
-                formatted_response = self._format_tool_response(tool_response)
-                self.storage.save_message(
-                    conversation_id,
-                    formatted_response["role"],
-                    formatted_response["content"],
-                )
-                messages.append(formatted_response)
+                if self._should_split_tool_responses():
+                    # Send each tool response as a separate message
+                    results = json.loads(tool_response)
+                    for result in results:
+                        formatted_response = self._format_tool_response(
+                            json.dumps([result])
+                        )
+                        self.storage.save_message(
+                            conversation_id,
+                            formatted_response["role"],
+                            formatted_response["content"],
+                        )
+                        messages.append(formatted_response)
+                else:
+                    # Send all tool responses in one message
+                    formatted_response = self._format_tool_response(tool_response)
+                    self.storage.save_message(
+                        conversation_id,
+                        formatted_response["role"],
+                        formatted_response["content"],
+                    )
+                    messages.append(formatted_response)
 
         # Make API call
         response = self._make_api_call(
@@ -238,14 +278,106 @@ class Client(ABC):
 
         return converted_response
 
-    @abstractmethod
-    def _format_tool_response(self, response: str) -> MessageContent:
-        """Format a tool response into a message.
+    def _get_tool_calls(self, msg: MessageContent) -> List[ToolCallContent]:
+        """Return all tool call blocks from the message."""
+        tool_calls = []
+        for block in msg["content"]:
+            if block["type"] == "tool_call":
+                tool_calls.append(block["tool_call"])
+        return tool_calls
 
-        The response must be a JSON string of [{tool_call_id, response}, ...] representing
-        one or more tool results.
+    def handle_tool_response(self, response):
         """
-        pass
+        Handle tool responses until natural completion.
+        If a tool has final_tool=True and was successful, returns immediately after executing that tool.
+        """
+        conversation_id = response["conversation_id"]  # Store conversation ID
+
+        while True:
+            tool_calls = self._get_tool_calls(response)
+            if not tool_calls:
+                break  # No more tool calls, we're done
+
+            # Process all tool calls in the current response
+            tool_results = []
+            for tool_call in tool_calls:
+                try:
+                    # Check if this tool has final_tool set
+                    tool_definition = self.tools.get(tool_call["name"])
+                    should_return = tool_definition and tool_definition.get(
+                        "final_tool", False
+                    )
+
+                    # Execute the tool with retry logic
+                    tool_output = self.execute_tool(tool_call)
+
+                    # Convert tool output to string if it's not already
+                    tool_response_str = (
+                        str(tool_output) if tool_output is not None else None
+                    )
+                    if tool_response_str is None:
+                        log_error(
+                            Exception("Tool output is None, skipping message to agent"),
+                            "Warning",
+                        )
+                        # Add error response for this tool call
+                        tool_results.append(
+                            {
+                                "tool_call_id": tool_call["id"],
+                                "response": str(
+                                    {"success": False, "error": "Tool output is None"}
+                                ),
+                            }
+                        )
+                        continue
+
+                    # Add to results list
+                    tool_results.append(
+                        {"tool_call_id": tool_call["id"], "response": tool_response_str}
+                    )
+
+                    # If this tool has final_tool=True and was successful, return its result
+                    if should_return:
+                        try:
+                            result = ast.literal_eval(tool_response_str)
+                            if isinstance(result, dict) and result.get(
+                                "success", False
+                            ):
+                                return tool_results
+                        except (ValueError, SyntaxError):
+                            pass  # Continue if we can't parse the response
+
+                except ClientAPIError:
+                    # API errors are from our code, so we log them
+                    raise
+
+                except Exception as e:
+                    # Format error as a string for Claude but don't log it
+                    error_response = {
+                        "success": False,
+                        "error": str(e),
+                        "tool_name": tool_call["name"],
+                        "input": tool_call["arguments"],
+                    }
+                    tool_results.append(
+                        {
+                            "tool_call_id": tool_call["id"],
+                            "response": str(error_response),
+                        }
+                    )
+
+            # Send tool results back to the agent and get next response
+            try:
+                response = self.send_message(
+                    tool_response=json.dumps(tool_results),
+                    conversation_id=conversation_id,
+                )
+            except Exception:
+                # Error already logged in _make_api_call
+                raise
+
+        # Return the last set of tool results
+        return tool_results
 
 
 class PreLoggedError(Exception):

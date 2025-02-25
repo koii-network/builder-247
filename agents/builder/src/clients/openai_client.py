@@ -37,7 +37,11 @@ class OpenAIClient(Client):
         return "OpenAI"
 
     def _get_default_model(self) -> str:
-        return "gpt-4-turbo-preview"
+        return "gpt-4o-mini"
+
+    def _should_split_tool_responses(self) -> bool:
+        """OpenAI requires separate messages for each tool response."""
+        return True
 
     def _convert_tool_to_api_format(self, tool: ToolDefinition) -> Dict[str, Any]:
         """Convert our tool definition to OpenAI's function format."""
@@ -56,6 +60,22 @@ class OpenAIClient(Client):
 
         # Handle string content
         if isinstance(content, str):
+            # If this is a tool response message, parse it
+            if message["role"] == "tool":
+                try:
+                    # Try parsing as a list of tool responses first
+                    parsed = json.loads(content)
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        # Get first tool response
+                        result = parsed[0]
+                        return {
+                            "role": "tool",
+                            "tool_call_id": result["tool_call_id"],
+                            "content": result["response"],
+                        }
+                except (json.JSONDecodeError, KeyError):
+                    pass
+            # Otherwise treat as normal text content
             return {
                 "role": message["role"],
                 "content": content,
@@ -63,7 +83,6 @@ class OpenAIClient(Client):
 
         # Handle list of content blocks
         api_content = ""
-        function_call = None
         tool_calls = []
 
         for block in content:
@@ -72,6 +91,7 @@ class OpenAIClient(Client):
             elif block["type"] == "tool_call":
                 tool_calls.append(
                     {
+                        "type": "function",  # OpenAI requires this field
                         "id": block["tool_call"]["id"],
                         "function": {
                             "name": block["tool_call"]["name"],
@@ -80,10 +100,13 @@ class OpenAIClient(Client):
                     }
                 )
             elif block["type"] == "tool_response":
+                # For tool responses, we need to include tool_call_id
                 return {
-                    "role": "function",
+                    "role": "tool",  # OpenAI uses 'tool' role
+                    "tool_call_id": block["tool_response"][
+                        "tool_call_id"
+                    ],  # Required by OpenAI
                     "content": block["tool_response"]["content"],
-                    "name": block["tool_response"]["tool_call_id"],
                 }
 
         message_dict = {"role": message["role"]}
@@ -91,8 +114,6 @@ class OpenAIClient(Client):
             message_dict["content"] = api_content
         if tool_calls:
             message_dict["tool_calls"] = tool_calls
-        if function_call:
-            message_dict["function_call"] = function_call
 
         return message_dict
 
@@ -123,12 +144,7 @@ class OpenAIClient(Client):
     def _convert_tool_choice_to_api_format(
         self, tool_choice: ToolChoice
     ) -> Dict[str, Any]:
-        """Convert our tool choice format to OpenAI's format.
-
-        Our format:
-        - {"type": "optional"} -> "auto"
-        - {"type": "required", "tool": "my_tool"} -> {"type": "function", "function": {"name": "my_tool"}}
-        """
+        """Convert our tool choice format to OpenAI's format."""
         if tool_choice["type"] == "optional":
             return "auto"
         elif tool_choice["type"] == "required":
@@ -183,7 +199,7 @@ class OpenAIClient(Client):
             # Only wrap actual API errors
             log_error(
                 e,
-                context=f"Error making API call to {self._get_api_name()}",
+                context=f"Error making API call to {self.api_name}",
                 include_traceback=not is_retryable_error(e),
             )
             raise ClientAPIError(e)
@@ -193,10 +209,14 @@ class OpenAIClient(Client):
 
         The response must be a JSON string of [{tool_call_id, response}, ...] representing
         one or more tool results.
+
+        For OpenAI, each tool response must be a separate message with its own tool_call_id.
         """
         results = json.loads(response)
+        # Return just the first tool response - the client will handle sending each one
+        result = results[0]  # Take first result
         return {
-            "role": "function",  # OpenAI uses 'function' role for responses
+            "role": "tool",
             "content": [
                 {
                     "type": "tool_response",
@@ -205,6 +225,5 @@ class OpenAIClient(Client):
                         "content": result["response"],
                     },
                 }
-                for result in results
             ],
         }
