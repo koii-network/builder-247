@@ -1,13 +1,14 @@
 """Database package."""
 
-from .db import Database, get_db
-from .models import Log, Conversation, Message, Submission
+from .database import get_db, get_session, initialize_database
+from .models import Conversation, Message, Submission, Log
 
 __all__ = [
-    "Database",
     "get_db",
-    "Log",
+    "get_session",
+    "initialize_database",
     "Conversation",
     "Message",
     "Submission",
+    "Log",
 ]

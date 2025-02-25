@@ -3,7 +3,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Callable
 from pathlib import Path
-import os
 import importlib.util
 from .conversation_manager import ConversationManager
 from .types import ToolDefinition, MessageContent, ToolCall, ToolChoice
@@ -18,13 +17,9 @@ class Client(ABC):
     def __init__(
         self,
         model: Optional[str] = None,
-        db_path: Optional[Path] = None,
     ):
         """Initialize the client."""
-        if not db_path:
-            db_path = Path(os.getenv("DATABASE_PATH", "./conversations.db"))
-
-        self.storage = ConversationManager(db_path)
+        self.storage = ConversationManager()
         self.model = self._get_default_model() if model is None else model
         self.tools: Dict[str, ToolDefinition] = {}
         self.tool_functions: Dict[str, Callable] = {}
@@ -61,19 +56,7 @@ class Client(ABC):
         pass
 
     def register_tools(self, definitions_path: str) -> List[str]:
-        """Register tools from a definitions file.
-
-        Args:
-            definitions_path: Path to the folder containing the definitions.py file
-
-        Returns:
-            List of registered tool names
-
-        Raises:
-            ValueError: If file doesn't exist or doesn't contain DEFINITIONS
-            ImportError: If module cannot be loaded
-            ValueError: If attempting to register a tool that already exists
-        """
+        """Register tools from a definitions file."""
         path = Path(definitions_path) / "definitions.py"
         if not path.exists():
             raise ValueError(f"Definitions file not found: {path}")
@@ -159,9 +142,6 @@ class Client(ABC):
         is_retry: bool = False,
     ) -> Any:
         """Send a message to the LLM."""
-        if not self.storage:
-            raise ValueError("Storage not configured - db_path required")
-
         if not prompt and not tool_response:
             raise ValueError("Prompt or tool response must be provided")
 
@@ -202,7 +182,7 @@ class Client(ABC):
 
         # Create or get conversation
         if not conversation_id:
-            conversation_id = self.storage.create_conversation(model=self.model)
+            conversation_id = self.create_conversation(system_prompt=None)
 
         # Get conversation details including system prompt
         conversation = self.storage.get_conversation(conversation_id)

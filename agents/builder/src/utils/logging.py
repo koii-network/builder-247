@@ -8,6 +8,7 @@ from pathlib import Path
 from functools import wraps
 import ast
 from colorama import init, Fore, Style
+import json
 
 # Initialize colorama for cross-platform color support
 init()
@@ -88,7 +89,42 @@ def configure_logging():
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
 
-        logger.info("Logging configured: INFO+ to console")
+        # Set up database logging
+        from src.database import get_db, Log, initialize_database
+
+        # Initialize database tables
+        initialize_database()
+
+        # Create database handler
+        class DatabaseHandler(logging.Handler):
+            def emit(self, record):
+                if record.levelno >= logging.ERROR:  # Only log errors to database
+                    try:
+                        db = get_db()
+                        log = Log(
+                            level=record.levelname,
+                            message=record.getMessage(),
+                            module=record.module,
+                            function=record.funcName,
+                            path=record.pathname,
+                            line_no=record.lineno,
+                            exception=getattr(record, "exc_info", None)
+                            and str(record.exc_info[1]),
+                            stack_trace=getattr(record, "exc_info", None)
+                            and "\n".join(traceback.format_tb(record.exc_info[2])),
+                            additional_data=getattr(record, "additional_data", None),
+                        )
+                        db.add(log)
+                        db.commit()
+                    except Exception as e:
+                        # Fallback to stderr if database logging fails
+                        print(f"Failed to log to database: {e}", file=sys.stderr)
+
+        db_handler = DatabaseHandler()
+        db_handler.setLevel(logging.ERROR)  # Only capture errors
+        logger.addHandler(db_handler)
+
+        logger.info("Logging configured: INFO+ to console, ERROR+ to database")
         _logging_configured = True
 
     except Exception as e:
@@ -198,21 +234,27 @@ def log_error(
             logger.info(line.rstrip())
 
     # Also save to database
-    from src.database import get_db
+    from src.database import get_db, Log
 
-    db = get_db()
-    db.save_log(
-        level="ERROR",
-        message=str(error),
-        module=error.__class__.__module__,
-        function=error.__class__.__name__,
-        stack_trace=(
-            "\n".join(traceback.format_tb(error.__traceback__))
-            if include_traceback and error.__traceback__
-            else None
-        ),
-        additional_data={"context": context} if context else None,
-    )
+    try:
+        db = get_db()
+        log = Log(
+            level="ERROR",
+            message=str(error),
+            module=error.__class__.__module__,
+            function=error.__class__.__name__,
+            stack_trace=(
+                "\n".join(traceback.format_tb(error.__traceback__))
+                if include_traceback and error.__traceback__
+                else None
+            ),
+            additional_data=json.dumps({"context": context}) if context else None,
+        )
+        db.add(log)
+        db.commit()
+    except Exception as e:
+        # Fallback to standard error output if database logging fails
+        print(f"Failed to log to database: {e}", file=sys.stderr)
 
 
 def log_execution_time(func):

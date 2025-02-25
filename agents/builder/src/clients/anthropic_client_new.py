@@ -15,7 +15,6 @@ from .types import (
 from src.utils.retry import is_retryable_error
 from src.utils.logging import log_error
 from src.utils.errors import ClientAPIError
-from src.database import get_db
 
 
 class AnthropicClient(Client):
@@ -24,7 +23,6 @@ class AnthropicClient(Client):
     def __init__(self, api_key: str, model: Optional[str] = None, **kwargs):
         super().__init__(model=model, **kwargs)
         self.client = Anthropic(api_key=api_key)
-        self.db = get_db()
 
     def _get_default_model(self) -> str:
         return "claude-3-haiku-20240307"
@@ -188,30 +186,30 @@ class AnthropicClient(Client):
         tool_choice: Optional[ToolChoice] = None,
         tool_response: Optional[str] = None,
         is_retry: bool = False,
-    ) -> Message:
-        """Send a message to Claude, automatically managing conversation history."""
+    ) -> Any:
+        """Send a message to Claude."""
         if not prompt and not tool_response:
             raise ValueError("Prompt or tool response must be provided")
 
         # Create or get conversation
         if not conversation_id:
-            conversation_id = self.db.create_conversation(model=self.model)
+            conversation_id = self.storage.create_conversation(self.model)
 
         # Get conversation details including system prompt
-        conversation = self.db.get_conversation(conversation_id)
+        conversation = self.storage.get_conversation(conversation_id)
         system_prompt = conversation.get("system_prompt")
 
         # Get previous messages
-        messages = self.db.get_messages(conversation_id)
+        messages = self.storage.get_messages(conversation_id)
 
         # Add new message if it's a prompt or tool response and not a retry
         if not is_retry:
             if prompt:
-                self.db.save_message(conversation_id, "user", prompt)
+                self.storage.save_message(conversation_id, "user", prompt)
                 messages.append({"role": "user", "content": prompt})
             elif tool_response:
                 formatted_response = self._format_tool_response(tool_response)
-                self.db.save_message(
+                self.storage.save_message(
                     conversation_id,
                     formatted_response["role"],
                     formatted_response["content"],
@@ -234,7 +232,7 @@ class AnthropicClient(Client):
 
         # Save to storage if not a retry
         if not is_retry:
-            self.db.save_message(
+            self.storage.save_message(
                 conversation_id, "assistant", converted_response["content"]
             )
 

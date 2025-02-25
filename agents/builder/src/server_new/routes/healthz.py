@@ -1,5 +1,5 @@
-from flask import Blueprint
-from src.server.services.database import get_db
+from flask import Blueprint, jsonify
+from src.database import get_db
 import logging
 
 logger = logging.getLogger(__name__)
@@ -7,8 +7,8 @@ logger = logging.getLogger(__name__)
 bp = Blueprint("healthz", __name__)
 
 
-@bp.route("/healthz", methods=["POST"])
-def health_check():
-    logger.info("Health check")
-    get_db()
-    return "OK"
+@bp.route("/healthz")
+def healthz():
+    # Test database connection
+    _ = get_db()
+    return jsonify({"status": "ok"})

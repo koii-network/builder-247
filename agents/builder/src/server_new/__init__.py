@@ -3,8 +3,7 @@
 from flask import Flask, request
 from .routes import task, submission, audit, healthz, submit_pr
 from src.utils.logging import configure_logging, log_section, log_key_value
-from src.server_new.utils.db_logging import setup_db_logging
-from .services.database import close_db, initialize_database
+from src.database import close_db, initialize_database
 from .middleware import add_error_headers
 import uuid
 import multiprocessing
@@ -36,10 +35,8 @@ def create_app():
 
     # Configure logging within app context
     with app.app_context():
-        # Set up basic logging first
+        # Set up logging (includes both console and database logging)
         configure_logging()
-        # Then add database logging
-        setup_db_logging()
         # Initialize database
         initialize_database()
         # Disable Flask's default logging
