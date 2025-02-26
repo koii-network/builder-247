@@ -61,21 +61,19 @@ def run_tests(
 
     result = execute_command(command)
 
-    if not result["success"]:
-        error_msg = []
-        if result.get("stdout"):
-            error_msg.append("Test output:\n" + result["stdout"])
-        if result.get("stderr"):
-            error_msg.append("Error output:\n" + result["stderr"])
-        error = "\n".join(error_msg) if error_msg else "Tests failed with no output"
-        return {
-            "success": False,
-            "message": error,
-            "data": result["data"],
-        }
+    # Combine stdout and stderr for complete test output
+    output = []
+    if result["data"]["stdout"]:
+        output.append(result["data"]["stdout"])
+    if result["data"]["stderr"]:
+        output.append(result["data"]["stderr"])
 
+    output_str = "\n".join(output) if output else "No test output captured"
+
+    # Return success=True only if tests passed (returncode=0)
+    # But always include the test output in the message
     return {
-        "success": True,
-        "message": "Tests completed successfully",
-        "data": result["data"],
+        "success": result["data"]["returncode"] == 0,
+        "message": output_str,
+        "data": {"output": output_str, "returncode": result["data"]["returncode"]},
     }
