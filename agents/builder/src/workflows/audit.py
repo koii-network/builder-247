@@ -15,7 +15,7 @@ from src.utils.logging import (
     log_error,
     configure_logging,
 )
-from agents.builder.src.types import MessageContent, ToolCallContent
+from src.types import MessageContent, ToolCallContent
 from src.database import get_db
 from typing import List
 import json
@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
 # Regular imports (PEP 8 compliant)
 from src.get_file_list import get_file_list
-from agents.builder.src.workflows.setup_repo import setup_client
+from src.workflows.setup_repo import setup_client
 from src.utils.retry import (
     execute_tool_with_retry,
     send_message_with_retry,

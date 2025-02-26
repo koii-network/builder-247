@@ -9,7 +9,7 @@ from src.tools.git_operations.implementations import (
     pull_remote,
 )
 from src.utils.logging import log_key_value, log_error
-from src.clients.types import ToolOutput
+from src.types import ToolOutput
 
 import time
 from git import Repo, GitCommandError

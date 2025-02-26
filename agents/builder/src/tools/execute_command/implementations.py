@@ -1,6 +1,6 @@
 import subprocess
 import os
-from src.clients.types import ToolOutput
+from src.types import ToolOutput
 
 
 def execute_command(command: str) -> ToolOutput:

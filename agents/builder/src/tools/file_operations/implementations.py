@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from src.tools.git_operations.implementations import commit_and_push
 from git import Repo
-from src.clients.types import ToolOutput
+from src.types import ToolOutput
 
 
 def _normalize_path(path: str) -> str:

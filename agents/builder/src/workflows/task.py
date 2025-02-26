@@ -14,7 +14,7 @@ from typing import List
 import json
 import ast
 
-from src.get_file_list import get_file_list
+from src.tools.file_operations.implementations import list_files
 from src.clients import setup_client
 from src.workflows.prompts import PROMPTS
 from src.tools.github_operations.implementations import fork_repository
@@ -26,7 +26,7 @@ from src.utils.logging import (
     log_error,
     configure_logging,
 )
-from src.clients.types import MessageContent, ToolCallContent
+from src.types import MessageContent, ToolCallContent
 from src.database import get_db, Log
 
 # Ensure environment variables are loaded
@@ -89,7 +89,11 @@ def validate_acceptance_criteria(client, todo, acceptance_criteria):
     log_section("VALIDATING ACCEPTANCE CRITERIA")
 
     # Get the list of files
-    files = get_file_list(os.getcwd())
+    files_result = list_files(os.getcwd())
+    if not files_result["success"]:
+        return False, f"Failed to get file list: {files_result['message']}"
+
+    files = files_result["data"]["files"]
     files_directory = ", ".join(map(str, files))
 
     validation_prompt = PROMPTS["validate_criteria"].format(
@@ -229,7 +233,11 @@ def todo_to_pr(
             )
 
             # Get the list of files
-            files = get_file_list(repo_path)
+            files_result = list_files(repo_path)
+            if not files_result["success"]:
+                raise Exception(f"Failed to get file list: {files_result['message']}")
+
+            files = files_result["data"]["files"]
             log_key_value("Found files", len(files))
             files_directory = ", ".join(map(str, files))
 
@@ -276,7 +284,11 @@ def todo_to_pr(
         log_section("CREATING PULL REQUEST")
 
         # Get the list of files
-        files = get_file_list(os.getcwd())
+        files_result = list_files(os.getcwd())
+        if not files_result["success"]:
+            raise Exception(f"Failed to get file list: {files_result['message']}")
+
+        files = files_result["data"]["files"]
         files_directory = ", ".join(map(str, files))
 
         create_pr_prompt = PROMPTS["create_pr"].format(

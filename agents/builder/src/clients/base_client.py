@@ -5,7 +5,13 @@ from typing import Dict, Any, Optional, List, Callable
 from pathlib import Path
 import importlib.util
 from .conversation_manager import ConversationManager
-from ..types import ToolDefinition, MessageContent, ToolCall, ToolChoice, ToolCallContent
+from ..types import (
+    ToolDefinition,
+    MessageContent,
+    ToolCall,
+    ToolChoice,
+    ToolCallContent,
+)
 from src.utils.logging import log_section, log_key_value, log_error
 from src.utils.errors import ClientAPIError
 from src.utils.retry import is_retryable_error
@@ -58,17 +64,10 @@ class Client(ABC):
         messages: List[Dict[str, Any]],
         system_prompt: Optional[str] = None,
         max_tokens: Optional[int] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
-    ) -> Any:
-        """Make API call with API-specific parameters.
-
-        Args:
-            messages: List of messages in API-specific format
-            system_prompt: Optional system prompt
-            max_tokens: Optional max tokens
-            tools: Optional list of tools in API-specific format
-            tool_choice: Optional tool choice in API-specific format
-        """
+    ) -> Dict[str, Any]:
+        """Make API call to the LLM."""
         pass
 
     def register_tools(self, tools_dir: str) -> List[str]:
@@ -209,17 +208,17 @@ class Client(ABC):
                     # For successful operations, show the main result or message
                     if "message" in result:
                         log_key_value("Message", result["message"])
-                    # Show other relevant fields (excluding success flag and error)
+                    # Show other relevant fields (excluding success flag)
                     for key, value in result.items():
-                        if key not in ["success", "error", "message"]:
+                        if key not in ["success", "message"]:
                             log_key_value(key, value)
                 else:
                     log_key_value("Status", "✗ Failed")
-                    if "error" in result:
-                        log_key_value("Error", result["error"])
+                    if "message" in result:
+                        log_key_value("Error", result["message"])
                         # For final tools, raise an error with the error message
                         if tool.get("final_tool"):
-                            raise Exception(result["error"])
+                            raise Exception(result["message"])
             else:
                 # For other responses, just show key-value pairs
                 for key, value in result.items():
@@ -470,7 +469,10 @@ class Client(ABC):
                             {
                                 "tool_call_id": tool_call["id"],
                                 "response": str(
-                                    {"success": False, "error": "Tool output is None"}
+                                    {
+                                        "success": False,
+                                        "message": "Tool output is None",
+                                    }
                                 ),
                             }
                         )
@@ -501,7 +503,7 @@ class Client(ABC):
                     # Format error as a string for Claude but don't log it
                     error_response = {
                         "success": False,
-                        "error": str(e),
+                        "message": str(e),
                         "tool_name": tool_call["name"],
                         "input": tool_call["arguments"],
                     }

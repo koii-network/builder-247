@@ -4,8 +4,8 @@ import requests
 import os
 from flask import jsonify
 from src.database import get_db, Submission
-from agents.builder.src.workflows.task import todo_to_pr
-from agents.builder.src.workflows.audit import review_pr
+from src.workflows.task import todo_to_pr
+from src.workflows.audit import review_pr
 from src.workflows.prompts import REVIEW_SYSTEM_PROMPT
 import logging
 

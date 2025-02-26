@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from git import Repo, GitCommandError
 from src.utils.logging import log_key_value, log_error
-from src.clients.types import ToolOutput
+from src.types import ToolOutput
 
 import time
 
@@ -381,25 +381,31 @@ def add_remote(name: str, url: str) -> ToolOutput:
         }
 
 
-def fetch_remote(remote_name: str) -> ToolOutput:
-    """Fetch from a remote in the current repository."""
+def fetch_remote(repo_path: str, remote_name: str) -> ToolOutput:
+    """Fetch from a remote repository.
+
+    Args:
+        repo_path (str): Path to the git repository
+        remote_name (str): Name of the remote to fetch from
+
+    Returns:
+        ToolOutput: A dictionary containing:
+            - success (bool): Whether the operation succeeded
+            - message (str): A human readable message
+            - data (dict): None
+    """
     try:
-        repo_path = os.getcwd()
         repo = _get_repo(repo_path)
-        log_key_value("Fetching from remote", remote_name)
-        remote = repo.remotes[remote_name]
-        remote.fetch()
+        repo.git.fetch(remote_name)
         return {
             "success": True,
             "message": f"Successfully fetched from {remote_name}",
-            "data": {"remote": remote_name},
+            "data": None,
         }
-    except GitCommandError as e:
-        error_msg = f"Failed to fetch from remote: {str(e)}"
-        log_error(e, error_msg)
+    except Exception as e:
         return {
             "success": False,
-            "message": error_msg,
+            "message": f"Failed to fetch from {remote_name}: {str(e)}",
             "data": None,
         }
 
