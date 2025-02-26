@@ -181,58 +181,76 @@ class Client(ABC):
 
     def execute_tool(self, tool_call: ToolCall) -> str:
         """Execute a tool and return its response."""
-        tool_name = tool_call["name"]
-        tool_args = tool_call["arguments"]
+        try:
+            tool_name = tool_call["name"]
+            tool_args = tool_call["arguments"]
 
-        if tool_name not in self.tools:
-            raise ValueError(f"Unknown tool: {tool_name}")
+            if tool_name not in self.tools:
+                return {
+                    "success": False,
+                    "message": f"Unknown tool: {tool_name}",
+                    "data": None,
+                }
 
-        # Log tool call
-        log_section("EXECUTING TOOL")
-        log_key_value("Tool", tool_name)
-        if tool_args:
-            log_key_value("INPUTS:", "")
-            for key, value in tool_args.items():
-                log_key_value(key, value)
-
-        tool = self.tools[tool_name]
-        result = tool["function"](**tool_args)
-
-        # Log result
-        log_key_value("RESULT:", "")
-        if isinstance(result, dict):
-            # Handle success/failure responses
-            if "success" in result:
-                if result["success"]:
-                    log_key_value("Status", "✓ Success")
-                    # For successful operations, show the main result or message
-                    if "message" in result:
-                        log_key_value("Message", result["message"])
-                    # Show other relevant fields (excluding success flag)
-                    for key, value in result.items():
-                        if key not in ["success", "message"]:
-                            log_key_value(key, value)
-                else:
-                    log_key_value("Status", "✗ Failed")
-                    if "message" in result:
-                        log_key_value("Error", result["message"])
-                        # For final tools, raise an error with the error message
-                        if tool.get("final_tool"):
-                            raise Exception(result["message"])
-            else:
-                # For other responses, just show key-value pairs
-                for key, value in result.items():
+            # Log tool call
+            log_section("EXECUTING TOOL")
+            log_key_value("Tool", tool_name)
+            if tool_args:
+                log_key_value("INPUTS:", "")
+                for key, value in tool_args.items():
                     log_key_value(key, value)
-        else:
-            log_key_value("Output", result)
 
-        # For final tools, ensure we have a valid response
-        if tool.get("final_tool") and (
-            not result or not isinstance(result, dict) or "success" not in result
-        ):
-            raise Exception("Invalid response from final tool")
+            tool = self.tools[tool_name]
+            result = tool["function"](**tool_args)
 
-        return result
+            # Log result
+            log_key_value("RESULT:", "")
+            if isinstance(result, dict):
+                # Handle success/failure responses
+                if "success" in result:
+                    if result["success"]:
+                        log_key_value("Status", "✓ Success")
+                        # For successful operations, show the main result or message
+                        if "message" in result:
+                            log_key_value("Message", result["message"])
+                        # Show other relevant fields (excluding success flag)
+                        for key, value in result.items():
+                            if key not in ["success", "message"]:
+                                log_key_value(key, value)
+                    else:
+                        log_key_value("Status", "✗ Failed")
+                        if "message" in result:
+                            log_key_value("Error", result["message"])
+                            # For final tools, convert error to failed response
+                            if tool.get("final_tool"):
+                                return {
+                                    "success": False,
+                                    "message": result["message"],
+                                    "data": None,
+                                }
+                else:
+                    # For other responses, just show key-value pairs
+                    for key, value in result.items():
+                        log_key_value(key, value)
+            else:
+                log_key_value("Output", result)
+
+            # For final tools, ensure we have a valid response
+            if tool.get("final_tool") and (
+                not result or not isinstance(result, dict) or "success" not in result
+            ):
+                return {
+                    "success": False,
+                    "message": "Invalid response from final tool",
+                    "data": None,
+                }
+
+            return result
+
+        except Exception as e:
+            log_key_value("Status", "✗ Failed")
+            log_key_value("Error", str(e))
+            return {"success": False, "message": str(e), "data": None}
 
     @abstractmethod
     def _format_tool_response(self, response: str) -> MessageContent:
@@ -433,99 +451,68 @@ class Client(ABC):
         """
         Handle tool responses until natural completion.
         If a tool has final_tool=True and was successful, returns immediately after executing that tool.
+        Otherwise continues until the agent has no more tool calls.
         """
-        conversation_id = response["conversation_id"]  # Store conversation ID
-        last_tool_results = None  # Keep track of last tool results
+        conversation_id = response["conversation_id"]
+        last_results = []  # Track the most recent results
 
         while True:
             tool_calls = self._get_tool_calls(response)
             if not tool_calls:
-                break  # No more tool calls, we're done
+                # No more tool calls, return the last results we got
+                return last_results
 
             # Process all tool calls in the current response
             tool_results = []
             for tool_call in tool_calls:
                 try:
-                    # Check if this tool has final_tool set
-                    tool_definition = self.tools.get(tool_call["name"])
-                    should_return = tool_definition and tool_definition.get(
-                        "final_tool", False
-                    )
+                    # Execute the tool
+                    result = self.execute_tool(tool_call)
+                    if not result:
+                        result = {
+                            "success": False,
+                            "message": "Tool output is None",
+                            "data": None,
+                        }
 
-                    # Execute the tool with retry logic
-                    tool_output = self.execute_tool(tool_call)
-
-                    # Convert tool output to string if it's not already
-                    tool_response_str = (
-                        str(tool_output) if tool_output is not None else None
-                    )
-                    if tool_response_str is None:
-                        log_error(
-                            Exception("Tool output is None, skipping message to agent"),
-                            "Warning",
-                        )
-                        # Add error response for this tool call
-                        tool_results.append(
-                            {
-                                "tool_call_id": tool_call["id"],
-                                "response": str(
-                                    {
-                                        "success": False,
-                                        "message": "Tool output is None",
-                                    }
-                                ),
-                            }
-                        )
-                        continue
-
-                    # Add to results list
-                    tool_results.append(
-                        {"tool_call_id": tool_call["id"], "response": tool_response_str}
-                    )
-
-                    # Only return early if this is a successful execution of a final tool
-                    try:
-                        result = ast.literal_eval(tool_response_str)
-                        if (
-                            isinstance(result, dict)
-                            and result.get("success", False)
-                            and should_return
-                        ):
-                            return tool_results
-                    except (ValueError, SyntaxError):
-                        pass  # Continue if we can't parse the response
-
-                except ClientAPIError:
-                    # API errors are from our code, so we log them
-                    raise
-
-                except Exception as e:
-                    # Format error as a string for Claude but don't log it
-                    error_response = {
-                        "success": False,
-                        "message": str(e),
-                        "tool_name": tool_call["name"],
-                        "input": tool_call["arguments"],
-                    }
+                    # Add result to tool_results
                     tool_results.append(
                         {
                             "tool_call_id": tool_call["id"],
-                            "response": str(error_response),
+                            "response": str(result),
                         }
                     )
 
-            # Keep track of last tool results
-            last_tool_results = tool_results
+                    # Only return early for successful final tools
+                    is_final_tool = self.tools[tool_call["name"]].get(
+                        "final_tool", False
+                    )
+                    if is_final_tool and result.get("success", False):
+                        return [tool_results[-1]]
+                    # For failed final tools, continue processing to let agent try again
 
-            # Send tool results back to the agent and get next response
-            try:
-                response = self.send_message(
-                    tool_response=json.dumps(tool_results),
-                    conversation_id=conversation_id,
-                )
-            except Exception:
-                # Error already logged in _make_api_call
-                raise
+                except Exception as e:
+                    # Log the error and add it to tool results
+                    log_error(e, f"Error executing tool {tool_call['name']}")
+                    tool_results.append(
+                        {
+                            "tool_call_id": tool_call["id"],
+                            "response": str(
+                                {
+                                    "success": False,
+                                    "message": str(e),
+                                    "data": None,
+                                }
+                            ),
+                        }
+                    )
 
-        # Return the last set of tool results
-        return last_tool_results
+            # Update last_results with current results
+            last_results = tool_results
+
+            # Send tool results to agent and get next response
+            response = self.send_message(
+                conversation_id=conversation_id,
+                tool_response=json.dumps(tool_results),
+            )
+            # Loop continues - will check new response for more tool calls

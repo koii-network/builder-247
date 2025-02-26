@@ -89,7 +89,7 @@ def validate_acceptance_criteria(client, todo, acceptance_criteria):
     log_section("VALIDATING ACCEPTANCE CRITERIA")
 
     # Get the list of files
-    files_result = list_files(os.getcwd())
+    files_result = list_files(".")
     if not files_result["success"]:
         return False, f"Failed to get file list: {files_result['message']}"
 
@@ -233,7 +233,7 @@ def todo_to_pr(
             )
 
             # Get the list of files
-            files_result = list_files(repo_path)
+            files_result = list_files(".")
             if not files_result["success"]:
                 raise Exception(f"Failed to get file list: {files_result['message']}")
 
@@ -284,7 +284,7 @@ def todo_to_pr(
         log_section("CREATING PULL REQUEST")
 
         # Get the list of files
-        files_result = list_files(os.getcwd())
+        files_result = list_files(".")
         if not files_result["success"]:
             raise Exception(f"Failed to get file list: {files_result['message']}")
 

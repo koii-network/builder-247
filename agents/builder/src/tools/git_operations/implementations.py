@@ -141,6 +141,14 @@ def clone_repository(
 def create_branch(branch_base: str) -> ToolOutput:
     """Create branch with automatic timestamp suffix"""
     try:
+        # Check for GitHub token first
+        if "GITHUB_TOKEN" not in os.environ:
+            return {
+                "success": False,
+                "message": "GitHub token not found in environment. Please set GITHUB_TOKEN environment variable.",
+                "data": None,
+            }
+
         # Validate base name
         if not branch_base:
             return {
@@ -178,7 +186,16 @@ def create_branch(branch_base: str) -> ToolOutput:
 
         # Check if we have a remote named 'origin'
         try:
-            repo.remote("origin")
+            origin = repo.remote("origin")
+            # Update origin URL with token
+            url = origin.url
+            if "github.com" in url:
+                token = os.environ["GITHUB_TOKEN"]
+                if url.startswith("https://"):
+                    new_url = url.replace("https://", f"https://{token}@")
+                elif url.startswith("git@"):
+                    new_url = f"https://{token}@github.com/{url.split(':', 1)[1]}"
+                origin.set_url(new_url)
         except ValueError:
             return {
                 "success": False,
@@ -216,20 +233,32 @@ def create_branch(branch_base: str) -> ToolOutput:
                 repo.git.branch("-D", branch_name)
             except GitCommandError:
                 pass
-            if "Permission denied" in str(e):
+
+            error_msg = str(e)
+            if "Permission denied" in error_msg:
                 return {
                     "success": False,
-                    "message": "Permission denied pushing to remote",
+                    "message": (
+                        "Permission denied pushing to remote. "
+                        "Please check your GitHub token has the correct permissions."
+                    ),
                     "data": None,
                 }
-            elif "Authentication failed" in str(e):
+            elif "Authentication failed" in error_msg:
                 return {
                     "success": False,
-                    "message": "Authentication failed - check your GitHub token",
+                    "message": (
+                        "Authentication failed. "
+                        "Please check your GitHub token is valid and has the correct permissions."
+                    ),
                     "data": None,
                 }
             else:
-                raise
+                return {
+                    "success": False,
+                    "message": f"Failed to push branch: {error_msg}",
+                    "data": None,
+                }
 
         return {
             "success": True,
