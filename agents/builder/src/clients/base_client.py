@@ -8,6 +8,7 @@ from .conversation_manager import ConversationManager
 from .types import ToolDefinition, MessageContent, ToolCall, ToolChoice, ToolCallContent
 from src.utils.logging import log_section, log_key_value, log_error
 from src.utils.errors import ClientAPIError
+from src.utils.retry import is_retryable_error
 import json
 import ast
 
@@ -54,12 +55,21 @@ class Client(ABC):
     @abstractmethod
     def _make_api_call(
         self,
-        messages: List[MessageContent],
+        messages: List[Dict[str, Any]],
         system_prompt: Optional[str] = None,
         max_tokens: Optional[int] = None,
-        tool_choice: Optional[ToolChoice] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Dict[str, Any]] = None,
     ) -> Any:
-        """Make API call with standardized parameters."""
+        """Make API call with API-specific parameters.
+
+        Args:
+            messages: List of messages in API-specific format
+            system_prompt: Optional system prompt
+            max_tokens: Optional max tokens
+            tools: Optional list of tools in API-specific format
+            tool_choice: Optional tool choice in API-specific format
+        """
         pass
 
     def register_tools(self, definitions_path: str) -> List[str]:
@@ -89,9 +99,41 @@ class Client(ABC):
             self.tools[name] = tool
         return list(definitions_module.DEFINITIONS.keys())
 
-    def create_conversation(self, system_prompt: Optional[str] = None) -> str:
-        """Create a new conversation and return its ID."""
-        return self.storage.create_conversation(self.model, system_prompt)
+    def create_conversation(
+        self,
+        system_prompt: Optional[str] = None,
+        available_tools: Optional[List[str]] = None,
+    ) -> str:
+        """Create a new conversation and return its ID.
+
+        Args:
+            system_prompt: Optional system prompt for the conversation
+            available_tools: Optional list of tool names to restrict this conversation to.
+                           If None, all registered tools will be available.
+        """
+        # Validate tool names if provided
+        if available_tools is not None:
+            unknown_tools = [t for t in available_tools if t not in self.tools]
+            if unknown_tools:
+                raise ValueError(f"Unknown tools specified: {unknown_tools}")
+
+        return self.storage.create_conversation(
+            model=self.model,
+            system_prompt=system_prompt,
+            available_tools=available_tools,
+        )
+
+    def _get_available_tools(self, conversation_id: str) -> Dict[str, ToolDefinition]:
+        """Get the tools available for a specific conversation."""
+        conversation = self.storage.get_conversation(conversation_id)
+        available_tools = conversation.get("available_tools")
+
+        if available_tools is None:
+            return self.tools  # Return all tools if no restrictions
+
+        return {
+            name: tool for name, tool in self.tools.items() if name in available_tools
+        }
 
     def execute_tool(self, tool_call: ToolCall) -> str:
         """Execute a tool and return its response."""
@@ -245,38 +287,86 @@ class Client(ABC):
                     )
                     messages.append(formatted_response)
 
-        # Make API call
-        response = self._make_api_call(
-            messages=messages,
-            system_prompt=system_prompt,
-            max_tokens=max_tokens,
-            tool_choice=tool_choice,
-        )
+        try:
+            # Convert messages to API format
+            api_messages = [
+                self._convert_message_to_api_format(msg) for msg in messages
+            ]
 
-        # Convert response to internal format
-        converted_response = self._convert_api_response_to_message(response)
-
-        # Log LLM response
-        log_section("AGENT'S RESPONSE")
-        for block in converted_response["content"]:
-            if block["type"] == "text":
-                log_key_value("REPLY", block["text"])
-            elif block["type"] == "tool_call":
-                log_key_value(
-                    "TOOL REQUEST",
-                    f"{block['tool_call']['name']} (ID: {block['tool_call']['id']})",
-                )
-
-        # Add conversation_id to converted response
-        converted_response["conversation_id"] = conversation_id
-
-        # Save to storage if not a retry
-        if not is_retry:
-            self.storage.save_message(
-                conversation_id, "assistant", converted_response["content"]
+            # Get available tools for this conversation
+            available_tools = (
+                self._get_available_tools(conversation_id)
+                if conversation_id and self.tools
+                else self.tools
             )
 
-        return converted_response
+            # Convert tools to API format
+            api_tools = (
+                [
+                    self._convert_tool_to_api_format(tool)
+                    for tool in available_tools.values()
+                ]
+                if available_tools
+                else None
+            )
+
+            # Validate tool_choice against available tools
+            if tool_choice and tool_choice.get("type") == "required":
+                tool_name = tool_choice.get("tool")
+                if tool_name and tool_name not in available_tools:
+                    raise ValueError(
+                        f"Required tool {tool_name} not available in this conversation"
+                    )
+
+            # Convert tool choice to API format
+            api_tool_choice = (
+                self._convert_tool_choice_to_api_format(tool_choice)
+                if tool_choice and api_tools
+                else None
+            )
+
+            # Make API call
+            response = self._make_api_call(
+                messages=api_messages,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                tools=api_tools,
+                tool_choice=api_tool_choice,
+            )
+
+            # Convert response to internal format
+            converted_response = self._convert_api_response_to_message(response)
+
+            # Log LLM response
+            log_section("AGENT'S RESPONSE")
+            for block in converted_response["content"]:
+                if block["type"] == "text":
+                    log_key_value("REPLY", block["text"])
+                elif block["type"] == "tool_call":
+                    log_key_value(
+                        "TOOL REQUEST",
+                        f"{block['tool_call']['name']} (ID: {block['tool_call']['id']})",
+                    )
+
+            # Add conversation_id to converted response
+            converted_response["conversation_id"] = conversation_id
+
+            # Save to storage if not a retry
+            if not is_retry:
+                self.storage.save_message(
+                    conversation_id, "assistant", converted_response["content"]
+                )
+
+            return converted_response
+
+        except Exception as e:
+            # Only wrap actual API errors
+            log_error(
+                e,
+                context=f"Error making API call to {self.api_name}",
+                include_traceback=not is_retryable_error(e),
+            )
+            raise ClientAPIError(e)
 
     def _get_tool_calls(self, msg: MessageContent) -> List[ToolCallContent]:
         """Return all tool call blocks from the message."""
@@ -292,6 +382,7 @@ class Client(ABC):
         If a tool has final_tool=True and was successful, returns immediately after executing that tool.
         """
         conversation_id = response["conversation_id"]  # Store conversation ID
+        last_tool_results = None  # Keep track of last tool results
 
         while True:
             tool_calls = self._get_tool_calls(response)
@@ -336,16 +427,17 @@ class Client(ABC):
                         {"tool_call_id": tool_call["id"], "response": tool_response_str}
                     )
 
-                    # If this tool has final_tool=True and was successful, return its result
-                    if should_return:
-                        try:
-                            result = ast.literal_eval(tool_response_str)
-                            if isinstance(result, dict) and result.get(
-                                "success", False
-                            ):
-                                return tool_results
-                        except (ValueError, SyntaxError):
-                            pass  # Continue if we can't parse the response
+                    # Only return early if this is a successful execution of a final tool
+                    try:
+                        result = ast.literal_eval(tool_response_str)
+                        if (
+                            isinstance(result, dict)
+                            and result.get("success", False)
+                            and should_return
+                        ):
+                            return tool_results
+                    except (ValueError, SyntaxError):
+                        pass  # Continue if we can't parse the response
 
                 except ClientAPIError:
                     # API errors are from our code, so we log them
@@ -366,6 +458,9 @@ class Client(ABC):
                         }
                     )
 
+            # Keep track of last tool results
+            last_tool_results = tool_results
+
             # Send tool results back to the agent and get next response
             try:
                 response = self.send_message(
@@ -377,21 +472,4 @@ class Client(ABC):
                 raise
 
         # Return the last set of tool results
-        return tool_results
-
-
-class PreLoggedError(Exception):
-    """Error that has already been logged at source.
-
-    Used to wrap API errors that have been logged where they occurred,
-    to prevent duplicate logging higher up the stack.
-    """
-
-    def __init__(self, original_error: Exception):
-        self.original_error = original_error
-        super().__init__(str(original_error))
-
-    @property
-    def status_code(self) -> int:
-        """Preserve status code from original error if it exists."""
-        return getattr(self.original_error, "status_code", None)
+        return last_tool_results

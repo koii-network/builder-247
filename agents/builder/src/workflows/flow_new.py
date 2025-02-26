@@ -126,19 +126,19 @@ def validate_acceptance_criteria(client, todo, acceptance_criteria):
         for result in validation_results:
             try:
                 parsed = ast.literal_eval(result["response"])
-                if (
-                    isinstance(parsed, dict)
-                    and "success" in parsed
-                    and "message" in parsed
-                ):
-                    validation_result = parsed
+                if isinstance(parsed, dict):
+                    if not parsed.get("success", False):
+                        # Tool execution failed
+                        return False, parsed.get("error", "Tool execution failed")
+                    if "validated" in parsed and "message" in parsed:
+                        validation_result = parsed
             except (ValueError, SyntaxError, AttributeError):
                 continue
 
         if validation_result is None:
             return False, "No validation result found in response"
 
-        return validation_result["success"], validation_result.get(
+        return validation_result["validated"], validation_result.get(
             "message", "No validation message provided"
         )
     except Exception as e:
@@ -191,7 +191,7 @@ def todo_to_pr(
         os.chdir(repo_path)
 
         # Create client and conversation with system prompt
-        client = setup_client("openai")
+        client = setup_client("anthropic")
         conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info
@@ -297,10 +297,7 @@ def todo_to_pr(
         # Start a new conversation for PR creation
         pr_conversation_id = client.create_conversation(system_prompt=None)
         pr_response = send_message_with_retry(
-            client,
-            prompt=create_pr_prompt,
-            conversation_id=pr_conversation_id,
-            tool_choice={"type": "required", "tool": "create_pull_request"},
+            client, prompt=create_pr_prompt, conversation_id=pr_conversation_id
         )
 
         pr_results = client.handle_tool_response(pr_response)

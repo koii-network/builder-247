@@ -44,7 +44,10 @@ DEFINITIONS = {
                     "type": "string",
                     "description": "Name of the branch to merge into",
                 },
-                "summary": {"type": "string", "description": "Summary of changes"},
+                "description": {
+                    "type": "string",
+                    "description": "Description of changes",
+                },
                 "tests": {"type": "string", "description": "Description of tests"},
                 "todo": {"type": "string", "description": "Original task description"},
                 "acceptance_criteria": {
@@ -56,7 +59,7 @@ DEFINITIONS = {
                 "repo_full_name",
                 "title",
                 "head",
-                "summary",
+                "description",
                 "tests",
                 "todo",
                 "acceptance_criteria",
@@ -77,7 +80,10 @@ DEFINITIONS = {
                 },
                 "pr_number": {"type": "integer", "description": "Pull request number"},
                 "title": {"type": "string", "description": "Title of the PR"},
-                "summary": {"type": "string", "description": "Summary of changes"},
+                "description": {
+                    "type": "string",
+                    "description": "Description of changes",
+                },
                 "requirements": {
                     "type": "object",
                     "description": "Dictionary with 'met' and 'not_met' requirements",
@@ -114,7 +120,7 @@ DEFINITIONS = {
                 "repo_full_name",
                 "pr_number",
                 "title",
-                "summary",
+                "description",
                 "requirements",
                 "test_evaluation",
                 "recommendation",
@@ -131,9 +137,9 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "success": {
+                "validated": {
                     "type": "boolean",
-                    "description": "Whether the validation passed",
+                    "description": "Whether the implementation passed validation",
                 },
                 "test_results": {
                     "type": "object",
@@ -171,7 +177,7 @@ DEFINITIONS = {
                 },
             },
             "required": [
-                "success",
+                "validated",
                 "test_results",
                 "criteria_status",
                 "directory_check",

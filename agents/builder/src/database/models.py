@@ -11,6 +11,7 @@ class Conversation(SQLModel, table=True):
     id: str = Field(primary_key=True)
     model: str
     system_prompt: Optional[str] = None
+    available_tools: Optional[str] = None  # JSON list of tool names
     created_at: datetime = Field(default_factory=datetime.utcnow)
     messages: List["Message"] = Relationship(back_populates="conversation")
 

@@ -91,7 +91,7 @@ PROMPTS = {
         "1. First examine the available files to understand the implementation\n"
         "2. Create a clear and descriptive PR title\n"
         "3. Write a comprehensive PR description that includes:\n"
-        "   - Summary of all changes made\n"
+        "   - Description of all changes made\n"
         "   - Implementation details for each component\n"
         "   - Testing approach and results\n"
         "   - How each acceptance criterion is met\n"
@@ -141,7 +141,7 @@ PR_TEMPLATE = """# {title}
 {todo}
 
 ## Summary of Changes
-{summary}
+{description}
 
 ## Acceptance Criteria
 {acceptance_criteria}
@@ -158,7 +158,7 @@ REVIEW_TEMPLATE = """# PR Review: {title}
 {recommendation_reasons}
 
 ## Summary of Changes
-{summary}
+{description}
 
 ## Requirements Review
 ### ✅ Met Requirements

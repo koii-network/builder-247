@@ -247,7 +247,7 @@ def review_pull_request(
     repo_full_name: str,
     pr_number: int,
     title: str,
-    summary: str,
+    description: str,
     requirements: Dict[str, List[str]],
     test_evaluation: Dict[str, List[str]],
     recommendation: str,
@@ -261,7 +261,7 @@ def review_pull_request(
         repo_full_name (str): Full name of the repository (owner/repo)
         pr_number (int): Pull request number
         title (str): Title of the PR
-        summary (str): Summary of the changes
+        description (str): Description of the changes
         requirements (Dict[str, List[str]]): Dictionary with 'met' and 'not_met' requirements
         test_evaluation (Dict[str, List[str]]): Dictionary with test evaluation details
         recommendation (str): APPROVE/REVISE/REJECT
@@ -287,7 +287,7 @@ def review_pull_request(
         # Format the review using the template
         review_body = REVIEW_TEMPLATE.format(
             title=title,
-            summary=summary,
+            description=description,
             met_requirements=format_list(
                 requirements.get("met", []), "All requirements need work"
             ),
@@ -321,17 +321,17 @@ def review_pull_request(
 
 
 def validate_implementation(
-    success: bool,
-    test_results: dict = None,
-    criteria_status: dict = None,
-    directory_check: dict = None,
-    issues: list = None,
-    required_fixes: list = None,
+    validated: bool,
+    test_results: dict,
+    criteria_status: dict,
+    directory_check: dict,
+    issues: list,
+    required_fixes: list,
 ) -> Dict[str, Any]:
     """Submit a validation result with formatted message.
 
     Args:
-        success: Whether the validation passed
+        validated: Whether the implementation passed validation
         test_results: Dict with passed and failed test lists
         criteria_status: Dict with met and not_met criteria lists
         directory_check: Dict with valid boolean and issues list
@@ -375,24 +375,20 @@ def validate_implementation(
             message.extend(f"- {fix}" for fix in required_fixes)
 
         return {
-            "success": success,
+            "success": True,  # Tool executed successfully
+            "validated": validated,  # Whether implementation passed validation
             "message": (
-                "\n".join(message) if not success else "All acceptance criteria met"
+                "\n".join(message) if not validated else "All acceptance criteria met"
             ),
-            "test_results": test_results or {"passed": [], "failed": []},
-            "criteria_status": criteria_status or {"met": [], "not_met": []},
-            "directory_check": directory_check or {"valid": False, "issues": []},
-            "issues": issues or [],
-            "required_fixes": required_fixes or [],
+            "test_results": test_results,
+            "criteria_status": criteria_status,
+            "directory_check": directory_check,
+            "issues": issues,
+            "required_fixes": required_fixes,
         }
     except Exception as e:
-        # If anything goes wrong, return a properly formatted error response
+        # If anything goes wrong with the tool itself
         return {
-            "success": False,
-            "message": f"Validation failed: {str(e)}",
-            "test_results": {"passed": [], "failed": []},
-            "criteria_status": {"met": [], "not_met": []},
-            "directory_check": {"valid": False, "issues": []},
-            "issues": [str(e)],
-            "required_fixes": [],
+            "success": False,  # Tool failed to execute
+            "error": f"Validation tool failed: {str(e)}",
         }

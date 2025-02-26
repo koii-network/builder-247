@@ -14,7 +14,10 @@ class ConversationManager:
         initialize_database()
 
     def create_conversation(
-        self, model: str, system_prompt: Optional[str] = None
+        self,
+        model: str,
+        system_prompt: Optional[str] = None,
+        available_tools: Optional[List[str]] = None,
     ) -> str:
         """Create a new conversation and return its ID."""
         conversation_id = str(uuid.uuid4())
@@ -23,6 +26,9 @@ class ConversationManager:
                 id=conversation_id,
                 model=model,
                 system_prompt=system_prompt,
+                available_tools=(
+                    json.dumps(available_tools) if available_tools else None
+                ),
             )
             session.add(conversation)
             session.commit()
@@ -37,6 +43,11 @@ class ConversationManager:
             return {
                 "model": conversation.model,
                 "system_prompt": conversation.system_prompt,
+                "available_tools": (
+                    json.loads(conversation.available_tools)
+                    if conversation.available_tools
+                    else None
+                ),
             }
 
     def get_messages(self, conversation_id: str) -> List[Dict[str, Any]]:

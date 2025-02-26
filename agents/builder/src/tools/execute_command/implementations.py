@@ -16,14 +16,17 @@ def execute_command(command: str) -> dict:
             capture_output=True,
             text=True,
         )
+        message = result.stdout if result.returncode == 0 else result.stderr
+        message = message or "Command failed with no error output"
         return {
             "success": result.returncode == 0,  # Only success if return code is 0
             "stdout": result.stdout,
             "stderr": result.stderr,
             "returncode": result.returncode,
+            "message": message,
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "stdout": "", "stderr": str(e)}
 
 
 def run_tests(
@@ -39,11 +42,23 @@ def run_tests(
     """
 
     commands = {
-        "pytest": f"python3 -m pytest {path if path else ''}",
+        "pytest": f"python3 -m pytest {path if path else ''} -v",
         "jest": f"jest {path if path else ''}",
     }
     command = commands.get(framework)
     if not command:
         return {"success": False, "error": f"Unknown test framework: {framework}"}
 
-    return execute_command(command)
+    result = execute_command(command)
+
+    if not result["success"]:
+        error_msg = []
+        if result.get("stdout"):
+            error_msg.append("Test output:\n" + result["stdout"])
+        if result.get("stderr"):
+            error_msg.append("Error output:\n" + result["stderr"])
+        result["error"] = (
+            "\n".join(error_msg) if error_msg else "Tests failed with no output"
+        )
+
+    return result
