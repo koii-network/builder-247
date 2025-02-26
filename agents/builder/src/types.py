@@ -24,12 +24,13 @@ class ToolOutput(TypedDict):
     """Standard output format for all tools.
 
     All tools must return a response in this format.
+    The message field contains a human-readable description of what happened,
+    which will be an error message if success is False.
     """
 
     success: bool  # Whether the tool execution was successful
-    message: str  # Human-readable message about what happened
+    message: str  # Human-readable message about what happened (error message if success is False)
     data: Optional[Dict[str, Any]]  # Optional structured data from the tool
-    error: Optional[str]  # Error message if success is False
 
 
 class ToolResponse(TypedDict):

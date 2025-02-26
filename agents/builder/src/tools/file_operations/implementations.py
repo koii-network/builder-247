@@ -25,7 +25,6 @@ def read_file(file_path: str) -> ToolOutput:
             - success (bool): Whether the operation succeeded
             - message (str): A human readable message
             - data (dict): The file contents if successful
-            - error (str): Error message if unsuccessful
     """
     try:
         file_path = _normalize_path(file_path)
@@ -36,21 +35,18 @@ def read_file(file_path: str) -> ToolOutput:
                 "success": True,
                 "message": f"Successfully read file {file_path}",
                 "data": {"content": content},
-                "error": None,
             }
     except FileNotFoundError:
         return {
             "success": False,
             "message": f"File not found: {file_path}",
             "data": None,
-            "error": f"File not found: {file_path}",
         }
     except Exception as e:
         return {
             "success": False,
-            "message": "Failed to read file",
+            "message": f"Error reading file: {str(e)}",
             "data": None,
-            "error": f"Error reading file: {str(e)}",
         }
 
 
@@ -74,14 +70,12 @@ def write_file(file_path: str, content: str, commit_message: str = None) -> Tool
             "success": True,
             "message": f"Successfully wrote to file {file_path}",
             "data": {"path": file_path},
-            "error": None,
         }
     except Exception as e:
         return {
             "success": False,
-            "message": "Failed to write file",
+            "message": str(e),
             "data": None,
-            "error": str(e),
         }
 
 
@@ -98,7 +92,6 @@ def copy_file(source: str, destination: str, commit_message: str = None) -> Tool
                 "success": False,
                 "message": "Source file not found",
                 "data": None,
-                "error": "Source file not found",
             }
 
         # Create destination directory if it doesn't exist
@@ -116,14 +109,12 @@ def copy_file(source: str, destination: str, commit_message: str = None) -> Tool
             "success": True,
             "message": f"Successfully copied file from {source} to {destination}",
             "data": {"source": source, "destination": destination},
-            "error": None,
         }
     except Exception as e:
         return {
             "success": False,
-            "message": "Failed to copy file",
+            "message": str(e),
             "data": None,
-            "error": str(e),
         }
 
 
@@ -140,7 +131,6 @@ def move_file(source: str, destination: str, commit_message: str = None) -> Tool
                 "success": False,
                 "message": "Source file not found",
                 "data": None,
-                "error": "Source file not found",
             }
 
         # Create destination directory if it doesn't exist
@@ -158,14 +148,12 @@ def move_file(source: str, destination: str, commit_message: str = None) -> Tool
             "success": True,
             "message": f"Successfully moved file from {source} to {destination}",
             "data": {"source": source, "destination": destination},
-            "error": None,
         }
     except Exception as e:
         return {
             "success": False,
-            "message": "Failed to move file",
+            "message": str(e),
             "data": None,
-            "error": str(e),
         }
 
 
@@ -184,7 +172,6 @@ def rename_file(
                 "success": False,
                 "message": f"Source file not found: {source}",
                 "data": None,
-                "error": f"Source file not found: {source}",
             }
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -200,14 +187,12 @@ def rename_file(
             "success": True,
             "message": f"Successfully renamed file from {source} to {destination}",
             "data": {"source": source, "destination": destination},
-            "error": None,
         }
     except Exception as e:
         return {
             "success": False,
-            "message": "Failed to rename file",
+            "message": f"Error renaming file: {str(e)}",
             "data": None,
-            "error": f"Error renaming file: {str(e)}",
         }
 
 
@@ -222,7 +207,6 @@ def delete_file(file_path: str, commit_message: str = None) -> ToolOutput:
                 "success": False,
                 "message": "File not found",
                 "data": None,
-                "error": "File not found",
             }
 
         os.remove(full_path)
@@ -237,14 +221,12 @@ def delete_file(file_path: str, commit_message: str = None) -> ToolOutput:
             "success": True,
             "message": f"Successfully deleted file: {file_path}",
             "data": {"path": file_path},
-            "error": None,
         }
     except Exception as e:
         return {
             "success": False,
-            "message": "Failed to delete file",
+            "message": str(e),
             "data": None,
-            "error": str(e),
         }
 
 
@@ -261,7 +243,6 @@ def list_files(directory: str) -> ToolOutput:
             - success (bool): Whether the operation succeeded
             - message (str): A human readable message
             - data (dict): Dictionary containing list of files if successful
-            - error (str): Error message if unsuccessful
     """
     try:
         directory = _normalize_path(directory)
@@ -272,7 +253,6 @@ def list_files(directory: str) -> ToolOutput:
                 "success": False,
                 "message": f"The directory '{directory}' does not exist",
                 "data": None,
-                "error": f"The directory '{directory}' does not exist",
             }
 
         # Use git to list all tracked and untracked files, respecting .gitignore
@@ -294,15 +274,13 @@ def list_files(directory: str) -> ToolOutput:
             "success": True,
             "message": f"Found {len(files)} files in {directory}",
             "data": {"files": files},
-            "error": None,
         }
 
     except (FileNotFoundError, OSError) as e:  # Catch specific file-related exceptions
         return {
             "success": False,
-            "message": "Failed to list files",
+            "message": str(e),
             "data": None,
-            "error": str(e),
         }
 
 
@@ -316,7 +294,7 @@ def create_directory(path: str) -> ToolOutput:
         ToolOutput: A dictionary containing:
             - success (bool): Whether the operation succeeded
             - message (str): A human readable message
-            - error (str): Error message if unsuccessful
+            - data (dict): Dictionary containing path if successful
     """
     try:
         path = _normalize_path(path)
@@ -326,12 +304,10 @@ def create_directory(path: str) -> ToolOutput:
             "success": True,
             "message": f"Created directory: {path}",
             "data": {"path": path},
-            "error": None,
         }
     except Exception as e:
         return {
             "success": False,
-            "message": "Failed to create directory",
+            "message": f"Failed to create directory: {str(e)}",
             "data": None,
-            "error": f"Failed to create directory: {str(e)}",
         }

@@ -53,15 +53,13 @@ def init_repository(
             "success": True,
             "message": f"Successfully initialized repository at {path}",
             "data": {"path": path},
-            "error": None,
         }
     except Exception as e:
         log_error(e, "Failed to initialize repository")
         return {
             "success": False,
-            "message": "Failed to initialize repository",
+            "message": str(e),
             "data": None,
-            "error": str(e),
         }
 
 
@@ -129,16 +127,14 @@ def clone_repository(
             "success": True,
             "message": f"Successfully cloned repository to {path}",
             "data": {"path": path, "url": url},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Clone failed with error: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to clone repository",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -151,7 +147,6 @@ def create_branch(branch_base: str) -> ToolOutput:
                 "success": False,
                 "message": "Missing branch base name",
                 "data": None,
-                "error": "Missing branch base name",
             }
 
         # Clean branch base name - remove special characters and spaces
@@ -164,7 +159,6 @@ def create_branch(branch_base: str) -> ToolOutput:
                 "success": False,
                 "message": "Invalid branch name after cleaning",
                 "data": None,
-                "error": "Invalid branch name after cleaning",
             }
 
         # Generate branch name
@@ -180,7 +174,6 @@ def create_branch(branch_base: str) -> ToolOutput:
                 "success": False,
                 "message": "Not a git repository",
                 "data": None,
-                "error": "Not a git repository",
             }
 
         # Check if we have a remote named 'origin'
@@ -191,7 +184,6 @@ def create_branch(branch_base: str) -> ToolOutput:
                 "success": False,
                 "message": "No 'origin' remote found",
                 "data": None,
-                "error": "No 'origin' remote found",
             }
 
         # Create and checkout branch
@@ -203,7 +195,6 @@ def create_branch(branch_base: str) -> ToolOutput:
                     "success": False,
                     "message": f"Branch '{branch_name}' already exists",
                     "data": None,
-                    "error": f"Branch '{branch_name}' already exists",
                 }
             raise
 
@@ -213,7 +204,6 @@ def create_branch(branch_base: str) -> ToolOutput:
                 "success": False,
                 "message": f"Failed to create branch: {branch_name}",
                 "data": None,
-                "error": f"Failed to create branch: {branch_name}",
             }
 
         # Configure upstream tracking
@@ -231,14 +221,12 @@ def create_branch(branch_base: str) -> ToolOutput:
                     "success": False,
                     "message": "Permission denied pushing to remote",
                     "data": None,
-                    "error": "Permission denied pushing to remote",
                 }
             elif "Authentication failed" in str(e):
                 return {
                     "success": False,
                     "message": "Authentication failed - check your GitHub token",
                     "data": None,
-                    "error": "Authentication failed - check your GitHub token",
                 }
             else:
                 raise
@@ -250,25 +238,22 @@ def create_branch(branch_base: str) -> ToolOutput:
                 "branch_name": branch_name,
                 "message": f"Created branch {branch_name}",
             },
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Git error: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to create branch",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
     except Exception as e:
         error_msg = f"Unexpected error: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to create branch",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -284,16 +269,14 @@ def checkout_branch(branch_name: str) -> ToolOutput:
             "success": True,
             "message": f"Successfully checked out branch {branch_name}",
             "data": {"branch": branch_name},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to checkout branch: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to checkout branch",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -321,16 +304,14 @@ def commit_and_push(message: str) -> ToolOutput:
             "success": True,
             "message": f"Changes committed and pushed: {message}",
             "data": {"commit_hash": commit.hexsha, "message": message},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to commit and push: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to commit and push",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -344,16 +325,14 @@ def get_current_branch() -> ToolOutput:
             "success": True,
             "message": f"Current branch is {branch}",
             "data": {"branch": branch},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to get current branch: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to get current branch",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -368,16 +347,14 @@ def list_branches() -> ToolOutput:
             "success": True,
             "message": f"Found {len(branches)} branches",
             "data": {"branches": branches},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to list branches: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to list branches",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -393,16 +370,14 @@ def add_remote(name: str, url: str) -> ToolOutput:
             "success": True,
             "message": f"Successfully added remote {name}",
             "data": {"name": name, "url": url},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to add remote: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to add remote",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -418,16 +393,14 @@ def fetch_remote(remote_name: str) -> ToolOutput:
             "success": True,
             "message": f"Successfully fetched from {remote_name}",
             "data": {"remote": remote_name},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to fetch from remote: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to fetch from remote",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -447,23 +420,20 @@ def pull_remote(remote_name: str = "origin", branch: str = None) -> ToolOutput:
                 "success": False,
                 "message": "Merge conflict detected after pull",
                 "data": None,
-                "error": "Merge conflict detected after pull",
             }
 
         return {
             "success": True,
             "message": f"Successfully pulled from {remote_name}/{branch}",
             "data": {"remote": remote_name, "branch": branch},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to pull changes: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to pull changes",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -479,20 +449,17 @@ def can_access_repository(repo_url: str) -> ToolOutput:
                     "success": True,
                     "message": f"Repository {repo_url} is accessible",
                     "data": {"url": repo_url},
-                    "error": None,
                 }
         return {
             "success": False,
-            "message": f"Repository {repo_url} is not accessible",
+            "message": "Repository not found in remotes",
             "data": None,
-            "error": "Repository not found in remotes",
         }
     except GitCommandError:
         return {
             "success": False,
-            "message": f"Repository {repo_url} is not accessible",
+            "message": "Failed to check repository access",
             "data": None,
-            "error": "Failed to check repository access",
         }
 
 
@@ -514,16 +481,14 @@ def check_for_conflicts() -> ToolOutput:
                 "has_conflicts": bool(conflicting_files),
                 "conflicting_files": conflicting_files,
             },
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to check for conflicts: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to check for conflicts",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -551,16 +516,14 @@ def get_conflict_info() -> ToolOutput:
             "success": True,
             "message": "Successfully retrieved conflict information",
             "data": {"conflicts": conflicts},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to get conflict info: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to get conflict information",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -579,16 +542,14 @@ def resolve_conflict(
             "success": True,
             "message": f"Successfully resolved conflict in {file_path}",
             "data": {"file": file_path},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to resolve conflict: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to resolve conflict",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -603,21 +564,18 @@ def create_merge_commit(message: str) -> ToolOutput:
                 "success": False,
                 "message": "Cannot create merge commit with unresolved conflicts",
                 "data": None,
-                "error": "Cannot create merge commit with unresolved conflicts",
             }
         commit = repo.index.commit(message)
         return {
             "success": True,
             "message": f"Successfully created merge commit: {message}",
             "data": {"commit_id": commit.hexsha},
-            "error": None,
         }
     except GitCommandError as e:
         error_msg = f"Failed to create merge commit: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,
-            "message": "Failed to create merge commit",
+            "message": error_msg,
             "data": None,
-            "error": error_msg,
         }

@@ -26,14 +26,12 @@ def execute_command(command: str) -> ToolOutput:
                 "stderr": result.stderr,
                 "returncode": result.returncode,
             },
-            "error": result.stderr if result.returncode != 0 else None,
         }
     except Exception as e:
         return {
             "success": False,
-            "message": "Failed to execute command",
+            "message": str(e),
             "data": None,
-            "error": str(e),
         }
 
 
@@ -59,7 +57,6 @@ def run_tests(
             "success": False,
             "message": f"Unknown test framework: {framework}",
             "data": None,
-            "error": f"Unknown test framework: {framework}",
         }
 
     result = execute_command(command)
@@ -73,14 +70,12 @@ def run_tests(
         error = "\n".join(error_msg) if error_msg else "Tests failed with no output"
         return {
             "success": False,
-            "message": "Tests failed",
+            "message": error,
             "data": result["data"],
-            "error": error,
         }
 
     return {
         "success": True,
         "message": "Tests completed successfully",
         "data": result["data"],
-        "error": None,
     }
