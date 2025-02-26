@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
 # Regular imports (PEP 8 compliant)
 from src.get_file_list import get_file_list
-from src.workflows.setup_new import setup_client
+from agents.builder.src.workflows.setup_repo import setup_client
 from src.utils.retry import (
     execute_tool_with_retry,
     send_message_with_retry,

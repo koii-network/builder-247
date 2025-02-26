@@ -1,4 +1,4 @@
-from src.server_new import create_app
+from src.server import create_app
 
 app = create_app()
 

@@ -72,32 +72,78 @@ class Client(ABC):
         """
         pass
 
-    def register_tools(self, definitions_path: str) -> List[str]:
-        """Register tools from a definitions file."""
-        path = Path(definitions_path) / "definitions.py"
-        if not path.exists():
-            raise ValueError(f"Definitions file not found: {path}")
+    def register_tools(self, tools_dir: str) -> List[str]:
+        """Register all tools found in a directory.
 
-        # Import the definitions module
-        spec = importlib.util.spec_from_file_location("definitions", path)
-        if not spec or not spec.loader:
-            raise ImportError(f"Could not load {path}")
+        Scans the given directory for all tool definition files (definitions.py)
+        and registers all tools found. Tool restrictions can be applied later
+        at the conversation level.
 
-        definitions_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(definitions_module)
+        Args:
+            tools_dir: Path to directory containing tool definitions
 
-        if not hasattr(definitions_module, "DEFINITIONS"):
-            raise ValueError(f"{path} must contain DEFINITIONS dictionary")
+        Returns:
+            List of registered tool names
+        """
+        tools_dir = Path(tools_dir)
+        if not tools_dir.exists() or not tools_dir.is_dir():
+            raise ValueError(f"Tools directory not found: {tools_dir}")
 
-        # Check for duplicate tools before registering any
-        for tool_name in definitions_module.DEFINITIONS:
-            if tool_name in self.tools:
-                raise ValueError(f"Tool already exists: {tool_name}")
+        registered_tools = []
 
-        # Update tools dictionary with new definitions
-        for name, tool in definitions_module.DEFINITIONS.items():
-            self.tools[name] = tool
-        return list(definitions_module.DEFINITIONS.keys())
+        # Find all definitions.py files in subdirectories
+        for definitions_file in tools_dir.rglob("definitions.py"):
+            # Import the definitions module
+            spec = importlib.util.spec_from_file_location(
+                f"tools.{definitions_file.parent.name}", definitions_file
+            )
+            if not spec or not spec.loader:
+                log_error(
+                    ImportError(f"Could not load {definitions_file}"),
+                    "Warning: Skipping tool definitions file",
+                )
+                continue
+
+            try:
+                definitions_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(definitions_module)
+
+                if not hasattr(definitions_module, "DEFINITIONS"):
+                    log_error(
+                        ValueError(
+                            f"{definitions_file} must contain DEFINITIONS dictionary"
+                        ),
+                        "Warning: Skipping tool definitions file",
+                    )
+                    continue
+
+                # Check for duplicate tools before registering any from this file
+                new_tools = definitions_module.DEFINITIONS
+                duplicates = set(new_tools.keys()) & set(self.tools.keys())
+                if duplicates:
+                    log_error(
+                        ValueError(f"Duplicate tools found: {duplicates}"),
+                        "Warning: Skipping duplicate tools",
+                    )
+                    # Only register non-duplicate tools from this file
+                    new_tools = {
+                        name: tool
+                        for name, tool in new_tools.items()
+                        if name not in duplicates
+                    }
+
+                # Register tools
+                self.tools.update(new_tools)
+                registered_tools.extend(new_tools.keys())
+
+            except Exception as e:
+                log_error(
+                    e,
+                    f"Warning: Failed to load tools from {definitions_file}",
+                )
+                continue
+
+        return registered_tools
 
     def create_conversation(
         self,
@@ -172,12 +218,21 @@ class Client(ABC):
                     log_key_value("Status", "✗ Failed")
                     if "error" in result:
                         log_key_value("Error", result["error"])
+                        # For final tools, raise an error with the error message
+                        if tool.get("final_tool"):
+                            raise Exception(result["error"])
             else:
                 # For other responses, just show key-value pairs
                 for key, value in result.items():
                     log_key_value(key, value)
         else:
             log_key_value("Output", result)
+
+        # For final tools, ensure we have a valid response
+        if tool.get("final_tool") and (
+            not result or not isinstance(result, dict) or "success" not in result
+        ):
+            raise Exception("Invalid response from final tool")
 
         return result
 

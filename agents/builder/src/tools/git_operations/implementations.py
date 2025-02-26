@@ -126,6 +126,14 @@ def create_branch(branch_base: str) -> dict:
         if not branch_base:
             return {"success": False, "error": "Missing branch base name"}
 
+        # Clean branch base name - remove special characters and spaces
+        branch_base = branch_base.strip().lower()
+        branch_base = "".join(
+            c if c.isalnum() or c in "-_" else "-" for c in branch_base
+        )
+        if not branch_base:
+            return {"success": False, "error": "Invalid branch name after cleaning"}
+
         # Generate branch name
         timestamp = int(time.time())
         branch_name = f"{branch_base}-{timestamp}"
@@ -133,15 +141,56 @@ def create_branch(branch_base: str) -> dict:
         repo = Repo(os.getcwd())
         log_key_value("Creating branch", f"'{branch_name}' in {repo.working_dir}")
 
+        # Check if we're in a git repo
+        if not os.path.exists(os.path.join(repo.working_dir, ".git")):
+            return {"success": False, "error": "Not a git repository"}
+
+        # Check if we have a remote named 'origin'
+        try:
+            repo.remote("origin")
+        except ValueError:
+            return {"success": False, "error": "No 'origin' remote found"}
+
         # Create and checkout branch
-        repo.git.checkout("-b", branch_name)
+        try:
+            repo.git.checkout("-b", branch_name)
+        except GitCommandError as e:
+            if "already exists" in str(e):
+                return {
+                    "success": False,
+                    "error": f"Branch '{branch_name}' already exists",
+                }
+            raise
 
         # Verify branch exists
         if branch_name not in repo.heads:
-            raise Exception(f"Branch creation failed: {branch_name}")
+            return {
+                "success": False,
+                "error": f"Failed to create branch: {branch_name}",
+            }
 
         # Configure upstream tracking
-        repo.git.push("--set-upstream", "origin", branch_name)
+        try:
+            repo.git.push("--set-upstream", "origin", branch_name)
+        except GitCommandError as e:
+            # Try to delete the local branch since push failed
+            try:
+                repo.git.checkout("main")
+                repo.git.branch("-D", branch_name)
+            except GitCommandError:
+                pass
+            if "Permission denied" in str(e):
+                return {
+                    "success": False,
+                    "error": "Permission denied pushing to remote",
+                }
+            elif "Authentication failed" in str(e):
+                return {
+                    "success": False,
+                    "error": "Authentication failed - check your GitHub token",
+                }
+            else:
+                raise
 
         return {
             "success": True,
@@ -149,7 +198,11 @@ def create_branch(branch_base: str) -> dict:
             "message": f"Created branch {branch_name}",
         }
     except GitCommandError as e:
-        error_msg = f"Failed to create branch: {str(e)}"
+        error_msg = f"Git error: {str(e)}"
+        log_error(e, error_msg)
+        return {"success": False, "error": error_msg}
+    except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
         log_error(e, error_msg)
         return {"success": False, "error": error_msg}
 
