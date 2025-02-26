@@ -124,18 +124,35 @@ def validate_acceptance_criteria(client, todo, acceptance_criteria):
                 if isinstance(parsed, dict):
                     if not parsed.get("success", False):
                         # Tool execution failed
-                        return False, parsed.get("error", "Tool execution failed")
-                    if "validated" in parsed and "message" in parsed:
-                        validation_result = parsed
+                        return False, parsed.get("message", "Tool execution failed")
+
+                    # For successful tool execution, look for validation data
+                    data = parsed.get("data", {})
+                    if isinstance(data, dict) and "validated" in data:
+                        validation_result = data
+                        break
             except (ValueError, SyntaxError, AttributeError):
                 continue
 
         if validation_result is None:
             return False, "No validation result found in response"
 
-        return validation_result["validated"], validation_result.get(
-            "message", "No validation message provided"
+        # Return the validation status and message
+        is_validated = validation_result["validated"]
+        message = (
+            "All acceptance criteria met"
+            if is_validated
+            else "Some acceptance criteria not met"
         )
+
+        # Add details about failed criteria if any
+        if not is_validated and validation_result.get("criteria_status"):
+            not_met = validation_result["criteria_status"].get("not_met", [])
+            if not_met:
+                message += f": {', '.join(not_met)}"
+
+        return is_validated, message
+
     except Exception as e:
         return False, f"Error processing validation result: {str(e)}"
 
@@ -186,7 +203,7 @@ def todo_to_pr(
         os.chdir(repo_path)
 
         # Create client and conversation with system prompt
-        client = setup_client("anthropic")
+        client = setup_client("openai")
         conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info
