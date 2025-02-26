@@ -57,20 +57,6 @@ class OpenAIClient(Client):
     def _convert_message_to_api_format(self, message: MessageContent) -> Dict[str, Any]:
         """Convert our message format to OpenAI's format."""
         # Handle missing content (e.g. in tool responses)
-        if "content" not in message:
-            # For tool responses without content field
-            if message.get("role") == "tool":
-                return {
-                    "role": "tool",
-                    "tool_call_id": message.get("tool_call_id"),
-                    "content": message.get("response", ""),
-                }
-            # For other messages without content, use empty string
-            return {
-                "role": message["role"],
-                "content": "",
-            }
-
         content = message["content"]
 
         # Handle string content
@@ -179,19 +165,15 @@ class OpenAIClient(Client):
     ) -> Dict[str, Any]:
         """Make API call to OpenAI."""
         try:
-            # Convert messages and tools to OpenAI format
-            api_messages = [
-                self._convert_message_to_api_format(msg) for msg in messages
-            ]
 
             # Add system message if provided
             if system_prompt:
-                api_messages.insert(0, {"role": "system", "content": system_prompt})
+                messages.insert(0, {"role": "system", "content": system_prompt})
 
             # Create API request parameters
             params = {
                 "model": self.model,
-                "messages": api_messages,
+                "messages": messages,
                 "max_tokens": max_tokens or 2000,
             }
 
