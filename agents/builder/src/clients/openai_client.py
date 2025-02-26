@@ -3,7 +3,7 @@
 from typing import Dict, Any, Optional, List, Union
 from openai import OpenAI
 from .base_client import Client
-from .types import (
+from ..types import (
     ToolDefinition,
     MessageContent,
     TextContent,
@@ -56,6 +56,21 @@ class OpenAIClient(Client):
 
     def _convert_message_to_api_format(self, message: MessageContent) -> Dict[str, Any]:
         """Convert our message format to OpenAI's format."""
+        # Handle missing content (e.g. in tool responses)
+        if "content" not in message:
+            # For tool responses without content field
+            if message.get("role") == "tool":
+                return {
+                    "role": "tool",
+                    "tool_call_id": message.get("tool_call_id"),
+                    "content": message.get("response", ""),
+                }
+            # For other messages without content, use empty string
+            return {
+                "role": message["role"],
+                "content": "",
+            }
+
         content = message["content"]
 
         # Handle string content
@@ -156,10 +171,11 @@ class OpenAIClient(Client):
 
     def _make_api_call(
         self,
-        messages: List[MessageContent],
+        messages: List[Dict[str, Any]],
         system_prompt: Optional[str] = None,
         max_tokens: Optional[int] = None,
-        tool_choice: Optional[ToolChoice] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Make API call to OpenAI."""
         try:
@@ -180,16 +196,10 @@ class OpenAIClient(Client):
             }
 
             # Add tools if available
-            if self.tools:
-                params["tools"] = [
-                    self._convert_tool_to_api_format(tool)
-                    for tool in self.tools.values()
-                ]
-                # Add tool_choice if specified
+            if tools:
+                params["tools"] = tools
                 if tool_choice:
-                    params["tool_choice"] = self._convert_tool_choice_to_api_format(
-                        tool_choice
-                    )
+                    params["tool_choice"] = tool_choice
 
             # Make API call
             response = self.client.chat.completions.create(**params)

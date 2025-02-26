@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List, Callable
 from pathlib import Path
 import importlib.util
 from .conversation_manager import ConversationManager
-from .types import ToolDefinition, MessageContent, ToolCall, ToolChoice, ToolCallContent
+from ..types import ToolDefinition, MessageContent, ToolCall, ToolChoice, ToolCallContent
 from src.utils.logging import log_section, log_key_value, log_error
 from src.utils.errors import ClientAPIError
 from src.utils.retry import is_retryable_error
@@ -58,7 +58,6 @@ class Client(ABC):
         messages: List[Dict[str, Any]],
         system_prompt: Optional[str] = None,
         max_tokens: Optional[int] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """Make API call with API-specific parameters.

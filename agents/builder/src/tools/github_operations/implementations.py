@@ -1,7 +1,7 @@
 """Module for GitHub operations."""
 
 import os
-from typing import Dict, Any, List
+from typing import Dict, List
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
 from src.tools.git_operations.implementations import (
@@ -9,6 +9,7 @@ from src.tools.git_operations.implementations import (
     pull_remote,
 )
 from src.utils.logging import log_key_value, log_error
+from src.clients.types import ToolOutput
 
 import time
 from git import Repo, GitCommandError
@@ -34,7 +35,7 @@ def _get_github_client() -> Github:
     return Github(auth=Auth.Token(token))
 
 
-def fork_repository(repo_full_name: str, repo_path: str = None) -> dict:
+def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
     """
     Fork a repository and clone it locally.
 
@@ -43,72 +44,84 @@ def fork_repository(repo_full_name: str, repo_path: str = None) -> dict:
         repo_path: Local path to clone to
 
     Returns:
-        dict: Result with success status and error message if any
+        ToolOutput: Standardized tool output with success status and error message if any
     """
     try:
         gh = _get_github_client()
         original_repo = gh.get_repo(repo_full_name)
 
-        # Check if we already have a fork
+        # Get authenticated user
         user = gh.get_user()
+        username = user.login
+
+        # Check if fork already exists
         try:
-            fork = user.get_repo(repo_full_name.split("/")[1])
-            if fork.fork and fork.parent.full_name == repo_full_name:
-                log_key_value("Using existing fork of", repo_full_name)
-            else:
-                log_key_value("Creating new fork of", repo_full_name)
-                fork = original_repo.create_fork()
+            fork = gh.get_repo(f"{username}/{original_repo.name}")
+            log_key_value("Using existing fork of", repo_full_name)
         except GithubException:
-            log_key_value("Creating new fork of", repo_full_name)
-            fork = original_repo.create_fork()
+            # Create fork if it doesn't exist
+            fork = user.create_fork(original_repo)
+            log_key_value("Created new fork of", repo_full_name)
 
         # Wait for fork to be ready
         log_key_value("Waiting for fork to be ready", "")
-        time.sleep(5)  # Give GitHub time to complete the fork
+        max_retries = 10
+        for _ in range(max_retries):
+            try:
+                fork.get_commits().get_page(0)
+                break
+            except GithubException:
+                time.sleep(1)
 
-        # Clone fork if path provided
+        # Clone repository if path provided
         if repo_path:
             log_key_value("Cloning to", repo_path)
-            # Add GitHub token authentication
-            if "github.com" in fork.clone_url:
-                token = os.environ["GITHUB_TOKEN"]
-                clone_url = fork.clone_url.replace("https://", f"https://{token}@")
-                log_key_value("Using clone URL", clone_url)
+            # Use token for auth
+            token = os.environ["GITHUB_TOKEN"]
+            clone_url = (
+                f"https://{token}@github.com/{username}/{original_repo.name}.git"
+            )
+            log_key_value("Using clone URL", clone_url)
 
-                repo = Repo.clone_from(clone_url, repo_path)
+            # Clone the repository
+            repo = Repo.clone_from(clone_url, repo_path)
 
-                # Set up remotes
-                log_key_value("Configuring remotes", "")
-                log_key_value("origin", fork.html_url)
-                log_key_value("upstream", original_repo.html_url)
+            # Configure remotes
+            log_key_value("Configuring remotes", "")
+            origin = repo.remote("origin")
+            origin.set_url(f"https://github.com/{username}/{original_repo.name}")
+            log_key_value(
+                "origin", f"https://github.com/{username}/{original_repo.name}"
+            )
 
-                # Configure remotes - origin is already set by clone_from
-                upstream_url = original_repo.clone_url.replace(
-                    "https://", f"https://{token}@"
-                )
-                repo.create_remote("upstream", upstream_url)
+            # Create and configure upstream remote
+            repo.create_remote("upstream", f"https://github.com/{repo_full_name}")
+            log_key_value("upstream", f"https://github.com/{repo_full_name}")
 
-                # Configure Git user info
-                with repo.config_writer() as config:
-                    config.set_value("user", "name", os.environ["GITHUB_USERNAME"])
-                    config.set_value(
-                        "user",
-                        "email",
-                        f"{os.environ['GITHUB_USERNAME']}@users.noreply.github.com",
-                    )
+            # Fetch from upstream
+            fetch_remote(repo_path, "upstream")
 
-                return {"success": True, "fork": fork, "repo": repo}
-        return {"success": True, "fork": fork}
+        return {
+            "success": True,
+            "message": f"Successfully forked and cloned {repo_full_name}",
+            "data": {
+                "fork_url": fork.html_url,
+                "clone_path": repo_path,
+                "owner": username,
+                "repo": original_repo.name,
+            },
+            "error": None,
+        }
 
     except Exception as e:
-        error_msg = f"Failed to fork/clone repository: {str(e)}"
-        log_error(e, error_msg)
-        if "permission" in str(e).lower():
-            log_key_value("This appears to be a permissions issue. Please check", "")
-            log_key_value("1.", "Your GitHub token has 'repo' scope")
-            log_key_value("2.", "You have access to the repository")
-            log_key_value("3.", "The repository name is correct")
-        return {"success": False, "error": error_msg}
+        error_msg = str(e)
+        log_error(e, "Fork failed")
+        return {
+            "success": False,
+            "message": "Failed to fork repository",
+            "data": None,
+            "error": error_msg,
+        }
 
 
 def create_pull_request(
@@ -120,8 +133,22 @@ def create_pull_request(
     todo: str,
     acceptance_criteria: str,
     base: str = "main",
-) -> Dict[str, Any]:
-    """Create PR with formatted description"""
+) -> ToolOutput:
+    """Create PR with formatted description.
+
+    Args:
+        repo_full_name: Full name of repository (owner/repo)
+        title: PR title
+        head: Head branch name
+        description: PR description
+        tests: List of test descriptions
+        todo: Original todo task
+        acceptance_criteria: Task acceptance criteria
+        base: Base branch name (default: main)
+
+    Returns:
+        ToolOutput: Standardized tool output with PR URL on success
+    """
     try:
         gh = _get_github_client()
 
@@ -145,29 +172,38 @@ def create_pull_request(
 
         repo = gh.get_repo(repo_full_name)
         pr = repo.create_pull(title=title, body=body, head=head, base=base)
-        return {"success": True, "pr_url": pr.html_url}
+        return {
+            "success": True,
+            "message": f"Successfully created PR: {title}",
+            "data": {"pr_url": pr.html_url},
+            "error": None,
+        }
     except GithubException as e:
         return {
             "success": False,
+            "message": "Failed to create pull request",
+            "data": {"errors": e.data.get("errors", [])},
             "error": f"GitHub API error: {e.data.get('message', str(e))}",
-            "details": e.data.get("errors", []),
         }
     except Exception as e:
-        return {"success": False, "error": f"Unexpected error: {str(e)}", "details": []}
+        return {
+            "success": False,
+            "message": "Failed to create pull request",
+            "data": None,
+            "error": f"Unexpected error: {str(e)}",
+        }
 
 
-def sync_fork(repo_path: str, branch: str = "main") -> Dict[str, Any]:
+def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
     """
     Sync a fork with its upstream repository.
 
     Args:
-        repo_path (str): Path to the git repository
-        branch (str): Branch to sync (default: main)
+        repo_path: Path to the git repository
+        branch: Branch to sync (default: main)
 
     Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
+        ToolOutput: Standardized tool output with sync status
     """
     try:
         print(f"Syncing fork with upstream, branch: {branch}")
@@ -175,12 +211,22 @@ def sync_fork(repo_path: str, branch: str = "main") -> Dict[str, Any]:
         # Fetch from upstream
         fetch_result = fetch_remote(repo_path, "upstream")
         if not fetch_result["success"]:
-            return fetch_result
+            return {
+                "success": False,
+                "message": "Failed to fetch from upstream",
+                "data": None,
+                "error": fetch_result.get("error"),
+            }
 
         # Pull from upstream
         pull_result = pull_remote(repo_path, "upstream", branch)
         if not pull_result["success"]:
-            return pull_result
+            return {
+                "success": False,
+                "message": "Failed to pull from upstream",
+                "data": None,
+                "error": pull_result.get("error"),
+            }
 
         # Push to origin
         try:
@@ -195,29 +241,41 @@ def sync_fork(repo_path: str, branch: str = "main") -> Dict[str, Any]:
         except GitCommandError as e:
             error_msg = f"Failed to push changes: {str(e)}"
             print(error_msg)
-            return {"success": False, "error": error_msg}
+            return {
+                "success": False,
+                "message": "Failed to push to origin",
+                "data": None,
+                "error": error_msg,
+            }
 
         print("Successfully synced fork with upstream")
-        return {"success": True}
+        return {
+            "success": True,
+            "message": f"Successfully synced branch {branch} with upstream",
+            "data": {"branch": branch},
+            "error": None,
+        }
     except Exception as e:
         error_msg = f"Unexpected error while syncing fork: {str(e)}"
         print(error_msg)
-        return {"success": False, "error": error_msg}
+        return {
+            "success": False,
+            "message": "Failed to sync fork",
+            "data": None,
+            "error": error_msg,
+        }
 
 
-def check_fork_exists(owner: str, repo_name: str) -> Dict[str, Any]:
+def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
     """
     Check if fork exists using GitHub API.
 
     Args:
-        owner (str): Owner of the repository
-        repo_name (str): Name of the repository
+        owner: Owner of the repository
+        repo_name: Name of the repository
 
     Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - exists (bool): Whether the fork exists
-            - error (str): Error message if unsuccessful
+        ToolOutput: Standardized tool output with fork existence status
     """
     try:
         gh = _get_github_client()
@@ -226,7 +284,12 @@ def check_fork_exists(owner: str, repo_name: str) -> Dict[str, Any]:
         try:
             gh.get_repo(f"{owner}/{repo_name}")
         except GithubException:
-            return {"success": False, "error": "Source repository not found"}
+            return {
+                "success": False,
+                "message": "Source repository not found",
+                "data": None,
+                "error": "Source repository not found",
+            }
 
         # Then check if we have a fork
         user = gh.get_user()
@@ -234,13 +297,33 @@ def check_fork_exists(owner: str, repo_name: str) -> Dict[str, Any]:
             fork = user.get_repo(repo_name)
             # Verify it's actually a fork of the target repo
             if fork.fork and fork.parent.full_name == f"{owner}/{repo_name}":
-                return {"success": True, "exists": True}
-            return {"success": True, "exists": False}
+                return {
+                    "success": True,
+                    "message": f"Fork exists for {owner}/{repo_name}",
+                    "data": {"exists": True},
+                    "error": None,
+                }
+            return {
+                "success": True,
+                "message": f"No fork exists for {owner}/{repo_name}",
+                "data": {"exists": False},
+                "error": None,
+            }
         except GithubException:
-            return {"success": True, "exists": False}
+            return {
+                "success": True,
+                "message": f"No fork exists for {owner}/{repo_name}",
+                "data": {"exists": False},
+                "error": None,
+            }
 
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {
+            "success": False,
+            "message": "Failed to check fork existence",
+            "data": None,
+            "error": str(e),
+        }
 
 
 def review_pull_request(
@@ -253,7 +336,7 @@ def review_pull_request(
     recommendation: str,
     recommendation_reason: List[str],
     action_items: List[str],
-) -> Dict[str, Any]:
+) -> ToolOutput:
     """
     Post a structured review comment on a pull request.
 
@@ -269,9 +352,7 @@ def review_pull_request(
         action_items (List[str]): List of required changes or improvements
 
     Returns:
-        Dict[str, Any]: A dictionary containing:
-            - success (bool): Whether the operation succeeded
-            - error (str): Error message if unsuccessful
+        ToolOutput: Standardized tool output with review status and details
     """
     try:
         gh = _get_github_client()
@@ -284,21 +365,21 @@ def review_pull_request(
                 return f"*{empty_message}*"
             return "- " + "\n- ".join(items)
 
-        # Format the review using the template
+        # Format the review body using the template
         review_body = REVIEW_TEMPLATE.format(
             title=title,
             description=description,
             met_requirements=format_list(
-                requirements.get("met", []), "All requirements need work"
+                requirements.get("met", []), "No requirements met"
             ),
-            unmet_requirements=format_list(
-                requirements.get("not_met", []), "All requirements are met"
+            not_met_requirements=format_list(
+                requirements.get("not_met", []), "All requirements met"
             ),
-            test_coverage=format_list(
-                test_evaluation.get("coverage", []), "No adequate test coverage found"
+            passed_tests=format_list(
+                test_evaluation.get("passed", []), "No passing tests"
             ),
-            test_issues=format_list(
-                test_evaluation.get("issues", []), "No issues found in existing tests"
+            failed_tests=format_list(
+                test_evaluation.get("failed", []), "No failing tests"
             ),
             missing_tests=format_list(
                 test_evaluation.get("missing", []), "No missing test cases identified"
@@ -313,11 +394,25 @@ def review_pull_request(
         # Post the review
         pr.create_issue_comment(review_body)
         validated = recommendation.upper() == "APPROVE"
-        return {"success": True, "validated": validated}
+        return {
+            "success": True,
+            "message": f"Successfully posted review on PR #{pr_number}",
+            "data": {
+                "validated": validated,
+                "review_body": review_body,
+                "recommendation": recommendation,
+            },
+            "error": None,
+        }
     except Exception as e:
         error_msg = f"Error posting review on PR #{pr_number}: {str(e)}"
         print(error_msg)
-        return {"success": False, "error": error_msg}
+        return {
+            "success": False,
+            "message": "Failed to post review",
+            "data": None,
+            "error": error_msg,
+        }
 
 
 def validate_implementation(
@@ -327,7 +422,7 @@ def validate_implementation(
     directory_check: dict,
     issues: list,
     required_fixes: list,
-) -> Dict[str, Any]:
+) -> ToolOutput:
     """Submit a validation result with formatted message.
 
     Args:
@@ -339,7 +434,7 @@ def validate_implementation(
         required_fixes: List of fixes needed
 
     Returns:
-        Dict containing the validation result and formatted message
+        ToolOutput: Standardized tool output with validation results
     """
     try:
         # Format a detailed validation message
@@ -376,19 +471,23 @@ def validate_implementation(
 
         return {
             "success": True,  # Tool executed successfully
-            "validated": validated,  # Whether implementation passed validation
             "message": (
                 "\n".join(message) if not validated else "All acceptance criteria met"
             ),
-            "test_results": test_results,
-            "criteria_status": criteria_status,
-            "directory_check": directory_check,
-            "issues": issues,
-            "required_fixes": required_fixes,
+            "data": {
+                "validated": validated,
+                "test_results": test_results,
+                "criteria_status": criteria_status,
+                "directory_check": directory_check,
+                "issues": issues,
+                "required_fixes": required_fixes,
+            },
+            "error": None,
         }
     except Exception as e:
-        # If anything goes wrong with the tool itself
         return {
-            "success": False,  # Tool failed to execute
+            "success": False,
+            "message": "Validation tool failed",
+            "data": None,
             "error": f"Validation tool failed: {str(e)}",
         }

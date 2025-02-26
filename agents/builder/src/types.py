@@ -20,12 +20,26 @@ class ToolCall(TypedDict):
     arguments: Dict[str, Any]
 
 
+class ToolOutput(TypedDict):
+    """Standard output format for all tools.
+
+    All tools must return a response in this format.
+    """
+
+    success: bool  # Whether the tool execution was successful
+    message: str  # Human-readable message about what happened
+    data: Optional[Dict[str, Any]]  # Optional structured data from the tool
+    error: Optional[str]  # Error message if success is False
+
+
 class ToolResponse(TypedDict):
-    """Format for a tool execution response."""
+    """Format for a tool execution response.
+
+    Wraps a tool's output with its call ID for client handling.
+    """
 
     tool_call_id: str  # ID of the tool call this is responding to
-    success: bool  # whether the tool call was successful
-    content: str  # output of the tool call
+    output: ToolOutput  # The actual output from the tool
 
 
 class ToolChoice(TypedDict):

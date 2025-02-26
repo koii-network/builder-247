@@ -15,7 +15,7 @@ from src.utils.logging import (
     log_error,
     configure_logging,
 )
-from src.clients.types import MessageContent, ToolCallContent
+from agents.builder.src.types import MessageContent, ToolCallContent
 from src.database import get_db
 from typing import List
 import json

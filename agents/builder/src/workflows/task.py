@@ -14,15 +14,6 @@ from typing import List
 import json
 import ast
 
-# Conditional path adjustment before any other imports
-if __name__ == "__main__":
-    # Calculate path to project root
-    project_root = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../../../..")
-    )
-    sys.path.insert(0, project_root)
-
-# Regular imports (PEP 8 compliant)
 from src.get_file_list import get_file_list
 from src.clients import setup_client
 from src.workflows.prompts import PROMPTS
@@ -191,7 +182,7 @@ def todo_to_pr(
         os.chdir(repo_path)
 
         # Create client and conversation with system prompt
-        client = setup_client("openai")
+        client = setup_client("anthropic")
         conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info

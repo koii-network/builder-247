@@ -5,7 +5,7 @@ from anthropic import Anthropic
 from anthropic.types import Message, TextBlock, ToolUseBlock
 import json
 from .base_client import Client
-from .types import (
+from ..types import (
     ToolDefinition,
     MessageContent,
     TextContent,
