@@ -191,14 +191,10 @@ def create_branch(branch_base: str) -> ToolOutput:
             url = origin.url
             if "github.com" in url:
                 token = os.environ["GITHUB_TOKEN"]
-                username = os.environ.get("GITHUB_USERNAME", "x-access-token")
                 if url.startswith("https://"):
-                    # Format: https://username:token@github.com/owner/repo
-                    new_url = url.replace("https://", f"https://{username}:{token}@")
+                    new_url = url.replace("https://", f"https://{token}@")
                 elif url.startswith("git@"):
-                    # Convert SSH to HTTPS with auth
-                    repo_path = url.split(":", 1)[1]
-                    new_url = f"https://{username}:{token}@github.com/{repo_path}"
+                    new_url = f"https://{token}@github.com/{url.split(':', 1)[1]}"
                 origin.set_url(new_url)
         except ValueError:
             return {

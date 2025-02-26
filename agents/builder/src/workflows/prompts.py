@@ -79,7 +79,7 @@ PROMPTS = {
     "create_pr": (
         "You are creating a pull request for the following task:\n"
         "Repository: {repo_full_name}\n"
-        "Branch: {head}\n"
+        "IMPORTANT - Use this EXACT branch name: {head}\n"
         "Base: {base}\n\n"
         "Task Description:\n"
         "{todo}\n\n"
@@ -95,7 +95,9 @@ PROMPTS = {
         "   - Implementation details for each component\n"
         "   - Testing approach and results\n"
         "   - How each acceptance criterion is met\n"
-        "   - Any important notes or considerations"
+        "   - Any important notes or considerations\n\n"
+        "IMPORTANT: You MUST use the exact branch name provided above.\n"
+        "DO NOT modify or create a new branch name - use {head} exactly as shown."
     ),
     "review_pr": (
         "Review pull request #{pr_number} in repository {repo}.\n\n"

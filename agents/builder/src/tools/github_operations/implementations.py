@@ -176,21 +176,18 @@ def create_pull_request(
             "success": True,
             "message": f"Successfully created PR: {title}",
             "data": {"pr_url": pr.html_url},
-            "error": None,
         }
     except GithubException as e:
         return {
             "success": False,
-            "message": "Failed to create pull request",
+            "message": f"Failed to create pull request: {str(e)}",
             "data": {"errors": e.data.get("errors", [])},
-            "error": f"GitHub API error: {e.data.get('message', str(e))}",
         }
     except Exception as e:
         return {
             "success": False,
-            "message": "Failed to create pull request",
+            "message": f"Failed to create pull request: {str(e)}",
             "data": None,
-            "error": f"Unexpected error: {str(e)}",
         }
 
 
@@ -213,9 +210,8 @@ def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
         if not fetch_result["success"]:
             return {
                 "success": False,
-                "message": "Failed to fetch from upstream",
+                "message": f"Failed to fetch from upstream: {fetch_result.get('error')}",
                 "data": None,
-                "error": fetch_result.get("error"),
             }
 
         # Pull from upstream
@@ -223,9 +219,8 @@ def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
         if not pull_result["success"]:
             return {
                 "success": False,
-                "message": "Failed to pull from upstream",
+                "message": f"Failed to pull from upstream: {pull_result.get('error')}",
                 "data": None,
-                "error": pull_result.get("error"),
             }
 
         # Push to origin
@@ -243,9 +238,8 @@ def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
             print(error_msg)
             return {
                 "success": False,
-                "message": "Failed to push to origin",
+                "message": f"Failed to push to origin: {error_msg}",
                 "data": None,
-                "error": error_msg,
             }
 
         print("Successfully synced fork with upstream")
@@ -253,16 +247,15 @@ def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
             "success": True,
             "message": f"Successfully synced branch {branch} with upstream",
             "data": {"branch": branch},
-            "error": None,
         }
+
     except Exception as e:
         error_msg = f"Unexpected error while syncing fork: {str(e)}"
         print(error_msg)
         return {
             "success": False,
-            "message": "Failed to sync fork",
+            "message": f"Failed to sync fork: {error_msg}",
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -288,7 +281,6 @@ def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
                 "success": False,
                 "message": "Source repository not found",
                 "data": None,
-                "error": "Source repository not found",
             }
 
         # Then check if we have a fork
@@ -301,28 +293,24 @@ def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
                     "success": True,
                     "message": f"Fork exists for {owner}/{repo_name}",
                     "data": {"exists": True},
-                    "error": None,
                 }
             return {
                 "success": True,
                 "message": f"No fork exists for {owner}/{repo_name}",
                 "data": {"exists": False},
-                "error": None,
             }
         except GithubException:
             return {
                 "success": True,
                 "message": f"No fork exists for {owner}/{repo_name}",
                 "data": {"exists": False},
-                "error": None,
             }
 
     except Exception as e:
         return {
             "success": False,
-            "message": "Failed to check fork existence",
+            "message": f"Failed to check fork existence: {str(e)}",
             "data": None,
-            "error": str(e),
         }
 
 
@@ -402,16 +390,14 @@ def review_pull_request(
                 "review_body": review_body,
                 "recommendation": recommendation,
             },
-            "error": None,
         }
     except Exception as e:
         error_msg = f"Error posting review on PR #{pr_number}: {str(e)}"
         print(error_msg)
         return {
             "success": False,
-            "message": "Failed to post review",
+            "message": f"Failed to post review: {error_msg}",
             "data": None,
-            "error": error_msg,
         }
 
 
@@ -482,12 +468,10 @@ def validate_implementation(
                 "issues": issues,
                 "required_fixes": required_fixes,
             },
-            "error": None,
         }
     except Exception as e:
         return {
             "success": False,
-            "message": "Validation tool failed",
+            "message": f"Validation tool failed: {str(e)}",
             "data": None,
-            "error": f"Validation tool failed: {str(e)}",
         }

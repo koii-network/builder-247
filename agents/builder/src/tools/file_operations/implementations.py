@@ -248,15 +248,38 @@ def list_files(directory: str) -> ToolOutput:
         directory = _normalize_path(directory)
         directory = Path(os.getcwd()) / directory
 
-        if not directory.exists() or not directory.is_dir():
+        if not directory.exists():
             return {
                 "success": False,
-                "message": f"The directory '{directory}' does not exist",
+                "message": f"Directory does not exist: {directory}",
+                "data": None,
+            }
+
+        if not directory.is_dir():
+            return {
+                "success": False,
+                "message": f"Path exists but is not a directory: {directory}",
                 "data": None,
             }
 
         # Use git to list all tracked and untracked files, respecting .gitignore
-        repo = Repo(directory)
+        try:
+            repo = Repo(directory)
+        except Exception as e:
+            # If not a git repo, just list files normally
+            files = []
+            for root, _, filenames in os.walk(directory):
+                rel_root = os.path.relpath(root, directory)
+                for filename in filenames:
+                    if rel_root == ".":
+                        files.append(filename)
+                    else:
+                        files.append(os.path.join(rel_root, filename))
+            return {
+                "success": True,
+                "message": f"Found {len(files)} files in {directory}",
+                "data": {"files": sorted(files)},
+            }
 
         # Get tracked files
         tracked_files = set(repo.git.ls_files().splitlines())
@@ -276,10 +299,10 @@ def list_files(directory: str) -> ToolOutput:
             "data": {"files": files},
         }
 
-    except (FileNotFoundError, OSError) as e:  # Catch specific file-related exceptions
+    except Exception as e:
         return {
             "success": False,
-            "message": str(e),
+            "message": f"Error listing files: {str(e)}",
             "data": None,
         }
 
