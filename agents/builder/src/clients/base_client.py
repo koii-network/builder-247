@@ -204,30 +204,26 @@ class Client(ABC):
             result = tool["function"](**tool_args)
 
             # Log result
-            log_key_value("RESULT:", "")
+            log_section("TOOL RESULT")
             if isinstance(result, dict):
                 # Handle success/failure responses
                 if "success" in result:
-                    if result["success"]:
-                        log_key_value("Status", "✓ Success")
-                        # For successful operations, show the main result or message
-                        if "message" in result:
-                            log_key_value("Message", result["message"])
-                        # Show other relevant fields (excluding success flag)
-                        for key, value in result.items():
-                            if key not in ["success", "message"]:
+                    log_key_value(
+                        "Status", "✓ Success" if result["success"] else "✗ Failed"
+                    )
+                    if "message" in result:
+                        log_key_value("Message", result["message"])
+                    # Show data fields in a more readable format
+                    if "data" in result and result["data"]:
+                        log_key_value("Details:", "")
+                        for key, value in result["data"].items():
+                            if isinstance(value, (str, int, float, bool)):
                                 log_key_value(key, value)
-                    else:
-                        log_key_value("Status", "✗ Failed")
-                        if "message" in result:
-                            log_key_value("Error", result["message"])
-                            # For final tools, convert error to failed response
-                            if tool.get("final_tool"):
-                                return {
-                                    "success": False,
-                                    "message": result["message"],
-                                    "data": None,
-                                }
+                            elif isinstance(value, dict):
+                                # Format nested dicts more nicely
+                                log_key_value(key, json.dumps(value, indent=2))
+                            else:
+                                log_key_value(key, str(value))
                 else:
                     # For other responses, just show key-value pairs
                     for key, value in result.items():
