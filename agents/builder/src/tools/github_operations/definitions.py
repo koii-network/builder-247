@@ -44,7 +44,10 @@ DEFINITIONS = {
                     "type": "string",
                     "description": "Name of the branch to merge into",
                 },
-                "summary": {"type": "string", "description": "Summary of changes"},
+                "description": {
+                    "type": "string",
+                    "description": "Description of changes",
+                },
                 "tests": {"type": "string", "description": "Description of tests"},
                 "todo": {"type": "string", "description": "Original task description"},
                 "acceptance_criteria": {
@@ -56,13 +59,13 @@ DEFINITIONS = {
                 "repo_full_name",
                 "title",
                 "head",
-                "summary",
+                "description",
                 "tests",
                 "todo",
                 "acceptance_criteria",
             ],
         },
-        "return_value": True,
+        "final_tool": True,
         "function": create_pull_request,
     },
     "review_pull_request": {
@@ -77,7 +80,10 @@ DEFINITIONS = {
                 },
                 "pr_number": {"type": "integer", "description": "Pull request number"},
                 "title": {"type": "string", "description": "Title of the PR"},
-                "summary": {"type": "string", "description": "Summary of changes"},
+                "description": {
+                    "type": "string",
+                    "description": "Description of changes",
+                },
                 "requirements": {
                     "type": "object",
                     "description": "Dictionary with 'met' and 'not_met' requirements",
@@ -114,7 +120,7 @@ DEFINITIONS = {
                 "repo_full_name",
                 "pr_number",
                 "title",
-                "summary",
+                "description",
                 "requirements",
                 "test_evaluation",
                 "recommendation",
@@ -122,7 +128,7 @@ DEFINITIONS = {
                 "action_items",
             ],
         },
-        "return_value": True,
+        "final_tool": True,
         "function": review_pull_request,
     },
     "validate_implementation": {
@@ -131,18 +137,55 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "success": {
+                "validated": {
                     "type": "boolean",
-                    "description": "Whether the validation passed",
+                    "description": "Whether the implementation passed validation",
                 },
-                "reason": {
-                    "type": "string",
-                    "description": "Reason for failure if validation failed",
+                "test_results": {
+                    "type": "object",
+                    "description": "Results from running tests",
+                    "properties": {
+                        "passed": {"type": "array", "items": {"type": "string"}},
+                        "failed": {"type": "array", "items": {"type": "string"}},
+                    },
+                },
+                "criteria_status": {
+                    "type": "object",
+                    "description": "Status of each acceptance criterion",
+                    "properties": {
+                        "met": {"type": "array", "items": {"type": "string"}},
+                        "not_met": {"type": "array", "items": {"type": "string"}},
+                    },
+                },
+                "directory_check": {
+                    "type": "object",
+                    "description": "Results of directory structure validation",
+                    "properties": {
+                        "valid": {"type": "boolean"},
+                        "issues": {"type": "array", "items": {"type": "string"}},
+                    },
+                },
+                "issues": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of issues found during validation",
+                },
+                "required_fixes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of fixes needed to meet requirements",
                 },
             },
-            "required": ["success"],
+            "required": [
+                "validated",
+                "test_results",
+                "criteria_status",
+                "directory_check",
+                "issues",
+                "required_fixes",
+            ],
         },
-        "return_value": True,
+        "final_tool": True,
         "function": validate_implementation,
     },
 }

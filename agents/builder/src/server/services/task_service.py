@@ -1,10 +1,11 @@
+"""Task service module."""
+
 import requests
 import os
-
 from flask import jsonify
-from src.server.services.database import get_db, close_db
-from src.workflows.flow import todo_to_pr
-from src.workflows.review_flow import review_pr
+from src.database import get_db, Submission
+from src.workflows.task import todo_to_pr
+from src.workflows.audit import review_pr
 from src.workflows.prompts import REVIEW_SYSTEM_PROMPT
 import logging
 
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def handle_task_creation(task_id, round_number, signature, staking_key, pub_key):
+    """Handle task creation request."""
     todo = get_todo(signature, staking_key, pub_key)
     if not todo:
         return jsonify({"error": "No todo found"}), 404
@@ -22,6 +24,7 @@ def handle_task_creation(task_id, round_number, signature, staking_key, pub_key)
 
 
 def get_todo(signature, staking_key, pub_key):
+    """Get todo from middle server."""
     try:
         logger.info("Fetching todo")
 
@@ -52,18 +55,19 @@ def get_todo(signature, staking_key, pub_key):
 
 
 def run_todo_task(task_id, round_number, todo):
+    """Run todo task and create PR."""
     try:
         db = get_db()
-        cursor = db.cursor()
 
-        cursor.execute(
-            """
-            INSERT OR REPLACE INTO submissions
-            (taskId, roundNumber, status, repo_owner, repo_name)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (task_id, round_number, "running", todo["repo_owner"], todo["repo_name"]),
+        # Create new submission
+        submission = Submission(
+            task_id=task_id,
+            round_number=round_number,
+            status="running",
+            repo_owner=todo["repo_owner"],
+            repo_name=todo["repo_name"],
         )
+        db.add(submission)
         db.commit()
 
         return todo_to_pr(
@@ -76,21 +80,24 @@ def run_todo_task(task_id, round_number, todo):
 
     except Exception as e:
         logger.error(f"PR creation failed: {str(e)}")
-        if "cursor" in locals():
-            cursor.execute(
-                "UPDATE submissions SET status = ? WHERE roundNumber = ?",
-                ("failed", round_number),
+        if "db" in locals():
+            # Update submission status
+            submission = (
+                db.query(Submission)
+                .filter(Submission.round_number == round_number)
+                .first()
             )
-            db.commit()
-            logger.info(f"Updated status to failed for round {round_number}")
-    finally:
-        close_db()
+            if submission:
+                submission.status = "failed"
+                db.commit()
+                logger.info(f"Updated status to failed for round {round_number}")
+        raise
 
 
 def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
+    """Submit PR to middle server and update submission."""
     try:
         db = get_db()
-        cursor = db.cursor()
         response = requests.post(
             os.environ["MIDDLE_SERVER_URL"] + "/api/add-pr-to-to-do",
             json={
@@ -103,25 +110,28 @@ def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
         response.raise_for_status()
         username = os.environ["GITHUB_USERNAME"]
 
-        cursor.execute(
-            """
-            UPDATE submissions
-            SET status = ?, pr_url = ?, username = ?
-            WHERE roundNumber = ?
-            """,
-            ("completed", pr_url, username, round_number),
+        # Update submission
+        submission = (
+            db.query(Submission).filter(Submission.round_number == round_number).first()
         )
-        db.commit()
-        logger.info("Database updated successfully")
-        return "PR submitted successfully"
+        if submission:
+            submission.status = "completed"
+            submission.pr_url = pr_url
+            submission.username = username
+            db.commit()
+            logger.info("Database updated successfully")
+            return "PR submitted successfully"
+        else:
+            logger.error(f"No submission found for round {round_number}")
+            return "Error: Submission not found"
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Error submitting PR: {str(e)}")
         return "Error submitting PR"
-    finally:
-        close_db()
 
 
 def approve_pr(pr_url):
+    """Review and approve PR."""
     requirements = [
         "Implementation matches problem description",
         "All tests pass",

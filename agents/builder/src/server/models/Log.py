@@ -1,33 +1,13 @@
 """Database model for logging."""
 
 from datetime import datetime
-import sqlite3
-from src.server.services.database import get_db
+from src.database import get_db
 
 
 def init_logs_table():
     """Initialize the logs table if it doesn't exist."""
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            level TEXT NOT NULL,
-            message TEXT NOT NULL,
-            module TEXT,
-            function TEXT,
-            path TEXT,
-            line_no INTEGER,
-            exception TEXT,
-            stack_trace TEXT,
-            request_id TEXT,
-            additional_data TEXT
-        )
-        """
-    )
-    db.commit()
+    # Not needed - handled by SQLModel
+    pass
 
 
 def save_log(
@@ -62,30 +42,24 @@ def save_log(
     """
     try:
         db = get_db()
-        cursor = db.cursor()
-        cursor.execute(
-            """
-            INSERT INTO logs (
-                timestamp, level, message, module, function, path,
-                line_no, exception, stack_trace, request_id, additional_data
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                datetime.utcnow().isoformat(),
-                level,
-                message,
-                module,
-                function,
-                path,
-                line_no,
-                exception,
-                stack_trace,
-                request_id,
-                additional_data,
-            ),
+        from src.database import Log
+
+        log = Log(
+            timestamp=datetime.utcnow(),
+            level=level,
+            message=message,
+            module=module,
+            function=function,
+            path=path,
+            line_no=line_no,
+            exception=exception,
+            stack_trace=stack_trace,
+            request_id=request_id,
+            additional_data=additional_data,
         )
+        db.add(log)
         db.commit()
         return True
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Failed to save log to database: {e}")  # Fallback logging
         return False

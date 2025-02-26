@@ -253,7 +253,7 @@ def log_error(
         db.add(log)
         db.commit()
     except Exception as e:
-        # Fallback to standard error output if database logging fails
+        # Fallback to stderr if database logging fails
         print(f"Failed to log to database: {e}", file=sys.stderr)
 
 
@@ -329,14 +329,14 @@ def log_tool_response(response_str: str, tool_use_id: str = None) -> None:
                     # For successful operations, show the main result or message
                     if "message" in response:
                         logger.info(format_value(response["message"]))
-                    # Show other relevant fields (excluding success flag and error)
+                    # Show other relevant fields (excluding success flag)
                     for key, value in response.items():
-                        if key not in ["success", "error", "message"]:
+                        if key not in ["success", "message"]:
                             log_key_value(key, value)
                 else:
                     logger.info("✗ Failed")
-                    if "error" in response:
-                        logger.info(format_value(response["error"]))
+                    if "message" in response:
+                        logger.info(format_value(response["message"]))
             else:
                 # For other responses, just show key-value pairs
                 log_dict(response)

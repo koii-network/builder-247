@@ -15,7 +15,7 @@ from src.utils.logging import (
     log_error,
     configure_logging,
 )
-from src.clients.types import MessageContent, ToolCallContent
+from src.types import MessageContent, ToolCallContent
 from src.database import get_db
 from typing import List
 import json
@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
 # Regular imports (PEP 8 compliant)
 from src.get_file_list import get_file_list
-from src.workflows.setup_new import setup_client
+from src.workflows.setup_repo import setup_client
 from src.utils.retry import (
     execute_tool_with_retry,
     send_message_with_retry,
@@ -84,7 +84,7 @@ def get_tool_calls(msg: MessageContent) -> List[ToolCallContent]:
 def handle_tool_response(client, response):
     """
     Handle tool responses until natural completion.
-    If a tool has return_value=True, returns immediately after executing that tool.
+    If a tool has final_tool=True, returns immediately after executing that tool.
     """
     conversation_id = response["conversation_id"]  # Store conversation ID
 
@@ -97,10 +97,10 @@ def handle_tool_response(client, response):
         tool_results = []
         for tool_call in tool_calls:
             try:
-                # Check if this tool has return_value set
+                # Check if this tool has final_tool set
                 tool_definition = client.tools.get(tool_call["name"])
                 should_return = tool_definition and tool_definition.get(
-                    "return_value", False
+                    "final_tool", False
                 )
 
                 # Execute the tool with retry logic
@@ -122,7 +122,7 @@ def handle_tool_response(client, response):
                     {"tool_call_id": tool_call["id"], "response": tool_response_str}
                 )
 
-                # If this tool has return_value=True, return its result immediately
+                # If this tool has final_tool=True, return its result immediately
                 if should_return:
                     return tool_results
 

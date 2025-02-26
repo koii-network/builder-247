@@ -1,31 +1,32 @@
-"""Anthropic/Claude API client implementation."""
+"""Anthropic API client implementation."""
 
 from typing import Dict, Any, Optional, List, Union
 from anthropic import Anthropic
 from anthropic.types import Message, TextBlock, ToolUseBlock
 import json
 from .base_client import Client
-from .types import (
+from ..types import (
     ToolDefinition,
     MessageContent,
     TextContent,
     ToolCallContent,
     ToolChoice,
 )
-from src.utils.retry import is_retryable_error
-from src.utils.logging import log_error
-from src.utils.errors import ClientAPIError
 
 
 class AnthropicClient(Client):
-    """Anthropic/Claude API client implementation."""
+    """Anthropic API client implementation."""
 
     def __init__(self, api_key: str, model: Optional[str] = None, **kwargs):
         super().__init__(model=model, **kwargs)
         self.client = Anthropic(api_key=api_key)
 
     def _get_default_model(self) -> str:
-        return "claude-3-haiku-20240307"
+        return "claude-3-5-haiku-latest"
+
+    def _get_api_name(self) -> str:
+        """Get API name for logging."""
+        return "Anthropic"
 
     def _convert_tool_to_api_format(self, tool: ToolDefinition) -> Dict[str, Any]:
         """Convert our tool definition to Anthropic's format."""
@@ -113,49 +114,26 @@ class AnthropicClient(Client):
 
     def _make_api_call(
         self,
-        messages: List[MessageContent],
+        messages: List[Dict[str, Any]],
         system_prompt: Optional[str] = None,
         max_tokens: Optional[int] = None,
-        tool_choice: Optional[ToolChoice] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Dict[str, Any]] = None,
     ) -> Message:
         """Make API call to Anthropic."""
-        try:
-            # Convert messages and tools to Anthropic format
-            api_messages = [
-                self._convert_message_to_api_format(msg) for msg in messages
-            ]
-            api_tools = (
-                [self._convert_tool_to_api_format(tool) for tool in self.tools.values()]
-                if self.tools
-                else None
-            )
+        params = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": max_tokens or 2000,
+        }
+        if system_prompt:
+            params["system"] = system_prompt
+        if tools:
+            params["tools"] = tools
+            if tool_choice:
+                params["tool_choice"] = tool_choice
 
-            # Create API request parameters
-            params = {
-                "model": self.model,
-                "messages": api_messages,
-                "max_tokens": max_tokens or 2000,
-            }
-            if system_prompt:
-                params["system"] = system_prompt
-            if api_tools:
-                params["tools"] = api_tools
-                if tool_choice:
-                    params["tool_choice"] = self._convert_tool_choice_to_api_format(
-                        tool_choice
-                    )
-
-            # Make API call
-            return self.client.messages.create(**params)
-
-        except Exception as e:
-            # Only wrap actual API errors
-            log_error(
-                e,
-                context="Error making API call to Anthropic",
-                include_traceback=not is_retryable_error(e),
-            )
-            raise ClientAPIError(e)
+        return self.client.messages.create(**params)
 
     def _format_tool_response(self, response: str) -> MessageContent:
         """Format a tool response into a message.
@@ -193,7 +171,7 @@ class AnthropicClient(Client):
 
         # Create or get conversation
         if not conversation_id:
-            conversation_id = self.storage.create_conversation(self.model)
+            conversation_id = self.create_conversation()
 
         # Get conversation details including system prompt
         conversation = self.storage.get_conversation(conversation_id)

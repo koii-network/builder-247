@@ -8,7 +8,7 @@ class ToolDefinition(TypedDict):
     description: str
     parameters: Dict[str, str]  # JSON Schema object
     required: List[str]
-    return_value: bool
+    final_tool: bool
     function: Callable
 
 
@@ -20,12 +20,27 @@ class ToolCall(TypedDict):
     arguments: Dict[str, Any]
 
 
+class ToolOutput(TypedDict):
+    """Standard output format for all tools.
+
+    All tools must return a response in this format.
+    The message field contains a human-readable description of what happened,
+    which will be an error message if success is False.
+    """
+
+    success: bool  # Whether the tool execution was successful
+    message: str  # Human-readable message about what happened (error message if success is False)
+    data: Optional[Dict[str, Any]]  # Optional structured data from the tool
+
+
 class ToolResponse(TypedDict):
-    """Format for a tool execution response."""
+    """Format for a tool execution response.
+
+    Wraps a tool's output with its call ID for client handling.
+    """
 
     tool_call_id: str  # ID of the tool call this is responding to
-    success: bool  # whether the tool call was successful
-    content: str  # output of the tool call
+    output: ToolOutput  # The actual output from the tool
 
 
 class ToolChoice(TypedDict):

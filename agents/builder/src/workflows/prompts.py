@@ -4,8 +4,7 @@ PROMPTS = {
         "1. Be kebab-case (lowercase with hyphens)\n"
         "2. Be descriptive of the task\n"
         "3. Be concise (max 50 chars)\n"
-        "4. Not include special characters\n"
-        "STOP after creating the branch, do not being writing code."
+        "4. Not include special characters"
     ),
     "execute_todo": (
         "You are working on implementing the following task:\n"
@@ -27,62 +26,76 @@ PROMPTS = {
     "fix_implementation": (
         "The previous implementation attempt had the following issues:\n"
         "{previous_issues}\n\n"
-        "You are working on fixing the implementation for:\n"
+        "Continuing in the same conversation, you are working on fixing the implementation for:\n"
         "{todo}\n\n"
         "Available files: {files_directory}\n\n"
-        "IMPORTANT: ALWAYS use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
+        "IMPORTANT: Always use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
         "Use the available tools to:\n"
-        "Read and analyze the current code\n"
-        "Make necessary modifications\n"
-        "Run tests to verify your changes\n"
-        "Continue until all issues are resolved\n\n"
-        "Please fix the implementation to address all issues:\n"
         "1. Review and understand the reported problems\n"
         "2. Make necessary changes to fix each issue\n"
         "3. Ensure changes don't introduce new problems\n"
         "4. Run tests to verify your fixes\n"
-        "5. Confirm all acceptance criteria are met\n"
+        "5. Confirm all acceptance criteria are met\n\n"
         "STOP after fixing the implementation, do not create a pull request."
     ),
     "validate_criteria": (
-        "Please validate that the implementation meets all acceptance criteria:\n"
+        "You are validating the implementation of the following task:\n"
+        "{todo}\n\n"
+        "Available files: {files_directory}\n\n"
         "Acceptance Criteria:\n"
         "{acceptance_criteria}\n\n"
-        "Follow these steps:\n"
-        "1. Run the tests and verify they all pass\n"
-        "2. Check each acceptance criterion carefully\n"
-        "3. Verify code quality and best practices\n"
-        "4. Check error handling and edge cases\n"
-        "5. Verify correct directory structure:\n"
+        "IMPORTANT: Always use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
+        "Steps to validate:\n"
+        "1. First examine the available files to understand the implementation\n"
+        "2. Run the tests and verify they all pass\n"
+        "3. Check each acceptance criterion carefully\n"
+        "4. Verify code quality and best practices\n"
+        "5. Check error handling and edge cases\n"
+        "6. Verify correct directory structure:\n"
         "   - Implementation code MUST be in 'src' directory\n"
         "   - Test files MUST be in 'tests' directory\n\n"
-        "Provide a detailed response with:\n"
-        "1. Test results\n"
-        "2. Status of each criterion (met/not met)\n"
-        "3. Directory structure check\n"
-        "4. Any issues found\n"
-        "5. Required fixes (if any)\n\n"
-        "Return:\n"
-        "- success: true if ALL criteria are met\n"
-        "- error: detailed explanation if any criteria are not met"
-        "STOP after validating the criteria, do not attempt to fix any issues or create a pull request."
+        "Provide a detailed validation report with:\n"
+        "1. Test Results:\n"
+        "   - List of passing tests\n"
+        "   - List of failing tests\n"
+        "2. Acceptance Criteria Status:\n"
+        "   - List of criteria that are met\n"
+        "   - List of criteria that are not met\n"
+        "3. Directory Structure Check:\n"
+        "   - Whether structure is valid\n"
+        "   - Any structural issues found\n"
+        "4. List of all issues found\n"
+        "5. List of required fixes\n\n"
+        "Use the validate_implementation tool to submit your findings.\n"
+        "The tool requires:\n"
+        "- success: boolean indicating if ALL criteria are met\n"
+        "- test_results: object with passed and failed test lists\n"
+        "- criteria_status: object with met and not_met criteria lists\n"
+        "- directory_check: object with valid boolean and issues list\n"
+        "- issues: list of all issues found\n"
+        "- required_fixes: list of fixes needed\n\n"
+        "STOP after submitting the validation report."
     ),
     "create_pr": (
-        "Create a pull request for the implemented task:\n"
+        "You are creating a pull request for the following task:\n"
         "Repository: {repo_full_name}\n"
         "Branch: {head}\n"
         "Base: {base}\n\n"
         "Task Description:\n"
         "{todo}\n\n"
+        "Available files: {files_directory}\n\n"
         "Acceptance Criteria:\n"
         "{acceptance_criteria}\n\n"
-        "The PR title should be clear and descriptive.\n"
-        "The PR description should include:\n"
-        "1. Summary of changes\n"
-        "2. Implementation details\n"
-        "3. Testing approach\n"
-        "4. How acceptance criteria are met\n"
-        "STOP after creating the pull request, do not review your own pull request."
+        "IMPORTANT: Always use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
+        "Steps to create the pull request:\n"
+        "1. First examine the available files to understand the implementation\n"
+        "2. Create a clear and descriptive PR title\n"
+        "3. Write a comprehensive PR description that includes:\n"
+        "   - Description of all changes made\n"
+        "   - Implementation details for each component\n"
+        "   - Testing approach and results\n"
+        "   - How each acceptance criterion is met\n"
+        "   - Any important notes or considerations"
     ),
     "review_pr": (
         "Review pull request #{pr_number} in repository {repo}.\n\n"
@@ -128,7 +141,7 @@ PR_TEMPLATE = """# {title}
 {todo}
 
 ## Summary of Changes
-{summary}
+{description}
 
 ## Acceptance Criteria
 {acceptance_criteria}
@@ -145,7 +158,7 @@ REVIEW_TEMPLATE = """# PR Review: {title}
 {recommendation_reasons}
 
 ## Summary of Changes
-{summary}
+{description}
 
 ## Requirements Review
 ### ✅ Met Requirements

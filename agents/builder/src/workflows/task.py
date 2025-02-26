@@ -1,4 +1,4 @@
-"""Task flow implementation."""
+"""Flow for processing todos and creating PRs."""
 
 # Standard library imports
 import os
@@ -10,35 +10,30 @@ import shutil
 from git import Repo
 from github import Github
 import dotenv
+from typing import List
+import json
+import ast
+
+from src.tools.file_operations.implementations import list_files
+from src.clients import setup_client
+from src.workflows.prompts import PROMPTS
+from src.tools.github_operations.implementations import fork_repository
+from src.utils.retry import send_message_with_retry
+from src.utils.errors import ClientAPIError
 from src.utils.logging import (
     log_section,
     log_key_value,
     log_error,
     configure_logging,
 )
-
-# Conditional path adjustment before any other imports
-if __name__ == "__main__":
-    # Calculate path to project root
-    project_root = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../../../..")
-    )
-    sys.path.insert(0, project_root)
-
-# Regular imports (PEP 8 compliant)
-from anthropic.types import ToolUseBlock
-from src.get_file_list import get_file_list
-from src.tools.git_operations_old import get_current_branch
-from src.workflows.setup import setup_client
-from src.workflows.prompts import PROMPTS
-from src.tools.github_operations_old import fork_repository
-from src.utils.retry import (
-    execute_tool_with_retry,
-    send_message_with_retry,
-)
+from src.types import MessageContent, ToolCallContent
+from src.database import get_db, Log
 
 # Ensure environment variables are loaded
 dotenv.load_dotenv()
+
+# Get database instance
+db = get_db()
 
 
 def check_required_env_vars():
@@ -65,93 +60,84 @@ def validate_github_auth():
             )
         log_key_value("Successfully authenticated as", username)
     except Exception as e:
-        raise RuntimeError(f"GitHub authentication failed: {str(e)}")
+        log_error(e, "GitHub authentication failed")
+        raise RuntimeError(str(e))
+
+
+def get_tool_calls(msg: MessageContent) -> List[ToolCallContent]:
+    """Return all tool call blocks from the message."""
+    tool_calls = []
+    for block in msg["content"]:
+        if block["type"] == "tool_call":
+            tool_calls.append(block["tool_call"])
+    return tool_calls
 
 
 def handle_tool_response(client, response):
     """
     Handle tool responses until natural completion.
+    If a tool has return_value=True, returns immediately after executing that tool.
     """
-    tool_result = None  # Track the final tool execution result
-    conversation_id = response.conversation_id  # Store conversation ID
-
-    while response.stop_reason == "tool_use":
-        # Process all tool uses in the current response
-        for tool_use in [b for b in response.content if isinstance(b, ToolUseBlock)]:
-            try:
-                # Execute the tool with retry logic
-                tool_output = execute_tool_with_retry(client, tool_use)
-                tool_result = tool_output  # Store the final tool result
-
-                # Convert tool output to string if it's not already
-                tool_response_str = (
-                    str(tool_output) if tool_output is not None else None
-                )
-                if tool_response_str is None:
-                    log_error(
-                        Exception("Tool output is None, skipping message to Claude"),
-                        "Warning",
-                    )
-                    continue
-
-                # Send successful tool result back to Claude with conversation state
-                response = send_message_with_retry(
-                    client,
-                    tool_response=tool_response_str,
-                    tool_use_id=tool_use.id,
-                    conversation_id=conversation_id,
-                )
-
-            except Exception as e:
-                error_msg = f"Failed to execute tool {tool_use.name}: {str(e)}"
-                log_error(e, error_msg)
-                # Send error back to Claude so it can try again
-                try:
-                    # Format error as a string for Claude
-                    error_response = {
-                        "success": False,
-                        "error": error_msg,
-                        "tool_name": tool_use.name,
-                        "input": tool_use.input,
-                    }
-                    response = send_message_with_retry(
-                        client,
-                        tool_response=str(error_response),
-                        tool_use_id=tool_use.id,
-                        conversation_id=conversation_id,
-                    )
-                except Exception as send_error:
-                    log_error(send_error, "Failed to send error message to Claude")
-                    raise
-                continue
-    return tool_result
+    return client.handle_tool_response(response)
 
 
-def validate_acceptance_criteria(client, conversation_id, todo, acceptance_criteria):
+def validate_acceptance_criteria(client, todo, acceptance_criteria):
     """
     Validate that all acceptance criteria are met, including passing tests.
     Returns tuple of (bool, str) indicating success/failure and reason for failure.
     """
     log_section("VALIDATING ACCEPTANCE CRITERIA")
 
+    # Get the list of files
+    files_result = list_files(os.getcwd())
+    if not files_result["success"]:
+        return False, f"Failed to get file list: {files_result['message']}"
+
+    files = files_result["data"]["files"]
+    files_directory = ", ".join(map(str, files))
+
     validation_prompt = PROMPTS["validate_criteria"].format(
-        todo=todo, acceptance_criteria=acceptance_criteria
+        todo=todo,
+        acceptance_criteria=acceptance_criteria,
+        files_directory=files_directory,
     )
 
+    # Start a new conversation for validation
+    validation_conversation_id = client.create_conversation(system_prompt=None)
     response = send_message_with_retry(
         client,
         prompt=validation_prompt,
-        conversation_id=conversation_id,
+        conversation_id=validation_conversation_id,
     )
 
-    validation_result = handle_tool_response(client, response)
-    if not validation_result:
+    validation_results = client.handle_tool_response(response)
+    if not validation_results:
         return False, "Failed to get validation result"
 
-    if not validation_result.get("success", False):
-        return False, validation_result.get("error", "Unknown validation error")
+    # Find the validate_implementation result
+    try:
+        # Look for the last validate_implementation result
+        validation_result = None
+        for result in validation_results:
+            try:
+                parsed = ast.literal_eval(result["response"])
+                if isinstance(parsed, dict):
+                    if not parsed.get("success", False):
+                        # Tool execution failed
+                        return False, parsed.get("error", "Tool execution failed")
+                    if "validated" in parsed and "message" in parsed:
+                        validation_result = parsed
+            except (ValueError, SyntaxError, AttributeError):
+                continue
 
-    return True, ""
+        if validation_result is None:
+            return False, "No validation result found in response"
+
+        return validation_result["validated"], validation_result.get(
+            "message", "No validation message provided"
+        )
+    except Exception as e:
+        return False, f"Error processing validation result: {str(e)}"
 
 
 def todo_to_pr(
@@ -192,13 +178,15 @@ def todo_to_pr(
         log_section("FORKING AND CLONING REPOSITORY")
         fork_result = fork_repository(f"{repo_owner}/{repo_name}", repo_path)
         if not fork_result["success"]:
-            raise Exception(f"Fork failed: {fork_result.get('error')}")
+            error = fork_result.get("error", "Unknown error")
+            log_error(Exception(error), "Fork failed")
+            raise Exception(error)
 
         # Enter repo directory
         os.chdir(repo_path)
 
         # Create client and conversation with system prompt
-        client = setup_client()
+        client = setup_client("anthropic")
         conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info
@@ -218,11 +206,23 @@ def todo_to_pr(
             client,
             prompt=setup_prompt,
             conversation_id=conversation_id,
-            tool_choice={"type": "tool", "name": "create_branch"},
+            tool_choice={"type": "required", "tool": "create_branch"},
         )
-        handle_tool_response(client, branch_response)
-        branch_info = get_current_branch()
-        branch_name = branch_info.get("output") if branch_info.get("success") else None
+        branch_results = client.handle_tool_response(branch_response)
+        if not branch_results:
+            raise Exception("Failed to create branch: No response from tool")
+
+        # Get branch name from the result
+        branch_result = ast.literal_eval(branch_results[-1]["response"])
+        if not branch_result.get("success"):
+            error = branch_result.get("error", "Unknown error")
+            log_error(Exception(error), "Branch creation failed")
+            raise Exception(f"Failed to create branch: {error}")
+        branch_name = branch_result.get("branch_name")
+
+        # Start new conversation for implementation phase
+        log_section("STARTING IMPLEMENTATION")
+        conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Implementation loop - try up to 3 times to meet all acceptance criteria
         max_implementation_attempts = 3
@@ -233,7 +233,11 @@ def todo_to_pr(
             )
 
             # Get the list of files
-            files = get_file_list(repo_path)
+            files_result = list_files(repo_path)
+            if not files_result["success"]:
+                raise Exception(f"Failed to get file list: {files_result['message']}")
+
+            files = files_result["data"]["files"]
             log_key_value("Found files", len(files))
             files_directory = ", ".join(map(str, files))
 
@@ -255,11 +259,11 @@ def todo_to_pr(
                 prompt=execute_todo_prompt,
                 conversation_id=conversation_id,
             )
-            handle_tool_response(client, execute_todo_response)
+            client.handle_tool_response(execute_todo_response)
 
             # Validate acceptance criteria
             is_valid, validation_message = validate_acceptance_criteria(
-                client, conversation_id, todo, acceptance_criteria
+                client, todo, acceptance_criteria
             )
 
             if is_valid:
@@ -269,10 +273,8 @@ def todo_to_pr(
                 break
 
             if attempt == max_implementation_attempts - 1:
-                log_error(
-                    Exception(validation_message),
-                    f"Failed to meet acceptance criteria after {max_implementation_attempts} attempts",
-                )
+                msg = f"Failed to meet acceptance criteria after {max_implementation_attempts} attempts"
+                log_error(Exception(validation_message), msg)
                 return None
 
             log_key_value(f"Validation attempt {attempt + 1}", validation_message)
@@ -280,21 +282,36 @@ def todo_to_pr(
 
         # Create PR with retries
         log_section("CREATING PULL REQUEST")
+
+        # Get the list of files
+        files_result = list_files(os.getcwd())
+        if not files_result["success"]:
+            raise Exception(f"Failed to get file list: {files_result['message']}")
+
+        files = files_result["data"]["files"]
+        files_directory = ", ".join(map(str, files))
+
         create_pr_prompt = PROMPTS["create_pr"].format(
             repo_full_name=f"{repo_owner}/{repo_name}",
             head=branch_name,
             base="main",
             todo=todo,
             acceptance_criteria=acceptance_criteria,
+            files_directory=files_directory,
         )
+        # Start a new conversation for PR creation
+        pr_conversation_id = client.create_conversation(system_prompt=None)
         pr_response = send_message_with_retry(
-            client,
-            prompt=create_pr_prompt,
-            tool_choice={"type": "tool", "name": "create_pull_request"},
+            client, prompt=create_pr_prompt, conversation_id=pr_conversation_id
         )
 
-        pr_result = handle_tool_response(client, pr_response)
+        pr_results = client.handle_tool_response(pr_response)
+        if not pr_results:
+            log_error(Exception("No PR result returned"), "PR creation failed")
+            return None
 
+        # Get the last result since that's the final PR creation attempt
+        pr_result = ast.literal_eval(pr_results[-1]["response"])
         if pr_result.get("success"):
             log_key_value("PR created successfully", pr_result.get("pr_url"))
             return pr_result.get("pr_url")
@@ -303,8 +320,9 @@ def todo_to_pr(
             return None
 
     except Exception as e:
-        log_error(e, "Error in todo_to_pr")
-        raise
+        if not isinstance(e, ClientAPIError):
+            log_error(e, "Error in todo_to_pr")
+        raise e
 
     finally:
         os.chdir(original_dir)  # Restore original directory
@@ -312,7 +330,7 @@ def todo_to_pr(
 
 if __name__ == "__main__":
     try:
-        # Set up logging with DEBUG level
+        # Set up logging
         configure_logging()
 
         # Validate environment and authentication
@@ -326,9 +344,10 @@ if __name__ == "__main__":
         )
 
         if not todos_path.exists():
-            log_error(
-                Exception(f"Todos file not found at {todos_path}"), "File not found"
-            )
+            db = get_db()
+            log = Log(level="ERROR", message=f"Todos file not found at {todos_path}")
+            db.add(log)
+            db.commit()
             sys.exit(1)
 
         with open(todos_path, "r") as f:
@@ -348,10 +367,20 @@ if __name__ == "__main__":
                             system_prompt=os.environ["TASK_SYSTEM_PROMPT"],
                         )
                     except Exception as e:
-                        log_error(e, f"Failed to process todo {i}")
-                        continue
+                        db = get_db()
+                        log = Log(
+                            level="ERROR",
+                            message=str(e),
+                            additional_data=json.dumps({"todo_index": i}),
+                        )
+                        db.add(log)
+                        db.commit()
+                        sys.exit(1)
                 else:
                     log_key_value("Skipping invalid row", row)
     except Exception as e:
-        log_error(e, "Script failed")
+        db = get_db()
+        log = Log(level="ERROR", message=str(e))
+        db.add(log)
+        db.commit()
         sys.exit(1)
