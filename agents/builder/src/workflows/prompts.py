@@ -4,7 +4,8 @@ PROMPTS = {
         "1. Be kebab-case (lowercase with hyphens)\n"
         "2. Be descriptive of the task\n"
         "3. Be concise (max 50 chars)\n"
-        "4. Not include special characters"
+        "4. Not include special characters\n"
+        "STOP after creating the branch name, do not begin implementing the task."
     ),
     "execute_todo": (
         "You are working on implementing the following task:\n"
@@ -170,11 +171,11 @@ REVIEW_TEMPLATE = """# PR Review: {title}
 {unmet_requirements}
 
 ## Test Evaluation
-### Coverage
-{test_coverage}
+### Passed Tests
+{passed_tests}
 
-### Issues in Existing Tests
-{test_issues}
+### Failed Tests
+{failed_tests}
 
 ### Missing Test Cases
 {missing_tests}

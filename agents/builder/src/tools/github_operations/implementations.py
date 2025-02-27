@@ -360,7 +360,7 @@ def review_pull_request(
             met_requirements=format_list(
                 requirements.get("met", []), "No requirements met"
             ),
-            not_met_requirements=format_list(
+            unmet_requirements=format_list(
                 requirements.get("not_met", []), "All requirements met"
             ),
             passed_tests=format_list(

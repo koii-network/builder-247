@@ -46,9 +46,13 @@ DEFINITIONS = {
                 },
                 "description": {
                     "type": "string",
-                    "description": "Description of changes",
+                    "description": "A brief summary of the changes made",
                 },
-                "tests": {"type": "string", "description": "Description of tests"},
+                "tests": {
+                    "type": "array",
+                    "description": "A brief description of what each test does",
+                    "items": {"type": "string"},
+                },
                 "todo": {"type": "string", "description": "Original task description"},
                 "acceptance_criteria": {
                     "type": "string",
