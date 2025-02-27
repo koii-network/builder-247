@@ -203,7 +203,7 @@ def todo_to_pr(
         os.chdir(repo_path)
 
         # Create client and conversation with system prompt
-        client = setup_client("openai")
+        client = setup_client("ollama")
         conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info

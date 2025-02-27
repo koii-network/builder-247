@@ -6,7 +6,7 @@ from src.clients.anthropic_client import AnthropicClient
 from src.clients.xai_client import XAIClient
 from src.clients.openai_client import OpenAIClient
 from src.clients.base_client import Client
-
+from src.clients.ollama_client import OllamaClient
 
 def setup_client(client: str, tools_dir: str = None) -> Client:
     """Configure and return the an LLM client with tools.
@@ -18,7 +18,10 @@ def setup_client(client: str, tools_dir: str = None) -> Client:
     load_dotenv()
 
     client_config = clients[client]
-    client = client_config["client"](api_key=os.environ[client_config["api_key"]])
+    if client_config["api_key"] == "N/A":
+        client = client_config["client"]()
+    else:
+        client = client_config["client"](api_key=os.environ[client_config["api_key"]])
 
     # If no tools_dir provided, calculate it relative to project root
     if tools_dir is None:
@@ -37,4 +40,5 @@ clients = {
     "anthropic": {"client": AnthropicClient, "api_key": "ANTHROPIC_API_KEY"},
     "xai": {"client": XAIClient, "api_key": "XAI_API_KEY"},
     "openai": {"client": OpenAIClient, "api_key": "OPENAI_API_KEY"},
+    "ollama": {"client": OllamaClient, "api_key": "N/A"}, # TODO: This is not correct
 }

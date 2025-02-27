@@ -39,13 +39,14 @@ def completion(model, question):
         
         print("Total messages in the context:", len(messages))
         try:
-            response = litellm.completion(**{
+            params = {
                 "model": model,
                 "messages": messages,
-                "temperature": 0.2,
-                "stream": False,
                 "tools": converted_tools
-            })
+            }
+            print("PARAMS: ", params)
+            response = litellm.completion(**params)
+            print("RESPONSE: ", response)
         except KeyError as e:
             print(f"KeyError encountered: {e}")
             print("Please check the structure of the response or update the litellm library.")
