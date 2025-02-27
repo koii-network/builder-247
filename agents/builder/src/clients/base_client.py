@@ -279,7 +279,7 @@ class Client(ABC):
             raise ValueError("Prompt or tool response must be provided")
 
         # Log message being sent
-        log_section("SENDING MESSAGE TO AGENT")
+        log_section(f"SENDING MESSAGE TO {self.api_name}")
         if is_retry:
             log_key_value("Is Retry", "True")
 
@@ -301,14 +301,6 @@ class Client(ABC):
                             )
                             if response_dict.get("message"):
                                 log_key_value("Message", response_dict["message"])
-                            # Show other fields
-                            for key, value in response_dict.items():
-                                if key not in ["success", "message"]:
-                                    log_key_value(key, value)
-                        else:
-                            # Just show all key-value pairs
-                            for key, value in response_dict.items():
-                                log_key_value(key, value)
                     else:
                         log_key_value("Response", result["response"])
                 except (ValueError, SyntaxError):
