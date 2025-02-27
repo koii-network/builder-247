@@ -43,6 +43,14 @@ class ToolResponse(TypedDict):
     output: ToolOutput  # The actual output from the tool
 
 
+class PhaseResult(TypedDict):
+    """Format for a phase result."""
+
+    success: bool
+    data: Dict[str, Any]
+    error: Optional[str]
+
+
 class ToolChoice(TypedDict):
     """Configuration for tool usage."""
 
