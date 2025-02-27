@@ -26,18 +26,18 @@ class OllamaClient(Client):
     ):
         super().__init__(model=model, **kwargs)
         self.model = self._get_default_model() if model is None else model
-
+    # Status: Done
     def _get_api_name(self) -> str:
         """Get API name for logging."""
         return "Ollama"
-
+    # Status: Done
     def _get_default_model(self) -> str:
         return "ollama/llama3.1:8b"
-
+    # Status: No need to change
     def _should_split_tool_responses(self) -> bool:
         """OpenAI requires separate messages for each tool response."""
         return True
-
+    # Status: No need to change
     def _convert_tool_to_api_format(self, tool: ToolDefinition) -> Dict[str, Any]:
         """Convert our tool definition to OpenAI's function format."""
         return {
@@ -48,7 +48,7 @@ class OllamaClient(Client):
                 "parameters": tool["parameters"],
             },
         }
-
+    # Status: No need to change
     def _convert_message_to_api_format(self, message: MessageContent) -> Dict[str, Any]:
         """Convert our message format to OpenAI's format."""
         # Handle missing content (e.g. in tool responses)
@@ -112,7 +112,7 @@ class OllamaClient(Client):
             message_dict["tool_calls"] = tool_calls
 
         return message_dict
-
+    # Status: No need to change
     def _convert_api_response_to_message(self, response: Any) -> MessageContent:
         """Convert OpenAI's response to our message format."""
         content: List[Union[TextContent, ToolCallContent]] = []
@@ -149,7 +149,7 @@ class OllamaClient(Client):
             return {"type": "function", "function": {"name": tool_choice["tool"]}}
         else:
             raise ValueError(f"Invalid tool choice type: {tool_choice['type']}")
-
+    # Status: So this one 
     def _make_api_call(
         self,
         messages: List[Dict[str, Any]],
@@ -174,14 +174,18 @@ class OllamaClient(Client):
 
             # Add tools if available
             if tools:
-                params["tools"] = tools # TODO: Remove this after testing
+                params["tools"] = tools[0:2] # TODO: Remove this after testing, Why it only works with less than 2? 
             if tool_choice:
                 params["tool_choice"] = tool_choice
             print("params: ", params)
             # Make API call
             # params = {'model': 'ollama/llama3.1:8b', 'messages': [{'role': 'user', 'content': 'List the files in the current directory'}], 'tools': [{'type': 'function', 'function': {'name': 'execute_command', 'description': 'Execute a shell command in the current working directory', 'parameters': {'type': 'object', 'properties': {'command': {'type': 'string', 'description': 'The command to execute'}}, 'required': ['command']}}}, {'type': 'function', 'function': {'name': 'run_tests', 'description': 'Run tests using a specified framework.', 'parameters': {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Path to test file or directory.'}, 'framework': {'type': 'string', 'description': 'Test framework to use.', 'enum': ['pytest', 'jest']}}, 'required': ['framework', 'path']}}}]}
-            response = litellm.completion(**params)
-            return response.choices[0].message
+            try:
+                response = litellm.completion(**params)
+                return response.choices[0].message
+            except Exception as e:
+                print("ERROR: ", e)
+                return str(e)
 
         except Exception as e:
             # Only wrap actual API errors
@@ -191,7 +195,7 @@ class OllamaClient(Client):
                 include_traceback=not is_retryable_error(e),
             )
             raise ClientAPIError(e)
-
+    # Status: Done
     def _format_tool_response(self, response: str) -> MessageContent:
         """Format a tool response into a message.
 

@@ -451,8 +451,8 @@ class Client(ABC):
         """
         conversation_id = response["conversation_id"]
         last_results = []  # Track the most recent results
-
-        while True:
+        MAX_ITERATIONS = 500
+        for _ in range(MAX_ITERATIONS):
             tool_calls = self._get_tool_calls(response)
             if not tool_calls:
                 # No more tool calls, return the last results we got
