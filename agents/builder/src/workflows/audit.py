@@ -7,6 +7,9 @@ import shutil
 from git import Repo
 import dotenv
 from github import Github
+from typing import List
+import json
+import ast
 from src.workflows.prompts import PROMPTS, REVIEW_SYSTEM_PROMPT
 from src.utils.errors import ClientAPIError
 from src.utils.logging import (
@@ -15,23 +18,10 @@ from src.utils.logging import (
     log_error,
     configure_logging,
 )
+from src.tools.file_operations.implementations import list_files
 from src.types import MessageContent, ToolCallContent
 from src.database import get_db
-from typing import List
-import json
-import ast
-
-# Conditional path adjustment before any other imports
-if __name__ == "__main__":
-    # Calculate path to project root
-    project_root = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../../../..")
-    )
-    sys.path.insert(0, project_root)
-
-# Regular imports (PEP 8 compliant)
-from src.get_file_list import get_file_list
-from src.workflows.setup_repo import setup_client
+from src.clients import setup_client
 from src.utils.retry import (
     execute_tool_with_retry,
     send_message_with_retry,
@@ -209,7 +199,7 @@ def setup_pr_repository(
         git_repo.git.checkout(f"pr_{pr_number}")
 
         # Get list of files
-        files = get_file_list(repo_path)
+        files = list_files(".")
         log_key_value("Found files", len(files))
 
         return repo_path, files
@@ -318,10 +308,18 @@ def review_pr(
 
         try:
             # Create client and conversation
-            client = setup_client()
+            client = setup_client("anthropic")
             log_section("SYSTEM PROMPT")
             log_key_value("System prompt", system_prompt)
-            conversation_id = client.create_conversation(system_prompt=system_prompt)
+            conversation_id = client.create_conversation(
+                system_prompt=system_prompt,
+                available_tools=[
+                    "read_file",
+                    "list_files",
+                    "run_tests",
+                    "review_pull_request",
+                ],
+            )
 
             # Change to repository directory
             os.chdir(repo_path)
