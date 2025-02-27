@@ -6,7 +6,9 @@ from src.clients.anthropic_client import AnthropicClient
 from src.clients.xai_client import XAIClient
 from src.clients.openai_client import OpenAIClient
 from src.clients.base_client import Client
-from src.clients.ollama_client import OllamaClient
+
+# from src.clients.ollama_client import OllamaClient
+
 
 def setup_client(client: str, tools_dir: str = None) -> Client:
     """Configure and return the an LLM client with tools.
@@ -40,5 +42,5 @@ clients = {
     "anthropic": {"client": AnthropicClient, "api_key": "ANTHROPIC_API_KEY"},
     "xai": {"client": XAIClient, "api_key": "XAI_API_KEY"},
     "openai": {"client": OpenAIClient, "api_key": "OPENAI_API_KEY"},
-    "ollama": {"client": OllamaClient, "api_key": "N/A"}, # TODO: This is not correct
+    # "ollama": {"client": OllamaClient, "api_key": "N/A"},  # TODO: This is not correct
 }

@@ -1,5 +1,19 @@
-PROMPTS = {
-    "setup_repository": (
+TASK_PROMPTS = {
+    "system_prompt": (
+        "You are an software development assistant specializing in solving coding challenges "
+        "and creating GitHub pull requests.\n"
+        "Follow these rules:\n"
+        "1. Create a new file in the /src directory.\n"
+        "2. Write a single Python function that accomplishes the assigned task.\n"
+        "3. Write a series of tests that thoroughly test the function, including edge cases and error handling, "
+        "using PyTest.\n"
+        "4. Run the tests to ensure they pass.\n"
+        "5. Continue to make changes until the tests pass.\n"
+        "6. IMPORTANT: ALWAYS use relative paths (e.g., 'src/file.py' not '/src/file.py')\n"
+        "7. IMPORTANT: Implementation code MUST go in the 'src' directory\n"
+        "8. IMPORTANT: Test files MUST go in the 'tests' directory"
+    ),
+    "create_branch": (
         "Create a descriptive branch name for the following task: {todo}. The branch name should:\n"
         "1. Be kebab-case (lowercase with hyphens)\n"
         "2. Be descriptive of the task\n"
@@ -10,7 +24,7 @@ PROMPTS = {
     "execute_todo": (
         "You are working on implementing the following task:\n"
         "{todo}\n\n"
-        "Available files: {files_directory}\n\n"
+        "Available files: {current_files}\n\n"
         "IMPORTANT: ALWAYS use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
         "Use the available tools to:\n"
         "Create/edit necessary files using relative paths\n"
@@ -29,7 +43,7 @@ PROMPTS = {
         "{previous_issues}\n\n"
         "Continuing in the same conversation, you are working on fixing the implementation for:\n"
         "{todo}\n\n"
-        "Available files: {files_directory}\n\n"
+        "Available files: {current_files}\n\n"
         "IMPORTANT: Always use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
         "Use the available tools to:\n"
         "1. Review and understand the reported problems\n"
@@ -42,7 +56,7 @@ PROMPTS = {
     "validate_criteria": (
         "You are validating the implementation of the following task:\n"
         "{todo}\n\n"
-        "Available files: {files_directory}\n\n"
+        "Available files: {current_files}\n\n"
         "Acceptance Criteria:\n"
         "{acceptance_criteria}\n\n"
         "IMPORTANT: Always use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
@@ -79,12 +93,12 @@ PROMPTS = {
     ),
     "create_pr": (
         "You are creating a pull request for the following task:\n"
-        "Repository: {repo_full_name}\n"
-        "IMPORTANT - Use this EXACT branch name: {head}\n"
-        "Base: {base}\n\n"
+        "Repository: {repo_owner}/{repo_name}\n"
+        "IMPORTANT - Use this EXACT branch name: {branch_name}\n"
+        "Base: {base_branch}\n\n"
         "Task Description:\n"
         "{todo}\n\n"
-        "Available files: {files_directory}\n\n"
+        "Available files: {current_files}\n\n"
         "Acceptance Criteria:\n"
         "{acceptance_criteria}\n\n"
         "IMPORTANT: Always use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
@@ -96,16 +110,38 @@ PROMPTS = {
         "   - Implementation details for each component\n"
         "   - Testing approach and results\n"
         "   - How each acceptance criterion is met\n"
-        "   - Any important notes or considerations\n\n"
-        "IMPORTANT: You MUST use the exact branch name provided above.\n"
-        "DO NOT modify or create a new branch name - use {head} exactly as shown."
+        "   - Any important notes or considerations"
+    ),
+}
+
+AUDIT_PROMPTS = {
+    "system_prompt": (
+        "You are a thorough code reviewer with expertise in Python, testing, and software"
+        "engineering best practices. Your task is to review pull requests for coding challenges, focusing on:\n"
+        "1. Implementation correctness\n"
+        "2. Test coverage and quality\n"
+        "3. Code organization and structure\n"
+        "4. Error handling and edge cases\n"
+        "5. Performance considerations\n\n"
+        "For each review:\n"
+        "- Carefully examine all code changes\n"
+        "- Run and analyze tests\n"
+        "- Check implementation against requirements\n"
+        "- Look for potential issues or improvements\n"
+        "- Provide clear, actionable feedback\n\n"
+        "Be thorough but fair in your assessment. Approve PRs that meet all requirements, suggest revisions for minor "
+        "issues, and reject those with major problems."
     ),
     "review_pr": (
-        "Review pull request #{pr_number} in repository {repo}.\n\n"
-        "The PR code has been checked out. The following files are available:\n"
-        "{files_list}\n\n"
+        "A pull request has been checked out for you. The repository is {repo_owner}/{repo_name} and "
+        "the PR number is {pr_number}. The following files are available:\n"
+        "{current_files}\n\n"
         "Requirements to check:\n"
-        "{requirements}\n\n"
+        "Implementation matches problem description\n"
+        "All tests pass\n"
+        "Implementation is in a single file in the /src directory\n"
+        "tests are in a single file in the /tests directory\n"
+        "No other files are modified\n\n"
         "IMPORTANT: ALWAYS use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
         "Test requirements to verify (where applicable):\n"
         "1. Core Functionality Testing:\n"
@@ -133,73 +169,13 @@ PROMPTS = {
         "   - Tests resource cleanup\n\n"
         "Review criteria:\n"
         "- APPROVE if all requirements are met and tests pass\n"
-        "- REVISE if there are minor issues: {minor_issues}\n"
-        "- REJECT if there are major issues: {major_issues}\n\n"
+        "- REVISE if there are minor issues:\n"
+        "test coverage could be improved but core functionality is tested\n"
+        "implementation and tests exist but are not in the /src and /tests directories\n"
+        "other files are modified\n\n"
+        "- REJECT if there are major issues:\n"
+        "incorrect implementation, failing tests, missing critical features\n"
+        "no error handling, security vulnerabilities, no tests\n"
+        "tests are poorly designed or rely too heavily on mocking\n\n"
     ),
 }
-
-PR_TEMPLATE = """# {title}
-
-## Original Task
-{todo}
-
-## Summary of Changes
-{description}
-
-## Acceptance Criteria
-{acceptance_criteria}
-
-## Tests
-{tests}
-"""
-
-REVIEW_TEMPLATE = """# PR Review: {title}
-
-## Recommendation: {recommendation}
-
-### Justification
-{recommendation_reasons}
-
-## Summary of Changes
-{description}
-
-## Requirements Review
-### ✅ Met Requirements
-{met_requirements}
-
-### ❌ Unmet Requirements
-{unmet_requirements}
-
-## Test Evaluation
-### Passed Tests
-{passed_tests}
-
-### Failed Tests
-{failed_tests}
-
-### Missing Test Cases
-{missing_tests}
-
-## Action Items
-{action_items}
-"""
-
-# System prompts
-REVIEW_SYSTEM_PROMPT = """You are a thorough code reviewer with expertise in Python, testing, and software
-engineering best practices. Your task is to review pull requests for coding challenges, focusing on:
-
-1. Implementation correctness
-2. Test coverage and quality
-3. Code organization and structure
-4. Error handling and edge cases
-5. Performance considerations
-
-For each review:
-- Carefully examine all code changes
-- Run and analyze tests
-- Check implementation against requirements
-- Look for potential issues or improvements
-- Provide clear, actionable feedback
-
-Be thorough but fair in your assessment. Approve PRs that meet all requirements, suggest revisions for minor issues,
-and reject those with major problems."""

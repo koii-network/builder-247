@@ -6,7 +6,6 @@ import ast
 from src.types import ToolResponse, PhaseResult
 from src.utils.retry import send_message_with_retry
 from src.utils.logging import log_section, log_error
-from src.workflows.prompts import PROMPTS
 
 
 class WorkflowPhase:
@@ -20,19 +19,24 @@ class WorkflowPhase:
         conversation_id: Optional[str] = None,
         name: Optional[str] = None,
     ):
+        """Initialize a workflow phase.
+
+        If workflow is provided, the prompt will be formatted with the workflow context.
+        """
         self.available_tools = available_tools
         self.required_tool = required_tool
         self.conversation_id = conversation_id
-        self.workflow = workflow
-        self.prompt = PROMPTS[prompt_name].format(**workflow.context)
+        self.prompt_name = prompt_name
         self.name = name or self.__class__.__name__
+        self.workflow = workflow
 
-    @classmethod
-    def create(cls, workflow, **kwargs):
-        """Factory method to create a phase with the workflow."""
-        instance = cls(**kwargs)
-        instance.workflow = workflow  # Set the workflow after initialization
-        return instance
+        # Format the prompt if workflow is provided
+        self.prompt = None
+
+        if workflow is None:
+            raise ValueError("Workflow is not set")
+
+        self.prompt = workflow.prompts[prompt_name].format(**workflow.context)
 
     def _parse_result(self, tool_response: ToolResponse) -> PhaseResult:
         """Parse raw API response into standardized format"""
@@ -66,12 +70,12 @@ class WorkflowPhase:
         # Create new conversation if needed
         if self.conversation_id is None:
             self.conversation_id = workflow.client.create_conversation(
-                system_prompt=workflow.system_prompt,
+                system_prompt=workflow.prompts["system_prompt"],
                 available_tools=self.available_tools,
             )
 
         # Handle required tools
-        tool_choice = {"type": "auto"}
+        tool_choice = {"type": "optional"}
         if self.required_tool:
             tool_choice = {"type": "required", "tool": self.required_tool}
 
@@ -90,16 +94,22 @@ class WorkflowPhase:
             )
             return None
 
-        return self._parse_result(results[-1])  # Return the last result
+        phase_result = self._parse_result(results[-1])  # Return the last result
+
+        if not phase_result.get("success"):
+            log_error(Exception(phase_result.get("error")), f"Phase {self.name} failed")
+            return None
+
+        return phase_result
 
 
 class Workflow(ABC):
-    def __init__(self, client, system_prompt: Optional[str] = None, **kwargs):
+    def __init__(self, client, prompts, **kwargs):
         if not client:
             raise ValueError("Workflow client is not set")
 
         self.client = client
-        self.system_prompt = system_prompt
+        self.prompts = prompts
         self.context: Dict[str, Any] = kwargs
 
     @abstractmethod

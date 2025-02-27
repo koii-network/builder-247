@@ -13,7 +13,7 @@ from src.types import ToolOutput
 
 import time
 from git import Repo, GitCommandError
-from src.workflows.prompts import PR_TEMPLATE, REVIEW_TEMPLATE
+from src.tools.github_operations.templates import TEMPLATES
 
 # Load environment variables from .env file
 load_dotenv()
@@ -162,7 +162,7 @@ def create_pull_request(
         # Format tests into markdown bullets
         tests_bullets = " - " + "\n - ".join(tests)
 
-        body = PR_TEMPLATE.format(
+        body = TEMPLATES["pr_template"].format(
             todo=todo,
             title=title,
             acceptance_criteria=acceptance_criteria,
@@ -354,7 +354,7 @@ def review_pull_request(
             return "- " + "\n- ".join(items)
 
         # Format the review body using the template
-        review_body = REVIEW_TEMPLATE.format(
+        review_body = TEMPLATES["review_template"].format(
             title=title,
             description=description,
             met_requirements=format_list(

@@ -10,7 +10,6 @@ import shutil
 from git import Repo
 from github import Github
 import dotenv
-from typing import List
 import json
 import ast
 
@@ -62,15 +61,6 @@ def validate_github_auth():
     except Exception as e:
         log_error(e, "GitHub authentication failed")
         raise RuntimeError(str(e))
-
-
-def get_tool_calls(msg: MessageContent) -> List[ToolCallContent]:
-    """Return all tool call blocks from the message."""
-    tool_calls = []
-    for block in msg["content"]:
-        if block["type"] == "tool_call":
-            tool_calls.append(block["tool_call"])
-    return tool_calls
 
 
 def handle_tool_response(client, response):

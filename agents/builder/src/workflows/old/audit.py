@@ -383,25 +383,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
         pr_url = sys.argv[1]
-        requirements = [
-            "Implementation matches problem description",
-            "All tests pass",
-            "Implementation is in a single file in the /src directory",
-            "tests are in a single file in the /tests directory",
-            "No other files are modified",
-        ]
 
-        minor_issues = (
-            "test coverage could be improved but core functionality is tested",
-            "implementation and tests exist but are not in the /src and /tests directories",
-            "other files are modified",
-        )
-
-        major_issues = (
-            "Incorrect implementation, failing tests, missing critical features, "
-            "no error handling, security vulnerabilities, no tests",
-            "tests are poorly designed or rely too heavily on mocking",
-        )
 
         # Review PR
         review_pr(

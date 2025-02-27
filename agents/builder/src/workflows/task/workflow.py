@@ -1,62 +1,70 @@
 """Task workflow implementation using new workflow structure."""
 
 import os
-import shutil
-from git import Repo
-import ast
+from github import Github
 import time
 from src.workflows.base import Workflow
-from src.tools.file_operations.implementations import list_files
 from src.tools.github_operations.implementations import fork_repository
-from src.utils.logging import log_section, log_key_value, log_error
+from src.utils.logging import log_section, log_key_value, log_error, log_value
 from src.workflows.task import phases
+from src.workflows.utils import (
+    check_required_env_vars,
+    validate_github_auth,
+    setup_repo_directory,
+    setup_git_user_config,
+    cleanup_repo_directory,
+    get_current_files,
+)
 
 
 class TaskWorkflow(Workflow):
     def __init__(
         self,
         client,
-        system_prompt,
+        prompts,
         repo_owner,
         repo_name,
         todo,
         acceptance_criteria,
+        max_implementation_attempts=3,
     ):
         super().__init__(
-            client,
-            system_prompt,
+            client=client,
+            prompts=prompts,
             repo_owner=repo_owner,
             repo_name=repo_name,
             todo=todo,
             acceptance_criteria=acceptance_criteria,
-            files_directory=None,
         )
+        self.max_implementation_attempts = max_implementation_attempts
 
     def setup(self):
         """Set up repository and workspace."""
-        # Generate sequential repo path
-        base_dir = os.path.abspath("./repos")
-        os.makedirs(base_dir, exist_ok=True)
+        check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
+        validate_github_auth(os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_USERNAME"))
 
-        counter = 0
-        while True:
-            candidate_path = os.path.join(base_dir, f"repo_{counter}")
-            if not os.path.exists(candidate_path):
-                self.context["repo_path"] = candidate_path
-                break
-            counter += 1
+        # Get the default branch from GitHub
+        try:
+            gh = Github(os.getenv("GITHUB_TOKEN"))
+            repo = gh.get_repo(
+                f"{self.context['repo_owner']}/{self.context['repo_name']}"
+            )
+            self.context["base_branch"] = repo.default_branch
+            log_key_value("Default branch", self.context["base_branch"])
+        except Exception as e:
+            log_error(e, "Failed to get default branch, using 'main'")
+            self.context["base_branch"] = "main"
 
-        # Clean existing repository
-        if os.path.exists(self.context["repo_path"]):
-            shutil.rmtree(self.context["repo_path"])
-
-        # Create parent directory
-        os.makedirs(os.path.dirname(self.context["repo_path"]), exist_ok=True)
+        # Set up repository directory
+        repo_path, original_dir = setup_repo_directory()
+        self.context["repo_path"] = repo_path
+        self.original_dir = original_dir
 
         # Fork and clone repository
         log_section("FORKING AND CLONING REPOSITORY")
         fork_result = fork_repository(
-            f"{self.repo_owner}/{self.repo_name}", self.context["repo_path"]
+            f"{self.context['repo_owner']}/{self.context['repo_name']}",
+            self.context["repo_path"],
         )
         if not fork_result["success"]:
             error = fork_result.get("error", "Unknown error")
@@ -64,128 +72,106 @@ class TaskWorkflow(Workflow):
             raise Exception(error)
 
         # Enter repo directory
-        self.original_dir = os.getcwd()
         os.chdir(self.context["repo_path"])
 
         # Configure Git user info
-        repo = Repo(self.context["repo_path"])
-        with repo.config_writer() as config:
-            config.set_value("user", "name", os.environ["GITHUB_USERNAME"])
-            config.set_value(
-                "user",
-                "email",
-                f"{os.environ['GITHUB_USERNAME']}@users.noreply.github.com",
-            )
-        self.context["files_directory"] = self._get_current_files()
+        setup_git_user_config(self.context["repo_path"])
+
+        self.context["current_files"] = get_current_files()
 
     def cleanup(self):
         """Cleanup workspace."""
-        os.chdir(self.original_dir)
-        if os.path.exists(self.context["repo_path"]):
-            shutil.rmtree(self.context["repo_path"])
-
-    def _get_current_files(self):
-        """Get current files in repository."""
-        files_result = list_files(".")
-        if not files_result["success"]:
-            raise Exception(f"Failed to get file list: {files_result['message']}")
-
-        return files_result["data"]["files"]
+        cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
 
     def run(self):
         """Execute the task workflow."""
         try:
             self.setup()
 
-            # Create main conversation
-            conversation_id = self.client.create_conversation(
-                system_prompt=self.system_prompt
-            )
-
             # Create branch
-            branch_phase = phases.BranchCreationPhase.create(workflow=self)
+            branch_phase = phases.BranchCreationPhase(workflow=self)
             branch_result = branch_phase.execute()
 
             if not branch_result:
                 return None
 
-            branch_data = ast.literal_eval(branch_result["response"])
-            if not branch_data.get("success"):
-                error = branch_data.get("error", "Unknown error")
-                log_error(Exception(error), "Branch creation failed")
-                return None
-
-            self.context["branch_name"] = branch_data["data"]["branch_name"]
+            self.context["branch_name"] = branch_result["data"]["branch_name"]
 
             # Implementation loop
-            max_implementation_attempts = 3
-            for attempt in range(max_implementation_attempts):
+            for attempt in range(self.max_implementation_attempts):
                 log_section(
-                    f"IMPLEMENTATION ATTEMPT {attempt + 1}/{max_implementation_attempts}"
+                    f"IMPLEMENTATION ATTEMPT {attempt + 1}/{self.max_implementation_attempts}"
                 )
 
                 # Get current files
-                self.context["files_directory"] = self._get_current_files()
+                self.context["current_files"] = get_current_files()
 
                 # Run implementation
-                phase = (
+                phase_class = (
                     phases.ImplementationPhase
                     if attempt == 0
                     else phases.FixImplementationPhase
                 )
-                implementation_phase = phase.create(
+                implementation_phase = phase_class(
                     workflow=self, conversation_id=branch_phase.conversation_id
                 )
                 implementation_result = implementation_phase.execute()
 
-                print(implementation_result)
+                if not implementation_result:
+                    return None
 
                 # Validate
-                validation_phase = phases.ValidationPhase.create(workflow=self)
+                validation_phase = phases.ValidationPhase(workflow=self)
                 validation_result = validation_phase.execute()
 
                 if not validation_result:
                     continue
 
-                result_data = ast.literal_eval(validation_result["response"])
-                if not result_data.get("success"):
-                    self.context["validation_message"] = result_data.get(
-                        "error", "Unknown error"
-                    )
-                    continue
-
-                validation_data = result_data.get("data", {})
+                validation_data = validation_result.get("data", {})
                 if validation_data.get("validated", False):
+                    log_key_value(
+                        "Validation successful", "All acceptance criteria met"
+                    )
                     break
 
-                if attempt == max_implementation_attempts - 1:
+                previous_issues = "Validation failed for unknown reason"
+                # Add details about failed criteria if any
+                if validation_data.get("criteria_status"):
+                    not_met = validation_data["criteria_status"].get("not_met", [])
+                    if not_met:
+                        previous_issues = f"Implementation failed for the following criteria: {', '.join(not_met)}"
+                        log_key_value("Validation failed", previous_issues)
+
+                self.context["previous_issues"] = previous_issues
+
+                if attempt == self.max_implementation_attempts - 1:
                     log_error(
-                        Exception(self.context.get("validation_message")),
+                        Exception("Failed validation"),
                         "Failed to meet acceptance criteria",
                     )
                     return None
 
-                self.context["validation_message"] = "Failed validation"
                 time.sleep(5)  # Brief pause before retry
 
             # Create PR
-            self.context["files_directory"] = self._get_current_files()
+            self.context["current_files"] = get_current_files()
 
-            pr_phase = phases.PullRequestPhase.create(
+            # Base was already set in setup()
+            log_value(
+                f"Creating PR from {self.context['branch_name']} to {self.context['base_branch']}",
+            )
+
+            pr_phase = phases.PullRequestPhase(
                 workflow=self, conversation_id=branch_phase.conversation_id
             )
             pr_result = pr_phase.execute()
 
-            if not pr_result:
-                return None
-
-            pr_data = ast.literal_eval(pr_result["response"])
-            if pr_data.get("success"):
-                pr_url = pr_data.get("data", {}).get("pr_url")
+            if pr_result.get("success"):
+                pr_url = pr_result.get("data", {}).get("pr_url")
                 log_key_value("PR created successfully", pr_url)
                 return pr_url
             else:
-                log_error(Exception(pr_data.get("error")), "PR creation failed")
+                log_error(Exception(pr_result.get("error")), "PR creation failed")
                 return None
 
         except Exception as e:

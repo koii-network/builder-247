@@ -4,13 +4,23 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from sqlmodel import SQLModel
 import os
+from pathlib import Path
 from contextlib import contextmanager
 from typing import Optional, Dict, Any
 from .models import Conversation, Message, Log
 import json
 
 # Create engine
-engine = create_engine(os.getenv("DATABASE_PATH", "sqlite:///database.db"))
+db_path = os.getenv("DATABASE_PATH", "sqlite:///database.db")
+# If the path doesn't start with sqlite://, assume it's a file path and convert it
+if not db_path.startswith("sqlite:"):
+    path = Path(db_path).resolve()
+    # Ensure the parent directory exists
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Convert to SQLite URL format with absolute path
+    db_path = f"sqlite:///{path}"
+
+engine = create_engine(db_path)
 
 # Create session factory
 Session = sessionmaker(bind=engine)
