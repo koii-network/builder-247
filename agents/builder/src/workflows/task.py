@@ -202,9 +202,9 @@ def todo_to_pr(
         # Enter repo directory
         os.chdir(repo_path)
 
-        # Create client and conversation with system prompt
-        client = setup_client("ollama")
-        conversation_id = client.create_conversation(system_prompt=system_prompt)
+        # Create client and main conversation that will be used throughout the workflow
+        client = setup_client("anthropic")
+        main_conversation_id = client.create_conversation(system_prompt=system_prompt)
 
         # Configure Git user info
         repo = Repo(repo_path)
@@ -216,13 +216,13 @@ def todo_to_pr(
                 f"{os.environ['GITHUB_USERNAME']}@users.noreply.github.com",
             )
 
-        # Create branch
+        # Create branch - using main conversation
         log_section("CREATING BRANCH")
         setup_prompt = PROMPTS["setup_repository"].format(todo=todo)
         branch_response = send_message_with_retry(
             client,
             prompt=setup_prompt,
-            conversation_id=conversation_id,
+            conversation_id=main_conversation_id,
             tool_choice={"type": "required", "tool": "create_branch"},
         )
         branch_results = client.handle_tool_response(branch_response)
@@ -235,18 +235,14 @@ def todo_to_pr(
             error = branch_result.get("error", "Unknown error")
             log_error(Exception(error), "Branch creation failed")
             raise Exception(f"Failed to create branch: {error}")
-        branch_name = branch_result.get("branch_name")
 
-        # Start new conversation for implementation phase
-        log_section("STARTING IMPLEMENTATION")
-        conversation_id = client.create_conversation(
-            system_prompt=system_prompt,
-            available_tools=[
-                t for t in client.tools.keys() if t != "create_branch"
-            ],  # Exclude create_branch
-        )
+        # Extract branch name from the data field
+        if not branch_result.get("data", {}).get("branch_name"):
+            raise Exception("Branch creation succeeded but no branch name returned")
+        branch_name = branch_result["data"]["branch_name"]
 
         # Implementation loop - try up to 3 times to meet all acceptance criteria
+        # Continue using main conversation for implementation
         max_implementation_attempts = 3
         validation_message = ""  # Initialize validation message
         for attempt in range(max_implementation_attempts):
@@ -279,11 +275,11 @@ def todo_to_pr(
             execute_todo_response = send_message_with_retry(
                 client,
                 prompt=execute_todo_prompt,
-                conversation_id=conversation_id,
+                conversation_id=main_conversation_id,  # Use main conversation
             )
             client.handle_tool_response(execute_todo_response)
 
-            # Validate acceptance criteria
+            # Validate acceptance criteria in a separate conversation
             is_valid, validation_message = validate_acceptance_criteria(
                 client, todo, acceptance_criteria
             )
@@ -302,7 +298,7 @@ def todo_to_pr(
             log_key_value(f"Validation attempt {attempt + 1}", validation_message)
             time.sleep(5)  # Brief pause before retry
 
-        # Create PR with retries
+        # Create PR using main conversation
         log_section("CREATING PULL REQUEST")
 
         # Get the list of files
@@ -321,15 +317,10 @@ def todo_to_pr(
             acceptance_criteria=acceptance_criteria,
             files_directory=files_directory,
         )
-        # Start a new conversation for PR creation
-        pr_conversation_id = client.create_conversation(
-            system_prompt=None,
-            available_tools=[
-                t for t in client.tools.keys() if t != "create_branch"
-            ],  # Exclude create_branch
-        )
+
+        # Use main conversation for PR creation
         pr_response = send_message_with_retry(
-            client, prompt=create_pr_prompt, conversation_id=pr_conversation_id
+            client, prompt=create_pr_prompt, conversation_id=main_conversation_id
         )
 
         pr_results = client.handle_tool_response(pr_response)
