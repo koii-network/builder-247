@@ -80,7 +80,6 @@ DEFINITIONS = {
             },
             "required": ["branch_base"],
         },
-        "final_tool": True,
         "function": create_branch,
     },
     "checkout_branch": {
