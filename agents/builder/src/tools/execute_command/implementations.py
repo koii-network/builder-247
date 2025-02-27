@@ -70,10 +70,14 @@ def run_tests(
 
     output_str = "\n".join(output) if output else "No test output captured"
 
-    # Return success=True only if tests passed (returncode=0)
-    # But always include the test output in the message
+    # For tests, success means the command ran successfully
+    # The actual test results are in the output
     return {
-        "success": result["data"]["returncode"] == 0,
-        "message": output_str,
-        "data": {"output": output_str, "returncode": result["data"]["returncode"]},
+        "success": True,  # True if we got test results, even if tests failed
+        "message": "Tests completed. See output for results.",
+        "data": {
+            "output": output_str,
+            "returncode": result["data"]["returncode"],
+            "tests_passed": result["data"]["returncode"] == 0,
+        },
     }

@@ -239,7 +239,12 @@ def todo_to_pr(
 
         # Start new conversation for implementation phase
         log_section("STARTING IMPLEMENTATION")
-        conversation_id = client.create_conversation(system_prompt=system_prompt)
+        conversation_id = client.create_conversation(
+            system_prompt=system_prompt,
+            available_tools=[
+                t for t in client.tools.keys() if t != "create_branch"
+            ],  # Exclude create_branch
+        )
 
         # Implementation loop - try up to 3 times to meet all acceptance criteria
         max_implementation_attempts = 3
@@ -317,7 +322,12 @@ def todo_to_pr(
             files_directory=files_directory,
         )
         # Start a new conversation for PR creation
-        pr_conversation_id = client.create_conversation(system_prompt=None)
+        pr_conversation_id = client.create_conversation(
+            system_prompt=None,
+            available_tools=[
+                t for t in client.tools.keys() if t != "create_branch"
+            ],  # Exclude create_branch
+        )
         pr_response = send_message_with_retry(
             client, prompt=create_pr_prompt, conversation_id=pr_conversation_id
         )
@@ -330,8 +340,9 @@ def todo_to_pr(
         # Get the last result since that's the final PR creation attempt
         pr_result = ast.literal_eval(pr_results[-1]["response"])
         if pr_result.get("success"):
-            log_key_value("PR created successfully", pr_result.get("pr_url"))
-            return pr_result.get("pr_url")
+            pr_url = pr_result.get("data", {}).get("pr_url")
+            log_key_value("PR created successfully", pr_url)
+            return pr_url
         else:
             log_error(Exception(pr_result.get("error")), "PR creation failed")
             return None
