@@ -15,6 +15,8 @@ import time
 from git import Repo, GitCommandError
 from src.tools.github_operations.templates import TEMPLATES
 
+import csv
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -475,3 +477,110 @@ def validate_implementation(
             "message": f"Validation tool failed: {str(e)}",
             "data": None,
         }
+
+
+def generate_analysis(
+    bugs=None,
+    vulnerabilities=None,
+    code_quality_issues=None,
+    file_name="bugs.csv",
+    repo_url=None,
+) -> ToolOutput:
+    """
+    Generate analysis of bugs, security vulnerabilities, and code quality issues.
+    Creates a CSV file with the issues and acceptance criteria.
+
+    Args:
+        bugs: List of bugs found in the repository
+        vulnerabilities: List of security vulnerabilities found
+        code_quality_issues: List of code quality issues found
+        file_name: Name of the output file
+        repo_url: URL of the repository that was analyzed
+
+    Returns:
+        ToolOutput: Standardized tool output with success status and file path
+    """
+    try:
+        # Use the project's main data directory instead of a local one
+        data_dir = "/home/laura/git/github/builder-247/data"
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+
+        # Ensure the file has a .csv extension
+        if not file_name.endswith(".csv"):
+            file_name = f"{os.path.splitext(file_name)[0]}.csv"
+            print(f"Changed file extension to .csv: {file_name}")
+
+        print(f"Using file name: {file_name}")
+
+        # Combine all issues into a single list
+        all_issues = []
+
+        # Add bugs
+        if bugs and isinstance(bugs, list):
+            all_issues.extend(bugs)
+
+        # Add vulnerabilities
+        if vulnerabilities and isinstance(vulnerabilities, list):
+            all_issues.extend(vulnerabilities)
+
+        # Add code quality issues
+        if code_quality_issues and isinstance(code_quality_issues, list):
+            all_issues.extend(code_quality_issues)
+
+        # Create the full file path
+        file_path = os.path.join(data_dir, file_name)
+
+        # Write the issues to a CSV file
+        with open(file_path, "w", newline="") as csvfile:
+            fieldnames = ["bug", "acceptance_criteria"]
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+
+            for issue in all_issues:
+                try:
+                    # Get the description
+                    description = issue.get("description", "")
+
+                    # Handle acceptance_criteria as either a string or a list
+                    acceptance_criteria = issue.get("acceptance_criteria", "")
+
+                    # If acceptance_criteria is a list, join it into a string
+                    if isinstance(acceptance_criteria, list):
+                        acceptance_criteria = "\n".join(
+                            [f"- {criterion}" for criterion in acceptance_criteria]
+                        )
+
+                    writer.writerow(
+                        {
+                            "bug": description,
+                            "acceptance_criteria": acceptance_criteria,
+                        }
+                    )
+                except Exception as e:
+                    print(f"Error processing issue: {str(e)}")
+                    print(f"Issue data: {issue}")
+
+        # Get the absolute path to the file
+        abs_file_path = os.path.abspath(file_path)
+
+        # Log the file creation
+        print(f"Created CSV file with {len(all_issues)} issues at {abs_file_path}")
+
+        return {
+            "success": True,
+            "message": f"Successfully created CSV file with {len(all_issues)} issues",
+            "data": {
+                "file_path": abs_file_path,
+                "issue_count": len(all_issues),
+                "repo_url": repo_url,
+                "bugs": bugs,
+            },
+        }
+    except Exception as e:
+        error_msg = f"Error generating analysis: {str(e)}"
+        print(error_msg)
+        import traceback
+
+        traceback.print_exc()
+        return {"success": False, "message": error_msg, "data": None}

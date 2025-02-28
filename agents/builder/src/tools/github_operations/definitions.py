@@ -3,6 +3,7 @@ from src.tools.github_operations.implementations import (
     create_pull_request,
     review_pull_request,
     validate_implementation,
+    generate_analysis,
 )
 
 DEFINITIONS = {
@@ -191,5 +192,77 @@ DEFINITIONS = {
         },
         "final_tool": True,
         "function": validate_implementation,
+    },
+    "generate_analysis": {
+        "name": "generate_analysis",
+        "description": "Analyze a repository for bugs, security vulnerabilities, and code quality issues.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "bugs": {
+                    "type": "array",
+                    "description": "List of bugs found in the repository",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "description": {
+                                "type": "string",
+                                "description": "A full description of the bug with enough information to fix it",
+                            },
+                            "acceptance_criteria": {
+                                "type": "array",
+                                "description": "A list of acceptance criteria, comprehensive enough to confirm the fix",
+                                "items": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+                "vulnerabilities": {
+                    "type": "array",
+                    "description": "List of vulnerabilities found in the repository",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "description": {
+                                "type": "string",
+                                "description": "A full description of the vulnerability with enough "
+                                "information to fix it",
+                            },
+                            "acceptance_criteria": {
+                                "type": "array",
+                                "description": "A list of acceptance criteria, comprehensive enough to confirm the fix",
+                                "items": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+                "code_quality_issues": {
+                    "type": "array",
+                    "description": "List of code quality issues found in the repository",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "description": {
+                                "type": "string",
+                                "description": "A full description of the code quality issue with enough "
+                                "information to fix it",
+                            },
+                            "acceptance_criteria": {
+                                "type": "array",
+                                "description": "A list of acceptance criteria, comprehensive enough to confirm the fix",
+                                "items": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+                "file_name": {
+                    "type": "string",
+                    "description": "Name of the output file",
+                },
+            },
+            "required": ["bugs", "vulnerabilities", "code_quality_issues", "file_name"],
+        },
+        "final_tool": True,
+        "function": generate_analysis,
     },
 }
