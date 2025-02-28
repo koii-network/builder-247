@@ -12,14 +12,14 @@ from src.utils.logging import (
 )
 from src.database import get_db, Log
 from src.clients import setup_client
-from src.workflows.prompts import TASK_PROMPTS
+from src.workflows.task.prompts import PROMPTS
 
 
 def run_workflow(repo_owner, repo_name, todo, acceptance_criteria):
     client = setup_client("anthropic")
     workflow = TaskWorkflow(
         client=client,
-        prompts=TASK_PROMPTS,
+        prompts=PROMPTS,
         repo_owner=repo_owner,
         repo_name=repo_name,
         todo=todo,

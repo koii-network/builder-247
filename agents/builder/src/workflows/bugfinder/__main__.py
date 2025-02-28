@@ -5,7 +5,7 @@ import os
 import argparse
 from dotenv import load_dotenv
 from src.workflows.bugfinder.workflow import BugFinderWorkflow
-from src.workflows.prompts import BUGFINDER_PROMPTS
+from src.workflows.bugfinder.prompts import PROMPTS
 from src.clients import setup_client
 
 # Load environment variables
@@ -42,7 +42,7 @@ def main():
     # Run the bug finder workflow
     workflow = BugFinderWorkflow(
         client=client,
-        prompts=BUGFINDER_PROMPTS,
+        prompts=PROMPTS,
         repo_url=args.repo,
         output_csv_path=args.output,
     )
