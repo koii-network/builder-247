@@ -16,7 +16,7 @@ def main():
     """Run the bug finder workflow."""
     parser = argparse.ArgumentParser(description="Find bugs in a GitHub repository")
     parser.add_argument(
-        "--repo-url",
+        "--repo",
         type=str,
         required=True,
         help="GitHub repository URL (e.g., https://github.com/owner/repo)",
@@ -39,11 +39,11 @@ def main():
     # Initialize client
     client = setup_client(args.model)
 
-    # Initialize and run workflow
+    # Run the bug finder workflow
     workflow = BugFinderWorkflow(
         client=client,
         prompts=BUGFINDER_PROMPTS,
-        repo_url=args.repo_url,
+        repo_url=args.repo,
         output_csv_path=args.output,
     )
 
