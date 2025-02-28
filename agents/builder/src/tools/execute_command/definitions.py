@@ -1,4 +1,8 @@
-from src.tools.execute_command.implementations import execute_command, run_tests
+from src.tools.execute_command.implementations import (
+    execute_command,
+    run_tests,
+    install_dependency,
+)
 
 
 DEFINITIONS = {
@@ -30,11 +34,40 @@ DEFINITIONS = {
                 "framework": {
                     "type": "string",
                     "description": "Test framework to use.",
-                    "enum": ["pytest", "jest"],
+                    "enum": ["pytest", "jest", "vitest"],
                 },
             },
             "required": ["framework", "path"],
         },
         "function": run_tests,
+    },
+    "install_dependency": {
+        "name": "install_dependency",
+        "description": "Install a dependency using the specified package manager with appropriate flags",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "package_name": {
+                    "type": "string",
+                    "description": "Name of the package to install",
+                },
+                "package_manager": {
+                    "type": "string",
+                    "description": "Package manager to use",
+                    "enum": ["npm", "pip", "yarn", "pnpm"],
+                },
+                "is_dev_dependency": {
+                    "type": "boolean",
+                    "description": "Whether to install as a dev dependency (where applicable)",
+                    "default": False,
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Specific version to install (optional)",
+                },
+            },
+            "required": ["package_name", "package_manager"],
+        },
+        "function": install_dependency,
     },
 }
