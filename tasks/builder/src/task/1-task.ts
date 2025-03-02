@@ -1,6 +1,7 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
+import { getLeaderNode } from "../utils/leader";
 
 export async function task(roundNumber: number): Promise<void> {
   /**
@@ -30,7 +31,7 @@ export async function task(roundNumber: number): Promise<void> {
       },
       stakingKeypair.secretKey,
     );
-
+    const leaderNode = await getLeaderNode(roundNumber);
     orcaClient
       .podCall(`task/${roundNumber}`, {
         method: "POST",
@@ -43,6 +44,7 @@ export async function task(roundNumber: number): Promise<void> {
           stakingKey,
           pubKey,
           signature,
+          leaderNode,
         }),
       })
       .then((result: any) => {

@@ -1,4 +1,4 @@
-import { getFile } from "../helpers";
+import { getFile } from "../utils/ipfs";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 
