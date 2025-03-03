@@ -31,7 +31,7 @@ export async function task(roundNumber: number): Promise<void> {
       },
       stakingKeypair.secretKey,
     );
-    const {isLeader, leaderNode} = await getLeaderNode(roundNumber);
+    const {isLeader, leaderNode} = await getLeaderNode({roundNumber, submitterPublicKey: stakingKey});
     if (isLeader) {
       // TODO: Is Leader Logic
     } 
@@ -48,7 +48,7 @@ export async function task(roundNumber: number): Promise<void> {
           stakingKey,
           pubKey,
           signature,
-          repoOwner,
+          repoOwner: leaderNode,
         }),
       })
       .then((result: any) => {

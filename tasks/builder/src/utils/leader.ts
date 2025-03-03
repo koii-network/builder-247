@@ -60,12 +60,7 @@ export async function fetchRoundSubmissionGitHubRepoOwner(
   }
 }
 
-export async function selectShortestDistance(keys: string[]): Promise<string> {
-  const submitterAccount = await namespaceWrapper.getSubmitterAccount();
-  if (!submitterAccount) {
-    throw new Error("No submitter account found");
-  }
-  const submitterPublicKey = submitterAccount.publicKey.toBase58();
+export async function selectShortestDistance(keys: string[], submitterPublicKey: string): Promise<string> {
   let shortestDistance = Infinity;
   let closestKey = "";
   for (const key of keys) {
@@ -77,113 +72,100 @@ export async function selectShortestDistance(keys: string[]): Promise<string> {
   }
   return closestKey;
 }
-// @deprecated
-function levenshteinDistance(a: string, b: string): number {
-  const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
 
-  for (let i = 0; i <= a.length; i++) {
-    matrix[i][0] = i;
-  }
-  for (let j = 0; j <= b.length; j++) {
-    matrix[0][j] = j;
-  }
 
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1, // delete
-        matrix[i][j - 1] + 1, // insert
-        matrix[i - 1][j - 1] + cost, // replace
-      );
+async function getSubmissionInfo(roundNumber: number): Promise<any> {
+  try {
+    return await namespaceWrapper.getTaskSubmissionInfo(roundNumber);
+  } catch (error) {
+    console.error("GET SUBMISSION INFO ERROR:", error);
+    return null;
+  }
+}
+
+function calculatePublicKeyFrequency(submissions: any): Record<string, number> {
+  const frequency: Record<string, number> = {};
+  for (const round in submissions) {
+    for (const publicKey in submissions[round]) {
+      if (frequency[publicKey]) {
+        frequency[publicKey]++;
+      } else {
+        frequency[publicKey] = 1;
+      }
     }
   }
-
-  return matrix[a.length][b.length];
+  return frequency;
 }
-export async function getLeaderNode(roundNumber: number, leaderNumber: number = 5): Promise<{isLeader: boolean, leaderNode: string}> {
-  // If it is the first round, return the default leader node
+
+function handleAuditTrigger(submissionAuditTrigger: any): Set<string> {
+  const auditTriggerKeys = new Set<string>();
+  for (const round in submissionAuditTrigger) {
+    for (const publicKey in submissionAuditTrigger[round]) {
+      auditTriggerKeys.add(publicKey);
+    }
+  }
+  return auditTriggerKeys;
+}
+
+async function selectLeaderKey(sortedKeys: string[], leaderNumber: number, submitterPublicKey: string, submissionPublicKeysFrequency: Record<string, number>): Promise<string> {
+  const topValue = sortedKeys[leaderNumber - 1];
+  const count = sortedKeys.filter(
+    (key) => submissionPublicKeysFrequency[key] === submissionPublicKeysFrequency[topValue],
+  ).length;
+
+  if (count >= leaderNumber) {
+    const rng = seedrandom(String(TASK_ID));
+    const randomKeys = sortedKeys.sort(() => rng() - 0.5).slice(0, leaderNumber);
+    return await selectShortestDistance(randomKeys, submitterPublicKey);
+  } else {
+    return sortedKeys[leaderNumber - 1];
+  }
+}
+
+export async function getLeaderNode({roundNumber, leaderNumber = 5, submitterPublicKey}: {roundNumber: number, leaderNumber?: number, submitterPublicKey: string}): Promise<{isLeader: boolean, leaderNode: string}> {
   if (roundNumber <= 1) {
     return {isLeader: false, leaderNode: "koii-network"};
   }
+
   const submissionPublicKeysFrequency: Record<string, number> = {};
   const submissionAuditTriggerKeys = new Set<string>();
-  for (let i = 1; i < 5; i++) {
-    // Try is to avoid error when roundNumber <= 4
-    try {
-      const taskSubmissionInfo = await namespaceWrapper.getTaskSubmissionInfo(roundNumber - i);
-      if (taskSubmissionInfo) {
-        const submissions = taskSubmissionInfo.submissions;
-        for (const round in submissions) {
-          for (const publicKey in submissions[round]) {
-            if (submissionPublicKeysFrequency[publicKey]) {
-              submissionPublicKeysFrequency[publicKey]++;
-            } else {
-              submissionPublicKeysFrequency[publicKey] = 1;
-            }
-          }
-        }
 
-        // Handle the audit trigger
-        const submissionAuditTrigger = taskSubmissionInfo.submissions_audit_trigger;
-        for (const round in submissionAuditTrigger) {
-          for (const publicKey in submissionAuditTrigger[round]) {
-            submissionAuditTriggerKeys.add(publicKey);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("GET LEADER NODE ERROR:", error);
+  for (let i = 1; i < 5; i++) {
+    const taskSubmissionInfo = await getSubmissionInfo(roundNumber - i);
+    if (taskSubmissionInfo) {
+      const submissions = taskSubmissionInfo.submissions;
+      const frequency = calculatePublicKeyFrequency(submissions);
+      Object.assign(submissionPublicKeysFrequency, frequency);
+
+      const auditTriggerKeys = handleAuditTrigger(taskSubmissionInfo.submissions_audit_trigger);
+      auditTriggerKeys.forEach(key => submissionAuditTriggerKeys.add(key));
     }
   }
 
-  // Get all the keys not in submissionAuditTriggerKeys; and sort them by frequency
   const keysNotInAuditTrigger = Object.keys(submissionPublicKeysFrequency).filter(
     (key) => !submissionAuditTriggerKeys.has(key),
   );
   const sortedKeys = keysNotInAuditTrigger.sort(
     (a, b) => submissionPublicKeysFrequency[b] - submissionPublicKeysFrequency[a],
   );
-  // If the number of top frequency keys is less than leaderNumber, return the default leader node
+
   if (sortedKeys.length < leaderNumber) {
     return {isLeader: false, leaderNode: "koii-network"};
   }
-  // Top value in sortedKeys
-  const topValue = sortedKeys[leaderNumber - 1];
-  // Count how many keys have the same value as topValue
-  const count = sortedKeys.filter(
-    (key) => submissionPublicKeysFrequency[key] === submissionPublicKeysFrequency[topValue],
-  ).length;
-  // If the count is greater than or equal to leaderNumber, return the top value
-  let chosenKey = "";
-  if (count >= leaderNumber) {
-    // select the random 5 with seed
-    const rng = seedrandom(String(TASK_ID));
-    const randomKeys = sortedKeys.sort(() => rng() - 0.5).slice(0, leaderNumber);
-    console.log("randomKeys", { randomKeys });
-    const shortestDistanceKey = await selectShortestDistance(randomKeys);
-    console.log("shortestDistanceKey", { shortestDistanceKey });
-    chosenKey = shortestDistanceKey;
-  } else {
-    chosenKey = sortedKeys[leaderNumber - 1];
-  }
-  console.log("chosenKey", { chosenKey });
-  // else random with Seed
-  const submitterAccount = await namespaceWrapper.getSubmitterAccount();
-  if (!submitterAccount) {
-    throw new Error("No submitter account found");
-  }
-  const submitterPublicKey = submitterAccount.publicKey.toBase58();
+
+  const chosenKey = await selectLeaderKey(sortedKeys, leaderNumber, submitterPublicKey, submissionPublicKeysFrequency);
+
   if (chosenKey == submitterPublicKey) {
     return {isLeader: true, leaderNode: "koii-network"};
   }
-  // This start with the current round
+
   for (let i = 1; i < 5; i++) {
     const githubUsername = await fetchRoundSubmissionGitHubRepoOwner(roundNumber - i, chosenKey);
     if (githubUsername) {
       return {isLeader: false, leaderNode: githubUsername};
     }
   }
+
   return {isLeader: false, leaderNode: "koii-network"};
 }
 
@@ -209,17 +191,27 @@ function knnDistance(a: string, b: string): number {
   return distance;
 }
 
-// async function test(){
-//   const keypair = Keypair.generate();
-//   const publicKey = keypair.publicKey.toBase58();
-//   // wait 5 seconds
-//   await new Promise(resolve => setTimeout(resolve, 5000));
+// @deprecated
+function levenshteinDistance(a: string, b: string): number {
+  const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
 
-//   const publicKey2 = "8JEYBpXFgYx4iEWNsL1SD7m1RS6VdfrFq7nNY2rfUhTk"
-//   const distance = knnDistance(publicKey, publicKey2);
-//   console.log(publicKey);
-//   console.log(publicKey2);
-//   console.log(distance);
-// }
+  for (let i = 0; i <= a.length; i++) {
+    matrix[i][0] = i;
+  }
+  for (let j = 0; j <= b.length; j++) {
+    matrix[0][j] = j;
+  }
 
-// test();
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1, // delete
+        matrix[i][j - 1] + 1, // insert
+        matrix[i - 1][j - 1] + cost, // replace
+      );
+    }
+  }
+
+  return matrix[a.length][b.length];
+}
