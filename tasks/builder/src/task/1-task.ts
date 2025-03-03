@@ -31,7 +31,11 @@ export async function task(roundNumber: number): Promise<void> {
       },
       stakingKeypair.secretKey,
     );
-    const repoOwner = await getLeaderNode(roundNumber);
+    const {isLeader, leaderNode} = await getLeaderNode(roundNumber);
+    if (isLeader) {
+      // TODO: Is Leader Logic
+    } 
+    // General Merge Task
     orcaClient
       .podCall(`task/${roundNumber}`, {
         method: "POST",

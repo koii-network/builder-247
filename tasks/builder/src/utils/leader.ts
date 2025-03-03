@@ -101,11 +101,10 @@ function levenshteinDistance(a: string, b: string): number {
 
   return matrix[a.length][b.length];
 }
-
-export async function getLeaderNode(roundNumber: number, leaderNumber: number = 5): Promise<string> {
+export async function getLeaderNode(roundNumber: number, leaderNumber: number = 5): Promise<{isLeader: boolean, leaderNode: string}> {
   // If it is the first round, return the default leader node
   if (roundNumber <= 1) {
-    return "koii-network";
+    return {isLeader: false, leaderNode: "koii-network"};
   }
   const submissionPublicKeysFrequency: Record<string, number> = {};
   const submissionAuditTriggerKeys = new Set<string>();
@@ -147,7 +146,7 @@ export async function getLeaderNode(roundNumber: number, leaderNumber: number = 
   );
   // If the number of top frequency keys is less than leaderNumber, return the default leader node
   if (sortedKeys.length < leaderNumber) {
-    return "koii-network";
+    return {isLeader: false, leaderNode: "koii-network"};
   }
   // Top value in sortedKeys
   const topValue = sortedKeys[leaderNumber - 1];
@@ -170,15 +169,22 @@ export async function getLeaderNode(roundNumber: number, leaderNumber: number = 
   }
   console.log("chosenKey", { chosenKey });
   // else random with Seed
-
+  const submitterAccount = await namespaceWrapper.getSubmitterAccount();
+  if (!submitterAccount) {
+    throw new Error("No submitter account found");
+  }
+  const submitterPublicKey = submitterAccount.publicKey.toBase58();
+  if (chosenKey == submitterPublicKey) {
+    return {isLeader: true, leaderNode: "koii-network"};
+  }
   // This start with the current round
   for (let i = 1; i < 5; i++) {
     const githubUsername = await fetchRoundSubmissionGitHubRepoOwner(roundNumber - i, chosenKey);
     if (githubUsername) {
-      return githubUsername;
+      return {isLeader: false, leaderNode: githubUsername};
     }
   }
-  return "koii-network";
+  return {isLeader: false, leaderNode: "koii-network"};
 }
 
 function base58ToNumber(char: string): number {

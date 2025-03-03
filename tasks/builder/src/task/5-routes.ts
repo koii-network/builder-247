@@ -16,7 +16,7 @@ export async function routes() {
 
   app.get("/leader/:roundNumber", async (req, res) => {
     const roundNumber = req.params.roundNumber;
-    const leader = await getLeaderNode(Number(roundNumber));
-    res.status(200).json({ leader: leader });
+    const {isLeader, leaderNode} = await getLeaderNode(Number(roundNumber));
+    res.status(200).json({ isLeader: isLeader, leaderNode: leaderNode });
   });
 }
