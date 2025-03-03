@@ -1,6 +1,7 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
+import { getLeaderNode } from "../utils/leader";
 
 export async function task(roundNumber: number): Promise<void> {
   /**
@@ -30,7 +31,11 @@ export async function task(roundNumber: number): Promise<void> {
       },
       stakingKeypair.secretKey,
     );
-
+    const {isLeader, leaderNode} = await getLeaderNode({roundNumber, submitterPublicKey: stakingKey});
+    if (isLeader) {
+      // TODO: Is Leader Logic
+    } 
+    // General Merge Task
     orcaClient
       .podCall(`task/${roundNumber}`, {
         method: "POST",
@@ -43,6 +48,7 @@ export async function task(roundNumber: number): Promise<void> {
           stakingKey,
           pubKey,
           signature,
+          repoOwner: leaderNode,
         }),
       })
       .then((result: any) => {

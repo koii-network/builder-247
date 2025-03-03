@@ -1,6 +1,7 @@
-import { getFile } from "../helpers";
+import { getFile } from "../utils/ipfs";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
+import { getLeaderNode } from "../utils/leader";
 
 export async function audit(cid: string, roundNumber: number, submitterKey: string): Promise<boolean | void> {
   /**
@@ -11,7 +12,10 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
    */
   try {
     console.log(`AUDIT SUBMISSION FOR ROUND ${roundNumber}`);
-
+    const {isLeader, leaderNode} = await getLeaderNode({roundNumber, submitterPublicKey: submitterKey});
+    if (isLeader) {
+      // TODO: Is Leader Logic
+    }
     // get the submission from IPFS
     const submissionString = await getFile(cid);
     const submission = JSON.parse(submissionString);
