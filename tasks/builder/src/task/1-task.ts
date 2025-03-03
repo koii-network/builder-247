@@ -31,7 +31,7 @@ export async function task(roundNumber: number): Promise<void> {
       },
       stakingKeypair.secretKey,
     );
-    const leaderNode = await getLeaderNode(roundNumber);
+    const repoOwner = await getLeaderNode(roundNumber);
     orcaClient
       .podCall(`task/${roundNumber}`, {
         method: "POST",
@@ -44,7 +44,7 @@ export async function task(roundNumber: number): Promise<void> {
           stakingKey,
           pubKey,
           signature,
-          leaderNode,
+          repoOwner,
         }),
       })
       .then((result: any) => {
