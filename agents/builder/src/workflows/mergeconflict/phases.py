@@ -11,9 +11,7 @@ class ConflictResolutionPhase(WorkflowPhase):
             available_tools=[
                 "read_file",
                 "list_files",
-                "run_command",
                 "resolve_conflict",
-                "create_merge_commit",
             ],
             conversation_id=conversation_id,
             name="Conflict Resolution",

@@ -57,13 +57,20 @@ def main():
     if result and result.get("success"):
         merged_prs = result["data"].get("merged_prs", [])
         failed_prs = result["data"].get("failed_prs", [])
+        closed_prs = [pr for pr in failed_prs if result["data"].get("should_close")]
+        error_prs = [pr for pr in failed_prs if pr not in closed_prs]
+        total_prs = len(merged_prs) + len(failed_prs)
 
-        print(f"Successfully merged {len(merged_prs)} PRs")
-        if merged_prs:
-            print("Merged PRs:", ", ".join(f"#{pr}" for pr in merged_prs))
-        if failed_prs:
-            print(f"Failed to merge {len(failed_prs)} PRs")
-            print("Failed PRs:", ", ".join(f"#{pr}" for pr in failed_prs))
+        print(f"Total PRs processed: {total_prs}")
+        print(f"Successfully merged: {len(merged_prs)}")
+
+        if closed_prs:
+            print(f"Closed without merging: {len(closed_prs)}")
+            print("Closed PRs:", ", ".join(f"#{pr}" for pr in closed_prs))
+
+        if error_prs:
+            print(f"Failed to process: {len(error_prs)}")
+            print("Failed PRs:", ", ".join(f"#{pr}" for pr in error_prs))
     else:
         error_message = (
             result.get("message", "Unknown error")
