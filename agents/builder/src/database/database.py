@@ -1,7 +1,7 @@
 """Database service module."""
 
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlmodel import SQLModel
 import os
 from pathlib import Path
@@ -30,6 +30,9 @@ def get_db():
     """Get database session.
 
     Returns a Flask-managed session if in app context, otherwise a thread-local session.
+    The session is automatically managed:
+    - In Flask context: Session is stored in g and cleaned up when the request ends
+    - Outside Flask context: Use get_session() context manager for automatic cleanup
     """
     try:
         from flask import g, has_app_context
@@ -43,25 +46,22 @@ def get_db():
     return Session()
 
 
-def close_db(e=None):
-    """Close database session.
-
-    Can be used as Flask teardown function or called directly.
-    """
-    try:
-        from flask import g, has_app_context
-
-        if has_app_context():
-            db = g.pop("db", None)
-            if db is not None:
-                db.close()
-    except ImportError:
-        pass
-
-
 def initialize_database():
-    """Initialize database tables."""
-    SQLModel.metadata.create_all(engine)
+    """Initialize database tables if they don't exist."""
+    inspector = inspect(engine)
+    existing_tables = inspector.get_table_names()
+
+    # Get all model classes from SQLModel metadata
+    model_tables = SQLModel.metadata.tables
+
+    # Only create tables that don't exist
+    tables_to_create = []
+    for table_name, table in model_tables.items():
+        if table_name not in existing_tables:
+            tables_to_create.append(table)
+
+    if tables_to_create:
+        SQLModel.metadata.create_all(engine, tables=tables_to_create)
 
 
 def get_conversation(session, conversation_id: str) -> Optional[Dict[str, Any]]:
