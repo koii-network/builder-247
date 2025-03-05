@@ -40,6 +40,6 @@ CMD ["gunicorn", \
     "--timeout", "600", \
     "--graceful-timeout", "600", \
     "--keep-alive", "5", \
-    "-w", "2", \
+    "-w", "1", \
     "-b", "0.0.0.0:8080", \
     "main:app"]
