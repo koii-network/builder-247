@@ -97,3 +97,40 @@ def get_current_files():
         raise Exception(f"Failed to get file list: {files_result['message']}")
 
     return files_result["data"]["files"]
+
+
+def clone_repository(repo_url: str, repo_path: str) -> dict:
+    """Clone a repository directly without forking.
+
+    Args:
+        repo_url: URL of the repository to clone
+        repo_path: Local path to clone to
+
+    Returns:
+        dict: Result with success status and error message if any
+    """
+    try:
+        # Add GitHub token to URL for authentication
+        token = os.getenv("GITHUB_TOKEN")
+        auth_url = repo_url.replace("https://", f"https://{token}@")
+
+        # Clone the repository
+        log_key_value("Cloning repository", repo_url)
+        log_key_value("Clone path", repo_path)
+
+        repo = Repo.clone_from(auth_url, repo_path)
+
+        return {
+            "success": True,
+            "message": f"Successfully cloned repository to {repo_path}",
+            "data": {"clone_path": repo_path, "repo": repo},
+        }
+    except Exception as e:
+        error_msg = str(e)
+        log_error(e, "Clone failed")
+        return {
+            "success": False,
+            "message": "Failed to clone repository",
+            "data": None,
+            "error": error_msg,
+        }

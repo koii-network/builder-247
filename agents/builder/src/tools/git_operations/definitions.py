@@ -202,7 +202,7 @@ DEFINITIONS = {
     },
     "resolve_conflict": {
         "name": "resolve_conflict",
-        "description": "Resolve a conflict in a specific file and commit the resolution.",
+        "description": "Resolve a conflict in a specific file.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -213,10 +213,6 @@ DEFINITIONS = {
                 "resolution": {
                     "type": "string",
                     "description": "Content to resolve the conflict with",
-                },
-                "message": {
-                    "type": "string",
-                    "description": "Commit message for the resolution",
                 },
             },
             "required": ["file_path", "resolution"],

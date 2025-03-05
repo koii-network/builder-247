@@ -584,3 +584,75 @@ def generate_analysis(
 
         traceback.print_exc()
         return {"success": False, "message": error_msg, "data": None}
+
+
+def merge_pull_request(
+    repo_full_name: str, pr_number: int, merge_method: str = "merge"
+) -> ToolOutput:
+    """
+    Merge a pull request using the GitHub API.
+
+    Args:
+        repo_full_name: Full name of repository (owner/repo)
+        pr_number: Pull request number to merge
+        merge_method: Merge method to use (merge, squash, rebase)
+
+    Returns:
+        ToolOutput: Standardized tool output with success status and error message if any
+    """
+    try:
+        log_key_value("Merging PR", f"{repo_full_name}#{pr_number}")
+
+        # Get GitHub client
+        gh = _get_github_client()
+
+        # Get repository
+        repo = gh.get_repo(repo_full_name)
+
+        # Get pull request
+        pr = repo.get_pull(pr_number)
+
+        # Check if PR is mergeable
+        if not pr.mergeable:
+            return {
+                "success": False,
+                "message": f"PR #{pr_number} is not mergeable",
+                "data": {
+                    "pr_number": pr_number,
+                    "mergeable": False,
+                    "state": pr.state,
+                },
+            }
+
+        # Merge the PR
+        merge_result = pr.merge(merge_method=merge_method)
+
+        return {
+            "success": True,
+            "message": f"Successfully merged PR #{pr_number}",
+            "data": {
+                "pr_number": pr_number,
+                "merged": True,
+                "sha": merge_result.sha,
+            },
+        }
+    except GithubException as e:
+        log_error(e, f"Failed to merge PR #{pr_number}")
+        return {
+            "success": False,
+            "message": f"GitHub API error: {str(e)}",
+            "data": {
+                "pr_number": pr_number,
+                "error_code": e.status,
+                "error_message": e.data.get("message", "Unknown error"),
+            },
+        }
+    except Exception as e:
+        log_error(e, f"Failed to merge PR #{pr_number}")
+        return {
+            "success": False,
+            "message": f"Error: {str(e)}",
+            "data": {
+                "pr_number": pr_number,
+            },
+        }

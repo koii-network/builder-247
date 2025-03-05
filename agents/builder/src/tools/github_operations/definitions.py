@@ -4,6 +4,7 @@ from src.tools.github_operations.implementations import (
     review_pull_request,
     validate_implementation,
     generate_analysis,
+    merge_pull_request,
 )
 
 DEFINITIONS = {
@@ -264,5 +265,30 @@ DEFINITIONS = {
         },
         "final_tool": True,
         "function": generate_analysis,
+    },
+    "merge_pull_request": {
+        "name": "merge_pull_request",
+        "description": "Merge a pull request using the GitHub API.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "repo_full_name": {
+                    "type": "string",
+                    "description": "Full name of repository (owner/repo)",
+                },
+                "pr_number": {
+                    "type": "integer",
+                    "description": "Pull request number to merge",
+                },
+                "merge_method": {
+                    "type": "string",
+                    "description": "Merge method to use (merge, squash, rebase)",
+                    "enum": ["merge", "squash", "rebase"],
+                    "default": "merge",
+                },
+            },
+            "required": ["repo_full_name", "pr_number"],
+        },
+        "function": merge_pull_request,
     },
 }
