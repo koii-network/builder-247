@@ -28,7 +28,7 @@ def temp_tools_dir(tmp_path):
     tool_def = {
         "name": "mock_tool",
         "description": "A mock tool for testing",
-        "input_schema": {
+        "parameters": {
             "type": "object",
             "properties": {"input": {"type": "string", "description": "Test input"}},
         },

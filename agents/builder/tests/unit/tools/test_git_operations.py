@@ -3,7 +3,7 @@
 from pathlib import Path
 import pytest
 from git import Repo, GitCommandError
-from src.tools.git_operations import (
+from src.tools.git_operations_old import (
     create_branch,
     checkout_branch,
     make_commit,
