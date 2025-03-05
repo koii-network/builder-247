@@ -22,8 +22,10 @@ COPY . .
 
 ENV MIDDLE_SERVER_URL=https://builder247.api.koii.network
 
-# Force Flask to not buffer logs
+# Configure logging and output
 ENV PYTHONUNBUFFERED=1
+ENV TERM=xterm-256color
+ENV FORCE_COLOR=1
 
 # Add this environment variable after other ENV declarations
 ENV DATABASE_PATH=/data/database.db
@@ -31,11 +33,12 @@ ENV DATABASE_PATH=/data/database.db
 # Make port 8080 available to the world outside this container
 EXPOSE 8080
 
-
 # Set the command to run your application
 CMD ["gunicorn", \
     "--log-level=error", \
     "--error-logfile=-", \
+    "--capture-output", \
+    "--enable-stdio-inheritance", \
     "--logger-class=gunicorn.glogging.Logger", \
     "--timeout", "600", \
     "--graceful-timeout", "600", \
