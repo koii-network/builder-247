@@ -4,7 +4,7 @@ from src.server.services import task_service
 bp = Blueprint("task", __name__)
 
 
-@bp.route("/task/<roundNumber>", methods=["POST"])
+@bp.post("/task/<roundNumber>")
 def start_task(roundNumber):
     logger = task_service.logger
     logger.info(f"Task started for round: {roundNumber}")

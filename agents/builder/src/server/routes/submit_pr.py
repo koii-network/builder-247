@@ -4,7 +4,7 @@ from src.server.services.task_service import submit_pr
 bp = Blueprint("submit_pr", __name__)
 
 
-@bp.route("/submit-pr/<roundNumber>", methods=["POST"])
+@bp.post("/submit-pr/<roundNumber>")
 def submit_pr_route(roundNumber):
     data = request.get_json()
     signature = data.get("signature")

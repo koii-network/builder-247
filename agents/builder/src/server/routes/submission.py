@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 bp = Blueprint("submission", __name__)
 
 
-@bp.route("/submission/<roundNumber>")
+@bp.get("/submission/<roundNumber>")
 def fetch_submission(roundNumber):
     logger.info(f"Fetching submission for round: {roundNumber}")
 
