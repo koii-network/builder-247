@@ -10,7 +10,7 @@ import ast
 from colorama import init, Fore, Style
 
 # Initialize colorama for cross-platform color support
-init()
+init(strip=False)  # Force color output even when not in a terminal
 
 # Create our logger
 logger = logging.getLogger("builder")
