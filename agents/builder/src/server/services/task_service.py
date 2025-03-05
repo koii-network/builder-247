@@ -4,9 +4,9 @@ import requests
 import os
 from flask import jsonify
 from src.database import get_db, Submission
-from agents.builder.src.workflows.old.task import todo_to_pr
-from agents.builder.src.workflows.old.audit import review_pr
-from src.workflows.prompts import REVIEW_SYSTEM_PROMPT
+from src.clients import setup_client
+from src.workflows.task.workflow import TaskWorkflow
+from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 import logging
 
 logger = logging.getLogger(__name__)
@@ -70,13 +70,20 @@ def run_todo_task(task_id, round_number, todo):
         db.add(submission)
         db.commit()
 
-        return todo_to_pr(
-            todo=todo["title"],
-            acceptance_criteria=todo["acceptance_criteria"],
+        # Set up client and workflow
+        client = setup_client("anthropic")
+        workflow = TaskWorkflow(
+            client=client,
+            prompts=TASK_PROMPTS,
             repo_owner=todo["repo_owner"],
             repo_name=todo["repo_name"],
-            system_prompt=todo["system_prompt"],
+            todo=todo["title"],
+            acceptance_criteria=todo["acceptance_criteria"],
         )
+
+        # Run workflow and get PR URL
+        pr_url = workflow.run()
+        return pr_url
 
     except Exception as e:
         logger.error(f"PR creation failed: {str(e)}")
@@ -128,38 +135,3 @@ def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
     except requests.exceptions.RequestException as e:
         logger.error(f"Error submitting PR: {str(e)}")
         return "Error submitting PR"
-
-
-def approve_pr(pr_url):
-    """Review and approve PR."""
-    requirements = [
-        "Implementation matches problem description",
-        "All tests pass",
-        "Implementation is in a single file in the /src directory",
-        "tests are in a single file in the /tests directory",
-        "No other files are modified",
-    ]
-
-    minor_issues = (
-        "test coverage could be improved but core functionality is tested",
-        "implementation and tests exist but are not in the /src and /tests directories",
-        "other files are modified",
-    )
-
-    major_issues = (
-        "Incorrect implementation, failing tests, missing critical features, "
-        "no error handling, security vulnerabilities, no tests",
-        "tests are poorly designed or rely too heavily on mocking",
-    )
-
-    result = review_pr(
-        pr_url=pr_url,
-        requirements=requirements,
-        minor_issues=minor_issues,
-        major_issues=major_issues,
-        system_prompt=REVIEW_SYSTEM_PROMPT,
-    )
-    if result.get("success"):
-        return result.get("validated", True)
-    else:
-        raise Exception("PR review failed")
