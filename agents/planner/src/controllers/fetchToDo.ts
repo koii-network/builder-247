@@ -141,7 +141,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
   try {
     const todos = await TodoModel.find({
       status: TodoStatus.INITIALIZED,
-      $expr: { $lt: [{ $size: "$assignedTo" }, 10] },
+      $expr: { $lt: [{ $size: "$assignedTo" }, 13] },
       $nor: [
         { "assignedTo.stakingKey": requestBody.pubKey },
         { "assignedTo.githubUsername": signatureData.githubUsername },
