@@ -2,12 +2,10 @@
 
 import os
 import shutil
-from github import Github
+from github import Github, Auth, GithubException
 from git import Repo
 from src.utils.logging import log_key_value, log_error
 from src.tools.file_operations.implementations import list_files
-
-
 def check_required_env_vars(env_vars: list[str]):
     """Check if all required environment variables are set."""
     missing_vars = [var for var in env_vars if not os.environ.get(var)]

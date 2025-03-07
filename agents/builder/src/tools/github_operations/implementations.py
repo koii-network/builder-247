@@ -37,13 +37,14 @@ def _get_github_client() -> Github:
     return Github(auth=Auth.Token(token))
 
 
-def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
+def fork_repository(repo_full_name: str, repo_path: str = None, new_name: str = None) -> ToolOutput:
     """
     Fork a repository and clone it locally.
 
     Args:
         repo_full_name: Full name of repository (owner/repo)
         repo_path: Local path to clone to
+        new_name: New name for the fork
 
     Returns:
         ToolOutput: Standardized tool output with success status and error message if any
@@ -60,10 +61,19 @@ def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
         try:
             fork = gh.get_repo(f"{username}/{original_repo.name}")
             log_key_value("Using existing fork of", repo_full_name)
+            
+            if new_name:
+                fork.edit(name=new_name)
+                log_key_value("Renamed existing fork to", new_name)
         except GithubException:
             # Create fork if it doesn't exist
             fork = user.create_fork(original_repo)
             log_key_value("Created new fork of", repo_full_name)
+
+            # Rename the new fork if new_name is provided
+            if new_name:
+                fork.edit(name=new_name)
+                log_key_value("Renamed new fork to", new_name)
 
         # Wait for fork to be ready
         log_key_value("Waiting for fork to be ready", "")
@@ -128,6 +138,7 @@ def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
 
 def create_pull_request(
     repo_full_name: str,
+    target_repo_full_name: str,
     title: str,
     head: str,
     description: str,
@@ -139,7 +150,8 @@ def create_pull_request(
     """Create PR with formatted description.
 
     Args:
-        repo_full_name: Full name of repository (owner/repo)
+        repo_full_name: Full name of source repository (owner/repo)
+        target_repo_full_name: Full name of target repository (owner/repo)
         title: PR title
         head: Head branch name
         description: PR description
@@ -161,6 +173,25 @@ def create_pull_request(
         # Ensure base branch is just the name without owner
         base = base.split(":")[-1]  # Remove owner prefix if present
 
+        # Log the branches being used
+        print(f"Creating PR from head: {head} to base: {base}")
+
+        # Check if the source repository exists
+        try:
+            source_repo = gh.get_repo(repo_full_name)
+            print(f"Source repository found: {source_repo.full_name}")
+        except GithubException as e:
+            print(f"Source repository not found: {repo_full_name}, error: {e}")
+            raise
+
+        # Check if the target repository exists
+        try:
+            target_repo = gh.get_repo(target_repo_full_name)
+            print(f"Target repository found: {target_repo.full_name}")
+        except GithubException as e:
+            print(f"Target repository not found: {target_repo_full_name}, error: {e}")
+            raise
+
         # Format tests into markdown bullets
         tests_bullets = " - " + "\n - ".join(tests)
 
@@ -172,14 +203,16 @@ def create_pull_request(
             tests=tests_bullets,
         )
 
-        repo = gh.get_repo(repo_full_name)
-        pr = repo.create_pull(title=title, body=body, head=head, base=base)
+        pr = target_repo.create_pull(title=title, body=body, head=head, base=base)
+        print("pr", pr)
         return {
             "success": True,
             "message": f"Successfully created PR: {title}",
             "data": {"pr_url": pr.html_url},
         }
     except GithubException as e:
+        # Log detailed error information
+        print(f"GitHubException: {e.data.get('message', 'No message')}")
         return {
             "success": False,
             "message": f"Failed to create pull request: {str(e)}",
@@ -655,4 +688,53 @@ def merge_pull_request(
             "data": {
                 "pr_number": pr_number,
             },
+        }
+
+
+def get_pull_request_info(repo_full_name: str, pr_number: int) -> ToolOutput:
+    """
+    Get information about a pull request.
+
+    Args:
+        repo_full_name: Full name of repository (owner/repo)
+        pr_number: Pull request number
+
+    Returns:
+        ToolOutput: Standardized tool output with PR information
+    """
+    try:
+        gh = _get_github_client()
+        repo = gh.get_repo(repo_full_name)
+        pr = repo.get_pull(pr_number)
+
+        # Extract relevant information
+        pr_info = {
+            "title": pr.title,
+            "body": pr.body,
+            "head": pr.head.ref,
+            "base": pr.base.ref,
+            "state": pr.state,
+            "mergeable": pr.mergeable,
+            "created_at": pr.created_at,
+            "updated_at": pr.updated_at,
+            "submitter": pr.user.login,
+            "repo_owner": pr.base.repo.owner.login,
+        }
+
+        return {
+            "success": True,
+            "message": f"Successfully retrieved PR #{pr_number} information",
+            "data": pr_info,
+        }
+    except GithubException as e:
+        return {
+            "success": False,
+            "message": f"Failed to retrieve PR information: {str(e)}",
+            "data": {"errors": e.data.get("errors", [])},
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to retrieve PR information: {str(e)}",
+            "data": None,
         }
