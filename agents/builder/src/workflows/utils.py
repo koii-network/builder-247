@@ -6,6 +6,7 @@ from github import Github
 from git import Repo
 from src.utils.logging import log_key_value, log_error
 from src.tools.file_operations.implementations import list_files
+from typing import Optional
 
 
 def check_required_env_vars(env_vars: list[str]):
@@ -99,17 +100,19 @@ def get_current_files():
     return files_result["data"]["files"]
 
 
-def fork_repository(repo_full_name: str) -> dict:
+def fork_repository(repo_full_name: str, github_token: Optional[str] = None) -> dict:
     """Fork a repository.
 
     Args:
         repo_full_name: Full name of repository (owner/repo)
+        github_token: Optional GitHub token to use. Defaults to GITHUB_TOKEN env var.
 
     Returns:
         dict: Result with success status and fork URL if successful
     """
     try:
-        gh = Github(os.environ["GITHUB_TOKEN"])
+        token = github_token or os.environ["GITHUB_TOKEN"]
+        gh = Github(token)
         source_repo = gh.get_repo(repo_full_name)
 
         # Get authenticated user
@@ -158,19 +161,22 @@ def fork_repository(repo_full_name: str) -> dict:
         }
 
 
-def clone_repository(repo_url: str, repo_path: str) -> dict:
+def clone_repository(
+    repo_url: str, repo_path: str, github_token: Optional[str] = None
+) -> dict:
     """Clone a repository directly without forking.
 
     Args:
         repo_url: URL of the repository to clone
         repo_path: Local path to clone to
+        github_token: Optional GitHub token to use. Defaults to GITHUB_TOKEN env var.
 
     Returns:
         dict: Result with success status and error message if any
     """
     try:
         # Add GitHub token to URL for authentication
-        token = os.getenv("GITHUB_TOKEN")
+        token = github_token or os.environ["GITHUB_TOKEN"]
         auth_url = repo_url.replace("https://", f"https://{token}@")
 
         # Clone the repository
@@ -195,12 +201,15 @@ def clone_repository(repo_url: str, repo_path: str) -> dict:
         }
 
 
-def setup_repository(repo_url: str, clone_only: bool = False) -> dict:
+def setup_repository(
+    repo_url: str, clone_only: bool = False, github_token: Optional[str] = None
+) -> dict:
     """Set up a repository by forking (optional) and cloning.
 
     Args:
         repo_url: URL of the repository (e.g., https://github.com/owner/repo)
         clone_only: If True, just clone without forking. Defaults to False.
+        github_token: Optional GitHub token to use. Defaults to GITHUB_TOKEN env var.
 
     Returns:
         dict: Result with success status, repository details, and paths
@@ -217,7 +226,7 @@ def setup_repository(repo_url: str, clone_only: bool = False) -> dict:
 
         # Fork if needed
         if not clone_only:
-            fork_result = fork_repository(repo_full_name)
+            fork_result = fork_repository(repo_full_name, github_token=github_token)
             if not fork_result["success"]:
                 cleanup_repo_directory(original_dir, repo_path)
                 return fork_result
@@ -226,7 +235,7 @@ def setup_repository(repo_url: str, clone_only: bool = False) -> dict:
             clone_url = repo_url
 
         # Clone the repository
-        clone_result = clone_repository(clone_url, repo_path)
+        clone_result = clone_repository(clone_url, repo_path, github_token=github_token)
         if not clone_result["success"]:
             cleanup_repo_directory(original_dir, repo_path)
             return clone_result

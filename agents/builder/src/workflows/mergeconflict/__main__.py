@@ -29,20 +29,21 @@ def parse_args():
 
 def create_consolidation_pr(upstream_repo, fork_url, branch, merged_prs):
     """Create a PR to upstream with all merged changes."""
-    fork_parts = fork_url.strip("/").split("/")
-    fork_owner = fork_parts[-2]
-    fork_repo = fork_parts[-1]
+    # Get our fork's owner from the workflow's fork URL
+    gh = Github(os.environ["MERGE_GITHUB_TOKEN"])
+    our_user = gh.get_user()
+    our_fork_owner = our_user.login
 
     # Create PR with list of merged PRs in the body
     pr_body = "This PR consolidates the following PRs from the aggregator fork:\n\n"
     for pr_num in merged_prs:
-        pr_url = f"https://github.com/{fork_owner}/{fork_repo}/pull/{pr_num}"
+        pr_url = f"{fork_url}/pull/{pr_num}"
         pr_body += f"- {pr_url}\n"
 
     pr = upstream_repo.create_pull(
-        title=f"Consolidate PRs from {fork_owner}",
+        title=f"Consolidate PRs from {our_fork_owner}",
         body=pr_body,
-        head=f"{fork_owner}:{branch}",
+        head=f"{our_fork_owner}:{branch}",  # Use our fork as the head
         base="main",
     )
 
@@ -66,7 +67,7 @@ def main():
     source_repo = source_parts[-1]
 
     # Get source fork and its upstream repo
-    gh = Github(os.environ["GITHUB_TOKEN"])
+    gh = Github(os.environ["MERGE_GITHUB_TOKEN"])
     source_fork = gh.get_repo(f"{source_owner}/{source_repo}")
     if not source_fork.fork:
         print("Error: Source repository is not a fork")
@@ -77,7 +78,9 @@ def main():
 
     # Create and set up our fork
     print("\n=== SETTING UP REPOSITORY ===")
-    setup_result = setup_repository(args.source)
+    setup_result = setup_repository(
+        args.source, github_token=os.environ["MERGE_GITHUB_TOKEN"]
+    )
     if not setup_result["success"]:
         print(
             f"Error setting up repository: {setup_result.get('message', 'Unknown error')}"
@@ -105,6 +108,7 @@ def main():
             fork_url=args.source,
             target_branch=args.branch,
             pr_url=pr.html_url,
+            github_token=os.environ["MERGE_GITHUB_TOKEN"],
         )
 
         result = workflow.run()

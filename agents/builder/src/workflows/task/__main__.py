@@ -79,7 +79,7 @@ def main():
     if args.input:
         todos_file = todos_path / args.input
     else:
-        todos_file = todos_path / "test_todos.csv"
+        todos_file = todos_path / "test_todos_small.csv"
 
     if not os.path.exists(todos_file):
         db = get_db()
