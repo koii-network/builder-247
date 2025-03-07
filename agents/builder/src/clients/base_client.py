@@ -66,9 +66,42 @@ class Client(ABC):
         max_tokens: Optional[int] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Make API call to the LLM."""
+    ) -> Any:
+        """Make API call to the LLM service.
+
+        This method should be implemented by each client to handle the specifics of their API.
+        The base class will handle error logging and wrapping.
+        """
         pass
+
+    def make_api_call(
+        self,
+        messages: List[Dict[str, Any]],
+        system_prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Make API call with error handling.
+
+        This method wraps the client-specific _make_api_call with common error handling.
+        """
+        try:
+            return self._make_api_call(
+                messages=messages,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                tools=tools,
+                tool_choice=tool_choice,
+            )
+        except Exception as e:
+            # Only wrap actual API errors
+            log_error(
+                e,
+                context=f"Error making API call to {self.api_name}",
+                include_traceback=not is_retryable_error(e),
+            )
+            raise ClientAPIError(e)
 
     def register_tools(self, tools_dir: str) -> List[str]:
         """Register all tools found in a directory.
@@ -385,7 +418,7 @@ class Client(ABC):
             )
 
             # Make API call
-            response = self._make_api_call(
+            response = self.make_api_call(
                 messages=api_messages,
                 system_prompt=system_prompt,
                 max_tokens=max_tokens,
