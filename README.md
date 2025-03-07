@@ -21,7 +21,7 @@ The **Prometheus 24/7 Builder Task** spins up an **AI agent** capable of continu
 
 1. The Koii Node **launches an AI agent** inside a lightweight runtime.
 2. The agent reads an active **to-do list** from the repository.
-3. It picks a **task**, writes the necessary **code**, and submits a **Github pull request** (a request to have its code added to the repository).
+3. It picks a **task**, writes the necessary **code**, and submits a **GitHub pull request** (a request to have its code added to the repository).
 4. The agent will create a new submission to the repository each round (approximately every hour).
 5. Koii Nodes **earn rewards** for running the AI agent and contributing code.
 
