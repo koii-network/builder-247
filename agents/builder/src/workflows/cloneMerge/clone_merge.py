@@ -6,6 +6,9 @@ from github import Github
 from src.workflows.base import Workflow
 from src.utils.logging import log_section, log_key_value, log_error
 from src.workflows.mergeconflict import phases
+from src.tools.git_operations.implementations import (
+    add_remote,
+)
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
@@ -25,7 +28,10 @@ from src.tools.github_operations.implementations import (
 example_pr_url = "https://github.com/koii-network/prometheus-beta/pull/5943"
 example_repo_full_name = "koii-network/prometheus-beta"
 example_new_name_base = "koii-network_prometheus-beta"
+
+example_owner_2 = "rhonrhon06"
 example_new_name_head = "rhonrhon06_prometheus-beta"
+example_head_url = "https://github.com/rhonrhon06/prometheus-beta"
 example_pr_number = 5943
 example_submitter_full_name = "rhonrhon06/prometheus-beta"
 if __name__ == "__main__":
@@ -38,11 +44,9 @@ if __name__ == "__main__":
     print("head_branch", head_branch)
     print("base_branch", base_branch)
     repo_path_head, original_dir_head = setup_repo_directory()
-    fork_result_head = fork_repository(example_repo_full_name, repo_path_head, example_new_name_head)
-    repo_path_base, original_dir_base = setup_repo_directory()
-    fork_result_base = fork_repository(example_submitter_full_name, repo_path_base, example_new_name_base)
-    print("fork_result_head", fork_result_head)
-    print("fork_result_base", fork_result_base)
+    fork_result = fork_repository(example_repo_full_name, repo_path_head)
+    add_remote(name=example_owner_2, url=example_head_url)
+    
     # make a new pr from the forked repo
     repo_full_name_my_head = f"HermanL02/{example_new_name_head}"
     repo_full_name_my_base = f"HermanL02/{example_new_name_base}"
