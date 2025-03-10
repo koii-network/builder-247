@@ -1,48 +1,62 @@
 from flask import Blueprint, jsonify, request
 from src.server.services import task_service
+from src.utils.logging import logger
 
 bp = Blueprint("task", __name__)
 
 
-@bp.post("/worker-task/<roundNumber>")
-def start_worker_task(roundNumber):
-    logger = task_service.logger
-    logger.info(f"Task started for round: {roundNumber}")
+@bp.post("/worker-task/<round_number>")
+def start_worker_task(round_number):
+    return start_task(round_number, "worker", request)
+
+
+@bp.post("/leader-task/<round_number>")
+def start_leader_task(round_number):
+    return start_task(round_number, "leader", request)
+
+
+def start_task(round_number, node_type, request):
+    if node_type not in ["worker", "leader"]:
+        return jsonify({"error": "Invalid node type"}), 400
+
+    task_functions = {
+        "worker": task_service.complete_todo,
+        "leader": task_service.consolidate_prs,
+    }
+    logger.info(f"{node_type.capitalize()} task started for round: {round_number}")
 
     data = request.get_json()
     logger.info(f"Task data: {data}")
-    required_fields = ["taskId", "roundNumber", "stakingKey", "signature"]
+    required_fields = [
+        "taskId",
+        "roundNumber",
+        "stakingKey",
+        "stakingSignature",
+        "pubKey",
+        "publicSignature",
+    ]
     if any(data.get(field) is None for field in required_fields):
         return jsonify({"error": "Missing data"}), 401
 
-    return task_service.handle_task_creation(
+    pr_url = task_functions[node_type](
         task_id=data["taskId"],
-        round_number=int(roundNumber),
-        signature=data["signature"],
+        round_number=int(round_number),
+        staking_signature=data["stakingSignature"],
         staking_key=data["stakingKey"],
+        public_signature=data["publicSignature"],
         pub_key=data["pubKey"],
     )
-
-
-@bp.post("/submit-pr/<roundNumber>")
-def submit_pr_route(roundNumber):
-    data = request.get_json()
-    signature = data.get("signature")
-    staking_key = data.get("stakingKey")
-    pub_key = data.get("pubKey")
-    pr_url = data.get("prUrl")
-
     if not pr_url:
         return jsonify({"error": "Missing PR URL"}), 400
 
-    message = task_service.submit_pr(
-        signature, staking_key, pub_key, pr_url, roundNumber
+    message = task_service.record_pr(
+        task_id=data["taskId"],
+        round_number=int(round_number),
+        staking_signature=data["stakingSignature"],
+        staking_key=data["stakingKey"],
+        public_signature=data["publicSignature"],
+        pub_key=data["pubKey"],
+        pr_url=pr_url,
     )
 
     return jsonify({"message": message})
-
-
-@bp.post("/leader-task/<roundNumber>")
-def start_leader_task(roundNumber):
-    logger = task_service.logger
-    logger.info(f"Task started for round: {roundNumber}")

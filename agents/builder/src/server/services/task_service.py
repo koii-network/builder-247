@@ -10,7 +10,7 @@ from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 from src.utils.logging import logger, log_error
 
 
-def handle_task_creation(task_id, round_number, signature, staking_key, pub_key):
+def complete_todo(task_id, round_number, signature, staking_key, pub_key):
     """Handle task creation request."""
     todo = get_todo(signature, staking_key, pub_key)
     if not todo:
@@ -100,7 +100,7 @@ def run_todo_task(task_id, round_number, todo):
         raise
 
 
-def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
+def record_pr(signature, staking_key, pub_key, pr_url, round_number):
     """Submit PR to middle server and update submission."""
     try:
         db = get_db()
@@ -137,3 +137,8 @@ def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
     except requests.exceptions.RequestException as e:
         log_error(e, context="Error submitting PR")
         return "Error submitting PR"
+
+
+def consolidate_prs(task_id, round_number, signature, staking_key, pub_key):
+    """Consolidate PRs from workers."""
+    pass
