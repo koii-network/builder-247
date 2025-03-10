@@ -56,14 +56,14 @@ def pr_logic(isLocal):
     # Get source fork and its upstream repo
     gh = Github(os.environ["MERGE_GITHUB_TOKEN"])
     source_fork = gh.get_repo(f"{source_owner}/{source_repo}")
+
+    if not source_fork.fork:
+        print("Error: Source repository is not a fork")
+        return 1
+
+    upstream_repo = source_fork.parent
+    print(f"Found upstream repository: {upstream_repo.html_url}")
     if not isLocal:
-        if not source_fork.fork:
-            print("Error: Source repository is not a fork")
-            return 1
-
-        upstream_repo = source_fork.parent
-        print(f"Found upstream repository: {upstream_repo.html_url}")
-
         # Create and set up our fork
         print("\n=== SETTING UP REPOSITORY ===")
         setup_result = setup_repository(
@@ -97,7 +97,7 @@ def pr_logic(isLocal):
             workflow = LocalMergeConflictWorkflow(
                 client=client,
                 prompts=PROMPTS,
-                repo_url=args.repo_url,
+                repo_url=args.source,
                 target_branch=args.branch,
                 pr_url = pr.html_url,
             )
@@ -154,18 +154,6 @@ def parse_args():
         "--branch",
         required=True,
         help="Name of the branch containing PRs to merge (e.g., main)",
-    )
-    parser.add_argument(
-        "--repo-url",
-        required=True,
-        help="URL of the GitHub repository (e.g., https://github.com/owner/repo)",
-    )
-
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=0,
-        help="Limit the number of PRs to process (0 means no limit)",
     )
     return parser.parse_args()
 
