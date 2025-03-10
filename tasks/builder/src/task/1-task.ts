@@ -19,17 +19,18 @@ export async function task(roundNumber: number): Promise<void> {
     }
     const stakingKey = stakingKeypair.publicKey.toBase58();
     const pubKey = await namespaceWrapper.getMainAccountPubkey();
+    const { isLeader, leaderNode } = await getLeaderNode({ roundNumber, submitterPublicKey: stakingKey });
     const payload = {
       taskId: TASK_ID,
       roundNumber,
       githubUsername: process.env.GITHUB_USERNAME,
+      repoOwner: leaderNode,
       stakingKey,
       pubKey,
       action: "task",
     };
     const stakingSignature = await namespaceWrapper.payloadSigning(payload, stakingKeypair.secretKey);
     const publicSignature = await namespaceWrapper.payloadSigning(payload);
-    const { isLeader, leaderNode } = await getLeaderNode({ roundNumber, submitterPublicKey: stakingKey });
     const body = {
       taskId: TASK_ID,
       roundNumber,
@@ -37,7 +38,6 @@ export async function task(roundNumber: number): Promise<void> {
       pubKey,
       stakingSignature,
       publicSignature,
-      repoOwner: leaderNode,
     };
     let podCallUrl;
     if (isLeader) {
