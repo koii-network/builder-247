@@ -9,8 +9,8 @@ PROMPTS = {
     ),
     "decompose_feature": (
         "Your task is to break down the following feature request into small, discrete subtasks:\n\n"
-        "Feature: {feature_description}\n"
-        "Repository: {repo_url}\n\n"
+        "Feature: {feature_spec}\n"
+        "Repository: {repo_url}\n"
         "Output CSV: {output_csv_path}\n\n"
         "For each subtask, you must provide:\n"
         "1. A clear, specific title\n"
@@ -26,6 +26,15 @@ PROMPTS = {
         "- Consider testing requirements\n"
         "- Account for documentation needs\n\n"
         "Current repository structure:\n{current_files}\n\n"
+        "After breaking down the tasks, save them to the specified CSV file: {output_csv_path}\n\n"
+        "Format each subtask as follows:\n"
+        "---\n"
+        "Title: [Concise task title]\n"
+        "Description: [Detailed explanation]\n"
+        "Acceptance Criteria:\n"
+        "- [Criterion 1]\n"
+        "- [Criterion 2]\n"
+        "---\n"
     ),
     "validate_subtasks": (
         "Review the following subtasks to ensure they meet these criteria:\n"

@@ -5,6 +5,7 @@ from src.tools.github_operations.implementations import (
     validate_implementation,
     generate_analysis,
     merge_pull_request,
+    generate_tasks,
 )
 
 DEFINITIONS = {
@@ -290,5 +291,54 @@ DEFINITIONS = {
             "required": ["repo_full_name", "pr_number"],
         },
         "function": merge_pull_request,
+    },
+    "generate_tasks": {
+        "name": "generate_tasks",
+        "description": "Generate a CSV file containing tasks from a feature breakdown.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "description": "List of tasks to write to CSV",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string",
+                                "description": "Clear, specific title of the task",
+                                "maxLength": 100,
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Detailed explanation of the work required",
+                                "minLength": 10,
+                            },
+                            "acceptance_criteria": {
+                                "type": "array",
+                                "description": "List of verifiable acceptance criteria",
+                                "items": {"type": "string", "minLength": 1},
+                                "minItems": 1,
+                            },
+                        },
+                        "required": ["title", "description", "acceptance_criteria"],
+                        "additionalProperties": False,
+                    },
+                },
+                "file_name": {
+                    "type": "string",
+                    "description": "Name of the output CSV file",
+                    "default": "tasks.csv",
+                },
+                "repo_url": {
+                    "type": "string",
+                    "description": "URL of the repository (for reference)",
+                },
+            },
+            "required": ["tasks"],
+            "additionalProperties": False,
+        },
+        "final_tool": True,
+        "function": generate_tasks,
     },
 }

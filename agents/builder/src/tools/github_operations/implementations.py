@@ -1,7 +1,7 @@
 """Module for GitHub operations."""
 
 import os
-from typing import Dict, List
+from typing import Dict, List, Any
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
 from src.tools.git_operations.implementations import (
@@ -655,4 +655,72 @@ def merge_pull_request(
             "data": {
                 "pr_number": pr_number,
             },
+        }
+
+
+def generate_tasks(
+    tasks: List[Dict[str, Any]] = None,
+    file_name: str = "tasks.csv",
+    repo_url: str = None,
+) -> dict:
+    """Generate a CSV file containing tasks.
+
+    Args:
+        tasks: List of task dictionaries, each containing:
+            - title: Task title
+            - description: Task description
+            - acceptance_criteria: List of acceptance criteria
+        file_name: Name of the output CSV file
+        repo_url: URL of the repository (for reference)
+
+    Returns:
+        dict: Result of the operation containing:
+            - success: Whether the operation succeeded
+            - message: Success/error message
+            - data: Dictionary containing:
+                - file_path: Path to the generated CSV file
+                - task_count: Number of tasks written
+                - tasks: List of task dictionaries
+            - error: Error message if any
+    """
+    try:
+        # Ensure data directory exists
+        data_dir = "/home/laura/git/github/builder-247/data"
+        os.makedirs(data_dir, exist_ok=True)
+
+        # Full path for the CSV file
+        file_path = os.path.join(data_dir, file_name)
+
+        # Write tasks to CSV
+        with open(file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            # Write headers
+            writer.writerow(["Title", "Description", "Acceptance Criteria"])
+            # Write tasks
+            for task in tasks:
+                writer.writerow(
+                    [
+                        task["title"],
+                        task["description"],
+                        "\n".join(task["acceptance_criteria"]),
+                    ]
+                )
+
+        return {
+            "success": True,
+            "message": f"Successfully generated {len(tasks)} tasks",
+            "data": {
+                "file_path": file_path,
+                "task_count": len(tasks),
+                "tasks": tasks,
+            },
+            "error": None,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to generate tasks: {str(e)}",
+            "data": None,
+            "error": str(e),
         }
