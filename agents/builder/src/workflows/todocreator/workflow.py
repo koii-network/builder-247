@@ -1,11 +1,11 @@
-"""Bug finder workflow implementation."""
+"""Task decomposition workflow implementation."""
 
 import os
 from github import Github
 from src.workflows.base import Workflow
 from src.tools.github_operations.implementations import fork_repository
 from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.bugfinder import phases
+from src.workflows.todocreator import phases
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
@@ -16,13 +16,38 @@ from src.workflows.utils import (
 )
 
 
-class BugFinderWorkflow(Workflow):
+class Task:
+    def __init__(self, title: str, description: str, acceptance_criteria: list[str]):
+        self.title = title
+        self.description = description
+        self.acceptance_criteria = acceptance_criteria
+
+    def to_dict(self) -> dict:
+        """Convert task to dictionary format."""
+        return {
+            "title": self.title,
+            "description": self.description,
+            "acceptance_criteria": self.acceptance_criteria,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Task":
+        """Create task from dictionary."""
+        return cls(
+            title=data["title"],
+            description=data["description"],
+            acceptance_criteria=data["acceptance_criteria"],
+        )
+
+
+class TodoCreatorWorkflow(Workflow):
     def __init__(
         self,
         client,
         prompts,
         repo_url,
-        output_csv_path="bugs.csv",
+        feature_spec,
+        output_csv_path="tasks.csv",
     ):
         # Extract owner and repo name from URL
         # URL format: https://github.com/owner/repo
@@ -38,7 +63,8 @@ class BugFinderWorkflow(Workflow):
             repo_name=repo_name,
             output_csv_path=output_csv_path,
         )
-        self.bugs_found = []
+        self.feature_spec = feature_spec
+        self.tasks: list[Task] = []
 
     def setup(self):
         """Set up repository and workspace."""
@@ -79,7 +105,11 @@ class BugFinderWorkflow(Workflow):
         # Configure Git user info
         setup_git_user_config(self.context["repo_path"])
 
+        # Get current files for context
         self.context["current_files"] = get_current_files()
+
+        # Add feature spec to context
+        self.context["feature_spec"] = self.feature_spec
 
     def cleanup(self):
         """Cleanup workspace."""
@@ -91,13 +121,13 @@ class BugFinderWorkflow(Workflow):
         cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
 
     def run(self):
-        """Execute the bug finder workflow."""
+        """Execute the task decomposition workflow."""
         try:
             self.setup()
 
             # Store the output filename in the context for the agent to use
             # Make sure it has a .csv extension
-            output_filename = self.context.get("output_csv_path", "bugs.csv")
+            output_filename = self.context.get("output_csv_path", "tasks.csv")
             if not output_filename.endswith(".csv"):
                 output_filename = f"{os.path.splitext(output_filename)[0]}.csv"
                 self.context["output_csv_path"] = output_filename
@@ -105,87 +135,51 @@ class BugFinderWorkflow(Workflow):
             # Log the output filename that will be used
             log_key_value("Output CSV file", output_filename)
 
-            # Analyze codebase
-            analyze_phase = phases.CodeAnalysisPhase(workflow=self)
-            analysis_result = analyze_phase.execute()
+            # Decompose feature into tasks and generate CSV
+            decompose_phase = phases.TaskDecompositionPhase(workflow=self)
+            decomposition_result = decompose_phase.execute()
 
-            if not analysis_result:
+            if not decomposition_result or not decomposition_result.get("success"):
                 log_error(
-                    Exception("Analysis phase returned no result"), "Analysis failed"
+                    Exception(decomposition_result.get("error", "No result")),
+                    "Task decomposition failed",
                 )
                 return None
 
-            # Log the analysis result structure for debugging
-            log_key_value(
-                "Analysis result keys",
-                str(list(analysis_result.get("data", {}).keys())),
-            )
+            # Get the tasks and file path from the result
+            tasks_data = decomposition_result["data"].get("tasks", [])
+            output_csv = decomposition_result["data"].get("file_path")
+            task_count = decomposition_result["data"].get("task_count", 0)
 
-            # The generate_analysis tool should have created the CSV file directly
-            # Extract the file path and issue count from the result
-            file_path = analysis_result["data"].get("file_path", "")
-            issue_count = analysis_result["data"].get("issue_count", 0)
-
-            # Verify the file exists at the path returned by the tool
-            if file_path and os.path.exists(file_path):
-                log_key_value("CSV file created at", file_path)
-                log_key_value("Issues found", issue_count)
-
-                # Store the file path in the context
-                self.context["output_csv_path"] = file_path
-
-                # For backward compatibility, also store the bugs
-                self.bugs_found = []
-                # If we have bugs in the result, store them
-                if "bugs" in analysis_result["data"]:
-                    self.bugs_found = analysis_result["data"]["bugs"]
-            else:
-                # If not found at the returned path, check if it's in the project's data directory
-                project_data_dir = "/home/laura/git/github/builder-247/data"
-                file_name = os.path.basename(
-                    self.context.get("output_csv_path", "bugs.csv")
+            if not tasks_data:
+                log_error(
+                    Exception("No tasks generated"),
+                    "Task decomposition failed",
                 )
-                alternative_path = os.path.join(project_data_dir, file_name)
+                return None
 
-                if os.path.exists(alternative_path):
-                    log_key_value("CSV file created at", alternative_path)
-                    log_key_value("Issues found", issue_count)
+            # Convert raw tasks to Task objects
+            self.tasks = [Task.from_dict(task) for task in tasks_data]
 
-                    # Store the file path in the context
-                    self.context["output_csv_path"] = alternative_path
+            log_key_value("CSV file created at", output_csv)
+            log_key_value("Tasks created", task_count)
 
-                    # For backward compatibility, also store the bugs
-                    self.bugs_found = []
-                    # If we have bugs in the result, store them
-                    if "bugs" in analysis_result["data"]:
-                        self.bugs_found = analysis_result["data"]["bugs"]
-                else:
-                    log_error(
-                        Exception(
-                            f"CSV file not found at {file_path} or {alternative_path}"
-                        ),
-                        "CSV file not created",
-                    )
-                    return {
-                        "success": False,
-                        "message": "Bug finder workflow failed: CSV file not created",
-                        "data": None,
-                    }
-
+            # Return the final result
             return {
                 "success": True,
-                "message": f"Found {issue_count} issues in the repository",
+                "message": f"Created {task_count} tasks for the feature",
                 "data": {
-                    "bugs": self.bugs_found,
-                    "output_csv": self.context["output_csv_path"],
-                    "issue_count": issue_count,
+                    "tasks": [task.to_dict() for task in self.tasks],
+                    "output_csv": output_csv,
+                    "task_count": task_count,
                 },
             }
+
         except Exception as e:
-            log_error(e, "Bug finder workflow failed")
+            log_error(e, "Task decomposition workflow failed")
             return {
                 "success": False,
-                "message": f"Bug finder workflow failed: {str(e)}",
+                "message": f"Task decomposition workflow failed: {str(e)}",
                 "data": None,
             }
         finally:

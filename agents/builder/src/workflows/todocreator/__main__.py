@@ -1,11 +1,11 @@
-"""Entry point for the bug finder workflow."""
+"""Entry point for the todo creator workflow."""
 
 import sys
 import os
 import argparse
 from dotenv import load_dotenv
-from src.workflows.bugfinder.workflow import BugFinderWorkflow
-from src.workflows.bugfinder.prompts import PROMPTS
+from src.workflows.todocreator.workflow import TodoCreatorWorkflow
+from src.workflows.todocreator.prompts import PROMPTS
 from src.clients import setup_client
 
 # Load environment variables
@@ -13,8 +13,10 @@ load_dotenv()
 
 
 def main():
-    """Run the bug finder workflow."""
-    parser = argparse.ArgumentParser(description="Find bugs in a GitHub repository")
+    """Run the todo creator workflow."""
+    parser = argparse.ArgumentParser(
+        description="Create tasks from a feature specification for a GitHub repository"
+    )
     parser.add_argument(
         "--repo",
         type=str,
@@ -22,10 +24,16 @@ def main():
         help="GitHub repository URL (e.g., https://github.com/owner/repo)",
     )
     parser.add_argument(
+        "--feature-spec",
+        type=str,
+        required=True,
+        help="Description of the feature to implement",
+    )
+    parser.add_argument(
         "--output",
         type=str,
-        default="bugs.csv",
-        help="Output CSV file path (default: bugs.csv)",
+        default="todos.csv",
+        help="Output CSV file path (default: todos.csv)",
     )
     parser.add_argument(
         "--model",
@@ -39,17 +47,18 @@ def main():
     # Initialize client
     client = setup_client(args.model)
 
-    # Run the bug finder workflow
-    workflow = BugFinderWorkflow(
+    # Run the todo creator workflow
+    workflow = TodoCreatorWorkflow(
         client=client,
         prompts=PROMPTS,
         repo_url=args.repo,
+        feature_spec=args.feature_spec,
         output_csv_path=args.output,
     )
 
     result = workflow.run()
     if not result or not result.get("success"):
-        print("Bug finder workflow failed")
+        print("Todo creator workflow failed")
         sys.exit(1)
 
     # Verify the file exists in the project's data directory
@@ -57,9 +66,13 @@ def main():
 
     # If the file exists at the path returned by the tool, use that
     if output_csv and os.path.exists(output_csv):
-        print("Bug finder workflow completed successfully")
-        print(f"Found {result['data'].get('issue_count', 0)} issues")
+        print("Todo creator workflow completed successfully")
+        print(f"Created {result['data'].get('task_count', 0)} tasks")
         print(f"Results saved to {output_csv}")
+        if result["data"].get("validation_issues"):
+            print("\nValidation issues found:")
+            for issue in result["data"]["validation_issues"]:
+                print(f"- {issue}")
     else:
         # If not found at the returned path, check if it's in the project's data directory
         project_data_dir = "/home/laura/git/github/builder-247/data"
@@ -67,11 +80,15 @@ def main():
         alternative_path = os.path.join(project_data_dir, file_name)
 
         if os.path.exists(alternative_path):
-            print("Bug finder workflow completed successfully")
-            print(f"Found {result['data'].get('issue_count', 0)} issues")
+            print("Todo creator workflow completed successfully")
+            print(f"Created {result['data'].get('task_count', 0)} tasks")
             print(f"Results saved to {alternative_path}")
+            if result["data"].get("validation_issues"):
+                print("\nValidation issues found:")
+                for issue in result["data"]["validation_issues"]:
+                    print(f"- {issue}")
         else:
-            print("Bug finder workflow completed but the output file was not created")
+            print("Todo creator workflow completed but the output file was not created")
             print(f"Expected file at: {output_csv}")
             print(f"Also checked: {alternative_path}")
             sys.exit(1)
