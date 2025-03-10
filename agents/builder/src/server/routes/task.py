@@ -24,6 +24,24 @@ def start_worker_task(roundNumber):
     )
 
 
+@bp.post("/submit-pr/<roundNumber>")
+def submit_pr_route(roundNumber):
+    data = request.get_json()
+    signature = data.get("signature")
+    staking_key = data.get("stakingKey")
+    pub_key = data.get("pubKey")
+    pr_url = data.get("prUrl")
+
+    if not pr_url:
+        return jsonify({"error": "Missing PR URL"}), 400
+
+    message = task_service.submit_pr(
+        signature, staking_key, pub_key, pr_url, roundNumber
+    )
+
+    return jsonify({"message": message})
+
+
 @bp.post("/leader-task/<roundNumber>")
 def start_leader_task(roundNumber):
     logger = task_service.logger
