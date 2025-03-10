@@ -1,8 +1,6 @@
 from flask import Blueprint, jsonify
 from src.database import get_db, Submission
-import logging
-
-logger = logging.getLogger(__name__)
+from src.utils.logging import logger
 
 bp = Blueprint("submission", __name__)
 

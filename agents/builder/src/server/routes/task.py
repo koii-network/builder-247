@@ -1,13 +1,29 @@
 from flask import Blueprint, jsonify, request
 from src.server.services import task_service
+from src.utils.logging import logger
 
 bp = Blueprint("task", __name__)
 
 
-@bp.post("/task/<round_number>")
-def start_task(round_number):
-    logger = task_service.logger
-    logger.info(f"Task started for round: {round_number}")
+@bp.post("/worker-task/<round_number>")
+def start_worker_task(round_number):
+    return start_task(round_number, "worker", request)
+
+
+@bp.post("/leader-task/<round_number>")
+def start_leader_task(round_number):
+    return start_task(round_number, "leader", request)
+
+
+def start_task(round_number, node_type, request):
+    if node_type not in ["worker", "leader"]:
+        return jsonify({"error": "Invalid node type"}), 400
+
+    task_functions = {
+        "worker": task_service.complete_todo,
+        "leader": task_service.consolidate_prs,
+    }
+    logger.info(f"{node_type.capitalize()} task started for round: {round_number}")
 
     data = request.get_json()
     logger.info(f"Task data: {data}")
@@ -18,16 +34,16 @@ def start_task(round_number):
         "stakingSignature",
         "pubKey",
         "publicSignature",
-        "repoOwner",
     ]
     if any(data.get(field) is None for field in required_fields):
         return jsonify({"error": "Missing data"}), 401
 
-    pr_url = task_service.handle_task_creation(
+    pr_url = task_functions[node_type](
         task_id=data["taskId"],
         round_number=int(round_number),
-        signature=data["signature"],
+        staking_signature=data["stakingSignature"],
         staking_key=data["stakingKey"],
+        public_signature=data["publicSignature"],
         pub_key=data["pubKey"],
     )
     if not pr_url:

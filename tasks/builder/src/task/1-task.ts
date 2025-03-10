@@ -1,6 +1,7 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
+import { getLeaderNode } from "../utils/leader";
 
 export async function task(roundNumber: number): Promise<void> {
   /**
@@ -18,81 +19,39 @@ export async function task(roundNumber: number): Promise<void> {
     }
     const stakingKey = stakingKeypair.publicKey.toBase58();
     const pubKey = await namespaceWrapper.getMainAccountPubkey();
-
-    const signature = await namespaceWrapper.payloadSigning(
-      {
-        taskId: TASK_ID,
-        roundNumber,
-        githubUsername: process.env.GITHUB_USERNAME,
-        stakingKey,
-        pubKey,
-        action: "fetch",
+    const { isLeader, leaderNode } = await getLeaderNode({ roundNumber, submitterPublicKey: stakingKey });
+    const payload = {
+      taskId: TASK_ID,
+      roundNumber,
+      githubUsername: process.env.GITHUB_USERNAME,
+      repoOwner: leaderNode,
+      stakingKey,
+      pubKey,
+      action: "task",
+    };
+    const stakingSignature = await namespaceWrapper.payloadSigning(payload, stakingKeypair.secretKey);
+    const publicSignature = await namespaceWrapper.payloadSigning(payload);
+    const body = {
+      taskId: TASK_ID,
+      roundNumber,
+      stakingKey,
+      pubKey,
+      stakingSignature,
+      publicSignature,
+    };
+    let podCallUrl;
+    if (isLeader) {
+      podCallUrl = `leader-task/${roundNumber}`;
+    } else {
+      podCallUrl = `worker-task/${roundNumber}`;
+    }
+    orcaClient.podCall(podCallUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      stakingKeypair.secretKey,
-    );
-
-    orcaClient
-      .podCall(`task/${roundNumber}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          taskId: TASK_ID,
-          roundNumber,
-          stakingKey,
-          pubKey,
-          signature,
-        }),
-      })
-      .then((result: any) => {
-        const prUrl = result.data.prUrl;
-        if (!prUrl) {
-          throw new Error("No PR URL found");
-        }
-        namespaceWrapper.getSubmitterAccount().then((stakingKeypair) => {
-          if (!stakingKeypair) {
-            throw new Error("No staking keypair found");
-          }
-          const stakingKey = stakingKeypair.publicKey.toBase58();
-          namespaceWrapper
-            .payloadSigning(
-              {
-                taskId: TASK_ID,
-                roundNumber,
-                prUrl,
-                stakingKey,
-                pubKey,
-                action: "add",
-              },
-              stakingKeypair.secretKey,
-            )
-            .then((signature) => {
-              orcaClient
-                .podCall(`submit-pr/${roundNumber}`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    signature,
-                    stakingKey,
-                    pubKey,
-                    prUrl,
-                  }),
-                })
-                .then((result: any) => {
-                  console.log(`${roundNumber} task result: ${result.data.message}`);
-                })
-                .catch((error: any) => {
-                  console.error("EXECUTE TASK ERROR:", error);
-                });
-            });
-        });
-      })
-      .catch((error: any) => {
-        console.error("EXECUTE TASK ERROR:", error);
-      });
+      body: JSON.stringify(body),
+    });
   } catch (error) {
     console.error("EXECUTE TASK ERROR:", error);
   }

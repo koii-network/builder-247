@@ -1,6 +1,7 @@
-import { getFile } from "../helpers";
+import { getFile } from "../utils/ipfs";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
+import { getLeaderNode } from "../utils/leader";
 
 export async function audit(cid: string, roundNumber: number, submitterKey: string): Promise<boolean | void> {
   /**
@@ -11,7 +12,6 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
    */
   try {
     console.log(`AUDIT SUBMISSION FOR ROUND ${roundNumber}`);
-
     // get the submission from IPFS
     const submissionString = await getFile(cid);
     const submission = JSON.parse(submissionString);
@@ -19,8 +19,6 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
 
     // verify the signature of the submission
     const signaturePayload = await namespaceWrapper.verifySignature(submission.signature, submitterKey);
-
-    console.log({ signaturePayload });
 
     // verify the signature payload
     if (signaturePayload.error || !signaturePayload.data) {
@@ -42,8 +40,15 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
 
     const orca = await getOrcaClient();
 
-    // Send the submission to the ORCA container for auditing
-    const result = await orca.podCall(`audit/${roundNumber}`, {
+    const { isLeader } = await getLeaderNode({ roundNumber, submitterPublicKey: submitterKey });
+    let podCallUrl;
+
+    if (isLeader) {
+      podCallUrl = `leader-audit/${roundNumber}`;
+    } else {
+      podCallUrl = `worker-audit/${roundNumber}`;
+    }
+    const auditResult = await orca.podCall(podCallUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -57,7 +62,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     });
 
     // return the result of the audit (true or false)
-    return result.data;
+    return auditResult.data;
   } catch (error) {
     console.error("ERROR AUDITING SUBMISSION", error);
     return true;
