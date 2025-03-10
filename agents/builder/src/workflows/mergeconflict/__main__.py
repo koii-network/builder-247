@@ -5,26 +5,13 @@ import argparse
 from dotenv import load_dotenv
 from github import Github
 from src.clients import setup_client
-from src.workflows.mergeconflict import MergeConflictWorkflow
+from src.workflows.mergeconflict import RemoteMergeConflictWorkflow, LocalMergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS
 from src.workflows.utils import setup_repository
 import os
 
 
-def parse_args():
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Merge conflict resolver workflow")
-    parser.add_argument(
-        "--source",
-        required=True,
-        help="URL of the fork containing the PRs to merge",
-    )
-    parser.add_argument(
-        "--branch",
-        required=True,
-        help="Name of the branch containing PRs to merge (e.g., main)",
-    )
-    return parser.parse_args()
+
 
 
 def create_consolidation_pr(upstream_repo, fork_url, branch, merged_prs):
@@ -50,15 +37,15 @@ def create_consolidation_pr(upstream_repo, fork_url, branch, merged_prs):
     return pr.html_url
 
 
-def main():
-    """Run the merge conflict resolver workflow."""
-    # Load environment variables from .env file
+def load_and_parse_args():
+    """Load environment variables and parse command line arguments."""
     load_dotenv()
+    return parse_args()
 
-    # Parse command line arguments
-    args = parse_args()
 
-    # Initialize Claude client
+def pr_logic(isLocal):
+    """Run the merge conflict resolver workflow."""
+    args = load_and_parse_args()
     client = setup_client("anthropic")
 
     # Extract owner/repo from source fork URL
@@ -69,26 +56,27 @@ def main():
     # Get source fork and its upstream repo
     gh = Github(os.environ["MERGE_GITHUB_TOKEN"])
     source_fork = gh.get_repo(f"{source_owner}/{source_repo}")
+
     if not source_fork.fork:
         print("Error: Source repository is not a fork")
         return 1
 
     upstream_repo = source_fork.parent
     print(f"Found upstream repository: {upstream_repo.html_url}")
-
-    # Create and set up our fork
-    print("\n=== SETTING UP REPOSITORY ===")
-    setup_result = setup_repository(
-        args.source, github_token=os.environ["MERGE_GITHUB_TOKEN"]
-    )
-    if not setup_result["success"]:
-        print(
-            f"Error setting up repository: {setup_result.get('message', 'Unknown error')}"
+    if not isLocal:
+        # Create and set up our fork
+        print("\n=== SETTING UP REPOSITORY ===")
+        setup_result = setup_repository(
+            args.source, github_token=os.environ["MERGE_GITHUB_TOKEN"]
         )
-        return 1
+        if not setup_result["success"]:
+            print(
+                f"Error setting up repository: {setup_result.get('message', 'Unknown error')}"
+            )
+            return 1
 
-    our_fork_url = setup_result["data"]["fork_url"]
-    print(f"Using fork: {our_fork_url}")
+        our_fork_url = setup_result["data"]["fork_url"]
+        print(f"Using fork: {our_fork_url}")
 
     # Get list of open PRs from source fork
     open_prs = list(source_fork.get_pulls(state="open", base=args.branch))
@@ -102,16 +90,31 @@ def main():
 
     for pr in open_prs:
         print(f"\n=== PROCESSING PR #{pr.number} ===")
-        workflow = MergeConflictWorkflow(
-            client=client,
-            prompts=PROMPTS,
-            fork_url=args.source,
-            target_branch=args.branch,
-            pr_url=pr.html_url,
-            github_token=os.environ["MERGE_GITHUB_TOKEN"],
-        )
+        if isLocal:
 
-        result = workflow.run()
+            print("IS LOCAL")
+            # exit()
+            workflow = LocalMergeConflictWorkflow(
+                client=client,
+                prompts=PROMPTS,
+                repo_url=args.source,
+                target_branch=args.branch,
+                pr_url = pr.html_url,
+            )
+            result = workflow.run()
+        else:
+            print("IS REMOTE")
+            # exit()
+            workflow = RemoteMergeConflictWorkflow(
+                client=client,
+                prompts=PROMPTS,
+                fork_url=args.source,
+                target_branch=args.branch,
+                pr_url=pr.html_url,
+                github_token=os.environ["MERGE_GITHUB_TOKEN"],
+            )
+
+            result = workflow.run()
 
         if result and result.get("success"):
             merged = result["data"].get("merged_prs", [])
@@ -135,5 +138,36 @@ def main():
     return 0
 
 
+
+
+
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Merge conflict resolver workflow")
+    parser.add_argument(
+        "--source",
+        required=True,
+        help="URL of the fork containing the PRs to merge",
+    )
+    parser.add_argument(
+        "--branch",
+        required=True,
+        help="Name of the branch containing PRs to merge (e.g., main)",
+    )
+    return parser.parse_args()
+
+
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    args = load_and_parse_args()
+    client = setup_client("anthropic")
+    source_parts = args.source.strip("/").split("/")
+    source_owner = source_parts[-2]
+    source_repo = source_parts[-1]
+    env_owner = os.environ["GITHUB_USERNAME"]
+    leader_is_aggregator = source_owner == env_owner
+    logic_function = pr_logic(source_owner == env_owner)
+    print(f"{'Local' if source_owner == env_owner else 'Remote'} repo PR Logic Process Started")
+        

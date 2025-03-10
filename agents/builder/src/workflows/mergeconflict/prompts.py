@@ -1,5 +1,4 @@
 """Prompts for the merge conflict resolver workflow."""
-
 PROMPTS = {
     "system_prompt": (
         "You are an expert software developer specializing in resolving Git merge conflicts. "
@@ -12,6 +11,9 @@ PROMPTS = {
         "You are resolving merge conflicts in a GitHub repository. "
         "The repository has been cloned to a local directory, and conflicts have been detected "
         "when merging the source branch into the target branch.\n\n"
+        "Source branch: {source_branch}\n"
+        "Target branch: {target_branch}\n\n"
+        "Available files: {current_files}\n\n"
         "Conflicts have been detected in the following files. For each file, you have access to:\n"
         "- 'ours': The content from our branch (target)\n"
         "- 'theirs': The content from their branch (source)\n"
