@@ -31,74 +31,80 @@ export async function task(roundNumber: number): Promise<void> {
       },
       stakingKeypair.secretKey,
     );
-    const {isLeader, leaderNode} = await getLeaderNode({roundNumber, submitterPublicKey: stakingKey});
+    const { isLeader, leaderNode } = await getLeaderNode({ roundNumber, submitterPublicKey: stakingKey });
     if (isLeader) {
-      // TODO: Is Leader Logic
-    } 
-    // General Merge Task
-    orcaClient
-      .podCall(`task/${roundNumber}`, {
+      // TODO: Leader Task Logic
+      orcaClient.podCall(`leader-task/${roundNumber}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          taskId: TASK_ID,
-          roundNumber,
-          stakingKey,
-          pubKey,
-          signature,
-          repoOwner: leaderNode,
-        }),
-      })
-      .then((result: any) => {
-        const prUrl = result.data.prUrl;
-        if (!prUrl) {
-          throw new Error("No PR URL found");
-        }
-        namespaceWrapper.getSubmitterAccount().then((stakingKeypair) => {
-          if (!stakingKeypair) {
-            throw new Error("No staking keypair found");
-          }
-          const stakingKey = stakingKeypair.publicKey.toBase58();
-          namespaceWrapper
-            .payloadSigning(
-              {
-                taskId: TASK_ID,
-                roundNumber,
-                prUrl,
-                stakingKey,
-                pubKey,
-                action: "add",
-              },
-              stakingKeypair.secretKey,
-            )
-            .then((signature) => {
-              orcaClient
-                .podCall(`submit-pr/${roundNumber}`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    signature,
-                    stakingKey,
-                    pubKey,
-                    prUrl,
-                  }),
-                })
-                .then((result: any) => {
-                  console.log(`${roundNumber} task result: ${result.data.message}`);
-                })
-                .catch((error: any) => {
-                  console.error("EXECUTE TASK ERROR:", error);
-                });
-            });
-        });
-      })
-      .catch((error: any) => {
-        console.error("EXECUTE TASK ERROR:", error);
       });
+    } else {
+      orcaClient
+        .podCall(`worker-task/${roundNumber}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            taskId: TASK_ID,
+            roundNumber,
+            stakingKey,
+            pubKey,
+            signature,
+            repoOwner: leaderNode,
+          }),
+        })
+        .then((result: any) => {
+          const prUrl = result.data.prUrl;
+          if (!prUrl) {
+            throw new Error("No PR URL found");
+          }
+          namespaceWrapper.getSubmitterAccount().then((stakingKeypair) => {
+            if (!stakingKeypair) {
+              throw new Error("No staking keypair found");
+            }
+            const stakingKey = stakingKeypair.publicKey.toBase58();
+            namespaceWrapper
+              .payloadSigning(
+                {
+                  taskId: TASK_ID,
+                  roundNumber,
+                  prUrl,
+                  stakingKey,
+                  pubKey,
+                  action: "add",
+                },
+                stakingKeypair.secretKey,
+              )
+              .then((signature) => {
+                orcaClient
+                  .podCall(`submit-pr/${roundNumber}`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      signature,
+                      stakingKey,
+                      pubKey,
+                      prUrl,
+                    }),
+                  })
+                  .then((result: any) => {
+                    console.log(`${roundNumber} task result: ${result.data.message}`);
+                  })
+                  .catch((error: any) => {
+                    console.error("EXECUTE TASK ERROR:", error);
+                  });
+              });
+          });
+        })
+        .catch((error: any) => {
+          console.error("EXECUTE TASK ERROR:", error);
+        });
+    }
   } catch (error) {
     console.error("EXECUTE TASK ERROR:", error);
   }

@@ -12,10 +12,6 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
    */
   try {
     console.log(`AUDIT SUBMISSION FOR ROUND ${roundNumber}`);
-    const {isLeader, leaderNode} = await getLeaderNode({roundNumber, submitterPublicKey: submitterKey});
-    if (isLeader) {
-      // TODO: Is Leader Logic
-    }
     // get the submission from IPFS
     const submissionString = await getFile(cid);
     const submission = JSON.parse(submissionString);
@@ -46,22 +42,33 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
 
     const orca = await getOrcaClient();
 
-    // Send the submission to the ORCA container for auditing
-    const result = await orca.podCall(`audit/${roundNumber}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        submission: data,
-        signature: submission.signature,
-        stakingKey: submitterKey,
-        pubKey: data.pubKey,
-      }),
-    });
+    const { isLeader, leaderNode } = await getLeaderNode({ roundNumber, submitterPublicKey: submitterKey });
+    let auditResult;
+    if (isLeader) {
+      auditResult = await orca.podCall(`leader-audit/${roundNumber}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    } else {
+      // Send the submission to the ORCA container for auditing
+      auditResult = await orca.podCall(`audit/${roundNumber}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          submission: data,
+          signature: submission.signature,
+          stakingKey: submitterKey,
+          pubKey: data.pubKey,
+        }),
+      });
+    }
 
     // return the result of the audit (true or false)
-    return result.data;
+    return auditResult.data;
   } catch (error) {
     console.error("ERROR AUDITING SUBMISSION", error);
     return true;
