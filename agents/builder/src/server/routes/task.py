@@ -4,8 +4,8 @@ from src.server.services import task_service
 bp = Blueprint("task", __name__)
 
 
-@bp.post("/task/<roundNumber>")
-def start_task(roundNumber):
+@bp.post("/worker-task/<roundNumber>")
+def start_worker_task(roundNumber):
     logger = task_service.logger
     logger.info(f"Task started for round: {roundNumber}")
 
@@ -22,3 +22,9 @@ def start_task(roundNumber):
         staking_key=data["stakingKey"],
         pub_key=data["pubKey"],
     )
+
+
+@bp.post("/leader-task/<roundNumber>")
+def start_leader_task(roundNumber):
+    logger = task_service.logger
+    logger.info(f"Task started for round: {roundNumber}")

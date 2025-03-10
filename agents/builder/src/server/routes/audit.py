@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 bp = Blueprint("audit", __name__)
 
 
-@bp.post("/audit/<round_number>")
-def audit_submission(round_number: int):
+@bp.post("/worker-audit/<round_number>")
+def audit_worker_submission(round_number: int):
     logger.info("Auditing submission")
 
     data = request.get_json()
@@ -62,3 +62,8 @@ def audit_submission(round_number: int):
     except Exception as e:
         logger.error(f"Error reviewing PR: {str(e)}")
         return jsonify(True)
+
+
+@bp.post("/leader-audit/<round_number>")
+def audit_leader_submission(round_number: int):
+    logger.info("Auditing leader submission")
