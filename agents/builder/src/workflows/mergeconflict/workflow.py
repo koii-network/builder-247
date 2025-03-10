@@ -636,10 +636,10 @@ class LocalMergeConflictWorkflow(Workflow):
             if result["success"]:
                 merged_prs.append(result["data"]["pr_number"])
             else:
-                failed_prs.append(pr.number)
+                failed_prs.append(open_pr.number)
                 log_error(
                     Exception(
-                        f"Failed to merge PR #{pr.number}: {result.get('message', 'Unknown error')}"
+                        f"Failed to merge PR #{open_pr.number}: {result.get('message', 'Unknown error')}"
                     ),
                     "Continuing to next PR",
                 )
@@ -647,7 +647,7 @@ class LocalMergeConflictWorkflow(Workflow):
 
             return {
                 "success": True,
-                "message": f"Successfully merged PR #{self.pr_number}",
+                "message": f"Successfully merged PR #{open_pr.number}",
                 "data": {
                     "merged_prs": merged_prs,
                     "failed_prs": failed_prs,
