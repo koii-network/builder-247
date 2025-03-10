@@ -1,11 +1,9 @@
 """Audit service module."""
 
-import logging
 from src.clients import setup_client
 from src.workflows.audit.workflow import AuditWorkflow
 from src.workflows.audit.prompts import PROMPTS as AUDIT_PROMPTS
-
-logger = logging.getLogger(__name__)
+from src.utils.logging import log_error
 
 
 def review_pr(pr_url):
@@ -23,5 +21,5 @@ def review_pr(pr_url):
         workflow.run()
         return True
     except Exception as e:
-        logger.error(f"PR review failed: {str(e)}")
+        log_error(e, context="PR review failed")
         raise Exception("PR review failed")

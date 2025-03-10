@@ -2,9 +2,7 @@ import re
 import requests
 from github import Github
 import os
-import logging
-
-logger = logging.getLogger(__name__)
+from src.utils.logging import log_error
 
 
 def verify_pr_ownership(
@@ -21,14 +19,15 @@ def verify_pr_ownership(
 
         match = re.match(r"https://github.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
         if not match:
-            logger.error(f"Invalid PR URL: {pr_url}")
+            log_error(Exception("Invalid PR URL"), context=f"Invalid PR URL: {pr_url}")
             return False
 
         owner, repo_name, pr_number = match.groups()
 
         if owner != expected_owner or repo_name != expected_repo:
-            logger.error(
-                f"PR URL mismatch: {pr_url} != {expected_owner}/{expected_repo}"
+            log_error(
+                Exception("PR URL mismatch"),
+                context=f"PR URL mismatch: {pr_url} != {expected_owner}/{expected_repo}",
             )
             return False
 
@@ -36,8 +35,9 @@ def verify_pr_ownership(
         pr = repo.get_pull(int(pr_number))
 
         if pr.user.login != expected_username:
-            logger.error(
-                f"PR username mismatch: {pr.user.login} != {expected_username}"
+            log_error(
+                Exception("PR username mismatch"),
+                context=f"PR username mismatch: {pr.user.login} != {expected_username}",
             )
             return False
 
@@ -55,5 +55,5 @@ def verify_pr_ownership(
         return response_data.get("success", True)
 
     except Exception as e:
-        logger.error(f"Error verifying PR ownership: {str(e)}")
+        log_error(e, context="Error verifying PR ownership")
         return True

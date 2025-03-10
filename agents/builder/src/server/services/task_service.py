@@ -7,9 +7,7 @@ from src.database import get_db, Submission
 from src.clients import setup_client
 from src.workflows.task.workflow import TaskWorkflow
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
-import logging
-
-logger = logging.getLogger(__name__)
+from src.utils.logging import logger, log_error
 
 
 def handle_task_creation(task_id, round_number, signature, staking_key, pub_key):
@@ -44,13 +42,14 @@ def get_todo(signature, staking_key, pub_key):
         if result["success"]:
             return result["data"]
         else:
-            logger.error(
-                f"Failed to fetch todo: {result.get('message', 'Unknown error')}"
+            log_error(
+                Exception(result.get("message", "Unknown error")),
+                context="Failed to fetch todo",
             )
             return None
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching todo: {str(e)}")
+        log_error(e, context="Error fetching todo")
         return None
 
 
@@ -86,7 +85,7 @@ def run_todo_task(task_id, round_number, todo):
         return pr_url
 
     except Exception as e:
-        logger.error(f"PR creation failed: {str(e)}")
+        log_error(e, context="PR creation failed")
         if "db" in locals():
             # Update submission status
             submission = (
@@ -129,9 +128,12 @@ def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
             logger.info("Database updated successfully")
             return "PR submitted successfully"
         else:
-            logger.error(f"No submission found for round {round_number}")
+            log_error(
+                Exception("Submission not found"),
+                context=f"No submission found for round {round_number}",
+            )
             return "Error: Submission not found"
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error submitting PR: {str(e)}")
+        log_error(e, context="Error submitting PR")
         return "Error submitting PR"
