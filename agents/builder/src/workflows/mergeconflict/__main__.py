@@ -56,26 +56,27 @@ def pr_logic(isLocal):
     # Get source fork and its upstream repo
     gh = Github(os.environ["MERGE_GITHUB_TOKEN"])
     source_fork = gh.get_repo(f"{source_owner}/{source_repo}")
-    if not source_fork.fork:
-        print("Error: Source repository is not a fork")
-        return 1
+    if not isLocal:
+        if not source_fork.fork:
+            print("Error: Source repository is not a fork")
+            return 1
 
-    upstream_repo = source_fork.parent
-    print(f"Found upstream repository: {upstream_repo.html_url}")
+        upstream_repo = source_fork.parent
+        print(f"Found upstream repository: {upstream_repo.html_url}")
 
-    # Create and set up our fork
-    print("\n=== SETTING UP REPOSITORY ===")
-    setup_result = setup_repository(
-        args.source, github_token=os.environ["MERGE_GITHUB_TOKEN"]
-    )
-    if not setup_result["success"]:
-        print(
-            f"Error setting up repository: {setup_result.get('message', 'Unknown error')}"
+        # Create and set up our fork
+        print("\n=== SETTING UP REPOSITORY ===")
+        setup_result = setup_repository(
+            args.source, github_token=os.environ["MERGE_GITHUB_TOKEN"]
         )
-        return 1
+        if not setup_result["success"]:
+            print(
+                f"Error setting up repository: {setup_result.get('message', 'Unknown error')}"
+            )
+            return 1
 
-    our_fork_url = setup_result["data"]["fork_url"]
-    print(f"Using fork: {our_fork_url}")
+        our_fork_url = setup_result["data"]["fork_url"]
+        print(f"Using fork: {our_fork_url}")
 
     # Get list of open PRs from source fork
     open_prs = list(source_fork.get_pulls(state="open", base=args.branch))
@@ -90,6 +91,9 @@ def pr_logic(isLocal):
     for pr in open_prs:
         print(f"\n=== PROCESSING PR #{pr.number} ===")
         if isLocal:
+
+            print("IS LOCAL")
+            # exit()
             workflow = LocalMergeConflictWorkflow(
                 client=client,
                 prompts=PROMPTS,
@@ -99,6 +103,8 @@ def pr_logic(isLocal):
             )
             result = workflow.run()
         else:
+            print("IS REMOTE")
+            # exit()
             workflow = RemoteMergeConflictWorkflow(
                 client=client,
                 prompts=PROMPTS,
@@ -173,6 +179,7 @@ if __name__ == "__main__":
     source_owner = source_parts[-2]
     source_repo = source_parts[-1]
     env_owner = os.environ["GITHUB_USERNAME"]
+    leader_is_aggregator = source_owner == env_owner
     logic_function = pr_logic(source_owner == env_owner)
     print(f"{'Local' if source_owner == env_owner else 'Remote'} repo PR Logic Process Started")
     sys.exit(logic_function())
