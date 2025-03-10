@@ -11,7 +11,7 @@ import argparse
 from dotenv import load_dotenv
 from github import Github
 from src.clients.anthropic_client import AnthropicClient
-from src.workflows.mergeconflict import MergeConflictWorkflow, PROMPTS
+from src.workflows.mergeconflict import RemoteMergeConflictWorkflow, PROMPTS
 
 
 def parse_args():
