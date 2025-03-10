@@ -20,8 +20,6 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     // verify the signature of the submission
     const signaturePayload = await namespaceWrapper.verifySignature(submission.signature, submitterKey);
 
-    console.log({ signaturePayload });
-
     // verify the signature payload
     if (signaturePayload.error || !signaturePayload.data) {
       console.error("INVALID SIGNATURE");
@@ -42,30 +40,26 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
 
     const orca = await getOrcaClient();
 
-    const { isLeader, leaderNode } = await getLeaderNode({ roundNumber, submitterPublicKey: submitterKey });
-    let auditResult;
+    const { isLeader } = await getLeaderNode({ roundNumber, submitterPublicKey: submitterKey });
+    let podCallUrl;
+
     if (isLeader) {
-      auditResult = await orca.podCall(`leader-audit/${roundNumber}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      podCallUrl = `leader-audit/${roundNumber}`;
     } else {
-      // Send the submission to the ORCA container for auditing
-      auditResult = await orca.podCall(`audit/${roundNumber}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          submission: data,
-          signature: submission.signature,
-          stakingKey: submitterKey,
-          pubKey: data.pubKey,
-        }),
-      });
+      podCallUrl = `worker-audit/${roundNumber}`;
     }
+    const auditResult = await orca.podCall(podCallUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        submission: data,
+        signature: submission.signature,
+        stakingKey: submitterKey,
+        pubKey: data.pubKey,
+      }),
+    });
 
     // return the result of the audit (true or false)
     return auditResult.data;
