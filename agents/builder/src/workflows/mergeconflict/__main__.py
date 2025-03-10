@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from github import Github
 from src.clients import setup_client
 from src.workflows.mergeconflict import RemoteMergeConflictWorkflow, LocalMergeConflictWorkflow
-from src.workflows.mergeconflict.prompts import REMOTE_PROMPTS, LOCAL_PROMPTS
+from src.workflows.mergeconflict.prompts import PROMPTS
 from src.workflows.utils import setup_repository
 import os
 
@@ -37,15 +37,15 @@ def create_consolidation_pr(upstream_repo, fork_url, branch, merged_prs):
     return pr.html_url
 
 
-def remote_pr_logic():
-    """Run the merge conflict resolver workflow."""
-    # Load environment variables from .env file
+def load_and_parse_args():
+    """Load environment variables and parse command line arguments."""
     load_dotenv()
+    return parse_args()
 
-    # Parse command line arguments
-    args = parse_args()
 
-    # Initialize Claude client
+def pr_logic(isLocal):
+    """Run the merge conflict resolver workflow."""
+    args = load_and_parse_args()
     client = setup_client("anthropic")
 
     # Extract owner/repo from source fork URL
@@ -89,16 +89,26 @@ def remote_pr_logic():
 
     for pr in open_prs:
         print(f"\n=== PROCESSING PR #{pr.number} ===")
-        workflow = RemoteMergeConflictWorkflow(
-            client=client,
-            prompts=REMOTE_PROMPTS,
-            fork_url=args.source,
-            target_branch=args.branch,
-            pr_url=pr.html_url,
-            github_token=os.environ["MERGE_GITHUB_TOKEN"],
-        )
+        if isLocal:
+            workflow = LocalMergeConflictWorkflow(
+                client=client,
+                prompts=PROMPTS,
+                repo_url=args.repo_url,
+                target_branch=args.branch,
+                pr_url = pr.html_url,
+            )
+            result = workflow.run()
+        else:
+            workflow = RemoteMergeConflictWorkflow(
+                client=client,
+                prompts=PROMPTS,
+                fork_url=args.source,
+                target_branch=args.branch,
+                pr_url=pr.html_url,
+                github_token=os.environ["MERGE_GITHUB_TOKEN"],
+            )
 
-        result = workflow.run()
+            result = workflow.run()
 
         if result and result.get("success"):
             merged = result["data"].get("merged_prs", [])
@@ -125,56 +135,6 @@ def remote_pr_logic():
 
 
 
-def local_pr_logic():
-    """Run the merge conflict resolver workflow."""
-    # Load environment variables from .env file
-    load_dotenv()
-
-    # Parse command line arguments
-    args = parse_args()
-
-    # Initialize Claude client
-    client = setup_client("anthropic")
-
-    # Use the workflow to process all PRs with the limit
-    workflow = LocalMergeConflictWorkflow(
-        client=client,
-        prompts=LOCAL_PROMPTS,
-        repo_url=args.repo_url,
-        target_branch=args.branch,
-        pr_limit=args.limit,
-    )
-
-    result = workflow.run()
-
-    # Print summary
-    print("\n=== MERGE SUMMARY ===")
-    if result and result.get("success"):
-        merged_prs = result["data"].get("merged_prs", [])
-        failed_prs = result["data"].get("failed_prs", [])
-        closed_prs = [pr for pr in failed_prs if result["data"].get("should_close")]
-        error_prs = [pr for pr in failed_prs if pr not in closed_prs]
-        total_prs = len(merged_prs) + len(failed_prs)
-
-        print(f"Total PRs processed: {total_prs}")
-        print(f"Successfully merged: {len(merged_prs)}")
-
-        if closed_prs:
-            print(f"Closed without merging: {len(closed_prs)}")
-            print("Closed PRs:", ", ".join(f"#{pr}" for pr in closed_prs))
-
-        if error_prs:
-            print(f"Failed to process: {len(error_prs)}")
-            print("Failed PRs:", ", ".join(f"#{pr}" for pr in error_prs))
-    else:
-        error_message = (
-            result.get("message", "Unknown error")
-            if result
-            else "Workflow returned no result"
-        )
-        print(f"Error running workflow: {error_message}")
-
-    return 0
 
 def parse_args():
     """Parse command line arguments."""
@@ -207,26 +167,13 @@ def parse_args():
 
 
 if __name__ == "__main__":
-
-        # Load environment variables from .env file
-    load_dotenv()
-
-    # Parse command line arguments
-    args = parse_args()
-
-    # Initialize Claude client
+    args = load_and_parse_args()
     client = setup_client("anthropic")
-
-    # Extract owner/repo from source fork URL
     source_parts = args.source.strip("/").split("/")
     source_owner = source_parts[-2]
     source_repo = source_parts[-1]
-    # Get Source Repo
     env_owner = os.environ["GITHUB_USERNAME"]
-    if source_owner == env_owner:
-        print("Local repo PR Logic Process Started")
-        sys.exit(local_pr_logic())  # Local repo
-    else:
-        print("Remote repo PR Logic Process Started")
-        sys.exit(remote_pr_logic())  # Remote repo
+    logic_function = pr_logic(source_owner == env_owner)
+    print(f"{'Local' if source_owner == env_owner else 'Remote'} repo PR Logic Process Started")
+    sys.exit(logic_function())
         

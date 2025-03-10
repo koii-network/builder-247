@@ -27,7 +27,7 @@ class LocalMergeConflictWorkflow(Workflow):
         prompts,
         repo_url,
         target_branch,
-        pr_limit=0,
+        pr_url,
     ):
         # Extract owner and repo name from URL
         # URL format: https://github.com/owner/repo
@@ -44,7 +44,7 @@ class LocalMergeConflictWorkflow(Workflow):
             target_branch=target_branch,
         )
         self.resolved_conflicts = []
-        self.pr_limit = pr_limit
+        self.pr_url = pr_url
 
     def setup(self):
         """Set up repository and workspace."""
@@ -85,25 +85,18 @@ class LocalMergeConflictWorkflow(Workflow):
         cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
 
     def get_open_prs(self):
-        """Get all open PRs for the target branch, sorted by creation date."""
+        """Get the specific PR from the pr_url."""
         try:
             gh = Github(os.getenv("GITHUB_TOKEN"))
             repo = gh.get_repo(
                 f"{self.context['repo_owner']}/{self.context['repo_name']}"
             )
-
-            # Get open PRs targeting the specified branch
-            open_prs = list(
-                repo.get_pulls(state="open", base=self.context["target_branch"])
-            )
-
-            # Sort PRs by creation date (oldest first)
-            open_prs.sort(key=lambda pr: pr.created_at)
-
-            log_key_value("Open PRs found", len(open_prs))
-            return open_prs
+            pr_number = int(self.pr_url.strip("/").split("/")[-1])
+            pr = repo.get_pull(pr_number)
+            log_key_value("Open PR found", pr_number)
+            return pr
         except Exception as e:
-            log_error(e, "Failed to get open PRs")
+            log_error(e, "Failed to get the specific PR")
             return []
 
     def _try_api_merge(self, pr, repo_full_name):
@@ -634,51 +627,27 @@ class LocalMergeConflictWorkflow(Workflow):
 
     def run(self):
         """Execute the merge conflict resolver workflow."""
+        merged_prs = []
+        failed_prs = []
         try:
             self.setup()
-
-            # Get all open PRs and merge them in order
-            open_prs = self.get_open_prs()
-            if not open_prs:
-                return {
-                    "success": True,
-                    "message": "No open PRs found to merge",
-                    "data": {
-                        "merged_prs": [],
-                        "failed_prs": [],
-                    },
-                }
-
-            # Apply PR limit if specified
-            if self.pr_limit > 0 and len(open_prs) > self.pr_limit:
-                log_key_value(
-                    "PR limit applied",
-                    f"{self.pr_limit} (out of {len(open_prs)} total)",
-                )
-                open_prs = open_prs[: self.pr_limit]
+            open_pr = self.get_open_prs()
+            result = self.merge_pr(open_pr)
+            if result["success"]:
+                merged_prs.append(result["data"]["pr_number"])
             else:
-                log_key_value("PRs to process", len(open_prs))
-
-            merged_prs = []
-            failed_prs = []
-
-            for pr in open_prs:
-                result = self.merge_pr(pr)
-                if result["success"]:
-                    merged_prs.append(result["data"]["pr_number"])
-                else:
-                    failed_prs.append(pr.number)
-                    log_error(
-                        Exception(
-                            f"Failed to merge PR #{pr.number}: {result.get('message', 'Unknown error')}"
-                        ),
-                        "Continuing to next PR",
-                    )
+                failed_prs.append(pr.number)
+                log_error(
+                    Exception(
+                        f"Failed to merge PR #{pr.number}: {result.get('message', 'Unknown error')}"
+                    ),
+                    "Continuing to next PR",
+                )
                     # Continue to the next PR instead of breaking
 
             return {
                 "success": True,
-                "message": f"Processed {len(open_prs)} PRs, merged {len(merged_prs)}, failed {len(failed_prs)}",
+                "message": f"Successfully merged PR #{self.pr_number}",
                 "data": {
                     "merged_prs": merged_prs,
                     "failed_prs": failed_prs,
