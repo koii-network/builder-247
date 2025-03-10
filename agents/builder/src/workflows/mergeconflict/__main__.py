@@ -128,7 +128,7 @@ def pr_logic(isLocal):
     print(f"Successfully merged: {len(all_merged_prs)}")
     print(f"Failed to merge: {len(all_failed_prs)}")
 
-    if all_merged_prs and not isLocal:
+    if all_merged_prs:
         print("\n=== CREATING CONSOLIDATION PR ===")
         pr_url = create_consolidation_pr(
             upstream_repo, args.source, args.branch, all_merged_prs
@@ -170,5 +170,4 @@ if __name__ == "__main__":
     leader_is_aggregator = source_owner == env_owner
     logic_function = pr_logic(source_owner == env_owner)
     print(f"{'Local' if source_owner == env_owner else 'Remote'} repo PR Logic Process Started")
-    # sys.exit(logic_function())
         
