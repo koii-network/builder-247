@@ -6,10 +6,13 @@ from flask import jsonify
 from src.database import get_db, Submission
 from src.clients import setup_client
 from src.workflows.task.workflow import TaskWorkflow
+from src.workflows.mergeconflict.workflow import MergeConflictWorkflow
+from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
-import logging
+from src.utils.logging import logger, log_error
+from dotenv import load_dotenv
 
-logger = logging.getLogger(__name__)
+load_dotenv()
 
 
 def handle_task_creation(task_id, round_number, signature, staking_key, pub_key):
@@ -135,3 +138,65 @@ def submit_pr(signature, staking_key, pub_key, pr_url, round_number):
     except requests.exceptions.RequestException as e:
         logger.error(f"Error submitting PR: {str(e)}")
         return "Error submitting PR"
+
+
+def consolidate_prs(task_id, round_number, signature, staking_key, pub_key):
+    """Consolidate PRs from workers."""
+
+    source_repo = fetch_source_repo(task_id, round_number)
+
+    # Initialize Claude client
+    client = setup_client("anthropic")
+
+    # Use the workflow to process all PRs with the limit
+    workflow = MergeConflictWorkflow(
+        client=client,
+        prompts=CONFLICT_PROMPTS,
+        repo_url=source_repo,
+        target_branch=args.branch,
+        pr_limit=args.limit,
+    )
+
+    result = workflow.run()
+
+    # Print summary
+    print("\n=== MERGE SUMMARY ===")
+    if result and result.get("success"):
+        merged_prs = result["data"].get("merged_prs", [])
+        failed_prs = result["data"].get("failed_prs", [])
+        closed_prs = [pr for pr in failed_prs if result["data"].get("should_close")]
+        error_prs = [pr for pr in failed_prs if pr not in closed_prs]
+        total_prs = len(merged_prs) + len(failed_prs)
+
+        print(f"Total PRs processed: {total_prs}")
+        print(f"Successfully merged: {len(merged_prs)}")
+
+        if closed_prs:
+            print(f"Closed without merging: {len(closed_prs)}")
+            print("Closed PRs:", ", ".join(f"#{pr}" for pr in closed_prs))
+
+        if error_prs:
+            print(f"Failed to process: {len(error_prs)}")
+            print("Failed PRs:", ", ".join(f"#{pr}" for pr in error_prs))
+    else:
+        error_message = (
+            result.get("message", "Unknown error")
+            if result
+            else "Workflow returned no result"
+        )
+        print(f"Error running workflow: {error_message}")
+
+    return 0
+
+
+def fetch_source_repo(task_id, round_number):
+    response = requests.post(
+        os.environ["MIDDLE_SERVER_URL"] + "/api/fetch-source-repo",
+        json={
+            "taskId": task_id,
+            "roundNumber": round_number,
+        },
+        headers={"Content-Type": "application/json"},
+    )
+    response.raise_for_status()
+    return response.json()
