@@ -702,6 +702,7 @@ class RemoteMergeConflictWorkflow(Workflow):
             # Set up repository directory
             repo_path, original_dir = setup_repo_directory()
             self.context["repo_path"] = repo_path
+            sync_fork(repo_path)
             self.context["original_dir"] = original_dir
 
             # Clone our fork
