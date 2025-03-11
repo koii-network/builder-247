@@ -468,7 +468,7 @@ class Client(ABC):
                 tool_calls.append(block["tool_call"])
         return tool_calls
 
-    def handle_tool_response(self, response):
+    def handle_tool_response(self, response, context: Dict[str, Any]):
         """
         Handle tool responses until natural completion.
         If a tool has final_tool=True and was successful, returns immediately after executing that tool.
@@ -487,6 +487,7 @@ class Client(ABC):
             tool_results = []
             for tool_call in tool_calls:
                 try:
+                    tool_call["parameters"].update(context)
                     # Execute the tool
                     result = self.execute_tool(tool_call)
                     if not result:
