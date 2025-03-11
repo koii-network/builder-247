@@ -32,8 +32,8 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default="todos.csv",
-        help="Output CSV file path (default: todos.csv)",
+        default="todos.json",
+        help="Output JSON file path (default: todos.json)",
     )
     parser.add_argument(
         "--model",
@@ -53,7 +53,7 @@ def main():
         prompts=PROMPTS,
         repo_url=args.repo,
         feature_spec=args.feature_spec,
-        output_csv_path=args.output,
+        output_json_path=args.output,
     )
 
     result = workflow.run()
@@ -62,13 +62,13 @@ def main():
         sys.exit(1)
 
     # Verify the file exists in the project's data directory
-    output_csv = result["data"].get("output_csv", "")
+    output_json = result["data"].get("output_json", "")
 
     # If the file exists at the path returned by the tool, use that
-    if output_csv and os.path.exists(output_csv):
+    if output_json and os.path.exists(output_json):
         print("Todo creator workflow completed successfully")
         print(f"Created {result['data'].get('task_count', 0)} tasks")
-        print(f"Results saved to {output_csv}")
+        print(f"Results saved to {output_json}")
         if result["data"].get("validation_issues"):
             print("\nValidation issues found:")
             for issue in result["data"]["validation_issues"]:
@@ -89,7 +89,7 @@ def main():
                     print(f"- {issue}")
         else:
             print("Todo creator workflow completed but the output file was not created")
-            print(f"Expected file at: {output_csv}")
+            print(f"Expected file at: {output_json}")
             print(f"Also checked: {alternative_path}")
             sys.exit(1)
 

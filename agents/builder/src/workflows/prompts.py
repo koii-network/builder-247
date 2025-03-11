@@ -190,7 +190,7 @@ BUGFINDER_PROMPTS = {
     ),
     "analyze_code": (
         "You are analyzing a GitHub repository to identify bugs, security vulnerabilities, and code quality issues. "
-        "Your goals is to generate a report of all issues found in the repository and save it to {output_csv_path}. "
+        "Your goals is to generate a report of all issues found in the repository and save it to {output_json_path}. "
         "The repository has been cloned to a local directory for you to inspect.\n\n"
         "Available files: {current_files}\n\n"
         "Your task is to:\n"

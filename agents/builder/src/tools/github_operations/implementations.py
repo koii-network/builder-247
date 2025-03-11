@@ -724,3 +724,17 @@ def generate_tasks(
             "data": None,
             "error": str(e),
         }
+
+def validate_tasks(tasks: List[Dict[str, Any]]) -> ToolOutput:
+    """Validate the tasks.
+
+    Args:
+        tasks: List of task dictionaries
+
+    Returns:
+        ToolOutput: Standardized tool output with success status and error message if any
+    """
+    try:
+        # Validate each task
+        for task in tasks:
+    

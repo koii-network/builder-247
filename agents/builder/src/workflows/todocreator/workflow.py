@@ -47,7 +47,7 @@ class TodoCreatorWorkflow(Workflow):
         prompts,
         repo_url,
         feature_spec,
-        output_csv_path="tasks.csv",
+        output_json_path="tasks.json",
     ):
         # Extract owner and repo name from URL
         # URL format: https://github.com/owner/repo
@@ -61,7 +61,7 @@ class TodoCreatorWorkflow(Workflow):
             repo_url=repo_url,
             repo_owner=repo_owner,
             repo_name=repo_name,
-            output_csv_path=output_csv_path,
+            output_json_path=output_json_path,
         )
         self.feature_spec = feature_spec
         self.tasks: list[Task] = []
@@ -127,13 +127,13 @@ class TodoCreatorWorkflow(Workflow):
 
             # Store the output filename in the context for the agent to use
             # Make sure it has a .csv extension
-            output_filename = self.context.get("output_csv_path", "tasks.csv")
-            if not output_filename.endswith(".csv"):
-                output_filename = f"{os.path.splitext(output_filename)[0]}.csv"
-                self.context["output_csv_path"] = output_filename
+            output_filename = self.context.get("output_json_path", "tasks.json")
+            if not output_filename.endswith(".json"):
+                output_filename = f"{os.path.splitext(output_filename)[0]}.json"
+                self.context["output_json_path"] = output_filename
 
             # Log the output filename that will be used
-            log_key_value("Output CSV file", output_filename)
+            log_key_value("Output JSON file", output_filename)
 
             # Decompose feature into tasks and generate CSV
             decompose_phase = phases.TaskDecompositionPhase(workflow=self)
@@ -148,7 +148,7 @@ class TodoCreatorWorkflow(Workflow):
 
             # Get the tasks and file path from the result
             tasks_data = decomposition_result["data"].get("tasks", [])
-            output_csv = decomposition_result["data"].get("file_path")
+            output_json = decomposition_result["data"].get("file_path")
             task_count = decomposition_result["data"].get("task_count", 0)
 
             if not tasks_data:
@@ -161,8 +161,18 @@ class TodoCreatorWorkflow(Workflow):
             # Convert raw tasks to Task objects
             self.tasks = [Task.from_dict(task) for task in tasks_data]
 
-            log_key_value("CSV file created at", output_csv)
+            log_key_value("JSON file created at", output_json)
             log_key_value("Tasks created", task_count)
+
+            # Validation phase
+            # validation_phase = phases.TaskValidationPhase(workflow=self)
+            # validation_result = validation_phase.execute()
+
+            # if not validation_result or not validation_result.get("success"):
+            #     log_error(
+            #         Exception(validation_result.get("error", "No result")),
+            #         "Task validation failed",
+            #     )
 
             # Return the final result
             return {
@@ -170,7 +180,7 @@ class TodoCreatorWorkflow(Workflow):
                 "message": f"Created {task_count} tasks for the feature",
                 "data": {
                     "tasks": [task.to_dict() for task in self.tasks],
-                    "output_csv": output_csv,
+                    "output_json": output_json,
                     "task_count": task_count,
                 },
             }
