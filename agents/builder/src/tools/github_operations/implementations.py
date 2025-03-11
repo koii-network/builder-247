@@ -131,7 +131,6 @@ def create_pull_request(
     repo_name: str,
     title: str,
     head_branch: str,
-    description: str,
     base_branch: str = "main",
     pr_template: str = TEMPLATES["pr_template"],
     data: Dict[str, Any] = None,
@@ -190,6 +189,10 @@ def create_worker_pull_request(
     tests: List[str],
     todo: str,
     acceptance_criteria: List[str],
+    staking_key: str,
+    pub_key: str,
+    staking_signature: str,
+    public_signature: str,
 ) -> ToolOutput:
     """Create a pull request for a worker node."""
     # Format tests into markdown bullets
@@ -202,9 +205,14 @@ def create_worker_pull_request(
         head_branch=head_branch,
         description=description,
         data={
+            "description": description,
             "todo": todo,
             "acceptance_criteria": acceptance_criteria_bullets,
             "tests": tests_bullets,
+            "staking_key": staking_key,
+            "pub_key": pub_key,
+            "staking_signature": staking_signature,
+            "public_signature": public_signature,
         },
     )
 

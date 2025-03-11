@@ -1,23 +1,47 @@
 TEMPLATES = {
-    "pr_template": """<!-- BEGIN_TODO -->
+    "worker_pr_template": """
+
+<!-- BEGIN_TITLE -->
+# {title}
+<!-- END_TITLE -->
+
+## Description
+### Task
+<!-- BEGIN_TODO -->
 {todo}
 <!-- END_TODO -->
 
-<!-- BEGIN_TITLE -->
-{title}
-<!-- END_TITLE -->
-
-<!-- BEGIN_DESCRIPTION -->
-{description}
-<!-- END_DESCRIPTION -->
-
+### Acceptance Criteria
 <!-- BEGIN_ACCEPTANCE_CRITERIA -->
 {acceptance_criteria}
 <!-- END_ACCEPTANCE_CRITERIA -->
 
+### Changes Made
+<!-- BEGIN_DESCRIPTION -->
+{changes}
+<!-- END_DESCRIPTION -->
+
+### Tests
 <!-- BEGIN_TESTS -->
 {tests}
 <!-- END_TESTS -->
+
+## Signatures
+### Staking Key
+<!-- BEGIN_STAKING_KEY -->
+{staking_key}: {staking_signature}
+<!-- END_STAKING_KEY -->
+
+### Public Key
+<!-- BEGIN_PUB_KEY -->
+{pub_key}: {public_signature}
+<!-- END_PUB_KEY -->
+""",
+    "leader_pr_template": """
+
+<!-- BEGIN_TITLE -->
+# {title}
+<!-- END_TITLE -->
 """,
     "review_template": """## Pull Request Review
 

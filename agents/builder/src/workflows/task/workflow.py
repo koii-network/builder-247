@@ -25,6 +25,10 @@ class TaskWorkflow(Workflow):
         repo_name,
         todo,
         acceptance_criteria,
+        staking_key,
+        pub_key,
+        staking_signature,
+        public_signature,
         max_implementation_attempts=3,
     ):
         super().__init__(
@@ -34,6 +38,10 @@ class TaskWorkflow(Workflow):
             repo_name=repo_name,
             todo=todo,
             acceptance_criteria=acceptance_criteria,
+            staking_key=staking_key,
+            pub_key=pub_key,
+            staking_signature=staking_signature,
+            public_signature=public_signature,
         )
         self.max_implementation_attempts = max_implementation_attempts
 
