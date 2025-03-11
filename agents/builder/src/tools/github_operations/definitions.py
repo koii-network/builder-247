@@ -301,7 +301,7 @@ DEFINITIONS = {
             "properties": {
                 "tasks": {
                     "type": "array",
-                    "description": "List of tasks to write to JSON",
+                    "description": "List of tasks",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -326,15 +326,15 @@ DEFINITIONS = {
                         "additionalProperties": False,
                     },
                 },
-                "file_name": {
-                    "type": "string",
-                    "description": "Name of the output JSON file",
-                    "default": "tasks.json",
-                },
-                "repo_url": {
-                    "type": "string",
-                    "description": "URL of the repository (for reference)",
-                },
+                # "file_name": {
+                #     "type": "string",
+                #     "description": "Name of the output JSON file",
+                #     "default": "tasks.json",
+                # },
+                # "repo_url": {
+                #     "type": "string",
+                #     "description": "URL of the repository (for reference)",
+                # },
             },
             "required": ["tasks"],
             "additionalProperties": False,
@@ -344,7 +344,7 @@ DEFINITIONS = {
     },
     "validate_tasks": {
         "name": "validate_tasks",
-        "description": "Generate a JSON file containing decisions on tasks from a feature breakdown.",
+        "description": "Generate a List of Decisions on Tasks from a feature breakdown.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -369,11 +369,6 @@ DEFINITIONS = {
                         "required": ["uuid", "comment", "decision"],
                         "additionalProperties": False,
                     },
-                },
-                "file_name": {
-                    "type": "string",
-                    "description": "Name of the output JSON file",
-                    "default": "decisions.json",
                 },
             },
             "required": ["decisions"],

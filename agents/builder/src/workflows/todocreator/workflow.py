@@ -14,7 +14,7 @@ from src.workflows.utils import (
     cleanup_repo_directory,
     get_current_files,
 )
-
+from src.workflows.todocreator.utils import Task, insert_task_to_mongodb
 
 class Task:
     def __init__(self, title: str, description: str, acceptance_criteria: list[str]):
@@ -47,7 +47,6 @@ class TodoCreatorWorkflow(Workflow):
         prompts,
         repo_url,
         feature_spec,
-        output_json_path="tasks.json",
     ):
         # Extract owner and repo name from URL
         # URL format: https://github.com/owner/repo
@@ -61,10 +60,9 @@ class TodoCreatorWorkflow(Workflow):
             repo_url=repo_url,
             repo_owner=repo_owner,
             repo_name=repo_name,
-            output_json_path=output_json_path,
+            
         )
         self.feature_spec = feature_spec
-        self.tasks: list[Task] = []
 
     def setup(self):
         """Set up repository and workspace."""
@@ -120,6 +118,7 @@ class TodoCreatorWorkflow(Workflow):
 
         # Clean up the repository directory
         cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
+        # Clean up the MongoDB
 
     def run(self):
         """Execute the task decomposition workflow."""
@@ -128,13 +127,7 @@ class TodoCreatorWorkflow(Workflow):
 
             # Store the output filename in the context for the agent to use
             # Make sure it has a .csv extension
-            output_filename = self.context.get("output_json_path", "tasks.json")
-            if not output_filename.endswith(".json"):
-                output_filename = f"{os.path.splitext(output_filename)[0]}.json"
-                self.context["output_json_path"] = output_filename
 
-            # Log the output filename that will be used
-            log_key_value("Output JSON file", output_filename)
 
             # Decompose feature into tasks and generate CSV
             decompose_phase = phases.TaskDecompositionPhase(workflow=self)
@@ -160,13 +153,13 @@ class TodoCreatorWorkflow(Workflow):
                 return None
 
             # Convert raw tasks to Task objects
-            self.tasks = [Task.from_dict(task) for task in tasks_data]
-
+   
+            
             log_key_value("JSON file created at", output_json)
             log_key_value("Tasks created", task_count)
-            log_key_value("Start validation phase", self.tasks)
 
             self.context["subtasks"] = tasks_data
+            print(self.context["subtasks"])
             # Validation phase
             validation_phase = phases.TaskValidationPhase(workflow=self)
             validation_result = validation_phase.execute()
@@ -176,15 +169,20 @@ class TodoCreatorWorkflow(Workflow):
                     Exception(validation_result.get("error", "No result")),
                     "Task validation failed",
                 )
+            decisions = validation_result["data"]["decisions"]
+            print(decisions)
             # TODO: Dependency Phase
             # TODO: Insert into MongoDB
+            for task in tasks_data:
+                if decisions[task["uuid"]]["decision"] == True:
+                    print(task["title"])
+
             # Return the final result
             return {
                 "success": True,
                 "message": f"Created {task_count} tasks for the feature",
                 "data": {
-                    "tasks": [task.to_dict() for task in self.tasks],
-                    "output_json": output_json,
+                    "decisions": tasks_data,
                     "task_count": task_count,
                 },
             }

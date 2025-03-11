@@ -47,6 +47,12 @@ class Todo {
   public title!: string;
 
   @prop({ required: true })
+  public uuid!: string;
+
+  @prop({ required: true })
+  public description!: string;
+
+  @prop({ required: true })
   public acceptanceCriteria!: string;
 
   @prop({ required: true })

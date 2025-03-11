@@ -662,67 +662,82 @@ def merge_pull_request(
 
 def generate_tasks(
     tasks: List[Dict[str, Any]] = None,
-    file_name: str = "tasks.csv",
-    repo_url: str = None,
 ) -> dict:
-    """Generate a JSON file containing tasks.
+    """Generate a Task List for the repository.
 
     Args:
         tasks: List of task dictionaries, each containing:
             - title: Task title
             - description: Task description
             - acceptance_criteria: List of acceptance criteria
-        file_name: Name of the output JSON file
-        repo_url: URL of the repository (for reference)
 
     Returns:
         dict: Result of the operation containing:
             - success: Whether the operation succeeded
             - message: Success/error message
             - data: Dictionary containing:
-                - file_path: Path to the generated JSON file
                 - task_count: Number of tasks written
                 - tasks: List of task dictionaries
             - error: Error message if any
     """
     try:
-        # Ensure data directory exists
-        data_dir = "/home/herman/Downloads/builder-247/data"
-        os.makedirs(data_dir, exist_ok=True)
-
-        # Full path for the JSON file
-        file_path = os.path.join(data_dir, file_name)
-
-        # Write tasks to JSON
-        with open(file_path, "w") as f:
-            # Add a UUID to each task
-            for task in tasks:
-                task_uuid = str(uuid.uuid4())
-                task["uuid"] = task_uuid
-
-            # Write tasks to JSON file
-            json.dump(tasks, f, indent=4)
-
+        for task in tasks:
+            task_uuid = str(uuid.uuid4())
+            task["uuid"] = task_uuid
         return {
             "success": True,
             "message": f"Successfully generated {len(tasks)} tasks",
             "data": {
-                "file_path": file_path,
                 "task_count": len(tasks),
                 "tasks": tasks,
             },
             "error": None,
         }
-
     except Exception as e:
         return {
             "success": False,
             "message": f"Failed to generate tasks: {str(e)}",
             "data": None,
             "error": str(e),
-        }
+        }    
+    # try:
+    #     # Ensure data directory exists
+    #     data_dir = "/home/herman/Downloads/builder-247/data"
+    #     os.makedirs(data_dir, exist_ok=True)
 
-def validate_tasks(decisions: List[Dict[str, Any]], filename: str = "decisions.json") -> dict:
+    #     # Full path for the JSON file
+    #     file_path = os.path.join(data_dir, file_name)
+
+    #     # Write tasks to JSON
+    #     with open(file_path, "w") as f:
+    #         # Add a UUID to each task
+    #         for task in tasks:
+    #             task_uuid = str(uuid.uuid4())
+    #             task["uuid"] = task_uuid
+
+    #         # Write tasks to JSON file
+    #         json.dump(tasks, f, indent=4)
+
+    #     return {
+    #         "success": True,
+    #         "message": f"Successfully generated {len(tasks)} tasks",
+    #         "data": {
+    #             "file_path": file_path,
+    #             "task_count": len(tasks),
+    #             "tasks": tasks,
+    #         },
+    #         "error": None,
+    #     }
+
+    # except Exception as e:
+    #     return {
+    #         "success": False,
+    #         "message": f"Failed to generate tasks: {str(e)}",
+    #         "data": None,
+    #         "error": str(e),
+    #     }
+
+def validate_tasks(decisions: List[Dict[str, Any]]) -> dict:
     """Validate the tasks.
 
     Args:
@@ -730,37 +745,27 @@ def validate_tasks(decisions: List[Dict[str, Any]], filename: str = "decisions.j
             - uuid: UUID of the task
             - comment: Comment on the task
             - decision: Decision on the task, True or False
-        file_name: Name of the output JSON file
 
     Returns:
         dict: Result of the operation containing:
             - success: Whether the operation succeeded
             - message: Success/error message
             - data: Dictionary containing:
-                - file_path: Path to the generated JSON file
-                - task_count: Number of tasks written
-                - tasks: List of task dictionaries
+                - decision_count: Number of decisions
+                - decisions: List of decision dictionaries
             - error: Error message if any
     """
     try:
-        # Ensure data directory exists
-        data_dir = "/home/herman/Downloads/builder-247/data"
-        os.makedirs(data_dir, exist_ok=True)
-
-        # Generate the full file path
-        file_path = os.path.join(data_dir, filename)
-
-        # Write decisions to JSON file
-        with open(file_path, "w") as f:
-            json.dump(decisions, f, indent=4)
-
+        decisions_dict = {}
+        for decision in decisions:
+            if decision["decision"] == True:
+                decisions_dict[decision["uuid"]] = decision
         return {
             "success": True,
             "message": f"Successfully validated {len(decisions)} tasks",
             "data": {
-                "file_path": file_path,
-                "task_count": len(decisions),
-                "tasks": decisions,
+                "decision_count": len(decisions_dict),
+                "decisions": decisions_dict,
             },
             "error": None,
         }
