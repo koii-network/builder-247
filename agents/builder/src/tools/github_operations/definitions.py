@@ -34,19 +34,7 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_full_name": {
-                    "type": "string",
-                    "description": "Full name of repository (owner/repo)",
-                },
                 "title": {"type": "string", "description": "Title of the pull request"},
-                "head": {
-                    "type": "string",
-                    "description": "Name of the branch containing changes",
-                },
-                "base": {
-                    "type": "string",
-                    "description": "Name of the branch to merge into",
-                },
                 "description": {
                     "type": "string",
                     "description": "A brief summary of the changes made",
@@ -56,21 +44,8 @@ DEFINITIONS = {
                     "description": "A brief description of what each test does",
                     "items": {"type": "string"},
                 },
-                "todo": {"type": "string", "description": "Original task description"},
-                "acceptance_criteria": {
-                    "type": "string",
-                    "description": "Acceptance criteria",
-                },
             },
-            "required": [
-                "repo_full_name",
-                "title",
-                "head",
-                "description",
-                "tests",
-                "todo",
-                "acceptance_criteria",
-            ],
+            "required": ["title", "description", "tests"],
         },
         "final_tool": True,
         "function": create_pull_request,
@@ -81,11 +56,6 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_full_name": {
-                    "type": "string",
-                    "description": "Full name of repository (owner/repo)",
-                },
-                "pr_number": {"type": "integer", "description": "Pull request number"},
                 "title": {"type": "string", "description": "Title of the PR"},
                 "description": {
                     "type": "string",
@@ -300,7 +270,7 @@ DEFINITIONS = {
             "properties": {
                 "tasks": {
                     "type": "array",
-                    "description": "List of tasks to write to CSV",
+                    "description": "List of subtasks from the feature breakdown",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -321,22 +291,10 @@ DEFINITIONS = {
                                 "minItems": 1,
                             },
                         },
-                        "required": ["title", "description", "acceptance_criteria"],
-                        "additionalProperties": False,
                     },
-                },
-                "file_name": {
-                    "type": "string",
-                    "description": "Name of the output CSV file",
-                    "default": "tasks.csv",
-                },
-                "repo_url": {
-                    "type": "string",
-                    "description": "URL of the repository (for reference)",
-                },
+                }
             },
             "required": ["tasks"],
-            "additionalProperties": False,
         },
         "final_tool": True,
         "function": generate_tasks,

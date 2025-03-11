@@ -9,8 +9,6 @@ PROMPTS = {
     "decompose_feature": (
         "Your task is to break down the following feature request into small, discrete subtasks:\n\n"
         "Feature: {feature_description}\n"
-        "Repository: {repo_url}\n\n"
-        "Output CSV: {output_csv_path}\n\n"
         "For each subtask, you must provide:\n"
         "1. A clear, specific title\n"
         "2. A detailed description of the work required\n"

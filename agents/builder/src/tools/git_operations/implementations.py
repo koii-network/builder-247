@@ -562,9 +562,7 @@ def get_conflict_info() -> ToolOutput:
         }
 
 
-def resolve_conflict(
-    file_path: str, resolution: str, message: str = "Resolve conflict"
-) -> ToolOutput:
+def resolve_conflict(file_path: str, resolution: str) -> ToolOutput:
     """Resolve a conflict in a specific file and commit the resolution in the current repository."""
     try:
         repo_path = os.getcwd()

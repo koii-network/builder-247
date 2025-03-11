@@ -127,53 +127,41 @@ def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
 
 
 def create_pull_request(
-    repo_full_name: str,
+    repo_owner: str,
+    repo_name: str,
     title: str,
-    head: str,
+    head_branch: str,
     description: str,
-    tests: List[str],
-    todo: str,
-    acceptance_criteria: str,
-    base: str = "main",
+    base_branch: str = "main",
+    pr_template: str = TEMPLATES["pr_template"],
+    data: Dict[str, Any] = None,
 ) -> ToolOutput:
     """Create PR with formatted description.
 
     Args:
-        repo_full_name: Full name of repository (owner/repo)
+        repo_owner: Owner of the source repository
+        repo_name: Name of the source repository
         title: PR title
-        head: Head branch name
+        head_branch: Head branch name (branch the PR is coming from)
         description: PR description
         tests: List of test descriptions
         todo: Original todo task
         acceptance_criteria: Task acceptance criteria
-        base: Base branch name (default: main)
+        base_branch: Base branch name (default: main)
 
     Returns:
         ToolOutput: Standardized tool output with PR URL on success
     """
     try:
         gh = _get_github_client()
+        repo_full_name = f"{repo_owner}/{repo_name}"
 
-        # Auto-format head branch if needed
-        if ":" not in head:
-            head = f"{os.environ['GITHUB_USERNAME']}:{head}"
+        head = f"{os.environ['GITHUB_USERNAME']}:{head_branch}"
 
-        # Ensure base branch is just the name without owner
-        base = base.split(":")[-1]  # Remove owner prefix if present
-
-        # Format tests into markdown bullets
-        tests_bullets = " - " + "\n - ".join(tests)
-
-        body = TEMPLATES["pr_template"].format(
-            todo=todo,
-            title=title,
-            acceptance_criteria=acceptance_criteria,
-            description=description,
-            tests=tests_bullets,
-        )
+        body = pr_template.format(**data)
 
         repo = gh.get_repo(repo_full_name)
-        pr = repo.create_pull(title=title, body=body, head=head, base=base)
+        pr = repo.create_pull(title=title, body=body, head=head, base=base_branch)
         return {
             "success": True,
             "message": f"Successfully created PR: {title}",
@@ -191,6 +179,45 @@ def create_pull_request(
             "message": f"Failed to create pull request: {str(e)}",
             "data": None,
         }
+
+
+def create_worker_pull_request(
+    repo_owner: str,
+    repo_name: str,
+    title: str,
+    head_branch: str,
+    description: str,
+    tests: List[str],
+    todo: str,
+    acceptance_criteria: List[str],
+) -> ToolOutput:
+    """Create a pull request for a worker node."""
+    # Format tests into markdown bullets
+    tests_bullets = " - " + "\n - ".join(tests)
+    acceptance_criteria_bullets = " - " + "\n - ".join(acceptance_criteria)
+    create_pull_request(
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        title=title,
+        head_branch=head_branch,
+        description=description,
+        data={
+            "todo": todo,
+            "acceptance_criteria": acceptance_criteria_bullets,
+            "tests": tests_bullets,
+        },
+    )
+
+
+def create_leader_pull_request(
+    repo_owner: str,
+    repo_name: str,
+    title: str,
+    head_branch: str,
+    description: str,
+) -> ToolOutput:
+    """Create a pull request for a leader."""
+    create_pull_request(repo_owner, repo_name, title, head_branch, description)
 
 
 def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
@@ -317,7 +344,8 @@ def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
 
 
 def review_pull_request(
-    repo_full_name: str,
+    repo_owner: str,
+    repo_name: str,
     pr_number: int,
     title: str,
     description: str,
@@ -331,7 +359,8 @@ def review_pull_request(
     Post a structured review comment on a pull request.
 
     Args:
-        repo_full_name (str): Full name of the repository (owner/repo)
+        repo_owner (str): Owner of the repository
+        repo_name (str): Name of the repository
         pr_number (int): Pull request number
         title (str): Title of the PR
         description (str): Description of the changes
@@ -346,7 +375,7 @@ def review_pull_request(
     """
     try:
         gh = _get_github_client()
-        repo = gh.get_repo(repo_full_name)
+        repo = gh.get_repo(f"{repo_owner}/{repo_name}")
         pr = repo.get_pull(pr_number)
 
         # Format lists into markdown bullet points

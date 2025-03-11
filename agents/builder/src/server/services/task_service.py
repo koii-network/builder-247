@@ -85,6 +85,8 @@ def run_todo_task(task_id, round_number, todo):
             repo_name=todo["repo_name"],
             todo=todo["title"],
             acceptance_criteria=todo["acceptance_criteria"],
+            round_number=round_number,
+            task_id=task_id,
         )
 
         # Run workflow and get PR URL

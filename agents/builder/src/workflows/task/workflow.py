@@ -1,7 +1,6 @@
 """Task workflow implementation using new workflow structure."""
 
 import os
-from github import Github
 import time
 from src.workflows.base import Workflow
 from src.tools.github_operations.implementations import fork_repository
@@ -42,18 +41,10 @@ class TaskWorkflow(Workflow):
         """Set up repository and workspace."""
         check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
         validate_github_auth(os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_USERNAME"))
-
-        # Get the default branch from GitHub
-        try:
-            gh = Github(os.getenv("GITHUB_TOKEN"))
-            repo = gh.get_repo(
-                f"{self.context['repo_owner']}/{self.context['repo_name']}"
-            )
-            self.context["base_branch"] = repo.default_branch
-            log_key_value("Default branch", self.context["base_branch"])
-        except Exception as e:
-            log_error(e, "Failed to get default branch, using 'main'")
-            self.context["base_branch"] = "main"
+        self.context["base_branch"] = (
+            f"round-{self.context['round_number']}-{self.context['task_id']}"
+        )
+        log_key_value("Base branch", self.context["base_branch"])
 
         # Set up repository directory
         repo_path, original_dir = setup_repo_directory()
@@ -95,7 +86,7 @@ class TaskWorkflow(Workflow):
             if not branch_result:
                 return None
 
-            self.context["branch_name"] = branch_result["data"]["branch_name"]
+            self.context["head_branch"] = branch_result["data"]["branch_name"]
 
             # Implementation loop
             for attempt in range(self.max_implementation_attempts):
@@ -158,7 +149,7 @@ class TaskWorkflow(Workflow):
 
             # Base was already set in setup()
             log_value(
-                f"Creating PR from {self.context['branch_name']} to {self.context['base_branch']}",
+                f"Creating PR from {self.context['head_branch']} to {self.context['base_branch']}",
             )
 
             pr_phase = phases.PullRequestPhase(

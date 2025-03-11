@@ -95,14 +95,9 @@ PROMPTS = {
     ),
     "create_pr": (
         "You are creating a pull request for the following task:\n"
-        "Repository: {repo_owner}/{repo_name}\n"
-        "IMPORTANT - Use this EXACT branch name: {branch_name}\n"
-        "Base: {base_branch}\n\n"
         "Task Description:\n"
         "{todo}\n\n"
         "Available files: {current_files}\n\n"
-        "Acceptance Criteria:\n"
-        "{acceptance_criteria}\n\n"
         "IMPORTANT: Always use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
         "Steps to create the pull request:\n"
         "1. First examine the available files to understand the implementation\n"
