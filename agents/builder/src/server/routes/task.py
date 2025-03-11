@@ -48,6 +48,7 @@ def start_task(round_number, node_type, request):
         staking_key=data["stakingKey"],
         public_signature=data["publicSignature"],
         pub_key=data["pubKey"],
+        distribution_list=data.get("distributionList", None),
     )
     if not pr_url:
         return jsonify({"error": "Missing PR URL"}), 400

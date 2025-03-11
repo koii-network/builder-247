@@ -31,17 +31,25 @@ export async function task(roundNumber: number): Promise<void> {
     };
     const stakingSignature = await namespaceWrapper.payloadSigning(payload, stakingKeypair.secretKey);
     const publicSignature = await namespaceWrapper.payloadSigning(payload);
-    const body = {
+    const podCallBody = {
       taskId: TASK_ID,
       roundNumber,
       stakingKey,
       pubKey,
       stakingSignature,
       publicSignature,
-    };
+    } as any;
     let podCallUrl;
     if (isLeader) {
       podCallUrl = `leader-task/${roundNumber}`;
+      const taskState = await namespaceWrapper.getTaskState({
+        is_submission_required: false,
+        is_distribution_required: true,
+        is_available_balances_required: false,
+        is_stake_list_required: false,
+      });
+      const distributionList = taskState?.distribution_rewards_submission[roundNumber - 3];
+      podCallBody.distributionList = distributionList;
     } else {
       podCallUrl = `worker-task/${roundNumber}`;
     }
@@ -50,7 +58,7 @@ export async function task(roundNumber: number): Promise<void> {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(podCallBody),
     });
   } catch (error) {
     console.error("EXECUTE TASK ERROR:", error);
