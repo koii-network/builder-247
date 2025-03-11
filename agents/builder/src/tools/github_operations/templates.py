@@ -1,35 +1,54 @@
 TEMPLATES = {
-    "pr_template": (
-        "# {title}\n\n"
-        "## Original Task\n"
-        "{todo}\n\n"
-        "## Summary of Changes\n"
-        "{description}\n\n"
-        "## Acceptance Criteria\n"
-        "{acceptance_criteria}\n\n"
-        "## Tests\n"
-        "{tests}\n\n"
-    ),
-    "review_template": (
-        "# PR Review: {title}\n\n"
-        "## Recommendation: {recommendation}\n\n"
-        "### Justification\n"
-        "{recommendation_reasons}\n\n"
-        "## Summary of Changes\n"
-        "{description}\n\n"
-        "## Requirements Review\n"
-        "### ✅ Met Requirements\n"
-        "{met_requirements}\n\n"
-        "### ❌ Unmet Requirements\n"
-        "{unmet_requirements}\n\n"
-        "## Test Evaluation\n"
-        "### Passed Tests\n"
-        "{passed_tests}\n\n"
-        "### Failed Tests\n"
-        "{failed_tests}\n\n"
-        "### Missing Test Cases\n"
-        "{missing_tests}\n\n"
-        "## Action Items\n"
-        "{action_items}\n\n"
-    ),
+    "pr_template": """<!-- BEGIN_TODO -->
+{todo}
+<!-- END_TODO -->
+
+<!-- BEGIN_TITLE -->
+{title}
+<!-- END_TITLE -->
+
+<!-- BEGIN_DESCRIPTION -->
+{description}
+<!-- END_DESCRIPTION -->
+
+<!-- BEGIN_ACCEPTANCE_CRITERIA -->
+{acceptance_criteria}
+<!-- END_ACCEPTANCE_CRITERIA -->
+
+<!-- BEGIN_TESTS -->
+{tests}
+<!-- END_TESTS -->
+""",
+    "review_template": """## Pull Request Review
+
+### Title
+{title}
+
+### Description
+{description}
+
+### Requirements Met
+{met_requirements}
+
+### Requirements Not Met
+{unmet_requirements}
+
+### Test Coverage
+#### Passing Tests
+{passed_tests}
+
+#### Failed Tests
+{failed_tests}
+
+#### Missing Test Cases
+{missing_tests}
+
+### Recommendation: {recommendation}
+
+### Reasons
+{recommendation_reasons}
+
+### Action Items
+{action_items}
+""",
 }
