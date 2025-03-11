@@ -38,6 +38,9 @@ def start_task(round_number, node_type, request):
     if any(data.get(field) is None for field in required_fields):
         return jsonify({"error": "Missing data"}), 401
 
+    if node_type == "leader":
+        task_service.create_aggregator_repo(round_number, data["taskId"])
+
     pr_url = task_functions[node_type](
         task_id=data["taskId"],
         round_number=int(round_number),

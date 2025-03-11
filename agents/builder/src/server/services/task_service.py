@@ -3,13 +3,15 @@
 import requests
 import os
 from flask import jsonify
+from github import Github as gh
 from src.database import get_db, Submission
 from src.clients import setup_client
+from src.workflows.utils import setup_repository
 from src.workflows.task.workflow import TaskWorkflow
-from src.workflows.mergeconflict.workflow import MergeConflictWorkflow
+from src.workflows.mergeconflict.workflow import LocalMergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
-from src.utils.logging import logger, log_error
+from src.utils.logging import logger, log_error, log_section, log_key_value
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -147,58 +149,137 @@ def record_pr(signature, staking_key, pub_key, pr_url, round_number):
 def consolidate_prs(task_id, round_number, signature, staking_key, pub_key):
     """Consolidate PRs from workers."""
 
-    source_repo = fetch_source_repo(task_id, round_number)
+    source_repo = fetch_source_repo(task_id)
+    repo_url = source_repo["repo_url"]
+    repo_owner = source_repo["repo_owner"]
+    repo_name = source_repo["repo_name"]
+    branch = f"round-{round_number}-{task_id}"
 
     # Initialize Claude client
     client = setup_client("anthropic")
 
-    # Use the workflow to process all PRs with the limit
-    workflow = MergeConflictWorkflow(
-        client=client,
-        prompts=CONFLICT_PROMPTS,
-        repo_url=source_repo,
-        target_branch=args.branch,
-        pr_limit=args.limit,
+    source_fork = gh.get_repo(f"{repo_owner}/{repo_name}")
+
+    if not source_fork.fork:
+        raise Exception("Source repository is not a fork")
+
+    upstream_repo = source_fork.parent
+    print(f"Found upstream repository: {upstream_repo.html_url}")
+    setup_result = setup_repository(
+        repo_url, github_token=os.environ["MERGE_GITHUB_TOKEN"]
     )
-
-    result = workflow.run()
-
-    # Print summary
-    print("\n=== MERGE SUMMARY ===")
-    if result and result.get("success"):
-        merged_prs = result["data"].get("merged_prs", [])
-        failed_prs = result["data"].get("failed_prs", [])
-        closed_prs = [pr for pr in failed_prs if result["data"].get("should_close")]
-        error_prs = [pr for pr in failed_prs if pr not in closed_prs]
-        total_prs = len(merged_prs) + len(failed_prs)
-
-        print(f"Total PRs processed: {total_prs}")
-        print(f"Successfully merged: {len(merged_prs)}")
-
-        if closed_prs:
-            print(f"Closed without merging: {len(closed_prs)}")
-            print("Closed PRs:", ", ".join(f"#{pr}" for pr in closed_prs))
-
-        if error_prs:
-            print(f"Failed to process: {len(error_prs)}")
-            print("Failed PRs:", ", ".join(f"#{pr}" for pr in error_prs))
-    else:
-        error_message = (
-            result.get("message", "Unknown error")
-            if result
-            else "Workflow returned no result"
+    if not setup_result["success"]:
+        raise Exception(
+            f"Error setting up repository: {setup_result.get('message', 'Unknown error')}"
         )
-        print(f"Error running workflow: {error_message}")
 
-    return 0
+    our_fork_url = setup_result["data"]["fork_url"]
+    print(f"Using fork: {our_fork_url}")
+
+    open_prs = list(source_fork.get_pulls(state="open", base=branch))
+    # Sort PRs by creation date (oldest first)
+    open_prs.sort(key=lambda pr: pr.created_at)
+    print(f"\nFound {len(open_prs)} open PRs to process")
+    merged_prs = []
+    failed_prs = []
+
+    for pr in open_prs:
+        # Use the workflow to process all PRs with the limit
+        workflow = LocalMergeConflictWorkflow(
+            client=client,
+            prompts=CONFLICT_PROMPTS,
+            repo_url=repo_url,
+            target_branch=branch,
+            pr_url=pr.html_url,
+        )
+
+        result = workflow.run()
+
+        if result and result["success"]:
+            merged_prs.append(pr.number)
+        else:
+            failed_prs.append(pr.number)
+
+    log_section("Merge summary")
+    log_key_value("Total PRs processed", len(open_prs))
+    log_key_value("Successfully merged", len(merged_prs))
+    log_key_value("Failed to merge", len(failed_prs))
 
 
-def fetch_source_repo(task_id, round_number):
+def create_aggregator_repo(round_number, task_id):
+    """Create an aggregator repo for a given round and task.
+
+    Args:
+        round_number (int): The round number
+        task_id (str): The task ID
+
+    Returns:
+        dict: Dictionary containing:
+            - success (bool): Whether the operation succeeded
+            - message (str): Success/error message
+            - data (dict): Contains fork_url and branch_name if successful
+    """
+    try:
+        # Get source repo info
+        source_repo = fetch_source_repo(task_id)
+        repo_owner = source_repo["repo_owner"]
+        repo_name = source_repo["repo_name"]
+
+        # Initialize GitHub client with token
+        github = gh(os.environ["GITHUB_TOKEN"])
+        username = os.environ["GITHUB_USERNAME"]
+
+        # Check if fork already exists
+        try:
+            fork = github.get_repo(f"{username}/{repo_name}")
+            log_key_value("Using existing fork", fork.html_url)
+        except Exception:
+            # Create new fork if it doesn't exist
+            source = github.get_repo(f"{repo_owner}/{repo_name}")
+            fork = github.get_user().create_fork(source)
+            log_key_value("Created new fork", fork.html_url)
+
+        # Create branch name
+        branch_name = f"round-{round_number}-{task_id}"
+
+        try:
+            # Get the default branch's SHA
+            default_branch = fork.default_branch
+            default_branch_sha = fork.get_branch(default_branch).commit.sha
+
+            # Create branch if it doesn't exist
+            fork.create_git_ref(f"refs/heads/{branch_name}", default_branch_sha)
+            log_key_value("Created new branch", branch_name)
+
+            return {
+                "success": True,
+                "message": "Successfully created aggregator repository",
+                "data": {"fork_url": fork.html_url, "branch_name": branch_name},
+            }
+
+        except Exception as e:
+            log_error(e, "Failed to create branch")
+            return {
+                "success": False,
+                "message": f"Failed to create branch: {str(e)}",
+                "data": None,
+            }
+
+    except Exception as e:
+        log_error(e, "Failed to create aggregator repository")
+        return {
+            "success": False,
+            "message": f"Failed to create aggregator repository: {str(e)}",
+            "data": None,
+        }
+
+
+def fetch_source_repo(task_id):
+    """Fetch the source repo for a given task."""
     response = requests.post(
-        os.environ["MIDDLE_SERVER_URL"] + "/api/fetch-source-repo",
+        os.environ["MIDDLE_SERVER_URL"] + "/api/source-repo",
         json={
             "taskId": task_id,
-            "roundNumber": round_number,
         },
         headers={"Content-Type": "application/json"},
     )
