@@ -166,7 +166,7 @@ class TodoCreatorWorkflow(Workflow):
             log_key_value("Tasks created", task_count)
             log_key_value("Start validation phase", self.tasks)
 
-            self.context["subtasks"] = ", ".join(task.title for task in self.tasks)
+            self.context["subtasks"] = tasks_data
             # Validation phase
             validation_phase = phases.TaskValidationPhase(workflow=self)
             validation_result = validation_phase.execute()
@@ -176,7 +176,8 @@ class TodoCreatorWorkflow(Workflow):
                     Exception(validation_result.get("error", "No result")),
                     "Task validation failed",
                 )
-
+            # TODO: Dependency Phase
+            # TODO: Insert into MongoDB
             # Return the final result
             return {
                 "success": True,
