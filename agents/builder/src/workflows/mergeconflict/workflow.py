@@ -831,7 +831,6 @@ class RemoteMergeConflictWorkflow(Workflow):
                     return {
                         "success": False,
                         "message": f"Failed to resolve conflicts for PR #{self.pr_number}",
-                        "data": None,
                     }
 
             # Commit the merge
@@ -843,17 +842,14 @@ class RemoteMergeConflictWorkflow(Workflow):
                 return {
                     "success": False,
                     "message": f"Failed to push merged changes for PR #{self.pr_number}",
-                    "data": None,
                 }
 
-            return {
-                "success": True,
-                "message": f"Successfully merged PR #{self.pr_number}",
-                "data": {
-                    "merged_prs": [self.pr_number],
-                    "failed_prs": [],
+            return (
+                {
+                    "success": True,
+                    "message": f"Successfully merged PR #{self.pr_number}",
                 },
-            }
+            )
 
         except Exception as e:
             log_error(e, "Failed to run merge conflict resolver workflow")
@@ -864,7 +860,6 @@ class RemoteMergeConflictWorkflow(Workflow):
             return {
                 "success": False,
                 "message": f"Failed to run workflow: {str(e)}",
-                "data": None,
             }
         finally:
             self.cleanup()

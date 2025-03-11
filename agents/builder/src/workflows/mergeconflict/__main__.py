@@ -5,13 +5,13 @@ import argparse
 from dotenv import load_dotenv
 from github import Github
 from src.clients import setup_client
-from src.workflows.mergeconflict import RemoteMergeConflictWorkflow, LocalMergeConflictWorkflow
+from src.workflows.mergeconflict import (
+    RemoteMergeConflictWorkflow,
+    LocalMergeConflictWorkflow,
+)
 from src.workflows.mergeconflict.prompts import PROMPTS
 from src.workflows.utils import setup_repository
 import os
-
-
-
 
 
 def create_consolidation_pr(upstream_repo, fork_url, branch, merged_prs):
@@ -63,7 +63,7 @@ def pr_logic(isLocal):
 
     upstream_repo = source_fork.parent
     print(f"Found upstream repository: {upstream_repo.html_url}")
-    if not isLocal:
+    if isLocal:
         # Create and set up our fork
         print("\n=== SETTING UP REPOSITORY ===")
         setup_result = setup_repository(
@@ -99,7 +99,7 @@ def pr_logic(isLocal):
                 prompts=PROMPTS,
                 repo_url=args.source,
                 target_branch=args.branch,
-                pr_url = pr.html_url,
+                pr_url=pr.html_url,
             )
             result = workflow.run()
         else:
@@ -138,10 +138,6 @@ def pr_logic(isLocal):
     return 0
 
 
-
-
-
-
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Merge conflict resolver workflow")
@@ -158,8 +154,6 @@ def parse_args():
     return parser.parse_args()
 
 
-
-
 if __name__ == "__main__":
     args = load_and_parse_args()
     client = setup_client("anthropic")
@@ -169,5 +163,6 @@ if __name__ == "__main__":
     env_owner = os.environ["GITHUB_USERNAME"]
     leader_is_aggregator = source_owner == env_owner
     logic_function = pr_logic(source_owner == env_owner)
-    print(f"{'Local' if source_owner == env_owner else 'Remote'} repo PR Logic Process Started")
-        
+    print(
+        f"{'Local' if source_owner == env_owner else 'Remote'} repo PR Logic Process Started"
+    )
