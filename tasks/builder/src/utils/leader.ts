@@ -6,52 +6,49 @@ export async function fetchRoundSubmissionGitHubRepoOwner(
   roundNumber: number,
   submitterPublicKey: string,
 ): Promise<string | null> {
-  try{
+  try {
     const taskSubmissionInfo = await namespaceWrapper.getTaskSubmissionInfo(roundNumber);
     if (!taskSubmissionInfo) {
       console.error("NO TASK SUBMISSION INFO");
       return null;
     }
-  const submissions = taskSubmissionInfo.submissions;
-  // This should only have one round
-  const lastRound = Object.keys(submissions).pop();
-  if (!lastRound) {
-    return null;
-  }
-  const lastRoundSubmissions = submissions[lastRound];
-  const lastRoundSubmitterSubmission = lastRoundSubmissions[submitterPublicKey];
-  console.log("lastRoundSubmitterSubmission", { lastRoundSubmitterSubmission });
-  if (!lastRoundSubmitterSubmission) {
-    return null;
-  }
-  const cid = lastRoundSubmitterSubmission.submission_value;
-  const submissionString = await getFile(cid);
-  const submission = JSON.parse(submissionString);
-  console.log({ submission });
+    const submissions = taskSubmissionInfo.submissions;
+    // This should only have one round
+    const lastRound = Object.keys(submissions).pop();
+    if (!lastRound) {
+      return null;
+    }
+    const lastRoundSubmissions = submissions[lastRound];
+    const lastRoundSubmitterSubmission = lastRoundSubmissions[submitterPublicKey];
+    console.log("lastRoundSubmitterSubmission", { lastRoundSubmitterSubmission });
+    if (!lastRoundSubmitterSubmission) {
+      return null;
+    }
+    const cid = lastRoundSubmitterSubmission.submission_value;
+    const submissionString = await getFile(cid);
+    const submission = JSON.parse(submissionString);
+    console.log({ submission });
 
-  // verify the signature of the submission
-  const signaturePayload = await namespaceWrapper.verifySignature(submission.signature, submitterPublicKey);
+    // verify the signature of the submission
+    const signaturePayload = await namespaceWrapper.verifySignature(submission.signature, submitterPublicKey);
 
-  console.log({ signaturePayload });
+    console.log({ signaturePayload });
 
-  // verify the signature payload
-  if (signaturePayload.error || !signaturePayload.data) {
-    console.error("INVALID SIGNATURE");
-    return null;
-  }
-  const data = JSON.parse(signaturePayload.data);
+    // verify the signature payload
+    if (signaturePayload.error || !signaturePayload.data) {
+      console.error("INVALID SIGNATURE");
+      return null;
+    }
+    const data = JSON.parse(signaturePayload.data);
 
-  if (
-    data.taskId !== TASK_ID ||
-    data.stakingKey !== submitterPublicKey
-  ) {
-    console.error("INVALID SIGNATURE DATA");
-    return null;
-  }
-  if (!data.githubUsername) {
-    console.error("NO GITHUB USERNAME");
-    console.log("data", { data });
-    return null;
+    if (data.taskId !== TASK_ID || data.stakingKey !== submitterPublicKey) {
+      console.error("INVALID SIGNATURE DATA");
+      return null;
+    }
+    if (!data.githubUsername) {
+      console.error("NO GITHUB USERNAME");
+      console.log("data", { data });
+      return null;
     }
     return data.githubUsername;
   } catch (error) {
@@ -72,7 +69,6 @@ export async function selectShortestDistance(keys: string[], submitterPublicKey:
   }
   return closestKey;
 }
-
 
 async function getSubmissionInfo(roundNumber: number): Promise<any> {
   try {
@@ -107,24 +103,42 @@ function handleAuditTrigger(submissionAuditTrigger: any): Set<string> {
   return auditTriggerKeys;
 }
 
-async function selectLeaderKey(sortedKeys: string[], leaderNumber: number, submitterPublicKey: string, submissionPublicKeysFrequency: Record<string, number>): Promise<string> {
+async function selectLeaderKey(
+  sortedKeys: string[],
+  leaderNumber: number,
+  submitterPublicKey: string,
+  submissionPublicKeysFrequency: Record<string, number>,
+): Promise<string> {
   const topValue = sortedKeys[leaderNumber - 1];
   const count = sortedKeys.filter(
-    (key) => submissionPublicKeysFrequency[key] === submissionPublicKeysFrequency[topValue],
+    (key) => submissionPublicKeysFrequency[key] >= submissionPublicKeysFrequency[topValue],
   ).length;
 
   if (count >= leaderNumber) {
     const rng = seedrandom(String(TASK_ID));
-    const randomKeys = sortedKeys.sort(() => rng() - 0.5).slice(0, leaderNumber);
-    return await selectShortestDistance(randomKeys, submitterPublicKey);
+    const guaranteedKeys = sortedKeys.filter(
+      (key) => submissionPublicKeysFrequency[key] > submissionPublicKeysFrequency[topValue],
+    );
+    const randomKeys = sortedKeys
+      .filter((key) => submissionPublicKeysFrequency[key] === submissionPublicKeysFrequency[topValue])
+      .sort(() => rng() - 0.5)
+      .slice(0, leaderNumber - guaranteedKeys.length);
+    const keys = [...guaranteedKeys, ...randomKeys];
+    return await selectShortestDistance(keys, submitterPublicKey);
   } else {
-    return sortedKeys[leaderNumber - 1];
+    const keys = sortedKeys.slice(0, leaderNumber);
+    return await selectShortestDistance(keys, submitterPublicKey);
   }
 }
 
-export async function getLeaderNode({roundNumber, leaderNumber = 5, submitterPublicKey}: {roundNumber: number, leaderNumber?: number, submitterPublicKey: string}): Promise<{isLeader: boolean, leaderNode: string}> {
+// Helper function that finds the leader for a specific round
+async function getLeaderForRound(
+  roundNumber: number,
+  leaderNumber: number,
+  submitterPublicKey: string,
+): Promise<{ chosenKey: string | null; leaderNode: string | null }> {
   if (roundNumber <= 1) {
-    return {isLeader: false, leaderNode: "koii-network"};
+    return { chosenKey: null, leaderNode: null };
   }
 
   const submissionPublicKeysFrequency: Record<string, number> = {};
@@ -138,7 +152,7 @@ export async function getLeaderNode({roundNumber, leaderNumber = 5, submitterPub
       Object.assign(submissionPublicKeysFrequency, frequency);
 
       const auditTriggerKeys = handleAuditTrigger(taskSubmissionInfo.submissions_audit_trigger);
-      auditTriggerKeys.forEach(key => submissionAuditTriggerKeys.add(key));
+      auditTriggerKeys.forEach((key) => submissionAuditTriggerKeys.add(key));
     }
   }
 
@@ -150,23 +164,42 @@ export async function getLeaderNode({roundNumber, leaderNumber = 5, submitterPub
   );
 
   if (sortedKeys.length < leaderNumber) {
-    return {isLeader: false, leaderNode: "koii-network"};
+    return { chosenKey: null, leaderNode: null };
   }
 
   const chosenKey = await selectLeaderKey(sortedKeys, leaderNumber, submitterPublicKey, submissionPublicKeysFrequency);
 
-  if (chosenKey == submitterPublicKey) {
-    return {isLeader: true, leaderNode: "koii-network"};
-  }
-
+  // Find GitHub username for the chosen key
   for (let i = 1; i < 5; i++) {
     const githubUsername = await fetchRoundSubmissionGitHubRepoOwner(roundNumber - i, chosenKey);
     if (githubUsername) {
-      return {isLeader: false, leaderNode: githubUsername};
+      return { chosenKey, leaderNode: githubUsername };
     }
   }
 
-  return {isLeader: false, leaderNode: "koii-network"};
+  return { chosenKey, leaderNode: null };
+}
+
+export async function getLeaderNode({
+  roundNumber,
+  leaderNumber = 5,
+  submitterPublicKey,
+}: {
+  roundNumber: number;
+  leaderNumber?: number;
+  submitterPublicKey: string;
+}): Promise<{ isLeader: boolean; leaderNode: string | null }> {
+  // Find leader for current round
+  const currentLeader = await getLeaderForRound(roundNumber, leaderNumber, submitterPublicKey);
+
+  if (currentLeader.chosenKey === submitterPublicKey) {
+    // If we're the leader, get the leader from 3 rounds ago
+    const previousLeader = await getLeaderForRound(roundNumber - 3, leaderNumber, submitterPublicKey);
+    return { isLeader: true, leaderNode: previousLeader.leaderNode };
+  }
+
+  // Not the leader, return the current leader's info
+  return { isLeader: false, leaderNode: currentLeader.leaderNode };
 }
 
 function base58ToNumber(char: string): number {
@@ -189,29 +222,4 @@ function knnDistance(a: string, b: string): number {
   }
 
   return distance;
-}
-
-// @deprecated
-function levenshteinDistance(a: string, b: string): number {
-  const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
-
-  for (let i = 0; i <= a.length; i++) {
-    matrix[i][0] = i;
-  }
-  for (let j = 0; j <= b.length; j++) {
-    matrix[0][j] = j;
-  }
-
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1, // delete
-        matrix[i][j - 1] + 1, // insert
-        matrix[i - 1][j - 1] + cost, // replace
-      );
-    }
-  }
-
-  return matrix[a.length][b.length];
 }

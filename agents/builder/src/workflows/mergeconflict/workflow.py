@@ -16,8 +16,8 @@ from src.workflows.utils import (
     get_current_files,
     clone_repository,
 )
-"""Merge conflict resolver workflow implementation."""
 
+"""Merge conflict resolver workflow implementation."""
 
 
 class LocalMergeConflictWorkflow(Workflow):
@@ -643,7 +643,7 @@ class LocalMergeConflictWorkflow(Workflow):
                     ),
                     "Continuing to next PR",
                 )
-                    # Continue to the next PR instead of breaking
+                # Continue to the next PR instead of breaking
 
             return {
                 "success": True,
@@ -662,6 +662,7 @@ class LocalMergeConflictWorkflow(Workflow):
             }
         finally:
             self.cleanup()
+
 
 class RemoteMergeConflictWorkflow(Workflow):
     def __init__(
