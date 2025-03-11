@@ -16,6 +16,8 @@ from git import Repo, GitCommandError
 from src.tools.github_operations.templates import TEMPLATES
 
 import csv
+import uuid
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -663,14 +665,14 @@ def generate_tasks(
     file_name: str = "tasks.csv",
     repo_url: str = None,
 ) -> dict:
-    """Generate a CSV file containing tasks.
+    """Generate a JSON file containing tasks.
 
     Args:
         tasks: List of task dictionaries, each containing:
             - title: Task title
             - description: Task description
             - acceptance_criteria: List of acceptance criteria
-        file_name: Name of the output CSV file
+        file_name: Name of the output JSON file
         repo_url: URL of the repository (for reference)
 
     Returns:
@@ -678,7 +680,7 @@ def generate_tasks(
             - success: Whether the operation succeeded
             - message: Success/error message
             - data: Dictionary containing:
-                - file_path: Path to the generated CSV file
+                - file_path: Path to the generated JSON file
                 - task_count: Number of tasks written
                 - tasks: List of task dictionaries
             - error: Error message if any
@@ -688,23 +690,18 @@ def generate_tasks(
         data_dir = "/home/herman/Downloads/builder-247/data"
         os.makedirs(data_dir, exist_ok=True)
 
-        # Full path for the CSV file
+        # Full path for the JSON file
         file_path = os.path.join(data_dir, file_name)
 
-        # Write tasks to CSV
-        with open(file_path, "w", newline="") as f:
-            writer = csv.writer(f)
-            # Write headers
-            writer.writerow(["Title", "Description", "Acceptance Criteria"])
-            # Write tasks
+        # Write tasks to JSON
+        with open(file_path, "w") as f:
+            # Add a UUID to each task
             for task in tasks:
-                writer.writerow(
-                    [
-                        task["title"],
-                        task["description"],
-                        "\n".join(task["acceptance_criteria"]),
-                    ]
-                )
+                task_uuid = str(uuid.uuid4())
+                task["uuid"] = task_uuid
+
+            # Write tasks to JSON file
+            json.dump(tasks, f, indent=4)
 
         return {
             "success": True,
@@ -725,16 +722,55 @@ def generate_tasks(
             "error": str(e),
         }
 
-def validate_tasks(tasks: List[Dict[str, Any]]) -> ToolOutput:
+def validate_tasks(decisions: List[Dict[str, Any]], filename: str = "decisions.json") -> dict:
     """Validate the tasks.
 
     Args:
-        tasks: List of task dictionaries
+        decisions: List of decisions, each containing:
+            - uuid: UUID of the task
+            - comment: Comment on the task
+            - decision: Decision on the task, True or False
+        file_name: Name of the output JSON file
 
     Returns:
-        ToolOutput: Standardized tool output with success status and error message if any
+        dict: Result of the operation containing:
+            - success: Whether the operation succeeded
+            - message: Success/error message
+            - data: Dictionary containing:
+                - file_path: Path to the generated JSON file
+                - task_count: Number of tasks written
+                - tasks: List of task dictionaries
+            - error: Error message if any
     """
     try:
-        # Validate each task
-        for task in tasks:
-    
+        # Ensure data directory exists
+        data_dir = "/home/herman/Downloads/builder-247/data"
+        os.makedirs(data_dir, exist_ok=True)
+
+        # Generate the full file path
+        file_path = os.path.join(data_dir, filename)
+
+        # Write decisions to JSON file
+        with open(file_path, "w") as f:
+            json.dump(decisions, f, indent=4)
+
+        return {
+            "success": True,
+            "message": f"Successfully validated {len(decisions)} tasks",
+            "data": {
+                "file_path": file_path,
+                "task_count": len(decisions),
+                "tasks": decisions,
+            },
+            "error": None,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to validate tasks: {str(e)}",
+            "data": None,
+            "error": str(e),
+        }
+
+

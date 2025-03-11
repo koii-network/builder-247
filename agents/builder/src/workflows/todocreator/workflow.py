@@ -110,6 +110,7 @@ class TodoCreatorWorkflow(Workflow):
 
         # Add feature spec to context
         self.context["feature_spec"] = self.feature_spec
+        
 
     def cleanup(self):
         """Cleanup workspace."""
@@ -163,16 +164,18 @@ class TodoCreatorWorkflow(Workflow):
 
             log_key_value("JSON file created at", output_json)
             log_key_value("Tasks created", task_count)
+            log_key_value("Start validation phase", self.tasks)
 
+            self.context["subtasks"] = ", ".join(task.title for task in self.tasks)
             # Validation phase
-            # validation_phase = phases.TaskValidationPhase(workflow=self)
-            # validation_result = validation_phase.execute()
+            validation_phase = phases.TaskValidationPhase(workflow=self)
+            validation_result = validation_phase.execute()
 
-            # if not validation_result or not validation_result.get("success"):
-            #     log_error(
-            #         Exception(validation_result.get("error", "No result")),
-            #         "Task validation failed",
-            #     )
+            if not validation_result or not validation_result.get("success"):
+                log_error(
+                    Exception(validation_result.get("error", "No result")),
+                    "Task validation failed",
+                )
 
             # Return the final result
             return {

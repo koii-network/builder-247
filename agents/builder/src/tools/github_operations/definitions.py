@@ -6,6 +6,7 @@ from src.tools.github_operations.implementations import (
     generate_analysis,
     merge_pull_request,
     generate_tasks,
+    validate_tasks,
 )
 
 DEFINITIONS = {
@@ -294,13 +295,13 @@ DEFINITIONS = {
     },
     "generate_tasks": {
         "name": "generate_tasks",
-        "description": "Generate a CSV file containing tasks from a feature breakdown.",
+        "description": "Generate a JSON file containing tasks from a feature breakdown.",
         "parameters": {
             "type": "object",
             "properties": {
                 "tasks": {
                     "type": "array",
-                    "description": "List of tasks to write to CSV",
+                    "description": "List of tasks to write to JSON",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -327,8 +328,8 @@ DEFINITIONS = {
                 },
                 "file_name": {
                     "type": "string",
-                    "description": "Name of the output CSV file",
-                    "default": "tasks.csv",
+                    "description": "Name of the output JSON file",
+                    "default": "tasks.json",
                 },
                 "repo_url": {
                     "type": "string",
@@ -340,5 +341,45 @@ DEFINITIONS = {
         },
         "final_tool": True,
         "function": generate_tasks,
+    },
+    "validate_tasks": {
+        "name": "validate_tasks",
+        "description": "Generate a JSON file containing decisions on tasks from a feature breakdown.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "decisions": {
+                    "type": "array",
+                    "description": "List of decisions on tasks",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "uuid": {
+                                "type": "string",
+                                "description": "UUID of the task",
+                            },
+                            "comment": {
+                                "type": "string",
+                                "description": "Comment on the task",
+                            },
+                            "decision": {
+                                "type": "boolean",
+                            },
+                        },
+                        "required": ["uuid", "comment", "decision"],
+                        "additionalProperties": False,
+                    },
+                },
+                "file_name": {
+                    "type": "string",
+                    "description": "Name of the output JSON file",
+                    "default": "decisions.json",
+                },
+            },
+            "required": ["decisions"],
+            "additionalProperties": False,
+        },
+        "final_tool": True,
+        "function": validate_tasks,
     },
 }
