@@ -7,6 +7,7 @@ from src.workflows.base import Workflow
 from src.utils.logging import log_key_value, log_error, log_section
 from src.workflows.mergeconflict import phases
 from src.tools.git_operations.implementations import get_conflict_info
+from src.tools.github_operations.implementations import sync_fork
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
@@ -54,6 +55,7 @@ class LocalMergeConflictWorkflow(Workflow):
         # Set up repository directory
         repo_path, original_dir = setup_repo_directory()
         self.context["repo_path"] = repo_path
+        sync_fork(repo_path)
         self.original_dir = original_dir
 
         # Clone repository
@@ -701,6 +703,7 @@ class RemoteMergeConflictWorkflow(Workflow):
             # Set up repository directory
             repo_path, original_dir = setup_repo_directory()
             self.context["repo_path"] = repo_path
+            sync_fork(repo_path)
             self.context["original_dir"] = original_dir
 
             # Clone our fork
