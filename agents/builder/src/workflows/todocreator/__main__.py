@@ -75,7 +75,7 @@ def main():
                 print(f"- {issue}")
     else:
         # If not found at the returned path, check if it's in the project's data directory
-        project_data_dir = "/home/laura/git/github/builder-247/data"
+        project_data_dir = "/home/herman/Downloads/builder-247/data"
         file_name = os.path.basename(args.output)
         alternative_path = os.path.join(project_data_dir, file_name)
 

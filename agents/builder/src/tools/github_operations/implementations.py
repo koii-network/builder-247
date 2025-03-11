@@ -502,7 +502,7 @@ def generate_analysis(
     """
     try:
         # Use the project's main data directory instead of a local one
-        data_dir = "/home/laura/git/github/builder-247/data"
+        data_dir = "/home/herman/Downloads/builder-247/data"
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
 
@@ -685,7 +685,7 @@ def generate_tasks(
     """
     try:
         # Ensure data directory exists
-        data_dir = "/home/laura/git/github/builder-247/data"
+        data_dir = "/home/herman/Downloads/builder-247/data"
         os.makedirs(data_dir, exist_ok=True)
 
         # Full path for the CSV file
