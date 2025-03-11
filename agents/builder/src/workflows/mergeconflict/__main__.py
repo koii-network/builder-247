@@ -1,6 +1,5 @@
 """Command-line interface for the merge conflict resolver workflow."""
 
-import sys
 import argparse
 from dotenv import load_dotenv
 from github import Github
