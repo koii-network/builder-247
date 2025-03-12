@@ -363,3 +363,56 @@ def verify_pr_signatures(
     )
 
     return not bool(result.get("error"))
+
+
+def create_remote_branch(
+    repo_owner: str,
+    repo_name: str,
+    branch_name: str,
+    base_branch: str = "main",
+    github_token: Optional[str] = None,
+) -> dict:
+    """Create a branch on a GitHub repository.
+
+    Args:
+        repo_owner: Owner of the repository
+        repo_name: Name of the repository
+        branch_name: Name of the branch to create
+        base_branch: Base branch to create from (default: main)
+        github_token: Optional GitHub token to use. Defaults to GITHUB_TOKEN env var.
+
+    Returns:
+        dict: Result with success status and branch info if successful
+    """
+    try:
+        token = github_token or os.environ["GITHUB_TOKEN"]
+        gh = Github(token)
+        repo = gh.get_repo(f"{repo_owner}/{repo_name}")
+
+        # Get the base branch's latest commit
+        base = repo.get_branch(base_branch)
+        base_sha = base.commit.sha
+
+        # Create the new branch
+        ref = f"refs/heads/{branch_name}"
+        repo.create_git_ref(ref=ref, sha=base_sha)
+
+        return {
+            "success": True,
+            "message": f"Successfully created branch {branch_name}",
+            "data": {
+                "branch_name": branch_name,
+                "base_branch": base_branch,
+                "base_sha": base_sha,
+            },
+        }
+
+    except Exception as e:
+        error_msg = str(e)
+        log_error(e, "Branch creation failed")
+        return {
+            "success": False,
+            "message": "Failed to create branch",
+            "data": None,
+            "error": error_msg,
+        }
