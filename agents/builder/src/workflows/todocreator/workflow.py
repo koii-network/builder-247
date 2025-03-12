@@ -14,7 +14,7 @@ from src.workflows.utils import (
     cleanup_repo_directory,
     get_current_files,
 )
-from src.workflows.todocreator.utils import Task, insert_task_to_mongodb
+from src.workflows.todocreator.utils import TaskModel, insert_task_to_mongodb
 
 class Task:
     def __init__(self, title: str, description: str, acceptance_criteria: list[str]):
@@ -170,12 +170,39 @@ class TodoCreatorWorkflow(Workflow):
                     "Task validation failed",
                 )
             decisions = validation_result["data"]["decisions"]
-            print(decisions)
+            
+            # TODO: Rework until all the tasks are valid
+            self.context["auditedSubtasks"] = []
+            for uuid, decision in decisions.items():
+                if decision["decision"] == False:
+                    self.context["auditedSubtasks"].append(tasks_data[uuid])
+            self.context["feedbacks"] = decisions
+            if len(self.context["auditedSubtasks"]) > 0:
+                regenerate_phase = phases.TaskRegenerationPhase(workflow=self)
+                regenerate_result = regenerate_phase.execute()
+                if not regenerate_result or not regenerate_result.get("success"):
+                    log_error(
+                        Exception(regenerate_result.get("error", "No result")),
+                        "Task regeneration failed",
+                    )
+                # replace the tasks with the new tasks
+                tasks_data = regenerate_result["data"]["tasks"]
+                # replace the self.context["subtasks"] with the new tasks
+                for task in tasks_data:
+                    self.context["subtasks"][task["uuid"]] = task
+                print("Regenerated tasks:")
+                print(tasks_data)
+                        
+
+
             # TODO: Dependency Phase
+            dependency_phase = phases.TaskDependencyPhase(workflow=self)
             # TODO: Insert into MongoDB
             for task in tasks_data:
                 if decisions[task["uuid"]]["decision"] == True:
                     print(task["title"])
+                    task_model = TaskModel(title=task["title"], description=task["description"], acceptance_criteria=task["acceptance_criteria"], repoOwner=self.context["repo_owner"], repoName=self.context["repo_name"])
+                    insert_task_to_mongodb(task_model)
 
             # Return the final result
             return {

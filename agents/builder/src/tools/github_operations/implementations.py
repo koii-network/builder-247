@@ -700,43 +700,46 @@ def generate_tasks(
             "data": None,
             "error": str(e),
         }    
-    # try:
-    #     # Ensure data directory exists
-    #     data_dir = "/home/herman/Downloads/builder-247/data"
-    #     os.makedirs(data_dir, exist_ok=True)
 
-    #     # Full path for the JSON file
-    #     file_path = os.path.join(data_dir, file_name)
+def regenerate_tasks(
+    tasks: List[Dict[str, Any]] = None,
+) -> dict:
+    """Regenerate the tasks.
 
-    #     # Write tasks to JSON
-    #     with open(file_path, "w") as f:
-    #         # Add a UUID to each task
-    #         for task in tasks:
-    #             task_uuid = str(uuid.uuid4())
-    #             task["uuid"] = task_uuid
+    Args:
+        tasks: List of task dictionaries, each containing:
+            - title: Task title
+            - description: Task description
+            - acceptance_criteria: List of acceptance criteria
+            - uuid: UUID of the task
 
-    #         # Write tasks to JSON file
-    #         json.dump(tasks, f, indent=4)
-
-    #     return {
-    #         "success": True,
-    #         "message": f"Successfully generated {len(tasks)} tasks",
-    #         "data": {
-    #             "file_path": file_path,
-    #             "task_count": len(tasks),
-    #             "tasks": tasks,
-    #         },
-    #         "error": None,
-    #     }
-
-    # except Exception as e:
-    #     return {
-    #         "success": False,
-    #         "message": f"Failed to generate tasks: {str(e)}",
-    #         "data": None,
-    #         "error": str(e),
-    #     }
-
+    Returns:
+        dict: Result of the operation containing:
+            - success: Whether the operation succeeded
+            - message: Success/error message
+            - data: Dictionary containing:
+                - task_count: Number of tasks written
+                - tasks: List of task dictionaries
+            - error: Error message if any
+    """
+    try:
+        return {
+            "success": True,
+            "message": f"Successfully regenerated {len(tasks)} tasks",
+            "data": {
+                "task_count": len(tasks),
+                "tasks": tasks,
+            },
+            "error": None,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to regenerate tasks: {str(e)}",
+            "data": None,
+            "error": str(e),
+        }   
+    
 def validate_tasks(decisions: List[Dict[str, Any]]) -> dict:
     """Validate the tasks.
 
@@ -752,7 +755,7 @@ def validate_tasks(decisions: List[Dict[str, Any]]) -> dict:
             - message: Success/error message
             - data: Dictionary containing:
                 - decision_count: Number of decisions
-                - decisions: List of decision dictionaries
+                - decisions: Dictionary of decision dictionaries
             - error: Error message if any
     """
     try:
@@ -779,3 +782,17 @@ def validate_tasks(decisions: List[Dict[str, Any]]) -> dict:
         }
 
 
+# def update_dependency_tasks(task_uuid: str, dependency_tasks: List[str]) -> dict:
+#     """Update the dependency tasks for a task.
+
+#     Args:
+#         task_uuid: UUID of the task
+#         dependency_tasks: List of UUIDs of dependency tasks
+#     """
+#     try:
+#         # Get the task from the database
+#         task = get_task_by_uuid(task_uuid)
+#         # Update the dependency tasks
+#         task["dependency_tasks"] = dependency_tasks
+#     except Exception as e:
+#         return {"success": False, "message": f"Failed to update dependency tasks: {str(e)}", "data": None, "error": str(e)}

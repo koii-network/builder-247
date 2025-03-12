@@ -17,7 +17,7 @@ class TaskModel(BaseModel):
     repoName: str = Field(..., description="Repository name")
     status: str = Field(default="Initialized", description="Task status")
     assignedTo: List[str] = Field(default=[], description="List of assigned to")
-
+    dependencyTasks: List[str] = Field(default=[], description="List of dependency tasks")
     def to_dict(self):
         """Convert Task object to dictionary format for storing in MongoDB"""
         return self.model_dump()

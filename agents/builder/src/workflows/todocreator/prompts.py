@@ -48,5 +48,40 @@ PROMPTS = {
         "Subtasks to validate:\n{subtasks}\n\n"
         "If any issues are found, provide specific recommendations for improvement."
     ),
+    "regenerate_subtasks": (
+        "Your task is to regenerate the following small, discrete subtasks based on the feedback provided:\n\n"
+        "Failed Subtasks: {auditedSubtasks}\n"
+        "Feedbacks: {feedbacks}\n"
+        "For each subtask, you must provide:\n"
+        "1. A clear, specific title\n"
+        "2. A detailed description of the work required\n"
+        "3. Clear acceptance criteria that can be verified\n\n"
+        "Guidelines for task breakdown:\n"
+        "- Each task should follow the Single Responsibility Principle - do one thing and do it well\n"
+        "- Tasks should represent a single logical change (e.g., one schema change, one API endpoint)\n"
+        "- Tasks should be independently testable and have test cases\n"
+        "- Tasks should be divided into separate unit and integration test tasks, each with specific test coverage\n"
+        "- Tasks should be small enough that their implementation approach is clear\n"
+        "- Consider separation of concerns (e.g., separate backend/frontend/database tasks)\n"
+        "- Include necessary setup/infrastructure tasks\n"
+        "- Consider testing requirements and ensure each task includes a test that must pass\n"
+        "- Account for documentation needs\n"
+        "- Tasks should be specific and focused,\n"
+        "- Tasks should include detailed steps,\n"
+        "- Consider using try logic to handle potential exceptions appropriately\n\n"
+        "Current repository structure:\n{current_files}\n\n"
+        "Format each subtask as follows:\n"
+        "---\n"
+        "Title: [Concise task title]\n"
+        "Description: [Detailed explanation]\n"
+        "Acceptance Criteria:\n"
+        "- [Criterion 1]\n"
+        "- [Criterion 2]\n"
+    ),
+    "dependency_tasks": (
+        "Review the following subtasks and determine if there are any dependencies between them.\n"
+        "Subtasks:\n{subtasks}\n\n"
+        "If any dependencies are found, link the subtasks together.\n"
+    ),
 
 }

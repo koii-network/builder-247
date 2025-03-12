@@ -7,6 +7,7 @@ from src.tools.github_operations.implementations import (
     merge_pull_request,
     generate_tasks,
     validate_tasks,
+    regenerate_tasks,
 )
 
 DEFINITIONS = {
@@ -341,6 +342,59 @@ DEFINITIONS = {
         },
         "final_tool": True,
         "function": generate_tasks,
+    },
+    "regenerate_tasks": {
+        "name": "regenerate_tasks",
+        "description": "Regenerate the tasks.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "description": "List of tasks",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string",
+                                "description": "Clear, specific title of the task",
+                                "maxLength": 100,
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Detailed explanation of the work required",
+                                "minLength": 10,
+                            },
+                            "acceptance_criteria": {
+                                "type": "array",
+                                "description": "List of verifiable acceptance criteria",
+                                "items": {"type": "string", "minLength": 1},
+                                "minItems": 1,
+                            },
+                            "uuid": {
+                                "type": "string",
+                                "description": "UUID of the task",
+                            },
+                        },
+                        "required": ["title", "description", "acceptance_criteria", "uuid"],
+                        "additionalProperties": False,
+                    },
+                },
+                # "file_name": {
+                #     "type": "string",
+                #     "description": "Name of the output JSON file",
+                #     "default": "tasks.json",
+                # },
+                # "repo_url": {
+                #     "type": "string",
+                #     "description": "URL of the repository (for reference)",
+                # },
+            },
+            "required": ["tasks"],
+            "additionalProperties": False,
+        },
+        "final_tool": True,
+        "function": regenerate_tasks,
     },
     "validate_tasks": {
         "name": "validate_tasks",
