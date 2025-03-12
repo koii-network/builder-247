@@ -157,7 +157,6 @@ class TodoCreatorWorkflow(Workflow):
             
             log_key_value("JSON file created at", output_json)
             log_key_value("Tasks created", task_count)
-
             self.context["subtasks"] = tasks_data
             print(self.context["subtasks"])
             # Validation phase
@@ -173,9 +172,15 @@ class TodoCreatorWorkflow(Workflow):
             
             # TODO: Rework until all the tasks are valid
             self.context["auditedSubtasks"] = []
+            # decisions_flag =  True
             for uuid, decision in decisions.items():
+                # decision["decision"] = False
                 if decision["decision"] == False:
-                    self.context["auditedSubtasks"].append(tasks_data[uuid])
+                    task = next((task for task in tasks_data if task["uuid"] == uuid), None)
+                    if task:
+                        self.context["auditedSubtasks"].append(task)
+                    # decisions_flag = False
+            
             self.context["feedbacks"] = decisions
             if len(self.context["auditedSubtasks"]) > 0:
                 regenerate_phase = phases.TaskRegenerationPhase(workflow=self)
@@ -186,22 +191,37 @@ class TodoCreatorWorkflow(Workflow):
                         "Task regeneration failed",
                     )
                 # replace the tasks with the new tasks
-                tasks_data = regenerate_result["data"]["tasks"]
+                regenerated_tasks_data = regenerate_result["data"]["tasks"]
                 # replace the self.context["subtasks"] with the new tasks
-                for task in tasks_data:
-                    self.context["subtasks"][task["uuid"]] = task
-                print("Regenerated tasks:")
-                print(tasks_data)
-                        
+                for task in regenerated_tasks_data:
+       
+                    index = next((i for i, t in enumerate(tasks_data) if t["uuid"] == task["uuid"]), None)
+                    if index is not None:
+                        # decisions[task["uuid"]]["decision"] = True
+                        tasks_data[index] = task
+                    else:
+            
+                        tasks_data.append(task)
 
+            # Print regenerated tasks
+            print("Regenerated tasks:")
+            print(tasks_data)
 
-            # TODO: Dependency Phase
-            dependency_phase = phases.TaskDependencyPhase(workflow=self)
-            # TODO: Insert into MongoDB
+            # Ensure the code continues to execute after printing
+            # # TODO: Dependency Phase
+            # dependency_phase = phases.TaskDependencyPhase(workflow=self)
+
+            # Insert into MongoDB
             for task in tasks_data:
                 if decisions[task["uuid"]]["decision"] == True:
                     print(task["title"])
-                    task_model = TaskModel(title=task["title"], description=task["description"], acceptance_criteria=task["acceptance_criteria"], repoOwner=self.context["repo_owner"], repoName=self.context["repo_name"])
+                    task_model = TaskModel(
+                        title=task["title"],
+                        description=task["description"],
+                        acceptance_criteria=task["acceptance_criteria"],
+                        repoOwner=self.context["repo_owner"],
+                        repoName=self.context["repo_name"]
+                    )
                     insert_task_to_mongodb(task_model)
 
             # Return the final result
