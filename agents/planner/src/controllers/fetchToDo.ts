@@ -5,7 +5,7 @@ import { TodoModel, TodoStatus } from "../models/Todo";
 import { verifySignature } from "../utils/sign";
 import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
-
+import { IssueModel, IssueStatus } from "../models/Issue";
 // Verify the request body contains the right data
 function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
   console.log("verifyRequestBody", req.body);
@@ -219,6 +219,29 @@ export const fetchTodo = async (req: Request, res: Response) => {
       });
       return;
     }
+    // Dependency Task PR URLs
+    const dependencyTaskPRUrls = [];
+    for (const dependency of updatedTodo.dependencyTasks) {
+      const dependencyTask = await TodoModel.findOne({
+        _id: dependency,
+      });
+      
+      const firstValidAssignment = dependencyTask?.assignedTo.find((assignment: any) => assignment.prUrl);
+      dependencyTaskPRUrls.push(firstValidAssignment?.prUrl);
+    }
+    // Elect Leader/Aggregator Node Part
+    // Check all issues if there is any issue in ASSIGN_PENDING status, if there is, return the issue uuid
+    const issue = await IssueModel.findOne({
+      status: IssueStatus.ASSIGN_PENDING,
+    });
+    let electLeader = false;
+    let issueUuid = "";
+    if (issue){
+      issueUuid = issue.issueUuid;
+      electLeader = true;
+    }
+    // Elect Leader/Aggregator Node Part
+    
     res.status(200).json({
       success: true,
       data: {

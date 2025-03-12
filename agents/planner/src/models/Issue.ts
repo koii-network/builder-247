@@ -11,7 +11,7 @@ modelOptions({
 
 enum IssueStatus {
   INITIALIZED = "initialized",
-  AUDIT_PENDING = "audit_pending", // Means assigned to a leader node
+  ASSIGN_PENDING = "assign_pending", // Means assigned to a leader node
   IN_REVIEW = "in_review", // Means a PR is opened and waiting for review
   MERGED = "merged",// Means a PR is merged manually
 }
