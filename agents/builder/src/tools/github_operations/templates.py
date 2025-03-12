@@ -42,6 +42,23 @@ TEMPLATES = {
 <!-- BEGIN_TITLE -->
 # {title}
 <!-- END_TITLE -->
+
+## Description
+### Consolidated Pull Requests
+<!-- BEGIN_CONSOLIDATED_PRS -->
+{consolidated_prs}
+<!-- END_CONSOLIDATED_PRS -->
+
+## Signatures
+### Staking Key
+<!-- BEGIN_STAKING_KEY -->
+{staking_key}: {staking_signature}
+<!-- END_STAKING_KEY -->
+
+### Public Key
+<!-- BEGIN_PUB_KEY -->
+{pub_key}: {public_signature}
+<!-- END_PUB_KEY -->
 """,
     "review_template": """## Pull Request Review
 

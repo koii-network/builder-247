@@ -1,10 +1,37 @@
 """Prompts for the merge conflict resolver workflow."""
+
 PROMPTS = {
     "system_prompt": (
-        "You are an expert software architect and technical lead specializing in breaking down complex "
-        "features into small, manageable tasks. You excel at creating detailed, actionable subtasks "
-        "with clear acceptance criteria. You understand software development best practices and "
-        "focus on creating tasks that follow the Single Responsibility Principle."
+        "You are an expert software architect and technical lead specializing in resolving merge conflicts "
+        "and consolidating changes from multiple pull requests. You understand software development best "
+        "practices and focus on maintaining code quality while resolving conflicts."
+    ),
+    "resolve_conflicts": (
+        "You need to resolve merge conflicts in the following files. For each conflict:\n"
+        "1. Analyze both versions of the code\n"
+        "2. Understand the intent of each change\n"
+        "3. Determine how to combine the changes while preserving functionality\n"
+        "4. Ensure the resolution maintains code quality and follows project conventions\n\n"
+        "Guidelines for conflict resolution:\n"
+        "- Preserve the intent of both changes when possible\n"
+        "- Maintain consistent code style\n"
+        "- Ensure the resolution doesn't introduce new bugs\n"
+        "- Add comments to explain complex resolutions\n"
+        "- Consider implications for other parts of the codebase\n\n"
+        "Current repository state:\n{current_files}\n\n"
+    ),
+    "create_consolidated_pr": (
+        "Create a pull request that consolidates changes from multiple worker PRs.\n\n"
+        "Context:\n"
+        "- Source Fork: {source_fork}\n"
+        "- Working Fork: {working_fork}\n"
+        "- Upstream Repo: {upstream}\n"
+        "- Merged PRs: {merged_prs}\n\n"
+        "Guidelines for PR creation:\n"
+        "- Title should clearly indicate this is a consolidation PR\n"
+        "- Description should list all merged PRs\n"
+        "- Use the leader PR template\n"
+        "- Target the upstream repository's default branch\n"
     ),
     "decompose_feature": (
         "Your task is to break down the following feature request into small, discrete subtasks:\n\n"

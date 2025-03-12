@@ -6,14 +6,11 @@ from flask import jsonify
 from github import Github as gh
 from src.database import get_db, Submission
 from src.clients import setup_client
-from src.workflows.utils import setup_repository
 from src.workflows.task.workflow import TaskWorkflow
-from src.workflows.mergeconflict.workflow import LocalMergeConflictWorkflow
+from src.workflows.mergeconflict.workflow import MergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
-from src.utils.logging import logger, log_error, log_section, log_key_value
-from src.tools.github_operations.parser import extract_section
-from src.utils.signatures import verify_and_parse_signature
+from src.utils.logging import logger, log_error, log_key_value
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -150,13 +147,25 @@ def record_pr(signature, staking_key, pub_key, pr_url, round_number):
         return "Error submitting PR"
 
 
-def consolidate_prs(task_id, round_number, distribution_list):
+def consolidate_prs(
+    task_id,
+    round_number,
+    distribution_list,
+    submitter_staking_key,
+    pub_key,
+    staking_signature,
+    public_signature,
+):
     """Consolidate PRs from workers.
 
     Args:
         task_id (str): The task ID
         round_number (int): The round number
         distribution_list (dict): Dictionary mapping staking keys to amounts
+        submitter_staking_key (str): Leader's staking key
+        pub_key (str): Leader's public key
+        staking_signature (str): Leader's staking signature
+        public_signature (str): Leader's public signature
     """
     source_repo = fetch_source_repo(task_id)
     repo_url = source_repo["repo_url"]
@@ -174,92 +183,35 @@ def consolidate_prs(task_id, round_number, distribution_list):
 
     upstream_repo = source_fork.parent
     print(f"Found upstream repository: {upstream_repo.html_url}")
-    setup_result = setup_repository(
-        repo_url, github_token=os.environ["MERGE_GITHUB_TOKEN"]
+
+    # Create workflow instance
+    workflow = MergeConflictWorkflow(
+        client=client,
+        prompts=CONFLICT_PROMPTS,
+        source_fork_url=repo_url,
+        source_branch=branch,
+        is_source_fork_owner=False,  # We're consolidating PRs from another fork
+        staking_key=submitter_staking_key,
+        pub_key=pub_key,
+        staking_signature=staking_signature,
+        public_signature=public_signature,
+        task_id=task_id,  # Add task_id for signature validation
+        round_number=round_number,  # Add round_number for signature validation
+        distribution_list=distribution_list,  # Add distribution list for signature validation
     )
-    if not setup_result["success"]:
+
+    # Run workflow
+    result = workflow.run()
+    if not result or not result.get("success"):
         raise Exception(
-            f"Error setting up repository: {setup_result.get('message', 'Unknown error')}"
+            f"Failed to consolidate PRs: {result.get('message', 'Unknown error')}"
         )
 
-    our_fork_url = setup_result["data"]["fork_url"]
-    print(f"Using fork: {our_fork_url}")
+    # Return the consolidated PR URL if any PRs were merged
+    if result.get("data", {}).get("pr_url"):
+        return result["data"]["pr_url"]
 
-    open_prs = list(source_fork.get_pulls(state="open", base=branch))
-    # Sort PRs by creation date (oldest first)
-    open_prs.sort(key=lambda pr: pr.created_at)
-    print(f"\nFound {len(open_prs)} open PRs to process")
-    merged_prs = []
-    failed_prs = []
-
-    for pr in open_prs:
-        valid_signatures = True
-
-        # For each staking key with amount > 0, verify their signature exists in PR
-        for staking_key, amount in distribution_list.items():
-            if amount <= 0:
-                continue
-
-            # Extract signatures using parser
-            staking_signature_section = extract_section(pr.body, "STAKING_KEY")
-
-            if not staking_signature_section:
-                print(f"Missing staking key signature in PR #{pr.number}")
-                valid_signatures = False
-                break
-
-            # Parse the signature sections to get the specific staking key's signatures
-            staking_parts = staking_signature_section.strip().split(":")
-
-            if len(staking_parts) != 2 or staking_parts[0].strip() != staking_key:
-                print(
-                    f"Invalid or missing staking signature for staking key {staking_key} in PR #{pr.number}"
-                )
-                valid_signatures = False
-                break
-
-            staking_signature = staking_parts[1].strip()
-
-            # Verify signature and validate payload
-            expected_values = {
-                "taskId": task_id,
-                "roundNumber": round_number,
-                "stakingKey": staking_key,
-            }
-
-            result = verify_and_parse_signature(
-                staking_signature, staking_key, expected_values
-            )
-
-            if result.get("error"):
-                print(f"Invalid signature in PR #{pr.number}: {result['error']}")
-                valid_signatures = False
-                break
-
-        # Only process PR if all required signatures are valid
-        if valid_signatures:
-            workflow = LocalMergeConflictWorkflow(
-                client=client,
-                prompts=CONFLICT_PROMPTS,
-                repo_url=repo_url,
-                target_branch=branch,
-                pr_url=pr.html_url,
-            )
-
-            result = workflow.run()
-
-            if result and result["success"]:
-                merged_prs.append(pr.number)
-            else:
-                failed_prs.append(pr.number)
-        else:
-            failed_prs.append(pr.number)
-
-    log_section("Merge summary")
-    log_key_value("Total PRs processed", len(open_prs))
-    log_key_value("Successfully merged", len(merged_prs))
-    log_key_value("Failed to merge", len(failed_prs))
-
+    return None
 
 
 def create_aggregator_repo(round_number, task_id):

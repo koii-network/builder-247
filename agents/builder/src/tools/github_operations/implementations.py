@@ -222,10 +222,54 @@ def create_leader_pull_request(
     repo_name: str,
     title: str,
     head_branch: str,
-    description: str,
+    description: list,  # List of PR dicts with number, url, and title
+    base_branch: str = "main",
+    staking_key: str = None,
+    pub_key: str = None,
+    staking_signature: str = None,
+    public_signature: str = None,
 ) -> ToolOutput:
-    """Create a pull request for a leader."""
-    create_pull_request(repo_owner, repo_name, title, head_branch, description)
+    """Create a pull request for a leader node.
+
+    Args:
+        repo_owner: Owner of the source repository
+        repo_name: Name of the source repository
+        title: PR title
+        head_branch: Head branch name (branch the PR is coming from)
+        description: List of consolidated PRs, each containing:
+            - number: PR number
+            - url: PR URL
+            - title: PR title
+        base_branch: Base branch name (default: main)
+        staking_key: Leader's staking key
+        pub_key: Leader's public key
+        staking_signature: Leader's staking signature
+        public_signature: Leader's public signature
+
+    Returns:
+        ToolOutput: Standardized tool output with PR URL on success
+    """
+    # Format the consolidated PRs into a markdown list
+    consolidated_prs = "The following PRs have been consolidated:\n\n"
+    for pr in description:
+        consolidated_prs += f"- [#{pr['number']} {pr['title']}]({pr['url']})\n"
+
+    return create_pull_request(
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        title=title,
+        head_branch=head_branch,
+        base_branch=base_branch,
+        pr_template=TEMPLATES["leader_pr_template"],
+        data={
+            "title": title,
+            "consolidated_prs": consolidated_prs,
+            "staking_key": staking_key,
+            "pub_key": pub_key,
+            "staking_signature": staking_signature,
+            "public_signature": public_signature,
+        },
+    )
 
 
 def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
