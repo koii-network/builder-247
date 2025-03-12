@@ -1,8 +1,24 @@
 """Audit phase definitions."""
 
-from src.workflows.base import Workflow, WorkflowPhase
+from typing import List
+from src.workflows.base import Workflow, WorkflowPhase, requires_context
 
 
+@requires_context(
+    templates={
+        "pr_url": str,  # URL of the PR to review
+        "repo_owner": str,  # Owner of the repository
+        "repo_name": str,  # Name of the repository
+        "pr_number": int,  # PR number to review
+        "current_files": List[str],  # Current repository structure
+    },
+    tools={
+        "repo_owner": str,  # Owner of the repository
+        "repo_name": str,  # Name of the repository
+        "pr_number": int,  # PR number to review
+        "repo_path": str,  # Path to the repository
+    },
+)
 class AuditPhase(WorkflowPhase):
     def __init__(self, workflow: Workflow):
         super().__init__(
