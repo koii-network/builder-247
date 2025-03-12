@@ -29,7 +29,7 @@ def _get_repo(repo_path: str) -> Repo:
 
 
 def init_repository(
-    path: str, user_name: str = None, user_email: str = None
+    path: str, user_name: str = None, user_email: str = None, **kwargs
 ) -> ToolOutput:
     """
     Initialize a new Git repository.
@@ -64,7 +64,7 @@ def init_repository(
 
 
 def clone_repository(
-    url: str, path: str, user_name: str = None, user_email: str = None
+    url: str, path: str, user_name: str = None, user_email: str = None, **kwargs
 ) -> ToolOutput:
     """
     Clone a Git repository with proper path handling and cleanup.
@@ -138,7 +138,7 @@ def clone_repository(
         }
 
 
-def create_branch(branch_base: str) -> ToolOutput:
+def create_branch(branch_base: str, **kwargs) -> ToolOutput:
     """Create branch with automatic timestamp suffix"""
     try:
         # Check for GitHub token first
@@ -286,7 +286,7 @@ def create_branch(branch_base: str) -> ToolOutput:
         }
 
 
-def checkout_branch(branch_name: str) -> ToolOutput:
+def checkout_branch(branch_name: str, **kwargs) -> ToolOutput:
     """Check out an existing branch in the current repository."""
     try:
         repo_path = os.getcwd()
@@ -309,7 +309,7 @@ def checkout_branch(branch_name: str) -> ToolOutput:
         }
 
 
-def commit_and_push(message: str) -> ToolOutput:
+def commit_and_push(message: str, **kwargs) -> ToolOutput:
     """Commit all changes and push to remote."""
     try:
         repo = Repo(os.getcwd())
@@ -344,7 +344,7 @@ def commit_and_push(message: str) -> ToolOutput:
         }
 
 
-def get_current_branch() -> ToolOutput:
+def get_current_branch(**kwargs) -> ToolOutput:
     """Get the current branch name in the working directory"""
     try:
         repo = Repo(os.getcwd())
@@ -365,7 +365,7 @@ def get_current_branch() -> ToolOutput:
         }
 
 
-def list_branches() -> ToolOutput:
+def list_branches(**kwargs) -> ToolOutput:
     """List all branches in the current repository."""
     try:
         repo_path = os.getcwd()
@@ -387,7 +387,7 @@ def list_branches() -> ToolOutput:
         }
 
 
-def add_remote(name: str, url: str) -> ToolOutput:
+def add_remote(name: str, url: str, **kwargs) -> ToolOutput:
     """Add a remote to the current repository."""
     try:
         repo_path = os.getcwd()
@@ -410,7 +410,7 @@ def add_remote(name: str, url: str) -> ToolOutput:
         }
 
 
-def fetch_remote(repo_path: str, remote_name: str) -> ToolOutput:
+def fetch_remote(repo_path: str, remote_name: str, **kwargs) -> ToolOutput:
     """Fetch from a remote repository.
 
     Args:
@@ -439,7 +439,9 @@ def fetch_remote(repo_path: str, remote_name: str) -> ToolOutput:
         }
 
 
-def pull_remote(remote_name: str = "origin", branch: str = None) -> ToolOutput:
+def pull_remote(
+    remote_name: str = "origin", branch: str = None, **kwargs
+) -> ToolOutput:
     """Pull changes with explicit branch specification."""
     try:
         repo_path = os.getcwd()
@@ -450,7 +452,7 @@ def pull_remote(remote_name: str = "origin", branch: str = None) -> ToolOutput:
         repo.git.pull(remote_name, branch, "--allow-unrelated-histories")
 
         # Check for conflicts after pull
-        if check_for_conflicts()["has_conflicts"]:
+        if check_for_conflicts(**kwargs)["has_conflicts"]:
             return {
                 "success": False,
                 "message": "Merge conflict detected after pull",
@@ -472,7 +474,7 @@ def pull_remote(remote_name: str = "origin", branch: str = None) -> ToolOutput:
         }
 
 
-def can_access_repository(repo_url: str) -> ToolOutput:
+def can_access_repository(repo_url: str, **kwargs) -> ToolOutput:
     """Check if a git repository is accessible."""
     try:
         log_key_value("Checking access to", repo_url)
@@ -498,7 +500,7 @@ def can_access_repository(repo_url: str) -> ToolOutput:
         }
 
 
-def check_for_conflicts() -> ToolOutput:
+def check_for_conflicts(**kwargs) -> ToolOutput:
     """Check for merge conflicts in the current repository."""
     try:
         repo_path = os.getcwd()
@@ -527,7 +529,7 @@ def check_for_conflicts() -> ToolOutput:
         }
 
 
-def get_conflict_info() -> ToolOutput:
+def get_conflict_info(**kwargs) -> ToolOutput:
     """Get details about current conflicts from Git's index in the current repository."""
     try:
         repo_path = os.getcwd()
@@ -562,7 +564,7 @@ def get_conflict_info() -> ToolOutput:
         }
 
 
-def resolve_conflict(file_path: str, resolution: str) -> ToolOutput:
+def resolve_conflict(file_path: str, resolution: str, **kwargs) -> ToolOutput:
     """Resolve a conflict in a specific file and commit the resolution in the current repository."""
     try:
         repo_path = os.getcwd()
@@ -586,13 +588,13 @@ def resolve_conflict(file_path: str, resolution: str) -> ToolOutput:
         }
 
 
-def create_merge_commit(message: str) -> ToolOutput:
+def create_merge_commit(message: str, **kwargs) -> ToolOutput:
     """Create a merge commit after resolving conflicts in the current repository."""
     try:
         repo_path = os.getcwd()
         repo = _get_repo(repo_path)
         log_key_value("Creating merge commit", message)
-        if check_for_conflicts()["has_conflicts"]:
+        if check_for_conflicts(**kwargs)["has_conflicts"]:
             return {
                 "success": False,
                 "message": "Cannot create merge commit with unresolved conflicts",

@@ -37,7 +37,7 @@ def _get_github_client() -> Github:
     return Github(auth=Auth.Token(token))
 
 
-def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
+def fork_repository(repo_full_name: str, repo_path: str = None, **kwargs) -> ToolOutput:
     """
     Fork a repository and clone it locally.
 
@@ -132,8 +132,9 @@ def create_pull_request(
     title: str,
     head_branch: str,
     base_branch: str = "main",
-    pr_template: str = TEMPLATES["pr_template"],
+    pr_template: str = TEMPLATES["worker_pr_template"],
     data: Dict[str, Any] = None,
+    **kwargs,
 ) -> ToolOutput:
     """Create PR with formatted description.
 
@@ -193,6 +194,7 @@ def create_worker_pull_request(
     pub_key: str,
     staking_signature: str,
     public_signature: str,
+    **kwargs,
 ) -> ToolOutput:
     """Create a pull request for a worker node."""
     # Format tests into markdown bullets
@@ -228,6 +230,7 @@ def create_leader_pull_request(
     pub_key: str = None,
     staking_signature: str = None,
     public_signature: str = None,
+    **kwargs,
 ) -> ToolOutput:
     """Create a pull request for a leader node.
 
@@ -272,7 +275,7 @@ def create_leader_pull_request(
     )
 
 
-def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
+def sync_fork(repo_path: str, branch: str = "main", **kwargs) -> ToolOutput:
     """
     Sync a fork with its upstream repository.
 
@@ -340,7 +343,7 @@ def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
         }
 
 
-def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
+def check_fork_exists(owner: str, repo_name: str, **kwargs) -> ToolOutput:
     """
     Check if fork exists using GitHub API.
 
@@ -406,6 +409,7 @@ def review_pull_request(
     recommendation: str,
     recommendation_reason: List[str],
     action_items: List[str],
+    **kwargs,
 ) -> ToolOutput:
     """
     Post a structured review comment on a pull request.
@@ -491,6 +495,7 @@ def validate_implementation(
     directory_check: dict,
     issues: list,
     required_fixes: list,
+    **kwargs,
 ) -> ToolOutput:
     """Submit a validation result with formatted message.
 
@@ -566,6 +571,7 @@ def generate_analysis(
     code_quality_issues=None,
     file_name="bugs.csv",
     repo_url=None,
+    **kwargs,
 ) -> ToolOutput:
     """
     Generate analysis of bugs, security vulnerabilities, and code quality issues.
@@ -668,7 +674,7 @@ def generate_analysis(
 
 
 def merge_pull_request(
-    repo_full_name: str, pr_number: int, merge_method: str = "merge"
+    repo_full_name: str, pr_number: int, merge_method: str = "merge", **kwargs
 ) -> ToolOutput:
     """
     Merge a pull request using the GitHub API.
@@ -743,6 +749,7 @@ def generate_tasks(
     tasks: List[Dict[str, Any]] = None,
     file_name: str = "tasks.csv",
     repo_url: str = None,
+    **kwargs,
 ) -> dict:
     """Generate a CSV file containing tasks.
 

@@ -487,7 +487,8 @@ class Client(ABC):
             tool_results = []
             for tool_call in tool_calls:
                 try:
-                    tool_call["parameters"].update(context)
+                    # Update tool arguments with context
+                    tool_call["arguments"].update(context)
                     # Execute the tool
                     result = self.execute_tool(tool_call)
                     if not result:
