@@ -3,9 +3,9 @@
   "version": "2.2.0",
   "description": "",
   "main": "src/index.js",
-  "type": "module",
   "scripts": {
-    "test": "node tests/simulateTask.js",
+    "build": "tsc",
+    "test": "npm run build && node build/tests/simulateTask.js",
     "jest-test": "jest --detectOpenHandles",
     "start": "node index.js",
     "prod-debug": "nodemon --ignore 'dist/*' tests/prod-debug.js",
