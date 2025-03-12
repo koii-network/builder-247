@@ -70,36 +70,53 @@ TEMPLATES = {
 {pub_key}: {public_signature}
 <!-- END_PUB_KEY -->
 """,
-    "review_template": """## Pull Request Review
+    "review_template": """
+<!-- BEGIN_TITLE -->
+# {title}
+<!-- END_TITLE -->
 
-### Title
-{title}
-
-### Description
+<!-- BEGIN_DESCRIPTION -->
+## Description
 {description}
+<!-- END_DESCRIPTION -->
 
-### Requirements Met
-{met_requirements}
+<!-- BEGIN_RECOMMENDATION -->
+## Recommendation
+{recommendation}
 
-### Requirements Not Met
+Reasons:
+{recommendation_reasons}
+<!-- END_RECOMMENDATION -->
+
+<!-- BEGIN_UNMET_REQUIREMENTS -->
+## Unmet Requirements
 {unmet_requirements}
+<!-- END_UNMET_REQUIREMENTS -->
 
-### Test Coverage
-#### Passing Tests
-{passed_tests}
+<!-- BEGIN_TESTS -->
+## Tests
 
-#### Failed Tests
+### Failed Tests
 {failed_tests}
 
-#### Missing Test Cases
+### Missing Test Cases
 {missing_tests}
+<!-- END_TESTS -->
 
-### Recommendation: {recommendation}
-
-### Reasons
-{recommendation_reasons}
-
-### Action Items
+<!-- BEGIN_ACTION_ITEMS -->
+## Action Items
 {action_items}
+<!-- END_ACTION_ITEMS -->
+
+## Signatures
+### Staking Key
+<!-- BEGIN_STAKING_KEY -->
+{staking_key}: {staking_signature}
+<!-- END_STAKING_KEY -->
+
+### Public Key
+<!-- BEGIN_PUB_KEY -->
+{pub_key}: {public_signature}
+<!-- END_PUB_KEY -->
 """,
 }

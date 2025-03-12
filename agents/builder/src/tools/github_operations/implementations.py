@@ -429,11 +429,15 @@ def review_pull_request(
     pr_number: int,
     title: str,
     description: str,
-    requirements: Dict[str, List[str]],
+    unmet_requirements: List[str],
     test_evaluation: Dict[str, List[str]],
     recommendation: str,
     recommendation_reason: List[str],
     action_items: List[str],
+    staking_key: str,
+    pub_key: str,
+    staking_signature: str,
+    public_signature: str,
     **kwargs,
 ) -> ToolOutput:
     """
@@ -445,11 +449,15 @@ def review_pull_request(
         pr_number (int): Pull request number
         title (str): Title of the PR
         description (str): Description of the changes
-        requirements (Dict[str, List[str]]): Dictionary with 'met' and 'not_met' requirements
+        unmet_requirements (List[str]): List of unmet requirements
         test_evaluation (Dict[str, List[str]]): Dictionary with test evaluation details
         recommendation (str): APPROVE/REVISE/REJECT
         recommendation_reason (List[str]): List of reasons for the recommendation
         action_items (List[str]): List of required changes or improvements
+        staking_key (str): Reviewer's staking key
+        pub_key (str): Reviewer's public key
+        staking_signature (str): Reviewer's staking signature
+        public_signature (str): Reviewer's public signature
 
     Returns:
         ToolOutput: Standardized tool output with review status and details
@@ -469,15 +477,7 @@ def review_pull_request(
         review_body = TEMPLATES["review_template"].format(
             title=title,
             description=description,
-            met_requirements=format_list(
-                requirements.get("met", []), "No requirements met"
-            ),
-            unmet_requirements=format_list(
-                requirements.get("not_met", []), "All requirements met"
-            ),
-            passed_tests=format_list(
-                test_evaluation.get("passed", []), "No passing tests"
-            ),
+            unmet_requirements=format_list(unmet_requirements, "All requirements met"),
             failed_tests=format_list(
                 test_evaluation.get("failed", []), "No failing tests"
             ),
@@ -489,6 +489,10 @@ def review_pull_request(
                 recommendation_reason, "No specific reasons provided"
             ),
             action_items=format_list(action_items, "No action items required"),
+            staking_key=staking_key,
+            pub_key=pub_key,
+            staking_signature=staking_signature,
+            public_signature=public_signature,
         )
 
         # Post the review

@@ -181,25 +181,36 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "title": {"type": "string", "description": "Title of the PR"},
+                "repo_owner": {
+                    "type": "string",
+                    "description": "Owner of the repository",
+                },
+                "repo_name": {
+                    "type": "string",
+                    "description": "Name of the repository",
+                },
+                "pr_number": {
+                    "type": "integer",
+                    "description": "Pull request number",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Title of the PR",
+                },
                 "description": {
                     "type": "string",
                     "description": "Description of changes",
                 },
-                "requirements": {
-                    "type": "object",
-                    "description": "Dictionary with 'met' and 'not_met' requirements",
-                    "properties": {
-                        "met": {"type": "array", "items": {"type": "string"}},
-                        "not_met": {"type": "array", "items": {"type": "string"}},
-                    },
+                "unmet_requirements": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of unmet requirements",
                 },
                 "test_evaluation": {
                     "type": "object",
                     "description": "Dictionary with test evaluation details",
                     "properties": {
-                        "coverage": {"type": "array", "items": {"type": "string"}},
-                        "issues": {"type": "array", "items": {"type": "string"}},
+                        "failed": {"type": "array", "items": {"type": "string"}},
                         "missing": {"type": "array", "items": {"type": "string"}},
                     },
                 },
@@ -217,17 +228,38 @@ DEFINITIONS = {
                     "items": {"type": "string"},
                     "description": "Required changes or improvements",
                 },
+                "staking_key": {
+                    "type": "string",
+                    "description": "Reviewer's staking key",
+                },
+                "pub_key": {
+                    "type": "string",
+                    "description": "Reviewer's public key",
+                },
+                "staking_signature": {
+                    "type": "string",
+                    "description": "Reviewer's staking signature",
+                },
+                "public_signature": {
+                    "type": "string",
+                    "description": "Reviewer's public signature",
+                },
             },
             "required": [
-                "repo_full_name",
+                "repo_owner",
+                "repo_name",
                 "pr_number",
                 "title",
                 "description",
-                "requirements",
+                "unmet_requirements",
                 "test_evaluation",
                 "recommendation",
                 "recommendation_reason",
                 "action_items",
+                "staking_key",
+                "pub_key",
+                "staking_signature",
+                "public_signature",
             ],
         },
         "final_tool": True,
