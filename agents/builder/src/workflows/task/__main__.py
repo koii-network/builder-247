@@ -169,14 +169,20 @@ def main():
             next(reader)  # Skip header
             for i, row in enumerate(reader):
                 if len(row) >= 2:
-                    todo, acceptance_criteria = row[0], row[1]
+                    todo, acceptance_criteria_str = row[0], row[1]
+                    # Parse acceptance criteria string into list
+                    acceptance_criteria = [
+                        criterion.strip()
+                        for criterion in acceptance_criteria_str.split(";")
+                        if criterion.strip()
+                    ]
                     try:
                         log_section(f"PROCESSING TODO {i}")
                         run_workflow(
                             repo_owner=repo_owner,
                             repo_name=repo_name,
                             todo=todo.strip(),
-                            acceptance_criteria=acceptance_criteria.strip(),
+                            acceptance_criteria=acceptance_criteria,
                         )
                     except Exception as e:
                         db = get_db()
