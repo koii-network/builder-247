@@ -4,6 +4,8 @@ import csv
 import json
 import argparse
 import os
+import uuid
+from datetime import datetime
 from src.workflows.task.workflow import TaskWorkflow
 from src.utils.logging import (
     log_section,
@@ -13,10 +15,75 @@ from src.utils.logging import (
 from src.database import get_db, Log
 from src.clients import setup_client
 from src.workflows.task.prompts import PROMPTS
+from src.utils.test_signatures import create_test_signatures
+from src.workflows.utils import create_remote_branch
+
+
+def generate_test_task_id():
+    """Generate a unique task ID for testing.
+    Format: test-{timestamp}-{uuid4_short}
+    """
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    unique_id = str(uuid.uuid4())[:8]  # Use first 8 chars of UUID
+    return f"test-{timestamp}-{unique_id}"
 
 
 def run_workflow(repo_owner, repo_name, todo, acceptance_criteria):
+    # Check for required environment variables
+    if not os.environ.get("UPSTREAM_GITHUB_TOKEN"):
+        print(
+            "Error: UPSTREAM_GITHUB_TOKEN environment variable is required for testing"
+        )
+        sys.exit(1)
+
     client = setup_client("anthropic")
+
+    # Generate unique test values
+    test_task_id = generate_test_task_id()
+    test_round_number = 1
+
+    # Create base branch on upstream repo
+    base_branch = f"round-{test_round_number}-{test_task_id}"
+    create_result = create_remote_branch(
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        branch_name=base_branch,
+        github_token=os.environ.get("UPSTREAM_GITHUB_TOKEN"),
+    )
+    if not create_result["success"]:
+        error = create_result.get("error", "Unknown error")
+        print(f"Error creating base branch: {error}")
+        sys.exit(1)
+
+    log_key_value("Created base branch", base_branch)
+
+    # For testing, we'll create signatures using the keypairs from env vars
+    staking_keypair_path = os.getenv("STAKING_KEYPAIR")
+    public_keypair_path = os.getenv("PUBLIC_KEYPAIR")
+
+    if staking_keypair_path and public_keypair_path:
+        # Create test signatures
+        payload = {
+            "taskId": test_task_id,
+            "roundNumber": test_round_number,
+            "todo": todo,
+            "acceptance_criteria": acceptance_criteria,
+            "action": "task",
+        }
+        signatures = create_test_signatures(
+            payload=payload,
+            staking_keypair_path=staking_keypair_path,
+            public_keypair_path=public_keypair_path,
+        )
+    else:
+        # Use dummy values for testing without keypairs
+        signatures = {
+            "staking_key": "dummy_staking_key",
+            "pub_key": "dummy_pub_key",
+            "staking_signature": "dummy_staking_signature",
+            "public_signature": "dummy_public_signature",
+        }
+
     workflow = TaskWorkflow(
         client=client,
         prompts=PROMPTS,
@@ -24,7 +91,14 @@ def run_workflow(repo_owner, repo_name, todo, acceptance_criteria):
         repo_name=repo_name,
         todo=todo,
         acceptance_criteria=acceptance_criteria,
+        staking_key=signatures["staking_key"],
+        pub_key=signatures["pub_key"],
+        staking_signature=signatures["staking_signature"],
+        public_signature=signatures["public_signature"],
+        round_number=test_round_number,
+        task_id=test_task_id,
     )
+
     workflow.run()
 
 
