@@ -34,22 +34,50 @@ def requires_context(
         )
 
         def validate_type(value: Any, expected_type: Type) -> bool:
-            """Validate a value against an expected type, handling Union and Optional"""
+            """Validate a value against an expected type, handling Union, Optional, and generics"""
             if expected_type is Any:
                 return True
 
-            # Handle Optional[Type] and Union[Type, None]
-            if get_origin(expected_type) is Union:
-                types = get_args(expected_type)
-                # If None is one of the types, it's Optional
-                if type(None) in types:
-                    if value is None:
-                        return True
-                    # Remove None from types for checking
-                    other_types = tuple(t for t in types if t is not type(None))
-                    return isinstance(value, other_types)
-                return isinstance(value, types)
+            # Get the origin type (e.g., list for List[str])
+            origin = get_origin(expected_type)
+            if origin is not None:
+                # Handle Optional[Type] and Union[Type, None]
+                if origin is Union:
+                    types = get_args(expected_type)
+                    # If None is one of the types, it's Optional
+                    if type(None) in types:
+                        if value is None:
+                            return True
+                        # Remove None from types for checking
+                        other_types = tuple(t for t in types if t is not type(None))
+                        return any(validate_type(value, t) for t in other_types)
+                    return any(validate_type(value, t) for t in types)
 
+                # Handle other generic types (List, Dict, etc.)
+                if not isinstance(value, origin):
+                    return False
+
+                # Get the type arguments (e.g., str for List[str])
+                args = get_args(expected_type)
+                if not args:
+                    return True
+
+                # For lists, check each element
+                if origin is list:
+                    return all(validate_type(item, args[0]) for item in value)
+
+                # For dicts, check key and value types
+                if origin is dict:
+                    key_type, value_type = args
+                    return all(
+                        validate_type(k, key_type) and validate_type(v, value_type)
+                        for k, v in value.items()
+                    )
+
+                # For other generic types, just check the base type
+                return True
+
+            # For non-generic types, use isinstance
             return isinstance(value, expected_type)
 
         # Wrap the original __init__ to validate context
