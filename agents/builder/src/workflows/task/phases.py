@@ -104,7 +104,6 @@ class FixImplementationPhase(WorkflowPhase):
         "acceptance_criteria": List[str],  # Task acceptance criteria
         "repo_owner": str,  # Owner of the repository
         "repo_name": str,  # Name of the repository
-        "branch_name": str,  # Branch name for PR
         "staking_key": Optional[str],  # Worker's staking key
         "pub_key": Optional[str],  # Worker's public key
         "staking_signature": Optional[str],  # Worker's staking signature
@@ -113,7 +112,8 @@ class FixImplementationPhase(WorkflowPhase):
     tools={
         "repo_owner": str,  # Owner of the repository
         "repo_name": str,  # Name of the repository
-        "branch_name": str,  # Branch name for PR
+        "base_branch": str,  # Branch name for PR
+        "head_branch": str,  # Branch name for PR
         "staking_key": Optional[str],  # Worker's staking key
         "pub_key": Optional[str],  # Worker's public key
         "staking_signature": Optional[str],  # Worker's staking signature
@@ -125,7 +125,7 @@ class PullRequestPhase(WorkflowPhase):
         super().__init__(
             workflow=workflow,
             prompt_name="create_pr",
-            required_tool="create_pull_request",
+            required_tool="create_worker_pull_request",
             conversation_id=conversation_id,
             name="Create Pull Request",
         )
