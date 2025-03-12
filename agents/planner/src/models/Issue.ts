@@ -1,18 +1,5 @@
 import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typegoose";
 
-class AssignedInfo {
-  @prop({ required: true })
-  public issueUuid!: string;
-
-  @prop({ required: true })
-  public status!: string;
-}
-
-enum TodoStatus {
-  INITIALIZED = "initialized",
-  DONE = "done",
-}
-
 modelOptions({
   schemaOptions: {
     timestamps: true,
@@ -24,12 +11,12 @@ modelOptions({
 
 enum IssueStatus {
   INITIALIZED = "initialized",
-  AUDIT_PENDING = "audit_pending",
-  IN_REVIEW = "in_review",
-  MERGED = "merged",
+  AUDIT_PENDING = "audit_pending", // Means assigned to a leader node
+  IN_REVIEW = "in_review", // Means a PR is opened and waiting for review
+  MERGED = "merged",// Means a PR is merged manually
 }
 
-class Todo {
+class Issue {
   @prop({ required: true })
   public issueUuid!: string;
 
@@ -49,5 +36,5 @@ class Todo {
   public leaderNodeMergeTaskSignature!: string;
 }
 
-const TodoModel = getModelForClass(Todo);
-export { Todo, TodoModel, TodoStatus, AssignedInfo };
+const IssueModel = getModelForClass(Issue);
+export { Issue, IssueModel, IssueStatus };

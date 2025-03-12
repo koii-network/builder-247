@@ -33,8 +33,11 @@ class AssignedInfo {
 }
 
 enum TodoStatus {
-  INITIALIZED = "initialized",
-  DONE = "done",
+  INITIALIZED = "initialized", // Means assigned to a leader node
+  IN_PROGRESS = "in_progress", // Means is assigned to a node, not completed
+  IN_REVIEW = "in_review", // Means a PR is opened and waiting for merge
+  AUDITED = "audited", // Means a PR is audited and waiting for merge
+  MERGED = "merged", // Means a PR is merged manually
 }
 
 @modelOptions({
@@ -51,6 +54,7 @@ class Todo {
 
   @prop({ required: true })
   public uuid!: string;
+
 
   @prop({ required: true })
   public issueUuid!: string;
