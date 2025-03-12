@@ -27,6 +27,9 @@ class AssignedInfo {
 
   @prop({ required: false })
   public auditSignature?: string;
+
+  @prop({ required: false })
+  public auditResult?: boolean;
 }
 
 enum TodoStatus {
@@ -48,6 +51,9 @@ class Todo {
 
   @prop({ required: true })
   public uuid!: string;
+
+  @prop({ required: true })
+  public issueUuid!: string;
 
   @prop({ required: true })
   public description!: string;
