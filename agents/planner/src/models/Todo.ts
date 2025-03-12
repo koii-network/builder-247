@@ -74,6 +74,9 @@ class Todo {
   @prop({ type: () => [AssignedInfo], default: [] })
   public assignedTo!: AssignedInfo[];
 
+  @prop({ type: () => [String], default: [] })
+  public dependencyTasks!: string[];
+
   @prop({
     enum: TodoStatus,
     default: TodoStatus.INITIALIZED,

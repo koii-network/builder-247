@@ -141,44 +141,76 @@ export const fetchTodo = async (req: Request, res: Response) => {
   try {
     // TODO: We must consider concurrent requests
     const todos = await TodoModel.find({
+      // Not assigned to the current user
+      
       $nor: [
         { "assignedTo.stakingKey": requestBody.pubKey },
         { "assignedTo.githubUsername": signatureData.githubUsername },
       ],
+      $or: [
+        { $and: [{ "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 3 } }, { status: TodoStatus.IN_PROGRESS }] },
+        { $and: [{"assignedTo": { $exists: false } }, { status: TodoStatus.INITIALIZED }] }
+      ], 
+      
     }).sort({ createdAt: 1 });
 
-    if (todos.length === 0) {
+
+    const dependencyFinishedTodosUUID = [];
+
+    for (const todo of todos) {
+      let isDependencyFinished = true;
+      for (const dependency of todo.dependencyTasks) {
+        const dependencyFinishedTodo = await TodoModel.findOne({
+          _id: dependency,
+          status: TodoStatus.AUDITED,
+        });
+        if (!dependencyFinishedTodo) {
+          isDependencyFinished = false;
+          break;
+        }
+      }
+      if (isDependencyFinished) {
+        dependencyFinishedTodosUUID.push(todo._id);
+      }
+    }
+
+    if (todos.length === 0 || dependencyFinishedTodosUUID.length === 0) {
       res.status(404).json({
         success: false,
-        message: "No todos available",
+        message: `No todos available, todos: ${todos.length}, dependencyFinishedTodosUUID: ${dependencyFinishedTodosUUID.length}`,
       });
       return;
     }
     console.log("todos listed:", todos.length);
-
-    const updatedTodo = await TodoModel.findOneAndUpdate(
-      {
-        _id: todos[0]?._id,
-        $expr: { $lt: [{ $size: "$assignedTo" }, 13] },
+    // Explain: The reason why I find again is to make it modular
+    const updatedTodo = await TodoModel.findOneAndUpdate({
+      // Not assigned to the current user
+      
         $nor: [
           { "assignedTo.stakingKey": requestBody.pubKey },
           { "assignedTo.githubUsername": signatureData.githubUsername },
         ],
-      },
-      {
-        $push: {
-          assignedTo: {
-            stakingKey: requestBody.stakingKey,
-            pubkey: requestBody.pubKey,
-            taskId: taskID,
-            roundNumber: signatureData.roundNumber,
-            githubUsername: signatureData.githubUsername,
-            todoSignature: requestBody.signature,
-          },
+        $or: [
+          { $and: [{ "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 3 } }, { status: TodoStatus.IN_PROGRESS }] },
+          { $and: [{"assignedTo": { $exists: false } }, { status: TodoStatus.INITIALIZED }] }
+        ], 
+        _id: { $in: dependencyFinishedTodosUUID },
+    }, 
+    {
+      $push: {
+        assignedTo: {
+          stakingKey: requestBody.stakingKey,
+          pubkey: requestBody.pubKey,
+          taskId: taskID,
+          roundNumber: signatureData.roundNumber,
+          githubUsername: signatureData.githubUsername,
+          todoSignature: requestBody.signature,
         },
       },
-      { new: true },
-    );
+      status: TodoStatus.IN_PROGRESS,
+    },
+    { new: true },
+  ).sort({ createdAt: 1 });
 
     if (!updatedTodo) {
       res.status(409).json({
@@ -187,7 +219,6 @@ export const fetchTodo = async (req: Request, res: Response) => {
       });
       return;
     }
-
     res.status(200).json({
       success: true,
       data: {
