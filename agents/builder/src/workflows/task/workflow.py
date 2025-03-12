@@ -29,6 +29,8 @@ class TaskWorkflow(Workflow):
         pub_key,
         staking_signature,
         public_signature,
+        round_number,
+        task_id,
         max_implementation_attempts=3,
     ):
         super().__init__(
@@ -42,6 +44,8 @@ class TaskWorkflow(Workflow):
             pub_key=pub_key,
             staking_signature=staking_signature,
             public_signature=public_signature,
+            round_number=round_number,
+            task_id=task_id,
         )
         self.max_implementation_attempts = max_implementation_attempts
 
