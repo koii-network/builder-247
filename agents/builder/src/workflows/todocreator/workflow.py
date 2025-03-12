@@ -210,14 +210,19 @@ class TodoCreatorWorkflow(Workflow):
             # Ensure the code continues to execute after printing
             # # TODO: Dependency Phase
             for task in tasks_data:
-                dependency_phase = phases.TaskDependencyPhase(workflow=self, target_task=task)
+                self.context["target_task"] = task
+                dependency_phase = phases.TaskDependencyPhase(workflow=self)
                 dependency_result = dependency_phase.execute()
                 if not dependency_result or not dependency_result.get("success"):
                     log_error(
                         Exception(dependency_result.get("error", "No result")),
                         "Task dependency failed",
                     )
-                print(dependency_result)
+                print(dependency_result["data"])
+                print(task["uuid"])
+                task["dependency_tasks"] = dependency_result["data"][task["uuid"]]
+
+            
             # Insert into MongoDB
             for task in tasks_data:
                 if decisions[task["uuid"]]["decision"] == True:
@@ -227,7 +232,8 @@ class TodoCreatorWorkflow(Workflow):
                         description=task["description"],
                         acceptance_criteria=task["acceptance_criteria"],
                         repoOwner=self.context["repo_owner"],
-                        repoName=self.context["repo_name"]
+                        repoName=self.context["repo_name"],
+                        dependencyTasks=task["dependency_tasks"]
                     )
                     insert_task_to_mongodb(task_model)
 

@@ -8,6 +8,7 @@ from src.tools.github_operations.implementations import (
     generate_tasks,
     validate_tasks,
     regenerate_tasks,
+    create_task_dependency,
 )
 
 DEFINITIONS = {
@@ -430,5 +431,26 @@ DEFINITIONS = {
         },
         "final_tool": True,
         "function": validate_tasks,
+    },
+    "create_task_dependency": {
+        "name": "create_task_dependency",
+        "description": "Create the task dependency for a task.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_uuid": {
+                    "type": "string",
+                    "description": "UUID of the task",
+                },
+                "dependency_tasks": {
+                    "type": "array",
+                    "description": "List of UUIDs of dependency tasks",
+                },
+            },
+            "required": ["task_uuid", "dependency_tasks"],
+            "additionalProperties": False,
+        },
+        "final_tool": True,
+        "function": create_task_dependency,
     },
 }

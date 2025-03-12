@@ -782,17 +782,28 @@ def validate_tasks(decisions: List[Dict[str, Any]]) -> dict:
         }
 
 
-# def update_dependency_tasks(task_uuid: str, dependency_tasks: List[str]) -> dict:
-#     """Update the dependency tasks for a task.
+def create_task_dependency(task_uuid: str, dependency_tasks: List[str]) -> dict:
+    """Create the task dependency for a task.
 
-#     Args:
-#         task_uuid: UUID of the task
-#         dependency_tasks: List of UUIDs of dependency tasks
-#     """
-#     try:
-#         # Get the task from the database
-#         task = get_task_by_uuid(task_uuid)
-#         # Update the dependency tasks
-#         task["dependency_tasks"] = dependency_tasks
-#     except Exception as e:
-#         return {"success": False, "message": f"Failed to update dependency tasks: {str(e)}", "data": None, "error": str(e)}
+    Args:
+        task_uuid: UUID of the task
+        dependency_tasks: List of UUIDs of dependency tasks
+
+    Returns:
+        dict: Result of the operation containing:
+            - success: Whether the operation succeeded
+            - message: Success/error message
+            - data: Dictionary containing:
+                - task_uuid: UUID of the task
+                - dependency_tasks: List of UUIDs of dependency tasks
+    """
+    try:
+        # Create a new dict one is task_uuid and value is dependency_tasks
+        dependency_tasks_dict = {task_uuid: dependency_tasks}
+        return {
+            "success": True,
+            "message": f"Successfully updated dependency tasks for {task_uuid}",
+            "data": dependency_tasks_dict,
+        }
+    except Exception as e:
+        return {"success": False, "message": f"Failed to update dependency tasks: {str(e)}", "data": None, "error": str(e)}

@@ -79,10 +79,15 @@ PROMPTS = {
         "- [Criterion 2]\n"
     ),
     "dependency_tasks": (
-        "Review the following subtasks and determine if there are any dependencies between them.\n"
+        "Review the following given target task and determine if it depends on any other tasks.\n"
         "TargetTask: {target_task}\n"
         "Subtasks:\n{subtasks}\n\n"
         "If any dependencies are found, link the subtasks together.\n"
+        "Format the output as follows:\n"
+        "---\n"
+        "Task UUID: [UUID of the target task]\n"
+        "Dependency Tasks: [List of UUIDs of dependency tasks choose from subtasks]\n"
+        "---\n"
     ),
 
 }

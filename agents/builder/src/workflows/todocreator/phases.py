@@ -46,14 +46,13 @@ class TaskRegenerationPhase(WorkflowPhase):
 
 # TODO: Implement Task Dependency Phase
 class TaskDependencyPhase(WorkflowPhase):
-    def __init__(self, workflow: Workflow, target_task: str, conversation_id: str = None):
+    def __init__(self, workflow: Workflow,  conversation_id: str = None):
         super().__init__(
             workflow=workflow,
-            target_task=target_task,
             prompt_name="dependency_tasks",
             available_tools=[
                 "read_file",
-                "update_dependency_tasks",
+                "create_task_dependency",
             ],
             conversation_id=conversation_id,
             name="Task Dependency",
