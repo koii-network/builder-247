@@ -3,6 +3,15 @@ import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 import { getLeaderNode } from "../utils/leader";
 
+interface PodCallBody {
+  taskId?: string;
+  roundNumber: number;
+  stakingKey: string;
+  pubKey: string;
+  stakingSignature: string;
+  publicSignature: string;
+  distributionList?: Record<string, number>;
+}
 export async function task(roundNumber: number): Promise<void> {
   /**
    * Run your task and store the proofs to be submitted for auditing
@@ -19,6 +28,9 @@ export async function task(roundNumber: number): Promise<void> {
     }
     const stakingKey = stakingKeypair.publicKey.toBase58();
     const pubKey = await namespaceWrapper.getMainAccountPubkey();
+    if (!pubKey) {
+      throw new Error("No public key found");
+    }
     const { isLeader, leaderNode } = await getLeaderNode({ roundNumber, submitterPublicKey: stakingKey });
     const payload = {
       taskId: TASK_ID,
@@ -31,25 +43,25 @@ export async function task(roundNumber: number): Promise<void> {
     };
     const stakingSignature = await namespaceWrapper.payloadSigning(payload, stakingKeypair.secretKey);
     const publicSignature = await namespaceWrapper.payloadSigning(payload);
-    const podCallBody = {
+    if (!stakingSignature || !publicSignature) {
+      throw new Error("Signature generation failed");
+    }
+
+    const podCallBody: PodCallBody = {
       taskId: TASK_ID,
       roundNumber,
       stakingKey,
       pubKey,
       stakingSignature,
       publicSignature,
-    } as any;
+    };
     let podCallUrl;
     if (isLeader) {
       podCallUrl = `leader-task/${roundNumber}`;
-      const taskState = await namespaceWrapper.getTaskState({
-        is_submission_required: false,
-        is_distribution_required: true,
-        is_available_balances_required: false,
-        is_stake_list_required: false,
-      });
-      const distributionList = taskState?.distribution_rewards_submission[roundNumber - 3];
-      podCallBody.distributionList = distributionList;
+      const distributionList = await namespaceWrapper.getDistributionList(TASK_ID!, roundNumber);
+      if (distributionList) {
+        podCallBody.distributionList = JSON.parse(distributionList);
+      }
     } else {
       podCallUrl = `worker-task/${roundNumber}`;
     }

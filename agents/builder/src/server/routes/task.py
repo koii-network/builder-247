@@ -34,6 +34,7 @@ def start_task(round_number, node_type, request):
         "stakingSignature",
         "pubKey",
         "publicSignature",
+        "distributionList",
     ]
     if any(data.get(field) is None for field in required_fields):
         return jsonify({"error": "Missing data"}), 401
@@ -48,7 +49,7 @@ def start_task(round_number, node_type, request):
         staking_key=data["stakingKey"],
         public_signature=data["publicSignature"],
         pub_key=data["pubKey"],
-        distribution_list=data.get("distributionList", None),
+        distribution_list=data["distributionList"],
     )
     if not pr_url:
         return jsonify({"error": "Missing PR URL"}), 400

@@ -12,6 +12,8 @@ from src.workflows.mergeconflict.workflow import LocalMergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 from src.utils.logging import logger, log_error, log_section, log_key_value
+from src.tools.github_operations.parser import extract_section
+from src.utils.signatures import verify_and_parse_signature
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -148,9 +150,14 @@ def record_pr(signature, staking_key, pub_key, pr_url, round_number):
         return "Error submitting PR"
 
 
-def consolidate_prs(task_id, round_number, signature, staking_key, pub_key):
-    """Consolidate PRs from workers."""
+def consolidate_prs(task_id, round_number, distribution_list):
+    """Consolidate PRs from workers.
 
+    Args:
+        task_id (str): The task ID
+        round_number (int): The round number
+        distribution_list (dict): Dictionary mapping staking keys to amounts
+    """
     source_repo = fetch_source_repo(task_id)
     repo_url = source_repo["repo_url"]
     repo_owner = source_repo["repo_owner"]
@@ -186,19 +193,65 @@ def consolidate_prs(task_id, round_number, signature, staking_key, pub_key):
     failed_prs = []
 
     for pr in open_prs:
-        # Use the workflow to process all PRs with the limit
-        workflow = LocalMergeConflictWorkflow(
-            client=client,
-            prompts=CONFLICT_PROMPTS,
-            repo_url=repo_url,
-            target_branch=branch,
-            pr_url=pr.html_url,
-        )
+        valid_signatures = True
 
-        result = workflow.run()
+        # For each staking key with amount > 0, verify their signature exists in PR
+        for staking_key, amount in distribution_list.items():
+            if amount <= 0:
+                continue
 
-        if result and result["success"]:
-            merged_prs.append(pr.number)
+            # Extract signatures using parser
+            staking_signature_section = extract_section(pr.body, "STAKING_KEY")
+
+            if not staking_signature_section:
+                print(f"Missing staking key signature in PR #{pr.number}")
+                valid_signatures = False
+                break
+
+            # Parse the signature sections to get the specific staking key's signatures
+            staking_parts = staking_signature_section.strip().split(":")
+
+            if len(staking_parts) != 2 or staking_parts[0].strip() != staking_key:
+                print(
+                    f"Invalid or missing staking signature for staking key {staking_key} in PR #{pr.number}"
+                )
+                valid_signatures = False
+                break
+
+            staking_signature = staking_parts[1].strip()
+
+            # Verify signature and validate payload
+            expected_values = {
+                "taskId": task_id,
+                "roundNumber": round_number,
+                "stakingKey": staking_key,
+            }
+
+            result = verify_and_parse_signature(
+                staking_signature, staking_key, expected_values
+            )
+
+            if result.get("error"):
+                print(f"Invalid signature in PR #{pr.number}: {result['error']}")
+                valid_signatures = False
+                break
+
+        # Only process PR if all required signatures are valid
+        if valid_signatures:
+            workflow = LocalMergeConflictWorkflow(
+                client=client,
+                prompts=CONFLICT_PROMPTS,
+                repo_url=repo_url,
+                target_branch=branch,
+                pr_url=pr.html_url,
+            )
+
+            result = workflow.run()
+
+            if result and result["success"]:
+                merged_prs.append(pr.number)
+            else:
+                failed_prs.append(pr.number)
         else:
             failed_prs.append(pr.number)
 
@@ -206,6 +259,7 @@ def consolidate_prs(task_id, round_number, signature, staking_key, pub_key):
     log_key_value("Total PRs processed", len(open_prs))
     log_key_value("Successfully merged", len(merged_prs))
     log_key_value("Failed to merge", len(failed_prs))
+
 
 
 def create_aggregator_repo(round_number, task_id):
