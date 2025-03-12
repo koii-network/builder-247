@@ -16,6 +16,8 @@ from git import Repo, GitCommandError
 from src.tools.github_operations.templates import TEMPLATES
 
 import csv
+import uuid
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -502,7 +504,7 @@ def generate_analysis(
     """
     try:
         # Use the project's main data directory instead of a local one
-        data_dir = "/home/laura/git/github/builder-247/data"
+        data_dir = "/home/herman/Downloads/builder-247/data"
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
 
@@ -660,59 +662,113 @@ def merge_pull_request(
 
 def generate_tasks(
     tasks: List[Dict[str, Any]] = None,
-    file_name: str = "tasks.csv",
-    repo_url: str = None,
 ) -> dict:
-    """Generate a CSV file containing tasks.
+    """Generate a Task List for the repository.
 
     Args:
         tasks: List of task dictionaries, each containing:
             - title: Task title
             - description: Task description
             - acceptance_criteria: List of acceptance criteria
-        file_name: Name of the output CSV file
-        repo_url: URL of the repository (for reference)
 
     Returns:
         dict: Result of the operation containing:
             - success: Whether the operation succeeded
             - message: Success/error message
             - data: Dictionary containing:
-                - file_path: Path to the generated CSV file
                 - task_count: Number of tasks written
                 - tasks: List of task dictionaries
             - error: Error message if any
     """
     try:
-        # Ensure data directory exists
-        data_dir = "/home/laura/git/github/builder-247/data"
-        os.makedirs(data_dir, exist_ok=True)
-
-        # Full path for the CSV file
-        file_path = os.path.join(data_dir, file_name)
-
-        # Write tasks to CSV
-        with open(file_path, "w", newline="") as f:
-            writer = csv.writer(f)
-            # Write headers
-            writer.writerow(["Title", "Description", "Acceptance Criteria"])
-            # Write tasks
-            for task in tasks:
-                writer.writerow(
-                    [
-                        task["title"],
-                        task["description"],
-                        "\n".join(task["acceptance_criteria"]),
-                    ]
-                )
-
+        for task in tasks:
+            task_uuid = str(uuid.uuid4())
+            task["uuid"] = task_uuid
         return {
             "success": True,
             "message": f"Successfully generated {len(tasks)} tasks",
             "data": {
-                "file_path": file_path,
                 "task_count": len(tasks),
                 "tasks": tasks,
+            },
+            "error": None,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to generate tasks: {str(e)}",
+            "data": None,
+            "error": str(e),
+        }    
+
+def regenerate_tasks(
+    tasks: List[Dict[str, Any]] = None,
+) -> dict:
+    """Regenerate the tasks.
+
+    Args:
+        tasks: List of task dictionaries, each containing:
+            - title: Task title
+            - description: Task description
+            - acceptance_criteria: List of acceptance criteria
+            - uuid: UUID of the task
+
+    Returns:
+        dict: Result of the operation containing:
+            - success: Whether the operation succeeded
+            - message: Success/error message
+            - data: Dictionary containing:
+                - task_count: Number of tasks written
+                - tasks: List of task dictionaries
+            - error: Error message if any
+    """
+    try:
+        return {
+            "success": True,
+            "message": f"Successfully regenerated {len(tasks)} tasks",
+            "data": {
+                "task_count": len(tasks),
+                "tasks": tasks,
+            },
+            "error": None,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to regenerate tasks: {str(e)}",
+            "data": None,
+            "error": str(e),
+        }   
+    
+def validate_tasks(decisions: List[Dict[str, Any]]) -> dict:
+    """Validate the tasks.
+
+    Args:
+        decisions: List of decisions, each containing:
+            - uuid: UUID of the task
+            - comment: Comment on the task
+            - decision: Decision on the task, True or False
+
+    Returns:
+        dict: Result of the operation containing:
+            - success: Whether the operation succeeded
+            - message: Success/error message
+            - data: Dictionary containing:
+                - decision_count: Number of decisions
+                - decisions: Dictionary of decision dictionaries
+            - error: Error message if any
+    """
+    try:
+        decisions_dict = {}
+        for decision in decisions:
+            if decision["decision"] == True:
+                decisions_dict[decision["uuid"]] = decision
+        return {
+            "success": True,
+            "message": f"Successfully validated {len(decisions)} tasks",
+            "data": {
+                "decision_count": len(decisions_dict),
+                "decisions": decisions_dict,
             },
             "error": None,
         }
@@ -720,7 +776,34 @@ def generate_tasks(
     except Exception as e:
         return {
             "success": False,
-            "message": f"Failed to generate tasks: {str(e)}",
+            "message": f"Failed to validate tasks: {str(e)}",
             "data": None,
             "error": str(e),
         }
+
+
+def create_task_dependency(task_uuid: str, dependency_tasks: List[str]) -> dict:
+    """Create the task dependency for a task.
+
+    Args:
+        task_uuid: UUID of the task
+        dependency_tasks: List of UUIDs of dependency tasks
+
+    Returns:
+        dict: Result of the operation containing:
+            - success: Whether the operation succeeded
+            - message: Success/error message
+            - data: Dictionary containing:
+                - task_uuid: UUID of the task
+                - dependency_tasks: List of UUIDs of dependency tasks
+    """
+    try:
+        # Create a new dict one is task_uuid and value is dependency_tasks
+        dependency_tasks_dict = {task_uuid: dependency_tasks}
+        return {
+            "success": True,
+            "message": f"Successfully updated dependency tasks for {task_uuid}",
+            "data": dependency_tasks_dict,
+        }
+    except Exception as e:
+        return {"success": False, "message": f"Failed to update dependency tasks: {str(e)}", "data": None, "error": str(e)}

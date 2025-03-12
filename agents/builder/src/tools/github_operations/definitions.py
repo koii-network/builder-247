@@ -6,6 +6,9 @@ from src.tools.github_operations.implementations import (
     generate_analysis,
     merge_pull_request,
     generate_tasks,
+    validate_tasks,
+    regenerate_tasks,
+    create_task_dependency,
 )
 
 DEFINITIONS = {
@@ -294,13 +297,13 @@ DEFINITIONS = {
     },
     "generate_tasks": {
         "name": "generate_tasks",
-        "description": "Generate a CSV file containing tasks from a feature breakdown.",
+        "description": "Generate a JSON file containing tasks from a feature breakdown.",
         "parameters": {
             "type": "object",
             "properties": {
                 "tasks": {
                     "type": "array",
-                    "description": "List of tasks to write to CSV",
+                    "description": "List of tasks",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -325,20 +328,129 @@ DEFINITIONS = {
                         "additionalProperties": False,
                     },
                 },
-                "file_name": {
-                    "type": "string",
-                    "description": "Name of the output CSV file",
-                    "default": "tasks.csv",
-                },
-                "repo_url": {
-                    "type": "string",
-                    "description": "URL of the repository (for reference)",
-                },
+                # "file_name": {
+                #     "type": "string",
+                #     "description": "Name of the output JSON file",
+                #     "default": "tasks.json",
+                # },
+                # "repo_url": {
+                #     "type": "string",
+                #     "description": "URL of the repository (for reference)",
+                # },
             },
             "required": ["tasks"],
             "additionalProperties": False,
         },
         "final_tool": True,
         "function": generate_tasks,
+    },
+    "regenerate_tasks": {
+        "name": "regenerate_tasks",
+        "description": "Regenerate the tasks.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "description": "List of tasks",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string",
+                                "description": "Clear, specific title of the task",
+                                "maxLength": 100,
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Detailed explanation of the work required",
+                                "minLength": 10,
+                            },
+                            "acceptance_criteria": {
+                                "type": "array",
+                                "description": "List of verifiable acceptance criteria",
+                                "items": {"type": "string", "minLength": 1},
+                                "minItems": 1,
+                            },
+                            "uuid": {
+                                "type": "string",
+                                "description": "UUID of the task",
+                            },
+                        },
+                        "required": ["title", "description", "acceptance_criteria", "uuid"],
+                        "additionalProperties": False,
+                    },
+                },
+                # "file_name": {
+                #     "type": "string",
+                #     "description": "Name of the output JSON file",
+                #     "default": "tasks.json",
+                # },
+                # "repo_url": {
+                #     "type": "string",
+                #     "description": "URL of the repository (for reference)",
+                # },
+            },
+            "required": ["tasks"],
+            "additionalProperties": False,
+        },
+        "final_tool": True,
+        "function": regenerate_tasks,
+    },
+    "validate_tasks": {
+        "name": "validate_tasks",
+        "description": "Generate a List of Decisions on Tasks from a feature breakdown.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "decisions": {
+                    "type": "array",
+                    "description": "List of decisions on tasks",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "uuid": {
+                                "type": "string",
+                                "description": "UUID of the task",
+                            },
+                            "comment": {
+                                "type": "string",
+                                "description": "Comment on the task",
+                            },
+                            "decision": {
+                                "type": "boolean",
+                            },
+                        },
+                        "required": ["uuid", "comment", "decision"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            "required": ["decisions"],
+            "additionalProperties": False,
+        },
+        "final_tool": True,
+        "function": validate_tasks,
+    },
+    "create_task_dependency": {
+        "name": "create_task_dependency",
+        "description": "Create the task dependency for a task.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_uuid": {
+                    "type": "string",
+                    "description": "UUID of the task",
+                },
+                "dependency_tasks": {
+                    "type": "array",
+                    "description": "List of UUIDs of dependency tasks",
+                },
+            },
+            "required": ["task_uuid", "dependency_tasks"],
+            "additionalProperties": False,
+        },
+        "final_tool": True,
+        "function": create_task_dependency,
     },
 }

@@ -32,8 +32,8 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default="todos.csv",
-        help="Output CSV file path (default: todos.csv)",
+        default="todos.json",
+        help="Output JSON file path (default: todos.json)",
     )
     parser.add_argument(
         "--model",
@@ -53,45 +53,15 @@ def main():
         prompts=PROMPTS,
         repo_url=args.repo,
         feature_spec=args.feature_spec,
-        output_csv_path=args.output,
     )
 
     result = workflow.run()
     if not result or not result.get("success"):
         print("Todo creator workflow failed")
         sys.exit(1)
+    
 
-    # Verify the file exists in the project's data directory
-    output_csv = result["data"].get("output_csv", "")
 
-    # If the file exists at the path returned by the tool, use that
-    if output_csv and os.path.exists(output_csv):
-        print("Todo creator workflow completed successfully")
-        print(f"Created {result['data'].get('task_count', 0)} tasks")
-        print(f"Results saved to {output_csv}")
-        if result["data"].get("validation_issues"):
-            print("\nValidation issues found:")
-            for issue in result["data"]["validation_issues"]:
-                print(f"- {issue}")
-    else:
-        # If not found at the returned path, check if it's in the project's data directory
-        project_data_dir = "/home/laura/git/github/builder-247/data"
-        file_name = os.path.basename(args.output)
-        alternative_path = os.path.join(project_data_dir, file_name)
-
-        if os.path.exists(alternative_path):
-            print("Todo creator workflow completed successfully")
-            print(f"Created {result['data'].get('task_count', 0)} tasks")
-            print(f"Results saved to {alternative_path}")
-            if result["data"].get("validation_issues"):
-                print("\nValidation issues found:")
-                for issue in result["data"]["validation_issues"]:
-                    print(f"- {issue}")
-        else:
-            print("Todo creator workflow completed but the output file was not created")
-            print(f"Expected file at: {output_csv}")
-            print(f"Also checked: {alternative_path}")
-            sys.exit(1)
 
 
 if __name__ == "__main__":
