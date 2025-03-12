@@ -209,8 +209,15 @@ class TodoCreatorWorkflow(Workflow):
 
             # Ensure the code continues to execute after printing
             # # TODO: Dependency Phase
-            # dependency_phase = phases.TaskDependencyPhase(workflow=self)
-
+            for task in tasks_data:
+                dependency_phase = phases.TaskDependencyPhase(workflow=self, target_task=task)
+                dependency_result = dependency_phase.execute()
+                if not dependency_result or not dependency_result.get("success"):
+                    log_error(
+                        Exception(dependency_result.get("error", "No result")),
+                        "Task dependency failed",
+                    )
+                print(dependency_result)
             # Insert into MongoDB
             for task in tasks_data:
                 if decisions[task["uuid"]]["decision"] == True:

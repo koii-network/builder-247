@@ -80,6 +80,7 @@ PROMPTS = {
     ),
     "dependency_tasks": (
         "Review the following subtasks and determine if there are any dependencies between them.\n"
+        "TargetTask: {target_task}\n"
         "Subtasks:\n{subtasks}\n\n"
         "If any dependencies are found, link the subtasks together.\n"
     ),
