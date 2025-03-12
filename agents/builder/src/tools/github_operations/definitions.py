@@ -1,6 +1,7 @@
 from src.tools.github_operations.implementations import (
     fork_repository,
-    create_pull_request,
+    create_worker_pull_request,
+    create_leader_pull_request,
     review_pull_request,
     validate_implementation,
     generate_analysis,
@@ -28,27 +29,151 @@ DEFINITIONS = {
         },
         "function": fork_repository,
     },
-    "create_pull_request": {
-        "name": "create_pull_request",
-        "description": "Create a pull request with formatted description.",
+    "create_worker_pull_request": {
+        "name": "create_worker_pull_request",
+        "description": "Create a pull request for a worker node with task implementation details and signatures.",
         "parameters": {
             "type": "object",
             "properties": {
-                "title": {"type": "string", "description": "Title of the pull request"},
+                "repo_owner": {
+                    "type": "string",
+                    "description": "Owner of the repository",
+                },
+                "repo_name": {
+                    "type": "string",
+                    "description": "Name of the repository",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Title of the pull request",
+                },
+                "head_branch": {
+                    "type": "string",
+                    "description": "Name of the branch containing changes",
+                },
                 "description": {
                     "type": "string",
-                    "description": "A brief summary of the changes made",
+                    "description": "Brief 1-2 sentence overview of the work done",
+                },
+                "changes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Detailed list of specific changes made in the implementation",
                 },
                 "tests": {
                     "type": "array",
-                    "description": "A brief description of what each test does",
                     "items": {"type": "string"},
+                    "description": "List of test descriptions",
+                },
+                "todo": {
+                    "type": "string",
+                    "description": "Original task description",
+                },
+                "acceptance_criteria": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of acceptance criteria",
+                },
+                "staking_key": {
+                    "type": "string",
+                    "description": "Worker's staking key",
+                },
+                "pub_key": {
+                    "type": "string",
+                    "description": "Worker's public key",
+                },
+                "staking_signature": {
+                    "type": "string",
+                    "description": "Worker's staking signature",
+                },
+                "public_signature": {
+                    "type": "string",
+                    "description": "Worker's public signature",
                 },
             },
-            "required": ["title", "description", "tests"],
+            "required": [
+                "repo_owner",
+                "repo_name",
+                "title",
+                "head_branch",
+                "description",
+                "changes",
+                "tests",
+                "todo",
+                "acceptance_criteria",
+                "staking_key",
+                "pub_key",
+                "staking_signature",
+                "public_signature",
+            ],
         },
-        "final_tool": True,
-        "function": create_pull_request,
+        "function": create_worker_pull_request,
+    },
+    "create_leader_pull_request": {
+        "name": "create_leader_pull_request",
+        "description": "Create a pull request for a leader node consolidating multiple worker PRs.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "repo_owner": {
+                    "type": "string",
+                    "description": "Owner of the repository",
+                },
+                "repo_name": {
+                    "type": "string",
+                    "description": "Name of the repository",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Title of the pull request",
+                },
+                "head_branch": {
+                    "type": "string",
+                    "description": "Name of the branch containing changes",
+                },
+                "description": {
+                    "type": "array",
+                    "description": "List of consolidated PRs, each containing number, url, and title",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "number": {"type": "integer"},
+                            "url": {"type": "string"},
+                            "title": {"type": "string"},
+                        },
+                    },
+                },
+                "base_branch": {
+                    "type": "string",
+                    "description": "Base branch to merge into (default: main)",
+                    "default": "main",
+                },
+                "staking_key": {
+                    "type": "string",
+                    "description": "Leader's staking key",
+                },
+                "pub_key": {
+                    "type": "string",
+                    "description": "Leader's public key",
+                },
+                "staking_signature": {
+                    "type": "string",
+                    "description": "Leader's staking signature",
+                },
+                "public_signature": {
+                    "type": "string",
+                    "description": "Leader's public signature",
+                },
+            },
+            "required": [
+                "repo_owner",
+                "repo_name",
+                "title",
+                "head_branch",
+                "description",
+            ],
+        },
+        "function": create_leader_pull_request,
     },
     "review_pull_request": {
         "name": "review_pull_request",

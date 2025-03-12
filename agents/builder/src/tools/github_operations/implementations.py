@@ -129,11 +129,10 @@ def fork_repository(repo_full_name: str, repo_path: str = None, **kwargs) -> Too
 def create_pull_request(
     repo_owner: str,
     repo_name: str,
-    title: str,
     head_branch: str,
+    pr_template: str,
+    data: Dict[str, Any],
     base_branch: str = "main",
-    pr_template: str = TEMPLATES["worker_pr_template"],
-    data: Dict[str, Any] = None,
     **kwargs,
 ) -> ToolOutput:
     """Create PR with formatted description.
@@ -157,6 +156,11 @@ def create_pull_request(
         repo_full_name = f"{repo_owner}/{repo_name}"
 
         head = f"{os.environ['GITHUB_USERNAME']}:{head_branch}"
+
+        title = data["title"]
+
+        if not title:
+            raise ValueError("Title is required")
 
         body = pr_template.format(**data)
 
@@ -187,6 +191,7 @@ def create_worker_pull_request(
     title: str,
     head_branch: str,
     description: str,
+    changes: List[str],
     tests: List[str],
     todo: str,
     acceptance_criteria: List[str],
@@ -196,18 +201,37 @@ def create_worker_pull_request(
     public_signature: str,
     **kwargs,
 ) -> ToolOutput:
-    """Create a pull request for a worker node."""
-    # Format tests into markdown bullets
+    """Create a pull request for a worker node.
+
+    Args:
+        repo_owner: Owner of the repository
+        repo_name: Name of the repository
+        title: PR title
+        head_branch: Head branch name
+        description: Brief overview of the work done
+        changes: Detailed list of changes made
+        tests: List of test descriptions
+        todo: Original todo task
+        acceptance_criteria: Task acceptance criteria
+        staking_key: Worker's staking key
+        pub_key: Worker's public key
+        staking_signature: Worker's staking signature
+        public_signature: Worker's public signature
+    """
+    # Format lists into markdown bullets
     tests_bullets = " - " + "\n - ".join(tests)
+    changes_bullets = " - " + "\n - ".join(changes)
     acceptance_criteria_bullets = " - " + "\n - ".join(acceptance_criteria)
-    create_pull_request(
+
+    return create_pull_request(
         repo_owner=repo_owner,
         repo_name=repo_name,
-        title=title,
         head_branch=head_branch,
-        description=description,
+        pr_template=TEMPLATES["worker_pr_template"],
         data={
+            "title": title,
             "description": description,
+            "changes": changes_bullets,
             "todo": todo,
             "acceptance_criteria": acceptance_criteria_bullets,
             "tests": tests_bullets,
@@ -224,7 +248,8 @@ def create_leader_pull_request(
     repo_name: str,
     title: str,
     head_branch: str,
-    description: list,  # List of PR dicts with number, url, and title
+    description: str,
+    pull_requests: List[str],
     base_branch: str = "main",
     staking_key: str = None,
     pub_key: str = None,
@@ -254,18 +279,18 @@ def create_leader_pull_request(
     """
     # Format the consolidated PRs into a markdown list
     consolidated_prs = "The following PRs have been consolidated:\n\n"
-    for pr in description:
+    for pr in pull_requests:
         consolidated_prs += f"- [#{pr['number']} {pr['title']}]({pr['url']})\n"
 
     return create_pull_request(
         repo_owner=repo_owner,
         repo_name=repo_name,
-        title=title,
         head_branch=head_branch,
         base_branch=base_branch,
         pr_template=TEMPLATES["leader_pr_template"],
         data={
             "title": title,
+            "description": description,
             "consolidated_prs": consolidated_prs,
             "staking_key": staking_key,
             "pub_key": pub_key,

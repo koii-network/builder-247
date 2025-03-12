@@ -16,10 +16,15 @@ TEMPLATES = {
 {acceptance_criteria}
 <!-- END_ACCEPTANCE_CRITERIA -->
 
-### Changes Made
+### Summary of Work
 <!-- BEGIN_DESCRIPTION -->
-{changes}
+{description}
 <!-- END_DESCRIPTION -->
+
+### Changes Made
+<!-- BEGIN_CHANGES -->
+{changes}
+<!-- END_CHANGES -->
 
 ### Tests
 <!-- BEGIN_TESTS -->
@@ -44,6 +49,11 @@ TEMPLATES = {
 <!-- END_TITLE -->
 
 ## Description
+### Summary of Work
+<!-- BEGIN_DESCRIPTION -->
+{description}
+<!-- END_DESCRIPTION -->
+
 ### Consolidated Pull Requests
 <!-- BEGIN_CONSOLIDATED_PRS -->
 {consolidated_prs}
