@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from src.server.services.github_service import verify_pr_ownership
-from src.server.services.audit_service import review_pr
+from src.server.services.audit_service import review_pr, audit_leader_submission
 from src.utils.logging import logger, log_error
 
 bp = Blueprint("audit", __name__)
@@ -46,9 +46,11 @@ def audit_worker_submission(round_number: int):
         expected_username=github_username,
         expected_owner=repo_owner,
         expected_repo=repo_name,
-        signature=signature,
+        task_id=task_id,
+        round_number=round_number,
         staking_key=staking_key,
         pub_key=pub_key,
+        signature=signature,
     )
 
     if not is_valid:
@@ -63,5 +65,84 @@ def audit_worker_submission(round_number: int):
 
 
 @bp.post("/leader-audit/<round_number>")
-def audit_leader_submission(round_number: int):
+def handle_leader_audit(round_number: int):
+    """Audit a leader's consolidated PR submission.
+
+    Expected request body:
+    {
+        "submission": {
+            "roundNumber": int,
+            "taskId": str,
+            "prUrl": str,
+            "repoOwner": str,
+            "repoName": str,
+            "stakingKey": str,
+            "pubKey": str,
+            "signature": str,
+            "distributionList": {
+                "stakingKey1": float,  # Reward amount
+                "stakingKey2": float,
+                ...
+            },
+            "leaders": [str]  # List of leader staking keys
+        }
+    }
+    """
     logger.info("Auditing leader submission")
+
+    data = request.get_json()
+    submission = data.get("submission")
+
+    if not submission:
+        return jsonify({"error": "Missing submission"}), 400
+
+    # Extract submission data
+    submission_round_number = submission.get("roundNumber")
+    task_id = submission.get("taskId")
+    pr_url = submission.get("prUrl")
+    repo_owner = submission.get("repoOwner")
+    repo_name = submission.get("repoName")
+    staking_key = submission.get("stakingKey")
+    pub_key = submission.get("pubKey")
+    signature = submission.get("signature")
+    distribution_list = submission.get("distributionList", {})
+    leaders = submission.get("leaders", [])
+
+    # Validate required fields
+    if int(round_number) != submission_round_number:
+        return jsonify({"error": "Round number mismatch"}), 400
+
+    if (
+        not task_id
+        or not pr_url
+        or not repo_owner
+        or not repo_name
+        or not staking_key
+        or not pub_key
+        or not signature
+        or not distribution_list
+        or not leaders
+    ):
+        return jsonify({"error": "Missing submission data"}), 400
+
+    # Verify this node is a leader
+    if staking_key not in leaders:
+        return jsonify({"error": "Not authorized as leader"}), 403
+
+    try:
+        # Run leader audit checks
+        is_valid = audit_leader_submission(
+            task_id=task_id,
+            round_number=round_number,
+            pr_url=pr_url,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            staking_key=staking_key,
+            pub_key=pub_key,
+            signature=signature,
+            distribution_list=distribution_list,
+        )
+        return jsonify(is_valid)
+    except Exception as e:
+        log_error(e, context="Error auditing leader submission")
+        return jsonify({"error": str(e)}), 500

@@ -6,7 +6,9 @@ from github import Github
 from git import Repo
 from src.utils.logging import log_key_value, log_error
 from src.tools.file_operations.implementations import list_files
-from typing import Optional
+from src.tools.github_operations.parser import extract_section
+from src.utils.signatures import verify_and_parse_signature
+from typing import Optional, Dict, Tuple, Union
 
 
 def check_required_env_vars(env_vars: list[str]):
@@ -263,3 +265,101 @@ def setup_repository(
             "data": None,
             "error": error_msg,
         }
+
+
+def extract_pr_signature(
+    pr_body: str, section_name: str = "STAKING_KEY"
+) -> Tuple[Optional[str], Optional[str]]:
+    """Extract staking key and signature from a PR description.
+
+    Args:
+        pr_body: The PR description text
+        section_name: Name of the section containing the signature (default: STAKING_KEY)
+
+    Returns:
+        Tuple[Optional[str], Optional[str]]: (staking_key, signature) or (None, None) if not found
+    """
+    signature_section = extract_section(pr_body, section_name)
+    if not signature_section:
+        return None, None
+
+    parts = signature_section.strip().split(":")
+    if len(parts) != 2:
+        return None, None
+
+    return parts[0].strip(), parts[1].strip()
+
+
+def validate_pr_signature(
+    staking_key: str,
+    signature: str,
+    expected_values: Dict[str, Union[str, int]],
+    context: str = "",
+) -> bool:
+    """Validate a signature from a PR against expected values.
+
+    Args:
+        staking_key: The staking key that signed the message
+        signature: The signature to verify
+        expected_values: Dictionary of values that should be in the signed payload
+        context: Optional context for error logging
+
+    Returns:
+        bool: True if signature is valid and matches expected values
+    """
+    result = verify_and_parse_signature(signature, staking_key, expected_values)
+    if result.get("error"):
+        log_error(
+            Exception("Invalid signature"),
+            context=f"Signature verification failed{f' in {context}' if context else ''}: {result['error']}",
+        )
+        return False
+    return True
+
+
+def verify_pr_signatures(
+    pr_body: str,
+    task_id: str,
+    round_number: int,
+    expected_staking_key: str,
+) -> bool:
+    """Verify signatures in a PR description.
+
+    Args:
+        pr_body: PR description to verify
+        task_id: Task ID for signature validation
+        round_number: Round number for signature validation
+        expected_staking_key: The staking key that should be in the PR
+
+    Returns:
+        bool: True if signatures are valid and match expected staking key
+    """
+    # Extract signatures using parser
+    staking_signature_section = extract_section(pr_body, "STAKING_KEY")
+    if not staking_signature_section:
+        return False
+
+    # Parse the signature sections
+    staking_parts = staking_signature_section.strip().split(":")
+    if len(staking_parts) != 2:
+        return False
+
+    # Verify staking key matches expected
+    pr_staking_key = staking_parts[0].strip()
+    if pr_staking_key != expected_staking_key:
+        return False
+
+    staking_signature = staking_parts[1].strip()
+
+    # Verify signature and validate payload
+    expected_values = {
+        "taskId": task_id,
+        "roundNumber": round_number,
+        "stakingKey": expected_staking_key,
+    }
+
+    result = verify_and_parse_signature(
+        staking_signature, expected_staking_key, expected_values
+    )
+
+    return not bool(result.get("error"))

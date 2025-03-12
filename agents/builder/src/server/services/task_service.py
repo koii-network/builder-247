@@ -11,6 +11,7 @@ from src.workflows.mergeconflict.workflow import MergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 from src.utils.logging import logger, log_error, log_key_value
+from src.workflows.utils import verify_pr_signatures
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -184,7 +185,35 @@ def consolidate_prs(
     upstream_repo = source_fork.parent
     print(f"Found upstream repository: {upstream_repo.html_url}")
 
-    # Create workflow instance
+    # Get list of open PRs
+    open_prs = list(source_fork.get_pulls(state="open", base=branch))
+    print(f"Found {len(open_prs)} open PRs")
+
+    # Filter PRs based on signature validation
+    valid_prs = []
+    for pr in open_prs:
+        # For each PR, try to find a valid signature from a rewarded staking key
+        for submitter_key, amount in distribution_list.items():
+            if amount <= 0:
+                continue
+
+            is_valid = verify_pr_signatures(
+                pr.body,
+                task_id,
+                round_number,
+                expected_staking_key=submitter_key,
+            )
+            if is_valid:
+                valid_prs.append(pr)
+                break
+
+    print(f"Found {len(valid_prs)} PRs with valid signatures")
+
+    if not valid_prs:
+        print("No valid PRs to consolidate")
+        return None
+
+    # Create workflow instance with validated PRs
     workflow = MergeConflictWorkflow(
         client=client,
         prompts=CONFLICT_PROMPTS,
