@@ -126,19 +126,48 @@ export const fetchTodo = async (req: Request, res: Response) => {
         message: "Task already completed",
       });
     } else {
+
+      const chosenTODOIssue = await IssueModel.findOne({
+        issueUuid: existingAssignment.todo.issueUuid,
+      });
+
+      const aggregatorInfo = chosenTODOIssue?.aggregator;
+
       return res.status(200).json({
         success: true,
+        role: "worker",
         data: {
           title: existingAssignment.todo.title,
           acceptance_criteria: existingAssignment.todo.acceptanceCriteria,
           repo_owner: existingAssignment.todo.repoOwner,
           repo_name: existingAssignment.todo.repoName,
           system_prompt: process.env.SYSTEM_PROMPT,
+          aggregator_info: aggregatorInfo,
         },
       });
     }
   }
-
+  // Check if there are not assigned issues
+  const notAssignedIssue = await IssueModel.findOneAndUpdate({
+    status: IssueStatus.INITIALIZED,
+  }, {
+    $set: {
+      status: IssueStatus.AGGREGATOR_PENDING,
+      aggregator: {
+        stakingKey: requestBody.stakingKey,
+        githubUsername: signatureData.githubUsername,
+        roundNumber: signatureData.roundNumber,
+      },
+    },
+  }, { new: true });
+  if (notAssignedIssue) {
+    res.status(200).json({
+      success: true,
+      role: "aggregator",
+      issue_uuid: notAssignedIssue.issueUuid,
+    });
+    return;
+  }
   try {
     // TODO: We must consider concurrent requests
     const todos = await TodoModel.find({
@@ -183,10 +212,25 @@ export const fetchTodo = async (req: Request, res: Response) => {
       return;
     }
     console.log("todos listed:", todos.length);
+
+    const inProcessIssues = await IssueModel.find({
+      issueUuid: { $in: dependencyFinishedTodosUUID },
+      status: IssueStatus.IN_PROCESS,
+    });
+
+    const inProcessIssueUUIDs = inProcessIssues.map(issue => issue.issueUuid);
+
+    if (inProcessIssueUUIDs.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: "No in-process issues found",
+      });
+      return;
+    }
     // Explain: The reason why I find again is to make it modular
     const updatedTodo = await TodoModel.findOneAndUpdate({
       // Not assigned to the current user
-      
+      issueUuid: { $in: inProcessIssueUUIDs },
         $nor: [
           { "assignedTo.stakingKey": requestBody.pubKey },
           { "assignedTo.githubUsername": signatureData.githubUsername },
@@ -232,25 +276,31 @@ export const fetchTodo = async (req: Request, res: Response) => {
     }
     // Elect Leader/Aggregator Node Part
     // Check all issues if there is any issue in ASSIGN_PENDING status, if there is, return the issue uuid
-    const issue = await IssueModel.findOne({
+    // Check if there is any issue in ASSIGN_PENDING status, if there is, return the issue uuid
+    const assignPendingIssues = await IssueModel.find({
       status: IssueStatus.ASSIGN_PENDING,
     });
-    let electLeader = false;
-    let issueUuid = "";
-    if (issue){
-      issueUuid = issue.issueUuid;
-      electLeader = true;
-    }
-    // Elect Leader/Aggregator Node Part
-    
+
+    const assignPendingIssueUUIDs = assignPendingIssues.map(issue => issue.issueUuid);
+
+
+    // return the aggregator info for the todo as well
+    const chosenTODOIssue = await IssueModel.findOne({
+      issueUuid: updatedTodo.issueUuid,
+    });
+
+    const aggregatorInfo = chosenTODOIssue?.aggregator;
+
     res.status(200).json({
       success: true,
+      role: "worker",
       data: {
         title: updatedTodo.title,
         acceptance_criteria: updatedTodo.acceptanceCriteria,
         repo_owner: updatedTodo.repoOwner,
         repo_name: updatedTodo.repoName,
         system_prompt: process.env.SYSTEM_PROMPT,
+        aggregator_info: aggregatorInfo,
       },
     });
   } catch (error) {

@@ -52,6 +52,8 @@ class AggregatorInfo {
 }
 enum IssueStatus {
   INITIALIZED = "initialized",
+  AGGREGATOR_PENDING = "aggregator_pending",
+  IN_PROCESS = "in_process",
   ASSIGN_PENDING = "assign_pending", // Means assigned to a leader node
   IN_REVIEW = "in_review", // Means a PR is opened and waiting for review
   MERGED = "merged",// Means a PR is merged manually

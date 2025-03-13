@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { IssueModel } from "../models/Issue";
+import { IssueModel, IssueStatus } from "../models/Issue";
 import { verifySignature } from "../utils/sign";
 import { taskID } from "../constant";
 export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
@@ -72,9 +72,18 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
     return;
   }
 
-  const issue = await IssueModel.findOne({
+  const issue = await IssueModel.findOneAndUpdate({
     issueUuid: signatureData.issueUuid,
-  });
+    aggregator: {
+      stakingKey: requestBody.stakingKey,
+      githubUsername: signatureData.githubUsername,
+      roundNumber: signatureData.roundNumber,
+    },
+  }, {
+    $set: {
+      status: IssueStatus.IN_PROCESS,
+    },
+  }, { new: true });
   if (!issue) {
     res.status(404).json({
       success: false,
@@ -83,8 +92,8 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
     return;
   }
 
+  issue.status = IssueStatus.IN_PROCESS;
 
-  issue.aggregator.githubUsername = signatureData.githubUsername;
   await issue.save();
 
   res.status(200).json({
