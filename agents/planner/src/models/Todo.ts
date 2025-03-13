@@ -33,11 +33,14 @@ class AssignedInfo {
 }
 
 enum TodoStatus {
-  INITIALIZED = "initialized", // Means assigned to a leader node
-  IN_PROGRESS = "in_progress", // Means is assigned to a node, not completed
-  IN_REVIEW = "in_review", // Means a PR is opened and waiting for merge
+  // Means not assigned to any node
+  // This  can also be used when a node is audited as false, so we can reassign it to another node
+  INITIALIZED = "initialized", 
+  // Means is assigned to a node, not completed
+  // This can be used when the node does not complete a task, so we can reassign it to another node
+  IN_PROGRESS = "in_progress", 
   AUDITED = "audited", // Means a PR is audited and waiting for merge
-  MERGED = "merged", // Means a PR is merged manually
+  MERGED = "merged", // Means a PR is merged
 }
 
 @modelOptions({

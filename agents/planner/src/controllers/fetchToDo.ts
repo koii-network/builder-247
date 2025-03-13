@@ -148,8 +148,8 @@ export const fetchTodo = async (req: Request, res: Response) => {
         { "assignedTo.githubUsername": signatureData.githubUsername },
       ],
       $or: [
-        { $and: [{ "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 3 } }, { status: TodoStatus.IN_PROGRESS }] },
-        { $and: [{"assignedTo": { $exists: false } }, { status: TodoStatus.INITIALIZED }] }
+        { $and: [{ "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 4} }, { status: TodoStatus.IN_PROGRESS }] },
+        { $and: [{ status: TodoStatus.INITIALIZED }] }
       ], 
       
     }).sort({ createdAt: 1 });
@@ -192,7 +192,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
         ],
         $or: [
           { $and: [{ "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 3 } }, { status: TodoStatus.IN_PROGRESS }] },
-          { $and: [{"assignedTo": { $exists: false } }, { status: TodoStatus.INITIALIZED }] }
+          { $and: [ { status: TodoStatus.INITIALIZED }] }
         ], 
         _id: { $in: dependencyFinishedTodosUUID },
     }, 
@@ -241,7 +241,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
       electLeader = true;
     }
     // Elect Leader/Aggregator Node Part
-    
+
     res.status(200).json({
       success: true,
       data: {
