@@ -90,3 +90,4 @@ class Todo {
 
 const TodoModel = getModelForClass(Todo);
 export { Todo, TodoModel, TodoStatus, AssignedInfo };
+
