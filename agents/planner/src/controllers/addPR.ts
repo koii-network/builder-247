@@ -5,17 +5,20 @@ import { verifySignature } from "../utils/sign";
 import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 
-function verifyRequestBody(req: Request): { signature: string; pubKey: string; stakingKey: string } | null {
+function verifyRequestBody(
+  req: Request,
+): { signature: string; pubKey: string; stakingKey: string; prUrl: string } | null {
   try {
     console.log("req.body", req.body);
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
     const stakingKey = req.body.stakingKey as string;
-    if (!signature || !pubKey || !stakingKey) {
+    const prUrl = req.body.prUrl as string;
+    if (!signature || !pubKey || !stakingKey || !prUrl) {
       return null;
     }
 
-    return { signature, pubKey, stakingKey };
+    return { signature, pubKey, stakingKey, prUrl };
   } catch {
     return null;
   }
@@ -40,7 +43,6 @@ async function verifySignatureData(
       body.taskId !== taskID ||
       typeof body.roundNumber !== "number" ||
       body.action !== "task" ||
-      !body.prUrl ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
       !body.stakingKey ||
@@ -53,13 +55,8 @@ async function verifySignatureData(
     return null;
   }
 }
-async function updateAssignedInfoWithPRUrl(
-  stakingKey: string,
-  roundNumber: number,
-  prUrl: string,
-  prSignature: string,
-): Promise<boolean> {
-  console.log("updateAssignedInfoWithPRUrl", { stakingKey, roundNumber, prUrl, prSignature });
+async function updateAssignedInfoWithPRUrl(stakingKey: string, roundNumber: number, prUrl: string): Promise<boolean> {
+  console.log("updateAssignedInfoWithPRUrl", { stakingKey, roundNumber, prUrl });
   const result = await TodoModel.findOneAndUpdate(
     {
       assignedTo: {
@@ -109,12 +106,11 @@ export const addPR = async (req: Request, res: Response) => {
     return;
   }
 
-  console.log("prUrl", signatureData.prUrl);
+  console.log("prUrl", requestBody.prUrl);
   const result = await updateAssignedInfoWithPRUrl(
     requestBody.stakingKey,
     signatureData.roundNumber,
-    signatureData.prUrl,
-    requestBody.signature,
+    requestBody.prUrl,
   );
   if (!result) {
     res.status(401).json({
