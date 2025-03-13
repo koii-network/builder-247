@@ -27,7 +27,6 @@ def complete_todo(
 ):
     """Handle task creation request."""
     todo_result = get_todo(staking_signature, staking_key, pub_key)
-    print(f"Todo result: {todo_result}")
     if not todo_result.get("success", False):
         return {
             "success": False,
@@ -89,16 +88,24 @@ def get_todo(signature, staking_key, pub_key):
         return {"success": True, "data": result.get("data", {})}
 
     except requests.exceptions.RequestException as e:
-        if not hasattr(e, "response"):
+        if not hasattr(e, "response") or e.response is None:
             return {
                 "success": False,
                 "status": 500,
                 "error": "No response from middle server",
             }
+
+        # Parse the JSON error response
+        try:
+            error_data = e.response.json()
+            error_message = error_data.get("message", "Unknown error")
+        except ValueError:
+            error_message = e.response.text
+
         return {
             "success": False,
             "status": e.response.status_code,
-            "error": e.response.text,
+            "error": error_message,  # Use parsed message instead of raw JSON
         }
 
 
