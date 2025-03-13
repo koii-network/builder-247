@@ -2,60 +2,12 @@ import { Request, Response } from "express";
 import "dotenv/config";
 
 import { TodoModel, TodoStatus } from "../models/Todo";
-import { verifySignature } from "../utils/sign";
 import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 import { IssueModel, IssueStatus } from "../models/Issue";
-// Verify the request body contains the right data
-function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
-  console.log("verifyRequestBody", req.body);
-  try {
-    const signature = req.body.signature as string;
-    const stakingKey = req.body.stakingKey as string;
-    const pubKey = req.body.pubKey as string;
-    if (!signature || !stakingKey || !pubKey) {
-      return null;
-    }
-    return { signature, stakingKey, pubKey };
-  } catch {
-    return null;
-  }
-}
+import { verifySignature } from "../utils/sign";
 
-// Confirm the signature is valid and contains the right data
-async function verifySignatureData(
-  signature: string,
-  stakingKey: string,
-  pubKey: string,
-): Promise<{ roundNumber: number; githubUsername: string } | null> {
-  try {
-    const { data, error } = await verifySignature(signature, stakingKey);
-    if (error || !data) {
-      console.log("bad signature");
-      return null;
-    }
-    const body = JSON.parse(data);
-    console.log({ signature_payload: body });
-    if (
-      !body.taskId ||
-      typeof body.roundNumber !== "number" ||
-      body.taskId !== taskID ||
-      body.action !== "fetch" ||
-      !body.githubUsername ||
-      !body.pubKey ||
-      body.pubKey !== pubKey ||
-      !body.stakingKey ||
-      body.stakingKey !== stakingKey
-    ) {
-      console.log("bad signature data");
-      return null;
-    }
-    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername };
-  } catch (error) {
-    console.log("unexpected signature error", error);
-    return null;
-  }
-}
+
 
 // Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
@@ -88,6 +40,55 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
     return null;
   }
 }
+export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
+  console.log("verifyRequestBody", req.body);
+  try {
+    const signature = req.body.signature as string;
+    const stakingKey = req.body.stakingKey as string;
+    const pubKey = req.body.pubKey as string;
+    if (!signature || !stakingKey || !pubKey) {
+      return null;
+    }
+    return { signature, stakingKey, pubKey };
+  } catch {
+    return null;
+  }
+}
+async function verifySignatureData(
+  signature: string,
+  stakingKey: string,
+  pubKey: string,
+  action: string,
+): Promise<{ roundNumber: number; githubUsername: string } | null> {
+  try {
+    const { data, error } = await verifySignature(signature, stakingKey);
+    if (error || !data) {
+      console.log("bad signature");
+      return null;
+    }
+    const body = JSON.parse(data);
+    console.log({ signature_payload: body });
+    if (
+      !body.taskId ||
+      typeof body.roundNumber !== "number" ||
+      body.taskId !== taskID ||
+      body.action !== action ||
+      !body.githubUsername ||
+      !body.pubKey ||
+      body.pubKey !== pubKey ||
+      !body.stakingKey ||
+      body.stakingKey !== stakingKey
+    ) {
+      console.log("bad signature data");
+      return null;
+    }
+    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername };
+  } catch (error) {
+    console.log("unexpected signature error", error);
+    return null;
+  }
+}
+
 
 export const fetchTodo = async (req: Request, res: Response) => {
   const requestBody = verifyRequestBody(req);
@@ -99,7 +100,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
     return;
   }
 
-  const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey, requestBody.pubKey);
+  const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey, requestBody.pubKey, "fetch");
   if (!signatureData) {
     res.status(401).json({
       success: false,

@@ -39,6 +39,17 @@ class AssignedInfo {
   @prop({ required: false })
   public auditResult?: boolean;
 }
+
+class AggregatorInfo {
+  @prop({ required: true })
+  public stakingKey!: string;
+
+  @prop({ required: true })
+  public githubUsername!: string;
+
+  @prop({ required: true })
+  public roundNumber!: number;
+}
 enum IssueStatus {
   INITIALIZED = "initialized",
   ASSIGN_PENDING = "assign_pending", // Means assigned to a leader node
@@ -52,6 +63,22 @@ class Issue {
 
   @prop({ required: true, enum: IssueStatus, default: IssueStatus.INITIALIZED })
   public status!: IssueStatus;
+
+  @prop({ required: false })
+  public title?: string;
+
+  @prop({ required: false })
+  public description?: string;
+
+  @prop({ required: true })
+  public repoOwner!: string;
+
+  @prop({ required: true })
+  public repoName!: string;
+  
+  @prop({ required: true })
+  public aggregator!: AggregatorInfo;
+
 
   @prop({ required: false, type: () => [AssignedInfo], default: [] })
   public assignedTo!: AssignedInfo[];
