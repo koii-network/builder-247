@@ -83,7 +83,7 @@ def run_todo_task(
     try:
         db = get_db()
 
-        # Delete existing submission if any
+        # Check if we already have a PR URL for this submission
         existing_submission = (
             db.query(Submission)
             .filter(
@@ -91,11 +91,19 @@ def run_todo_task(
             )
             .first()
         )
+
+        if existing_submission and existing_submission.pr_url:
+            logger.info(
+                f"Found existing PR URL for task {task_id}, round {round_number}"
+            )
+            return existing_submission.pr_url
+
+        # If no existing submission with PR URL, delete any incomplete submission
         if existing_submission:
             db.delete(existing_submission)
             db.commit()
             logger.info(
-                f"Deleted existing submission for task {task_id}, round {round_number}"
+                f"Deleted existing incomplete submission for task {task_id}, round {round_number}"
             )
 
         # Create new submission
@@ -128,6 +136,15 @@ def run_todo_task(
 
         # Run workflow and get PR URL
         pr_url = workflow.run()
+
+        # Store PR URL in local DB immediately
+        submission.pr_url = pr_url
+        submission.status = "pending_record"  # New status to indicate PR exists but not recorded with middle server
+        db.commit()
+        logger.info(
+            f"Stored PR URL {pr_url} locally for task {task_id}, round {round_number}"
+        )
+
         return pr_url
 
     except Exception as e:
@@ -136,22 +153,41 @@ def run_todo_task(
             # Update submission status
             submission = (
                 db.query(Submission)
-                .filter(Submission.round_number == round_number)
+                .filter(
+                    Submission.task_id == task_id,
+                    Submission.round_number == round_number,
+                )
                 .first()
             )
             if submission:
                 submission.status = "failed"
                 db.commit()
-                logger.info(f"Updated status to failed for round {round_number}")
+                logger.info(
+                    f"Updated status to failed for task {task_id}, round {round_number}"
+                )
         raise
 
 
-def record_pr(
-    staking_key, staking_signature, pub_key, public_signature, pr_url, round_number
-):
+def record_pr(staking_key, staking_signature, pub_key, pr_url, round_number):
     """Submit PR to middle server and update submission."""
     try:
         db = get_db()
+
+        # First check if we already have a completed record
+        submission = (
+            db.query(Submission)
+            .filter(
+                Submission.round_number == round_number,
+                Submission.status == "completed",
+            )
+            .first()
+        )
+
+        if submission:
+            logger.info(f"PR already recorded for round {round_number}")
+            return "PR already recorded"
+
+        # Try to record with middle server
         response = requests.post(
             os.environ["MIDDLE_SERVER_URL"] + "/api/add-pr-to-to-do",
             json={
@@ -164,13 +200,14 @@ def record_pr(
         response.raise_for_status()
         username = os.environ["GITHUB_USERNAME"]
 
-        # Update submission
+        # Update submission status after successful middle server record
         submission = (
             db.query(Submission).filter(Submission.round_number == round_number).first()
         )
         if submission:
             submission.status = "completed"
-            submission.pr_url = pr_url
+            if not submission.pr_url:  # Only update PR URL if not already set
+                submission.pr_url = pr_url
             submission.username = username
             db.commit()
             logger.info("Database updated successfully")
