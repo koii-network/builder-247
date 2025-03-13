@@ -42,7 +42,7 @@ def start_task(round_number, node_type, request):
     if node_type == "leader":
         task_service.create_aggregator_repo(round_number, data["taskId"])
 
-    pr_url = task_functions[node_type](
+    response = task_functions[node_type](
         task_id=data["taskId"],
         round_number=int(round_number),
         staking_signature=data["stakingSignature"],
@@ -51,8 +51,13 @@ def start_task(round_number, node_type, request):
         pub_key=data["pubKey"],
         distribution_list=data["distributionList"],
     )
+    pr_url = response.get("prUrl")
     if not pr_url:
-        return jsonify({"error": "Missing PR URL"}), 400
+        status = response.get("status")
+        if status:
+            return jsonify({"error": response["error"]}), status
+        else:
+            return jsonify({"error": "Missing PR URL"}), 400
 
     message = task_service.record_pr(
         task_id=data["taskId"],

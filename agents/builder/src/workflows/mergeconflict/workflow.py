@@ -268,31 +268,18 @@ class MergeConflictWorkflow(Workflow):
             if self.context["merged_prs"]:
                 pr_phase = CreatePullRequestPhase(workflow=self)
                 pr_result = pr_phase.execute()
-                if not pr_result or not pr_result.get("success"):
-                    return {
-                        "success": False,
-                        "message": "Failed to create consolidated PR",
-                        "data": {
-                            "merged_prs": self.context["merged_prs"],
-                            "failed_prs": self.context["failed_prs"],
-                        },
-                    }
-                return {
-                    "success": True,
-                    "message": "Successfully created consolidated PR",
-                    "data": {
-                        "pr_url": pr_result["data"]["pr_url"],
-                        "merged_prs": self.context["merged_prs"],
-                        "failed_prs": self.context["failed_prs"],
-                    },
-                }
 
-            return {
-                "success": True,
-                "message": "No PRs were merged",
-                "data": {"merged_prs": [], "failed_prs": self.context["failed_prs"]},
-            }
+            if pr_result.get("success"):
+                pr_url = pr_result.get("data", {}).get("pr_url")
+                log_key_value("PR created successfully", pr_url)
+                return pr_url
+            else:
+                log_error(Exception(pr_result.get("error")), "PR creation failed")
+                return None
 
         except Exception as e:
-            log_error(e, "Workflow failed")
-            return {"success": False, "message": str(e)}
+            log_error(e, "Error in task workflow")
+            raise
+
+        finally:
+            self.cleanup()

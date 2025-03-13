@@ -2,7 +2,6 @@
 
 import requests
 import os
-from flask import jsonify
 from github import Github as gh
 from src.database import get_db, Submission
 from src.clients import setup_client
@@ -17,15 +16,33 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def complete_todo(task_id, round_number, signature, staking_key, pub_key):
+def complete_todo(
+    task_id,
+    round_number,
+    staking_key,
+    staking_signature,
+    pub_key,
+    public_signature,
+    **kwargs,
+):
     """Handle task creation request."""
-    todo = get_todo(signature, staking_key, pub_key)
-    if not todo:
-        return jsonify({"error": "No todo found"}), 404
+    todo_result = get_todo(staking_signature, staking_key, pub_key)
+    print(f"Todo result: {todo_result}")
+    if todo_result.get("status"):
+        return todo_result
+    todo = todo_result["data"]
 
-    pr_url = run_todo_task(task_id=task_id, round_number=round_number, todo=todo)
+    pr_url = run_todo_task(
+        task_id=task_id,
+        round_number=round_number,
+        todo=todo,
+        staking_key=staking_key,
+        pub_key=pub_key,
+        staking_signature=staking_signature,
+        public_signature=public_signature,
+    )
 
-    return jsonify({"roundNumber": round_number, "prUrl": pr_url})
+    return {"roundNumber": round_number, "prUrl": pr_url}
 
 
 def get_todo(signature, staking_key, pub_key):
@@ -45,25 +62,41 @@ def get_todo(signature, staking_key, pub_key):
         response.raise_for_status()
         result = response.json()
         logger.info(f"Fetch todo response: {result}")
-
-        if result["success"]:
-            return result["data"]
-        else:
-            log_error(
-                Exception(result.get("message", "Unknown error")),
-                context="Failed to fetch todo",
-            )
-            return None
+        return result
 
     except requests.exceptions.RequestException as e:
-        log_error(e, context="Error fetching todo")
-        return None
+        if not hasattr(e, "response"):
+            return {"status": 500, "error": "No response from middle server"}
+        return {"status": e.response.status_code, "error": e.response.text}
 
 
-def run_todo_task(task_id, round_number, todo):
+def run_todo_task(
+    task_id,
+    round_number,
+    todo,
+    staking_key,
+    pub_key,
+    staking_signature,
+    public_signature,
+):
     """Run todo task and create PR."""
     try:
         db = get_db()
+
+        # Delete existing submission if any
+        existing_submission = (
+            db.query(Submission)
+            .filter(
+                Submission.task_id == task_id, Submission.round_number == round_number
+            )
+            .first()
+        )
+        if existing_submission:
+            db.delete(existing_submission)
+            db.commit()
+            logger.info(
+                f"Deleted existing submission for task {task_id}, round {round_number}"
+            )
 
         # Create new submission
         submission = Submission(
@@ -87,6 +120,10 @@ def run_todo_task(task_id, round_number, todo):
             acceptance_criteria=todo["acceptance_criteria"],
             round_number=round_number,
             task_id=task_id,
+            staking_key=staking_key,
+            pub_key=pub_key,
+            staking_signature=staking_signature,
+            public_signature=public_signature,
         )
 
         # Run workflow and get PR URL
@@ -109,14 +146,16 @@ def run_todo_task(task_id, round_number, todo):
         raise
 
 
-def record_pr(signature, staking_key, pub_key, pr_url, round_number):
+def record_pr(
+    staking_key, staking_signature, pub_key, public_signature, pr_url, round_number
+):
     """Submit PR to middle server and update submission."""
     try:
         db = get_db()
         response = requests.post(
             os.environ["MIDDLE_SERVER_URL"] + "/api/add-pr-to-to-do",
             json={
-                "signature": signature,
+                "signature": staking_signature,
                 "stakingKey": staking_key,
                 "pubKey": pub_key,
             },
@@ -144,15 +183,16 @@ def record_pr(signature, staking_key, pub_key, pr_url, round_number):
             return "Error: Submission not found"
 
     except requests.exceptions.RequestException as e:
-        log_error(e, context="Error submitting PR")
-        return "Error submitting PR"
+        if not hasattr(e, "response"):
+            return {"status": 500, "error": "No response from middle server"}
+        return {"status": e.response.status_code, "error": e.response.text}
 
 
 def consolidate_prs(
     task_id,
     round_number,
     distribution_list,
-    submitter_staking_key,
+    staking_key,
     pub_key,
     staking_signature,
     public_signature,
@@ -168,7 +208,10 @@ def consolidate_prs(
         staking_signature (str): Leader's staking signature
         public_signature (str): Leader's public signature
     """
-    source_repo = fetch_source_repo(task_id)
+    source_repo_result = fetch_source_repo(task_id)
+    if source_repo_result.get("status"):
+        return source_repo_result
+    source_repo = source_repo_result["data"]
     repo_url = source_repo["repo_url"]
     repo_owner = source_repo["repo_owner"]
     repo_name = source_repo["repo_name"]
@@ -220,7 +263,7 @@ def consolidate_prs(
         source_fork_url=repo_url,
         source_branch=branch,
         is_source_fork_owner=False,  # We're consolidating PRs from another fork
-        staking_key=submitter_staking_key,
+        staking_key=staking_key,
         pub_key=pub_key,
         staking_signature=staking_signature,
         public_signature=public_signature,
@@ -230,17 +273,8 @@ def consolidate_prs(
     )
 
     # Run workflow
-    result = workflow.run()
-    if not result or not result.get("success"):
-        raise Exception(
-            f"Failed to consolidate PRs: {result.get('message', 'Unknown error')}"
-        )
-
-    # Return the consolidated PR URL if any PRs were merged
-    if result.get("data", {}).get("pr_url"):
-        return result["data"]["pr_url"]
-
-    return None
+    pr_url = workflow.run()
+    return {"roundNumber": round_number, "prUrl": pr_url}
 
 
 def create_aggregator_repo(round_number, task_id):
@@ -258,7 +292,10 @@ def create_aggregator_repo(round_number, task_id):
     """
     try:
         # Get source repo info
-        source_repo = fetch_source_repo(task_id)
+        source_repo_result = fetch_source_repo(task_id)
+        if source_repo_result.get("status"):
+            return source_repo_result
+        source_repo = source_repo_result["data"]
         repo_owner = source_repo["repo_owner"]
         repo_name = source_repo["repo_name"]
 
@@ -313,12 +350,17 @@ def create_aggregator_repo(round_number, task_id):
 
 def fetch_source_repo(task_id):
     """Fetch the source repo for a given task."""
-    response = requests.post(
-        os.environ["MIDDLE_SERVER_URL"] + "/api/source-repo",
-        json={
-            "taskId": task_id,
-        },
-        headers={"Content-Type": "application/json"},
-    )
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = requests.post(
+            os.environ["MIDDLE_SERVER_URL"] + "/api/source-repo",
+            json={
+                "taskId": task_id,
+            },
+            headers={"Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        if not hasattr(e, "response"):
+            return {"status": 500, "error": "No response from middle server"}
+        return {"status": e.response.status_code, "error": e.response.text}
