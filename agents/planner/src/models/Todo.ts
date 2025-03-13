@@ -18,15 +18,6 @@ class AssignedInfo {
 
   @prop({ required: false })
   public prUrl?: string;
-
-  @prop({ required: false })
-  public todoSignature?: string;
-
-  @prop({ required: false })
-  public prSignature?: string;
-
-  @prop({ required: false })
-  public auditSignature?: string;
 }
 
 enum TodoStatus {
@@ -46,8 +37,8 @@ class Todo {
   @prop({ required: true })
   public title!: string;
 
-  @prop({ required: true })
-  public acceptanceCriteria!: string;
+  @prop({ required: true, type: () => [String] })
+  public acceptanceCriteria!: string[];
 
   @prop({ required: true })
   public repoOwner!: string;

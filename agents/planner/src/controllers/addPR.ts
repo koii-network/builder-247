@@ -39,7 +39,7 @@ async function verifySignatureData(
       !body.taskId ||
       body.taskId !== taskID ||
       typeof body.roundNumber !== "number" ||
-      body.action !== "add" ||
+      body.action !== "task" ||
       !body.prUrl ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
@@ -71,7 +71,7 @@ async function updateAssignedInfoWithPRUrl(
       },
     },
     {
-      $set: { "assignedTo.$.prUrl": prUrl, "assignedTo.$.prSignature": prSignature },
+      $set: { "assignedTo.$.prUrl": prUrl },
     },
   )
     .select("_id")

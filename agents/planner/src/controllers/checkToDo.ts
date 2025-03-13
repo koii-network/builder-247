@@ -41,7 +41,7 @@ async function verifySignatureData(
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
       body.taskId !== taskID ||
-      body.action !== "check" ||
+      body.action !== "audit" ||
       !body.prUrl ||
       !body.githubUsername ||
       !body.pubKey ||
@@ -75,16 +75,11 @@ async function checkToDoAssignment(
     };
     console.log("Data:", data);
 
-    const result = await TodoModel.findOneAndUpdate(
-      {
-        assignedTo: {
-          $elemMatch: data,
-        },
+    const result = await TodoModel.find({
+      assignedTo: {
+        $elemMatch: data,
       },
-      {
-        $set: { "assignedTo.$.prSignature": prSignature },
-      },
-    )
+    })
       .select("_id")
       .lean();
 

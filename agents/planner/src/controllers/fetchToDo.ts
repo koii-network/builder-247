@@ -40,7 +40,7 @@ async function verifySignatureData(
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
       body.taskId !== taskID ||
-      body.action !== "fetch" ||
+      body.action !== "task" ||
       !body.githubUsername ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
@@ -174,7 +174,6 @@ export const fetchTodo = async (req: Request, res: Response) => {
             taskId: taskID,
             roundNumber: signatureData.roundNumber,
             githubUsername: signatureData.githubUsername,
-            todoSignature: requestBody.signature,
           },
         },
       },
