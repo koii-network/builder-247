@@ -60,11 +60,9 @@ def start_task(round_number, node_type, request):
             return jsonify({"error": "Missing PR URL"}), 400
 
     message = task_service.record_pr(
-        task_id=data["taskId"],
         round_number=int(round_number),
         staking_signature=data["stakingSignature"],
         staking_key=data["stakingKey"],
-        public_signature=data["publicSignature"],
         pub_key=data["pubKey"],
         pr_url=pr_url,
     )
