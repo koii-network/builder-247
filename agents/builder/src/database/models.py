@@ -30,7 +30,7 @@ class Message(SQLModel, table=True):
 class Submission(SQLModel, table=True):
     """Task submission model."""
 
-    task_id: str
+    task_id: str = Field(primary_key=True)
     round_number: int = Field(primary_key=True)
     status: str = "pending"
     pr_url: Optional[str] = None
