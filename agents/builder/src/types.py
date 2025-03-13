@@ -91,3 +91,23 @@ class MessageContent(TypedDict):
 
     role: Literal["user", "assistant", "system", "tool"]
     content: Union[str, List[Union[TextContent, ToolCall, ToolResponseContent]]]
+
+
+class SuccessResponse(TypedDict):
+    """Response for successful operations."""
+
+    success: bool  # Always True
+    data: Dict[
+        str, Any
+    ]  # Can contain any fields needed like message, pr_url, round_number etc.
+
+
+class ErrorResponse(TypedDict):
+    """Response for failed operations."""
+
+    success: bool  # Always False
+    status: int
+    error: str
+
+
+ServiceResponse = Union[SuccessResponse, ErrorResponse]

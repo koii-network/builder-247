@@ -28,21 +28,37 @@ def complete_todo(
     """Handle task creation request."""
     todo_result = get_todo(staking_signature, staking_key, pub_key)
     print(f"Todo result: {todo_result}")
-    if todo_result.get("status"):
-        return todo_result
+    if not todo_result.get("success", False):
+        return {
+            "success": False,
+            "status": todo_result.get("status", 500),
+            "error": todo_result.get("error", "Unknown error fetching todo"),
+        }
     todo = todo_result["data"]
 
-    pr_url = run_todo_task(
-        task_id=task_id,
-        round_number=round_number,
-        todo=todo,
-        staking_key=staking_key,
-        pub_key=pub_key,
-        staking_signature=staking_signature,
-        public_signature=public_signature,
-    )
+    try:
+        result = run_todo_task(
+            task_id=task_id,
+            round_number=round_number,
+            todo=todo,
+            staking_key=staking_key,
+            pub_key=pub_key,
+            staking_signature=staking_signature,
+            public_signature=public_signature,
+        )
 
-    return {"roundNumber": round_number, "prUrl": pr_url}
+        if not result.get("success", False):
+            return result
+
+        return {
+            "success": True,
+            "data": {
+                "pr_url": result["data"]["pr_url"],
+                "message": result["data"]["message"],
+            },
+        }
+    except Exception as e:
+        return {"success": False, "status": 500, "error": str(e)}
 
 
 def get_todo(signature, staking_key, pub_key):
@@ -62,12 +78,28 @@ def get_todo(signature, staking_key, pub_key):
         response.raise_for_status()
         result = response.json()
         logger.info(f"Fetch todo response: {result}")
-        return result
+
+        if not result.get("success", False):
+            return {
+                "success": False,
+                "status": 400,
+                "error": result.get("message", "Unknown error from middle server"),
+            }
+
+        return {"success": True, "data": result.get("data", {})}
 
     except requests.exceptions.RequestException as e:
         if not hasattr(e, "response"):
-            return {"status": 500, "error": "No response from middle server"}
-        return {"status": e.response.status_code, "error": e.response.text}
+            return {
+                "success": False,
+                "status": 500,
+                "error": "No response from middle server",
+            }
+        return {
+            "success": False,
+            "status": e.response.status_code,
+            "error": e.response.text,
+        }
 
 
 def run_todo_task(
@@ -96,7 +128,13 @@ def run_todo_task(
             logger.info(
                 f"Found existing PR URL for task {task_id}, round {round_number}"
             )
-            return existing_submission.pr_url
+            return {
+                "success": True,
+                "data": {
+                    "pr_url": existing_submission.pr_url,
+                    "message": "Using existing PR URL",
+                },
+            }
 
         # If no existing submission with PR URL, delete any incomplete submission
         if existing_submission:
@@ -145,7 +183,10 @@ def run_todo_task(
             f"Stored PR URL {pr_url} locally for task {task_id}, round {round_number}"
         )
 
-        return pr_url
+        return {
+            "success": True,
+            "data": {"pr_url": pr_url, "message": "Created new PR"},
+        }
 
     except Exception as e:
         log_error(e, context="PR creation failed")
@@ -165,7 +206,7 @@ def run_todo_task(
                 logger.info(
                     f"Updated status to failed for task {task_id}, round {round_number}"
                 )
-        raise
+        return {"success": False, "status": 500, "error": str(e)}
 
 
 def record_pr(staking_key, staking_signature, pub_key, pr_url, round_number):
@@ -185,7 +226,10 @@ def record_pr(staking_key, staking_signature, pub_key, pr_url, round_number):
 
         if submission:
             logger.info(f"PR already recorded for round {round_number}")
-            return "PR already recorded"
+            return {
+                "success": True,
+                "data": {"message": "PR already recorded", "pr_url": submission.pr_url},
+            }
 
         # Try to record with middle server
         response = requests.post(
@@ -194,6 +238,7 @@ def record_pr(staking_key, staking_signature, pub_key, pr_url, round_number):
                 "signature": staking_signature,
                 "stakingKey": staking_key,
                 "pubKey": pub_key,
+                "prUrl": pr_url,
             },
             headers={"Content-Type": "application/json"},
         )
@@ -211,18 +256,30 @@ def record_pr(staking_key, staking_signature, pub_key, pr_url, round_number):
             submission.username = username
             db.commit()
             logger.info("Database updated successfully")
-            return "PR submitted successfully"
+            return {
+                "success": True,
+                "data": {"message": "PR submitted successfully", "pr_url": pr_url},
+            }
         else:
+            error_msg = f"No submission found for round {round_number}"
             log_error(
                 Exception("Submission not found"),
-                context=f"No submission found for round {round_number}",
+                context=error_msg,
             )
-            return "Error: Submission not found"
+            return {"success": False, "status": 404, "error": error_msg}
 
     except requests.exceptions.RequestException as e:
         if not hasattr(e, "response"):
-            return {"status": 500, "error": "No response from middle server"}
-        return {"status": e.response.status_code, "error": e.response.text}
+            return {
+                "success": False,
+                "status": 500,
+                "error": "No response from middle server",
+            }
+        return {
+            "success": False,
+            "status": e.response.status_code,
+            "error": e.response.text,
+        }
 
 
 def consolidate_prs(
@@ -311,7 +368,10 @@ def consolidate_prs(
 
     # Run workflow
     pr_url = workflow.run()
-    return {"roundNumber": round_number, "prUrl": pr_url}
+    return {
+        "success": True,
+        "data": {"pr_url": pr_url, "message": "PRs consolidated successfully"},
+    }
 
 
 def create_aggregator_repo(round_number, task_id):

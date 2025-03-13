@@ -25,8 +25,8 @@ def start_task(round_number, node_type, request):
     }
     logger.info(f"{node_type.capitalize()} task started for round: {round_number}")
 
-    data = request.get_json()
-    logger.info(f"Task data: {data}")
+    request_data = request.get_json()
+    logger.info(f"Task data: {request_data}")
     required_fields = [
         "taskId",
         "roundNumber",
@@ -36,35 +36,40 @@ def start_task(round_number, node_type, request):
         "publicSignature",
         "distributionList",
     ]
-    if any(data.get(field) is None for field in required_fields):
+    if any(request_data.get(field) is None for field in required_fields):
         return jsonify({"error": "Missing data"}), 401
 
     if node_type == "leader":
-        task_service.create_aggregator_repo(round_number, data["taskId"])
+        task_service.create_aggregator_repo(round_number, request_data["taskId"])
 
     response = task_functions[node_type](
-        task_id=data["taskId"],
+        task_id=request_data["taskId"],
         round_number=int(round_number),
-        staking_signature=data["stakingSignature"],
-        staking_key=data["stakingKey"],
-        public_signature=data["publicSignature"],
-        pub_key=data["pubKey"],
-        distribution_list=data["distributionList"],
+        staking_signature=request_data["stakingSignature"],
+        staking_key=request_data["stakingKey"],
+        public_signature=request_data["publicSignature"],
+        pub_key=request_data["pubKey"],
+        distribution_list=request_data["distributionList"],
     )
-    pr_url = response.get("prUrl")
-    if not pr_url:
-        status = response.get("status")
-        if status:
-            return jsonify({"error": response["error"]}), status
-        else:
-            return jsonify({"error": "Missing PR URL"}), 400
+    response_data = response.get("data", {})
+    if not response.get("success", False):
+        status = response.get("status", 500)
+        error = response.get("error", "Unknown error")
+        return jsonify({"error": error}), status
 
-    message = task_service.record_pr(
+    logger.info(response_data["message"])
+
+    response = task_service.record_pr(
         round_number=int(round_number),
-        staking_signature=data["stakingSignature"],
-        staking_key=data["stakingKey"],
-        pub_key=data["pubKey"],
-        pr_url=pr_url,
+        staking_signature=request_data["stakingSignature"],
+        staking_key=request_data["stakingKey"],
+        pub_key=request_data["pubKey"],
+        pr_url=response_data["pr_url"],
     )
-
-    return jsonify({"message": message})
+    response_data = response.get("data", {})
+    if response.get("success", False):
+        return jsonify({"message": response_data["message"]})
+    else:
+        status = response.get("status", 500)
+        error = response.get("error", "Unknown error")
+        return jsonify({"error": error}), status
