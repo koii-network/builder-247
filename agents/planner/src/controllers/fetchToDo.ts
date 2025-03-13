@@ -241,7 +241,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
       electLeader = true;
     }
     // Elect Leader/Aggregator Node Part
-
+    
     res.status(200).json({
       success: true,
       data: {

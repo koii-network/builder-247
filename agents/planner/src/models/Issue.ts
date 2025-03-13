@@ -8,7 +8,37 @@ modelOptions({
     allowMixed: Severity.ALLOW,
   },
 })
+class AssignedInfo {
+  @prop({ required: true })
+  public stakingKey!: string;
 
+  @prop({ required: true })
+  public pubkey!: string;
+
+  @prop({ required: true })
+  public taskId!: string;
+
+  @prop({ required: true })
+  public roundNumber!: number;
+
+  @prop({ required: true })
+  public githubUsername!: string;
+
+  @prop({ required: false })
+  public prUrl?: string;
+
+  @prop({ required: false })
+  public todoSignature?: string;
+
+  @prop({ required: false })
+  public prSignature?: string;
+
+  @prop({ required: false })
+  public auditSignature?: string;
+
+  @prop({ required: false })
+  public auditResult?: boolean;
+}
 enum IssueStatus {
   INITIALIZED = "initialized",
   ASSIGN_PENDING = "assign_pending", // Means assigned to a leader node
@@ -23,17 +53,8 @@ class Issue {
   @prop({ required: true, enum: IssueStatus, default: IssueStatus.INITIALIZED })
   public status!: IssueStatus;
 
-  @prop({ required: false })
-  public leaderNodeStakingKey!: string;
-
-  @prop({ required: false })
-  public leaderNodeMergeRound!: number;
-
-  @prop({ required: false })
-  public leaderNodeMergeTaskId!: string;
-
-  @prop({ required: false })
-  public leaderNodeMergeTaskSignature!: string;
+  @prop({ required: false, type: () => [AssignedInfo], default: [] })
+  public assignedTo!: AssignedInfo[];
 }
 
 const IssueModel = getModelForClass(Issue);
