@@ -116,7 +116,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
     return;
   }
   console.log();
-  const existingAssignment = await checkExistingAssignment(requestBody.pubKey, signatureData.roundNumber);
+  const existingAssignment = await checkExistingAssignment(requestBody.stakingKey, signatureData.roundNumber);
 
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
@@ -143,7 +143,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
       status: TodoStatus.INITIALIZED,
       $expr: { $lt: [{ $size: "$assignedTo" }, 15] },
       $nor: [
-        { "assignedTo.stakingKey": requestBody.pubKey },
+        { "assignedTo.stakingKey": requestBody.stakingKey },
         { "assignedTo.githubUsername": signatureData.githubUsername },
       ],
     }).sort({ createdAt: 1 });
@@ -162,7 +162,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
         _id: todos[0]?._id,
         $expr: { $lt: [{ $size: "$assignedTo" }, 15] },
         $nor: [
-          { "assignedTo.stakingKey": requestBody.pubKey },
+          { "assignedTo.stakingKey": requestBody.stakingKey },
           { "assignedTo.githubUsername": signatureData.githubUsername },
         ],
       },
