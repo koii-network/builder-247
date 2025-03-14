@@ -36,6 +36,15 @@ async function verifySignatureData(
     }
     const body = JSON.parse(data);
     console.log({ signature_payload: body });
+    console.log({
+      taskIDFromEnv: taskID,
+      taskIdFromPayload: body.taskId,
+      roundNumberType: typeof body.roundNumber,
+      roundNumberValue: body.roundNumber,
+      action: body.action,
+      pubKeyMatch: body.pubKey === pubKey,
+      stakingKeyMatch: body.stakingKey === stakingKey,
+    });
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
