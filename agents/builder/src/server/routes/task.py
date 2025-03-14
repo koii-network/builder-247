@@ -15,6 +15,24 @@ def start_leader_task(round_number):
     return start_task(round_number, "leader", request)
 
 
+@bp.post("/create-aggregator-repo/<round_number>")
+def create_aggregator_repo(round_number):
+    request_data = request.get_json()
+    required_fields = [
+        "taskId",
+        "repoOwner",
+        "repoName",
+    ]
+    if any(request_data.get(field) is None for field in required_fields):
+        return jsonify({"error": "Missing data"}), 401
+    return task_service.create_aggregator_repo(
+        round_number,
+        request_data["taskId"],
+        request_data["repoOwner"],
+        request_data["repoName"],
+    )
+
+
 def start_task(round_number, node_type, request):
     if node_type not in ["worker", "leader"]:
         return jsonify({"error": "Invalid node type"}), 400
@@ -35,12 +53,11 @@ def start_task(round_number, node_type, request):
         "pubKey",
         "publicSignature",
         "distributionList",
+        "repoOwner",
+        "repoName",
     ]
     if any(request_data.get(field) is None for field in required_fields):
         return jsonify({"error": "Missing data"}), 401
-
-    if node_type == "leader":
-        task_service.create_aggregator_repo(round_number, request_data["taskId"])
 
     response = task_functions[node_type](
         task_id=request_data["taskId"],
@@ -49,6 +66,8 @@ def start_task(round_number, node_type, request):
         staking_key=request_data["stakingKey"],
         public_signature=request_data["publicSignature"],
         pub_key=request_data["pubKey"],
+        repo_owner=request_data["repoOwner"],
+        repo_name=request_data["repoName"],
         distribution_list=request_data["distributionList"],
     )
     response_data = response.get("data", {})

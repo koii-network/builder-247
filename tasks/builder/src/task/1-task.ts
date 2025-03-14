@@ -10,6 +10,8 @@ interface PodCallBody {
   pubKey: string;
   stakingSignature: string;
   publicSignature: string;
+  repoOwner: string;
+  repoName: string;
   distributionList: Record<string, number>;
 }
 export async function task(roundNumber: number): Promise<void> {
@@ -21,6 +23,15 @@ export async function task(roundNumber: number): Promise<void> {
   console.log(`EXECUTE TASK FOR ROUND ${roundNumber}`);
   try {
     const orcaClient = await getOrcaClient();
+
+    await orcaClient.podCall(`create-aggregator-repo/${roundNumber + 1}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      // TODO: Change to dynamic repo owner and name by checking the middle server
+      body: JSON.stringify({ taskId: TASK_ID, repoOwner: "koii-network", repoName: "builder-test" }),
+    });
 
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
@@ -36,13 +47,16 @@ export async function task(roundNumber: number): Promise<void> {
       leaderNumber: 1,
       submitterPublicKey: stakingKey,
     });
+    console.log({ isLeader, leaderNode });
     if (leaderNode === null) {
+      return;
     }
     const payload = {
       taskId: TASK_ID,
       roundNumber,
       githubUsername: process.env.GITHUB_USERNAME,
       repoOwner: leaderNode,
+      repoName: "builder-test",
       stakingKey,
       pubKey,
       action: "task",
@@ -60,6 +74,8 @@ export async function task(roundNumber: number): Promise<void> {
       pubKey,
       stakingSignature,
       publicSignature,
+      repoOwner: leaderNode,
+      repoName: "builder-test",
       distributionList: {},
     };
     let podCallUrl;

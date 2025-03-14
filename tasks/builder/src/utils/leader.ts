@@ -134,10 +134,10 @@ async function selectLeaderKey(
 // Helper function that finds the leader for a specific round
 async function getLeaderForRound(
   roundNumber: number,
-  leaderNumber: number,
+  maxLeaderNumber: number,
   submitterPublicKey: string,
 ): Promise<{ chosenKey: string | null; leaderNode: string | null }> {
-  if (roundNumber <= 1) {
+  if (roundNumber <= 0) {
     return { chosenKey: null, leaderNode: null };
   }
 
@@ -146,6 +146,7 @@ async function getLeaderForRound(
 
   for (let i = 1; i < 5; i++) {
     const taskSubmissionInfo = await getSubmissionInfo(roundNumber - i);
+    console.log({ taskSubmissionInfo });
     if (taskSubmissionInfo) {
       const submissions = taskSubmissionInfo.submissions;
       const frequency = calculatePublicKeyFrequency(submissions);
@@ -163,11 +164,13 @@ async function getLeaderForRound(
     (a, b) => submissionPublicKeysFrequency[b] - submissionPublicKeysFrequency[a],
   );
 
-  if (sortedKeys.length < leaderNumber) {
-    return { chosenKey: null, leaderNode: null };
-  }
+  console.log({ sortedKeys });
 
-  const chosenKey = await selectLeaderKey(sortedKeys, leaderNumber, submitterPublicKey, submissionPublicKeysFrequency);
+  let chosenKey = null;
+
+  const leaderNumber = sortedKeys.length < maxLeaderNumber ? sortedKeys.length : maxLeaderNumber;
+
+  chosenKey = await selectLeaderKey(sortedKeys, leaderNumber, submitterPublicKey, submissionPublicKeysFrequency);
 
   // Find GitHub username for the chosen key
   for (let i = 1; i < 5; i++) {
@@ -191,10 +194,12 @@ export async function getLeaderNode({
 }): Promise<{ isLeader: boolean; leaderNode: string | null }> {
   // Find leader for current round
   const currentLeader = await getLeaderForRound(roundNumber, leaderNumber, submitterPublicKey);
+  console.log({ currentLeader });
 
   if (currentLeader.chosenKey === submitterPublicKey) {
     // If we're the leader, get the leader from 3 rounds ago
     const previousLeader = await getLeaderForRound(roundNumber - 3, leaderNumber, submitterPublicKey);
+    console.log({ previousLeader });
     return { isLeader: true, leaderNode: previousLeader.leaderNode };
   }
 

@@ -13,8 +13,19 @@ export async function submission(roundNumber: number) {
   try {
     const orcaClient = await getOrcaClient();
     const result = await orcaClient.podCall(`submission/${roundNumber}`);
+    let submission;
 
-    const submission = result.data;
+    console.log({ "submission result": result.data });
+
+    if (result.data === "No submission") {
+      submission = {
+        githubUsername: process.env.GITHUB_USERNAME,
+        prUrl: "none",
+        roundNumber,
+      };
+    } else {
+      submission = result.data;
+    }
 
     if (submission.roundNumber !== roundNumber) {
       throw new Error("Submission is not for the current round");
@@ -23,6 +34,8 @@ export async function submission(roundNumber: number) {
     if (!submission.prUrl) {
       throw new Error("Submission is missing PR URL");
     }
+
+    console.log({ submission });
 
     // if you are writing a KPL task, use namespaceWrapper.getSubmitterAccount("KPL");
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
@@ -33,7 +46,7 @@ export async function submission(roundNumber: number) {
 
     const stakingKey = stakingKeypair.publicKey.toBase58();
     const pubKey = await namespaceWrapper.getMainAccountPubkey();
-    
+
     // sign the submission
     const signature = await namespaceWrapper.payloadSigning(
       {

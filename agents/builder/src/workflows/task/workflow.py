@@ -31,6 +31,7 @@ class TaskWorkflow(Workflow):
         public_signature,
         round_number,
         task_id,
+        base_branch,
         max_implementation_attempts=3,
     ):
         super().__init__(
@@ -46,6 +47,7 @@ class TaskWorkflow(Workflow):
             public_signature=public_signature,
             round_number=round_number,
             task_id=task_id,
+            base_branch=base_branch,
         )
         self.max_implementation_attempts = max_implementation_attempts
 
@@ -53,9 +55,6 @@ class TaskWorkflow(Workflow):
         """Set up repository and workspace."""
         check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
         validate_github_auth(os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_USERNAME"))
-        self.context["base_branch"] = (
-            f"round-{self.context['round_number']}-{self.context['task_id']}"
-        )
         log_key_value("Base branch", self.context["base_branch"])
 
         # Set up repository directory

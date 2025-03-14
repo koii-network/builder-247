@@ -23,6 +23,8 @@ def complete_todo(
     staking_signature,
     pub_key,
     public_signature,
+    repo_owner,
+    repo_name,
     **kwargs,
 ):
     """Handle task creation request."""
@@ -44,6 +46,8 @@ def complete_todo(
             pub_key=pub_key,
             staking_signature=staking_signature,
             public_signature=public_signature,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
         )
 
         if not result.get("success", False):
@@ -117,6 +121,8 @@ def run_todo_task(
     pub_key,
     staking_signature,
     public_signature,
+    repo_owner,
+    repo_name,
 ):
     """Run todo task and create PR."""
     try:
@@ -156,8 +162,8 @@ def run_todo_task(
             task_id=task_id,
             round_number=round_number,
             status="running",
-            repo_owner=todo["repo_owner"],
-            repo_name=todo["repo_name"],
+            repo_owner=repo_owner,
+            repo_name=repo_name,
         )
         db.add(submission)
         db.commit()
@@ -167,8 +173,8 @@ def run_todo_task(
         workflow = TaskWorkflow(
             client=client,
             prompts=TASK_PROMPTS,
-            repo_owner=todo["repo_owner"],
-            repo_name=todo["repo_name"],
+            repo_owner=repo_owner,
+            repo_name=repo_name,
             todo=todo["title"],
             acceptance_criteria=todo["acceptance_criteria"],
             round_number=round_number,
@@ -177,6 +183,7 @@ def run_todo_task(
             pub_key=pub_key,
             staking_signature=staking_signature,
             public_signature=public_signature,
+            base_branch=f"task-{task_id}-round-{round_number}",
         )
 
         # Run workflow and get PR URL
@@ -297,6 +304,8 @@ def consolidate_prs(
     pub_key,
     staking_signature,
     public_signature,
+    repo_owner,
+    repo_name,
 ):
     """Consolidate PRs from workers.
 
@@ -309,14 +318,15 @@ def consolidate_prs(
         staking_signature (str): Leader's staking signature
         public_signature (str): Leader's public signature
     """
-    source_repo_result = fetch_source_repo(task_id)
-    if source_repo_result.get("status"):
-        return source_repo_result
-    source_repo = source_repo_result["data"]
-    repo_url = source_repo["repo_url"]
-    repo_owner = source_repo["repo_owner"]
-    repo_name = source_repo["repo_name"]
-    branch = f"round-{round_number}-{task_id}"
+    # source_repo_result = fetch_source_repo(task_id)
+    # if source_repo_result.get("status"):
+    #     return source_repo_result
+    # source_repo = source_repo_result["data"]
+    # repo_url = source_repo["repo_url"]
+    # repo_owner = source_repo["repo_owner"]
+    # repo_name = source_repo["repo_name"]
+    branch = f"task-{task_id}-round-{round_number - 3}"
+    repo_url = f"https://github.com/{repo_owner}/{repo_name}"
 
     # Initialize Claude client
     client = setup_client("anthropic")
@@ -381,7 +391,7 @@ def consolidate_prs(
     }
 
 
-def create_aggregator_repo(round_number, task_id):
+def create_aggregator_repo(round_number, task_id, repo_owner, repo_name):
     """Create an aggregator repo for a given round and task.
 
     Args:
@@ -396,12 +406,12 @@ def create_aggregator_repo(round_number, task_id):
     """
     try:
         # Get source repo info
-        source_repo_result = fetch_source_repo(task_id)
-        if source_repo_result.get("status"):
-            return source_repo_result
-        source_repo = source_repo_result["data"]
-        repo_owner = source_repo["repo_owner"]
-        repo_name = source_repo["repo_name"]
+        # source_repo_result = fetch_source_repo(task_id)
+        # if source_repo_result.get("status"):
+        #     return source_repo_result
+        # source_repo = source_repo_result["data"]
+        # repo_owner = source_repo["repo_owner"]
+        # repo_name = source_repo["repo_name"]
 
         # Initialize GitHub client with token
         github = gh(os.environ["GITHUB_TOKEN"])
@@ -418,7 +428,7 @@ def create_aggregator_repo(round_number, task_id):
             log_key_value("Created new fork", fork.html_url)
 
         # Create branch name
-        branch_name = f"round-{round_number}-{task_id}"
+        branch_name = f"task-{task_id}-round-{round_number}"
 
         try:
             # Get the default branch's SHA
@@ -452,19 +462,19 @@ def create_aggregator_repo(round_number, task_id):
         }
 
 
-def fetch_source_repo(task_id):
-    """Fetch the source repo for a given task."""
-    try:
-        response = requests.post(
-            os.environ["MIDDLE_SERVER_URL"] + "/api/source-repo",
-            json={
-                "taskId": task_id,
-            },
-            headers={"Content-Type": "application/json"},
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        if not hasattr(e, "response"):
-            return {"status": 500, "error": "No response from middle server"}
-        return {"status": e.response.status_code, "error": e.response.text}
+# def fetch_source_repo(task_id):
+#     """Fetch the source repo for a given task."""
+#     try:
+#         response = requests.post(
+#             os.environ["MIDDLE_SERVER_URL"] + "/api/source-repo",
+#             json={
+#                 "taskId": task_id,
+#             },
+#             headers={"Content-Type": "application/json"},
+#         )
+#         response.raise_for_status()
+#         return response.json()
+#     except requests.exceptions.RequestException as e:
+#         if not hasattr(e, "response"):
+#             return {"status": 500, "error": "No response from middle server"}
+#         return {"status": e.response.status_code, "error": e.response.text}

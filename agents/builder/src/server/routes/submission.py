@@ -30,4 +30,4 @@ def fetch_submission(roundNumber):
             }
         )
     else:
-        return jsonify({"error": "Submission not found"}), 404
+        return jsonify("No submission")
