@@ -2,6 +2,7 @@ from src.tools.execute_command.implementations import (
     execute_command,
     run_tests,
     install_dependency,
+    install_dependencies,
 )
 
 
@@ -69,5 +70,19 @@ DEFINITIONS = {
             "required": ["package_name", "package_manager"],
         },
         "function": install_dependency,
+    },
+    "install_dependencies": {
+        "name": "install_dependencies",
+        "description": "Install all dependencies from requirements.txt and/or package.json files",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to the repository root. If not provided, uses current directory.",
+                },
+            },
+        },
+        "function": install_dependencies,
     },
 }
