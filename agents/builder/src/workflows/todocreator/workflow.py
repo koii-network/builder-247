@@ -145,11 +145,11 @@ class TodoCreatorWorkflow(Workflow):
                     "Task decomposition failed",
                 )
                 return None
-            log_key_value("Tasks created", task_count)
-            log_key_value("Tasks", tasks_data)
+            log_key_value("Tasks created Number", task_count)
+            
             # Save the tasks data in the context, prepare for the validation phase
             self.context["subtasks"] = tasks_data
-            log_key_value("Subtasks", self.context["subtasks"])
+            log_key_value("Subtasks Number", len(self.context["subtasks"]))
             
             # ==================== Validation phase ====================
             validation_phase = phases.TaskValidationPhase(workflow=self)
@@ -199,7 +199,7 @@ class TodoCreatorWorkflow(Workflow):
                         tasks_data[index] = task
                     else:
                         tasks_data.append(task)
-            log_key_value("Regenerated tasks", tasks_data)
+            log_key_value("Regenerated tasks", len(tasks_data))
             # save the regenerated tasks in the context, prepare for the dependency phase
             self.context["subtasks"] = tasks_data
             # ==================== Dependency Phase ====================
@@ -230,7 +230,8 @@ class TodoCreatorWorkflow(Workflow):
                         acceptance_criteria=task["acceptance_criteria"],
                         repoOwner=self.context["repo_owner"],
                         repoName=self.context["repo_name"],
-                        dependencyTasks=task["dependency_tasks"]
+                        dependencyTasks=task["dependency_tasks"],
+                        uuid=task["uuid"]
                     )
                     insert_task_to_mongodb(task_model)
 
