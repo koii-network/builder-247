@@ -36,6 +36,8 @@ export async function task(roundNumber: number): Promise<void> {
       leaderNumber: 1,
       submitterPublicKey: stakingKey,
     });
+    if (leaderNode === null) {
+    }
     const payload = {
       taskId: TASK_ID,
       roundNumber,
@@ -70,7 +72,7 @@ export async function task(roundNumber: number): Promise<void> {
     } else {
       podCallUrl = `worker-task/${roundNumber}`;
     }
-    orcaClient.podCall(podCallUrl, {
+    await orcaClient.podCall(podCallUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
