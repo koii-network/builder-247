@@ -4,6 +4,7 @@ import base58
 import nacl.signing
 import json
 from typing import Dict, Optional, Any, Union
+from src.utils.logging import log_error
 
 
 def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:
@@ -33,7 +34,7 @@ def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:
         message = verify_key.verify(signed_bytes)
 
         # Decode message from bytes to string
-        decoded_message = message.decode('utf-8')
+        decoded_message = message.decode("utf-8")
         return {"data": decoded_message}
     except Exception as e:
         return {"error": f"Verification failed: {str(e)}"}
@@ -42,7 +43,7 @@ def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:
 def verify_and_parse_signature(
     signed_message: str,
     staking_key: str,
-    expected_values: Optional[Dict[str, Any]] = None
+    expected_values: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Union[Dict[str, Any], str]]:
     """Verify a signature and optionally validate its contents.
 
@@ -64,6 +65,10 @@ def verify_and_parse_signature(
     # First verify the signature
     result = verify_signature(signed_message, staking_key)
     if result.get("error"):
+        log_error(
+            Exception("Signature verification failed"),
+            context=f"Signature verification failed: {result.get('error')}",
+        )
         return result
 
     try:
@@ -74,6 +79,10 @@ def verify_and_parse_signature(
         if expected_values:
             for key, value in expected_values.items():
                 if data.get(key) != value:
+                    log_error(
+                        Exception("Invalid payload"),
+                        context=f"Invalid payload: expected {key}={value}, got {data.get(key)}",
+                    )
                     return {
                         "error": f"Invalid payload: expected {key}={value}, got {data.get(key)}"
                     }

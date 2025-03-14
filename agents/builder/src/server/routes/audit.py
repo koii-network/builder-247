@@ -7,13 +7,15 @@ bp = Blueprint("audit", __name__)
 
 
 @bp.post("/worker-audit/<round_number>")
-def audit_worker_submission(round_number: int):
+def audit_worker_submission(round_number: str):
     logger.info("Auditing submission")
+
+    round_number = int(round_number)
 
     data = request.get_json()
     submission = data.get("submission")
-    signature = data.get("signature")
-    staking_key = data.get("stakingKey")
+
+    logger.info(f"Submission data: {submission}")
 
     if not submission:
         return jsonify({"error": "Missing submission"}), 400
@@ -27,7 +29,7 @@ def audit_worker_submission(round_number: int):
     staking_key = submission.get("stakingKey")
     pub_key = submission.get("pubKey")
 
-    if int(round_number) != submission_round_number:
+    if round_number != submission_round_number:
         return jsonify({"error": "Round number mismatch"}), 400
 
     if (
@@ -50,10 +52,13 @@ def audit_worker_submission(round_number: int):
         round_number=round_number,
         staking_key=staking_key,
         pub_key=pub_key,
-        signature=signature,
     )
 
     if not is_valid:
+        log_error(
+            Exception("Invalid PR ownership"),
+            context=f"Invalid PR ownership: {pr_url}",
+        )
         return jsonify(False)
 
     try:

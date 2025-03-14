@@ -8,7 +8,7 @@ from src.utils.logging import log_key_value, log_error
 from src.tools.file_operations.implementations import list_files
 from src.tools.github_operations.parser import extract_section
 from src.utils.signatures import verify_and_parse_signature
-from typing import Optional, Dict, Tuple, Union
+from typing import Optional, Tuple
 
 
 def check_required_env_vars(env_vars: list[str]):
@@ -290,33 +290,6 @@ def extract_pr_signature(
     return parts[0].strip(), parts[1].strip()
 
 
-def validate_pr_signature(
-    staking_key: str,
-    signature: str,
-    expected_values: Dict[str, Union[str, int]],
-    context: str = "",
-) -> bool:
-    """Validate a signature from a PR against expected values.
-
-    Args:
-        staking_key: The staking key that signed the message
-        signature: The signature to verify
-        expected_values: Dictionary of values that should be in the signed payload
-        context: Optional context for error logging
-
-    Returns:
-        bool: True if signature is valid and matches expected values
-    """
-    result = verify_and_parse_signature(signature, staking_key, expected_values)
-    if result.get("error"):
-        log_error(
-            Exception("Invalid signature"),
-            context=f"Signature verification failed{f' in {context}' if context else ''}: {result['error']}",
-        )
-        return False
-    return True
-
-
 def verify_pr_signatures(
     pr_body: str,
     task_id: str,
@@ -337,16 +310,28 @@ def verify_pr_signatures(
     # Extract signatures using parser
     staking_signature_section = extract_section(pr_body, "STAKING_KEY")
     if not staking_signature_section:
+        log_error(
+            Exception("No staking signature section found"),
+            context=f"No staking signature section found in PR body: {pr_body}",
+        )
         return False
 
     # Parse the signature sections
     staking_parts = staking_signature_section.strip().split(":")
     if len(staking_parts) != 2:
+        log_error(
+            Exception("Invalid staking signature section"),
+            context=f"Invalid staking signature section in PR body: {staking_signature_section}",
+        )
         return False
 
     # Verify staking key matches expected
     pr_staking_key = staking_parts[0].strip()
     if pr_staking_key != expected_staking_key:
+        log_error(
+            Exception("Staking key mismatch"),
+            context=f"Staking key mismatch: {pr_staking_key} != {expected_staking_key}",
+        )
         return False
 
     staking_signature = staking_parts[1].strip()

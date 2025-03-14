@@ -95,6 +95,8 @@ def verify_pr_ownership(
         response_data = response.json()
         return response_data.get("success", True)
 
+        return True
+
     except Exception as e:
         log_error(e, context="Error verifying PR ownership")
         return True
