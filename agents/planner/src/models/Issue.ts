@@ -50,6 +50,7 @@ class AggregatorInfo {
   @prop({ required: true })
   public roundNumber!: number;
 }
+
 enum IssueStatus {
   INITIALIZED = "initialized",
   AGGREGATOR_PENDING = "aggregator_pending",
@@ -81,6 +82,8 @@ class Issue {
   @prop({ required: false })
   public aggregator?: AggregatorInfo;
 
+  @prop({ required: false}) 
+  public leaderDecidedRound?: number; 
 
   @prop({ required: true, type: () => [AssignedInfo], default: [] })
   public assignedTo!: AssignedInfo[];

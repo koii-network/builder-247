@@ -124,13 +124,30 @@ export const fetchTodo = async (req: Request, res: Response) => {
 
 
 export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey: string, pubKey: string}, signatureData: {roundNumber: number, githubUsername: string}) => {
-  const existingAssignment = await checkExistingAssignment(requestBody.pubKey, signatureData.roundNumber);
-  // Whether we need a leader 
+  // Update Assign Pending Issues
   const assignPendingIssues = await IssueModel.find({
     status: IssueStatus.ASSIGN_PENDING,
+    $or: [
+      { leaderDecidedRound: { $exists: false } },
+      { leaderDecidedRound: signatureData.roundNumber }
+    ]
   });
 
   const assignPendingIssueUUIDs = assignPendingIssues.map(issue => issue.issueUuid);
+
+  await IssueModel.updateMany(
+    { 
+      status: IssueStatus.ASSIGN_PENDING,
+      $or: [
+        { leaderDecidedRound: { $exists: false } },
+        { leaderDecidedRound: signatureData.roundNumber }
+      ]
+    },
+    { $set: { leaderDecidedRound: signatureData.roundNumber } }
+  );
+
+  const existingAssignment = await checkExistingAssignment(requestBody.pubKey, signatureData.roundNumber);
+  // Whether we need a leader 
 
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
@@ -146,7 +163,15 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
 
       const aggregatorInfo = chosenTODOIssue?.aggregator;
 
-      
+      const dependencyTaskPRUrls = [];
+      for (const dependency of existingAssignment.todo.dependencyTasks) {
+        const dependencyTask = await TodoModel.findOne({
+          uuid: dependency,
+        });
+        
+        const firstValidAssignment = dependencyTask?.assignedTo.find((assignment: any) => assignment.prUrl);
+        dependencyTaskPRUrls.push(firstValidAssignment?.prUrl);
+      }
       return {statuscode: 200, data:{
         success: true,
         role: "worker",
@@ -158,6 +183,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
           system_prompt: process.env.SYSTEM_PROMPT,
           aggregator_info: aggregatorInfo,
           assignPendingIssueUUIDs: assignPendingIssueUUIDs,
+          dependencyTaskPRUrls: dependencyTaskPRUrls,
         },
       }};
     }
@@ -220,10 +246,18 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
     }
 
     if (todos.length === 0 || dependencyFinishedTodosUUID.length === 0) {
-      return {statuscode: 404, data:{
-        success: false,
-        message: `No todos available, todos: ${todos.length}, dependencyFinishedTodosUUID: ${dependencyFinishedTodosUUID.length}`,
-      }};
+      if (assignPendingIssueUUIDs.length === 0) {
+        return {statuscode: 404, data:{
+          success: false,
+          message: `No todos available, todos: ${todos.length}, dependencyFinishedTodosUUID: ${dependencyFinishedTodosUUID.length}`,
+        }};
+      } else {
+        return {statuscode: 200, data:{
+          success: true,
+          role: "worker",
+          assignPendingIssueUUIDs: assignPendingIssueUUIDs,
+        }};
+      }
     }
     console.log("todos listed:", todos.length);
 
@@ -234,10 +268,18 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
     const inProcessIssueUUIDs = inProcessIssues.map(issue => issue.issueUuid);
 
     if (inProcessIssueUUIDs.length === 0) {
-      return {statuscode: 404, data:{
-        success: false,
-        message: "No in-process issues found",
-      }};
+      if (assignPendingIssueUUIDs.length === 0) {
+        return {statuscode: 404, data:{
+          success: false,
+          message: "No in-process issues found",
+        }};
+      } else {
+        return {statuscode: 200, data:{
+          success: true,
+          role: "worker",
+          assignPendingIssueUUIDs: assignPendingIssueUUIDs,
+        }};
+      }
     }
     // Explain: The reason why I find again is to make it modular
     const updatedTodo = await TodoModel.findOneAndUpdate({
@@ -288,11 +330,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
     // Elect Leader/Aggregator Node Part
     // Check all issues if there is any issue in ASSIGN_PENDING status, if there is, return the issue uuid
     // Check if there is any issue in ASSIGN_PENDING status, if there is, return the issue uuid
-    const assignPendingIssues = await IssueModel.find({
-      status: IssueStatus.ASSIGN_PENDING,
-    });
-
-    const assignPendingIssueUUIDs = assignPendingIssues.map(issue => issue.issueUuid);
+    // TODO: We need to reassign an issue when the round number is < current round number - 4
 
 
     // return the aggregator info for the todo as well
@@ -312,6 +350,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
         repo_name: updatedTodo.repoName,
         system_prompt: process.env.SYSTEM_PROMPT,
         aggregator_info: aggregatorInfo,
+        dependencyTaskPRUrls: dependencyTaskPRUrls,
         assignPendingIssueUUIDs: assignPendingIssueUUIDs,
       },
     }};

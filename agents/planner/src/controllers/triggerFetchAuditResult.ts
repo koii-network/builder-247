@@ -62,7 +62,6 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
                     todo.status = TodoStatus.AUDITED;
                 } else if (negativeKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
                     assignee.auditResult = false;
-                    todo.status = TodoStatus.INITIALIZED;
                 }
             }
             // Save the todo
@@ -79,6 +78,25 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
             }
             // Save the issue
         await issue.save();
+
+
+
+        // Now update the has pr issues
+        const hasPRIssues = await IssueModel.find({"assignedTo.stakingKey": {$in: [...positiveKeys, ...negativeKeys]}, "assignedTo.prUrl": {$exists: true}});
+        for (const issue of hasPRIssues) {
+            for (const assignee of issue.assignedTo) {
+                if (positiveKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
+                    issue.status = IssueStatus.IN_REVIEW;
+                    assignee.auditResult = true;
+                } else if (negativeKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
+                    assignee.auditResult = false;
+                }
+            }
+            if (issue.status === IssueStatus.IN_REVIEW) {
+                await TodoModel.updateMany({issueUuid: issue.issueUuid}, {$set: {status: TodoStatus.MERGED}});
+            }
+            await issue.save();
+        }
     }
     return {statuscode: 200, data: {
         success: true,
