@@ -41,6 +41,11 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
       return false;
     }
 
+    if (data.prUrl === "none") {
+      console.log("Dummy submission");
+      return true;
+    }
+
     const orca = await getOrcaClient();
 
     const { isLeader } = await getLeaderNode({ roundNumber, leaderNumber: 1, submitterPublicKey: submitterKey });
@@ -51,17 +56,23 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     } else {
       podCallUrl = `worker-audit/${roundNumber}`;
     }
+    const podCallBody = {
+      submission: data,
+      signature: submission.signature,
+      stakingKey: submitterKey,
+      pubKey: data.pubKey,
+      prUrl: data.prUrl,
+      repoOwner: data.repoOwner,
+      repoName: data.repoName,
+      githubUsername: data.githubUsername,
+    };
+    console.log({ podCallBody });
     const auditResult = await orca.podCall(podCallUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        submission: data,
-        signature: submission.signature,
-        stakingKey: submitterKey,
-        pubKey: data.pubKey,
-      }),
+      body: JSON.stringify(podCallBody),
     });
 
     // return the result of the audit (true or false)
