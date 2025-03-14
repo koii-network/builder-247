@@ -40,7 +40,9 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
 
     const orca = await getOrcaClient();
 
-    const { isLeader } = await getLeaderNode({ roundNumber, submitterPublicKey: submitterKey });
+    const { isLeader } = await getLeaderNode({ roundNumber,
+      leaderNumber: 1,
+      submitterPublicKey: submitterKey });
     let podCallUrl;
 
     if (isLeader) {
