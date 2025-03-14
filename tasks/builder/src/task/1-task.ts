@@ -4,13 +4,13 @@ import "dotenv/config";
 import { getLeaderNode } from "../utils/leader";
 
 interface PodCallBody {
-  taskId?: string;
+  taskId: string;
   roundNumber: number;
   stakingKey: string;
   pubKey: string;
   stakingSignature: string;
   publicSignature: string;
-  distributionList?: Record<string, number>;
+  distributionList: Record<string, number>;
 }
 export async function task(roundNumber: number): Promise<void> {
   /**
@@ -31,7 +31,11 @@ export async function task(roundNumber: number): Promise<void> {
     if (!pubKey) {
       throw new Error("No public key found");
     }
-    const { isLeader, leaderNode } = await getLeaderNode({ roundNumber, submitterPublicKey: stakingKey });
+    const { isLeader, leaderNode } = await getLeaderNode({
+      roundNumber,
+      leaderNumber: 1,
+      submitterPublicKey: stakingKey,
+    });
     const payload = {
       taskId: TASK_ID,
       roundNumber,
@@ -48,12 +52,13 @@ export async function task(roundNumber: number): Promise<void> {
     }
 
     const podCallBody: PodCallBody = {
-      taskId: TASK_ID,
+      taskId: TASK_ID!,
       roundNumber,
       stakingKey,
       pubKey,
       stakingSignature,
       publicSignature,
+      distributionList: {},
     };
     let podCallUrl;
     if (isLeader) {
