@@ -124,15 +124,10 @@ class TodoCreatorWorkflow(Workflow):
         """Execute the task decomposition workflow."""
         try:
             self.setup()
-
-            # Store the output filename in the context for the agent to use
-            # Make sure it has a .csv extension
-
-
-            # Decompose feature into tasks and generate CSV
+            # ==================== Decompose feature into tasks ====================
             decompose_phase = phases.TaskDecompositionPhase(workflow=self)
             decomposition_result = decompose_phase.execute()
-
+            # Check Decomposition Result
             if not decomposition_result or not decomposition_result.get("success"):
                 log_error(
                     Exception(decomposition_result.get("error", "No result")),
@@ -140,26 +135,23 @@ class TodoCreatorWorkflow(Workflow):
                 )
                 return None
 
-            # Get the tasks and file path from the result
+            # Temporary save the tasks data in a variable
             tasks_data = decomposition_result["data"].get("tasks", [])
-            output_json = decomposition_result["data"].get("file_path")
             task_count = decomposition_result["data"].get("task_count", 0)
-
+            # Check Decomposition Result
             if not tasks_data:
                 log_error(
                     Exception("No tasks generated"),
                     "Task decomposition failed",
                 )
                 return None
-
-            # Convert raw tasks to Task objects
-   
-            
-            log_key_value("JSON file created at", output_json)
             log_key_value("Tasks created", task_count)
+            log_key_value("Tasks", tasks_data)
+            # Save the tasks data in the context, prepare for the validation phase
             self.context["subtasks"] = tasks_data
-            print(self.context["subtasks"])
-            # Validation phase
+            log_key_value("Subtasks", self.context["subtasks"])
+            
+            # ==================== Validation phase ====================
             validation_phase = phases.TaskValidationPhase(workflow=self)
             validation_result = validation_phase.execute()
 
@@ -168,9 +160,11 @@ class TodoCreatorWorkflow(Workflow):
                     Exception(validation_result.get("error", "No result")),
                     "Task validation failed",
                 )
+            # Get the decisions from the validation result
             decisions = validation_result["data"]["decisions"]
             
             # TODO: Rework until all the tasks are valid
+            # save the audited tasks in the context, prepare for the regeneration phase
             self.context["auditedSubtasks"] = []
             # decisions_flag =  True
             for uuid, decision in decisions.items():
@@ -181,7 +175,12 @@ class TodoCreatorWorkflow(Workflow):
                         self.context["auditedSubtasks"].append(task)
                     # decisions_flag = False
             
+            # save the decisions in the context, prepare for the regeneration phase
             self.context["feedbacks"] = decisions
+            
+
+
+            # ==================== Regeneration phase ====================
             if len(self.context["auditedSubtasks"]) > 0:
                 regenerate_phase = phases.TaskRegenerationPhase(workflow=self)
                 regenerate_result = regenerate_phase.execute()
@@ -194,21 +193,17 @@ class TodoCreatorWorkflow(Workflow):
                 regenerated_tasks_data = regenerate_result["data"]["tasks"]
                 # replace the self.context["subtasks"] with the new tasks
                 for task in regenerated_tasks_data:
-       
                     index = next((i for i, t in enumerate(tasks_data) if t["uuid"] == task["uuid"]), None)
                     if index is not None:
                         # decisions[task["uuid"]]["decision"] = True
                         tasks_data[index] = task
                     else:
-            
                         tasks_data.append(task)
-
-            # Print regenerated tasks
-            print("Regenerated tasks:")
-            print(tasks_data)
-
-            # Ensure the code continues to execute after printing
-            # # TODO: Dependency Phase
+            log_key_value("Regenerated tasks", tasks_data)
+            # save the regenerated tasks in the context, prepare for the dependency phase
+            self.context["subtasks"] = tasks_data
+            # ==================== Dependency Phase ====================
+            # # TODO: Refine the Dependency Phase
             for task in tasks_data:
                 self.context["target_task"] = task
                 dependency_phase = phases.TaskDependencyPhase(workflow=self)
@@ -218,15 +213,17 @@ class TodoCreatorWorkflow(Workflow):
                         Exception(dependency_result.get("error", "No result")),
                         "Task dependency failed",
                     )
-                print(dependency_result["data"])
-                print(task["uuid"])
-                task["dependency_tasks"] = dependency_result["data"][task["uuid"]]
+                # save the dependency tasks in the context, prepare for the MongoDB insertion phase
+                try: 
+                    task["dependency_tasks"] = dependency_result["data"][task["uuid"]]
+                except Exception as e:
+                    log_error(e, "Task dependency failed for task: " + task["title"])
+                    task["dependency_tasks"] = []
 
-            
+            # ==================== MongoDB Insertion Phase ====================
             # Insert into MongoDB
             for task in tasks_data:
                 if decisions[task["uuid"]]["decision"] == True:
-                    print(task["title"])
                     task_model = TaskModel(
                         title=task["title"],
                         description=task["description"],
@@ -241,10 +238,7 @@ class TodoCreatorWorkflow(Workflow):
             return {
                 "success": True,
                 "message": f"Created {task_count} tasks for the feature",
-                "data": {
-                    "decisions": tasks_data,
-                    "task_count": task_count,
-                },
+                "data" : None
             }
 
         except Exception as e:
