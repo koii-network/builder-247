@@ -44,34 +44,44 @@ export async function triggerFetchAuditResult(req: Request, res: Response): Prom
         res.status(200).send('No Distribution List found.');
         return;
     }
-    // ============== Update the subtask status ==============
-    const todos = await TodoModel.find({ "assignedTo.stakingKey": { $in: [...positiveKeys, ...negativeKeys] } });
 
-    for (const todo of todos) {
-        for (const assignee of todo.assignedTo) {
-            if (positiveKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
-                assignee.auditResult = true;
-                todo.status = TodoStatus.AUDITED;
-            } else if (negativeKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
-                assignee.auditResult = false;
-                todo.status = TodoStatus.INITIALIZED;
-            }
-        }
-        // Save the todo
-        await todo.save();
-    }
-    // Get all the todos issueUuid
-    const issueUuids = todos.map((todo) => todo.issueUuid);
-    // Check if all subtasks of an issue are completed, if so, update the issue status
-    const issues = await IssueModel.find({ issueUuid: { $in: issueUuids } });
-    for (const issue of issues) {
-        const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
-        if (todos.every((todo) => todo.status === TodoStatus.AUDITED)) {
-            issue.status = IssueStatus.ASSIGN_PENDING;
-        }
-        // Save the issue
-        await issue.save();
-    }
-    res.status(200).send('Task processed successfully.');
+    const response = await triggerFetchAuditResultLogic(positiveKeys, negativeKeys, round);
+    res.status(response.statuscode).json(response.data);
+
 }
 
+export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
+
+        // ============== Update the subtask status ==============
+        const todos = await TodoModel.find({ "assignedTo.stakingKey": { $in: [...positiveKeys, ...negativeKeys] } });
+
+        for (const todo of todos) {
+            for (const assignee of todo.assignedTo) {
+                if (positiveKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
+                    assignee.auditResult = true;
+                    todo.status = TodoStatus.AUDITED;
+                } else if (negativeKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
+                    assignee.auditResult = false;
+                    todo.status = TodoStatus.INITIALIZED;
+                }
+            }
+            // Save the todo
+            await todo.save();
+        }
+        // Get all the todos issueUuid
+        const issueUuids = todos.map((todo) => todo.issueUuid);
+        // Check if all subtasks of an issue are completed, if so, update the issue status
+        const issues = await IssueModel.find({ issueUuid: { $in: issueUuids } });
+        for (const issue of issues) {
+            const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
+            if (todos.every((todo) => todo.status === TodoStatus.AUDITED)) {
+                issue.status = IssueStatus.ASSIGN_PENDING;
+            }
+            // Save the issue
+        await issue.save();
+    }
+    return {statuscode: 200, data: {
+        success: true,
+        message: 'Task processed successfully.',
+    }};
+}
