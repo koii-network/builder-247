@@ -431,13 +431,21 @@ def create_aggregator_repo(round_number, task_id, repo_owner, repo_name):
         branch_name = f"task-{task_id}-round-{round_number}"
 
         try:
-            # Get the default branch's SHA
-            default_branch = fork.default_branch
-            default_branch_sha = fork.get_branch(default_branch).commit.sha
-
-            # Create branch if it doesn't exist
-            fork.create_git_ref(f"refs/heads/{branch_name}", default_branch_sha)
-            log_key_value("Created new branch", branch_name)
+            # Check if branch already exists
+            try:
+                fork.get_branch(branch_name)
+                log_key_value("Using existing branch", branch_name)
+                return {
+                    "success": True,
+                    "message": "Using existing aggregator repository and branch",
+                    "data": {"fork_url": fork.html_url, "branch_name": branch_name},
+                }
+            except Exception:
+                # Branch doesn't exist, create it
+                default_branch = fork.default_branch
+                default_branch_sha = fork.get_branch(default_branch).commit.sha
+                fork.create_git_ref(f"refs/heads/{branch_name}", default_branch_sha)
+                log_key_value("Created new branch", branch_name)
 
             return {
                 "success": True,
