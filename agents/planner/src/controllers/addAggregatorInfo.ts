@@ -72,6 +72,11 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
     return;
   }
 
+  const response = await addAggregatorInfoLogic(requestBody, signatureData);
+  res.status(response.statuscode).json(response.data);
+
+};
+export const addAggregatorInfoLogic = async (requestBody: {signature: string, stakingKey: string, pubKey: string}, signatureData: {roundNumber: number, githubUsername: string, issueUuid: string}) => {
   const issue = await IssueModel.findOneAndUpdate({
     issueUuid: signatureData.issueUuid,
     aggregator: {
@@ -85,19 +90,18 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
     },
   }, { new: true });
   if (!issue) {
-    res.status(404).json({
+    return {statuscode: 404, data:{
       success: false,
       message: "Issue not found",
-    });
-    return;
+    }};
   }
 
   issue.status = IssueStatus.IN_PROCESS;
 
   await issue.save();
 
-  res.status(200).json({
+  return {statuscode: 200, data:{
     success: true,
     message: "Aggregator info added",
-  });
-};
+  }};
+}

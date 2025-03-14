@@ -109,6 +109,11 @@ export const addPR = async (req: Request, res: Response) => {
     return;
   }
 
+  const response = await addPRLogic(requestBody, signatureData);
+  res.status(response.statuscode).json(response.data);
+};
+
+export const addPRLogic = async (requestBody: {signature: string, pubKey: string, stakingKey: string}, signatureData: {roundNumber: number, prUrl: string}) => {
   console.log("prUrl", signatureData.prUrl);
   const result = await updateAssignedInfoWithPRUrl(
     requestBody.stakingKey,
@@ -117,15 +122,14 @@ export const addPR = async (req: Request, res: Response) => {
     requestBody.signature,
   );
   if (!result) {
-    res.status(401).json({
+    return {statuscode: 401, data:{
       success: false,
       message: "Failed to update pull request URL",
-    });
-    return;
+    }};
   }
 
-  res.status(200).json({
+  return {statuscode: 200, data:{
     success: true,
     message: "Pull request URL updated",
-  });
+  }};
 };

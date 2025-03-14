@@ -116,15 +116,28 @@ export const fetchTodo = async (req: Request, res: Response) => {
     });
     return;
   }
-  console.log();
+  const response = await fetchTodoLogic(requestBody, signatureData);
+  res.status(response.statuscode).json(response.data);
+
+ 
+};
+
+
+export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey: string, pubKey: string}, signatureData: {roundNumber: number, githubUsername: string}) => {
   const existingAssignment = await checkExistingAssignment(requestBody.pubKey, signatureData.roundNumber);
+  // Whether we need a leader 
+  const assignPendingIssues = await IssueModel.find({
+    status: IssueStatus.ASSIGN_PENDING,
+  });
+
+  const assignPendingIssueUUIDs = assignPendingIssues.map(issue => issue.issueUuid);
 
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
-      return res.status(401).json({
+      return {statuscode: 401, data:{
         success: false,
         message: "Task already completed",
-      });
+      }};
     } else {
 
       const chosenTODOIssue = await IssueModel.findOne({
@@ -133,7 +146,8 @@ export const fetchTodo = async (req: Request, res: Response) => {
 
       const aggregatorInfo = chosenTODOIssue?.aggregator;
 
-      return res.status(200).json({
+      
+      return {statuscode: 200, data:{
         success: true,
         role: "worker",
         data: {
@@ -143,8 +157,9 @@ export const fetchTodo = async (req: Request, res: Response) => {
           repo_name: existingAssignment.todo.repoName,
           system_prompt: process.env.SYSTEM_PROMPT,
           aggregator_info: aggregatorInfo,
+          assignPendingIssueUUIDs: assignPendingIssueUUIDs,
         },
-      });
+      }};
     }
   }
   // Check if there are not assigned issues
@@ -161,12 +176,12 @@ export const fetchTodo = async (req: Request, res: Response) => {
     },
   }, { new: true });
   if (notAssignedIssue) {
-    res.status(200).json({
+    return {statuscode: 200, data:{
       success: true,
       role: "aggregator",
       issue_uuid: notAssignedIssue.issueUuid,
-    });
-    return;
+      assignPendingIssueUUIDs: assignPendingIssueUUIDs,
+    }};
   }
   try {
     // TODO: We must consider concurrent requests
@@ -205,11 +220,10 @@ export const fetchTodo = async (req: Request, res: Response) => {
     }
 
     if (todos.length === 0 || dependencyFinishedTodosUUID.length === 0) {
-      res.status(404).json({
+      return {statuscode: 404, data:{
         success: false,
         message: `No todos available, todos: ${todos.length}, dependencyFinishedTodosUUID: ${dependencyFinishedTodosUUID.length}`,
-      });
-      return;
+      }};
     }
     console.log("todos listed:", todos.length);
 
@@ -221,11 +235,10 @@ export const fetchTodo = async (req: Request, res: Response) => {
     const inProcessIssueUUIDs = inProcessIssues.map(issue => issue.issueUuid);
 
     if (inProcessIssueUUIDs.length === 0) {
-      res.status(404).json({
+      return {statuscode: 404, data:{
         success: false,
         message: "No in-process issues found",
-      });
-      return;
+      }};
     }
     // Explain: The reason why I find again is to make it modular
     const updatedTodo = await TodoModel.findOneAndUpdate({
@@ -258,11 +271,10 @@ export const fetchTodo = async (req: Request, res: Response) => {
   ).sort({ createdAt: 1 });
 
     if (!updatedTodo) {
-      res.status(409).json({
+      return {statuscode: 409, data:{
         success: false,
         message: "Task assignment conflict",
-      });
-      return;
+      }};
     }
     // Dependency Task PR URLs
     const dependencyTaskPRUrls = [];
@@ -291,7 +303,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
 
     const aggregatorInfo = chosenTODOIssue?.aggregator;
 
-    res.status(200).json({
+    return {statuscode: 200, data:{
       success: true,
       role: "worker",
       data: {
@@ -301,13 +313,14 @@ export const fetchTodo = async (req: Request, res: Response) => {
         repo_name: updatedTodo.repoName,
         system_prompt: process.env.SYSTEM_PROMPT,
         aggregator_info: aggregatorInfo,
+        assignPendingIssueUUIDs: assignPendingIssueUUIDs,
       },
-    });
+    }};
   } catch (error) {
     console.error("Error fetching todos:", error);
-    res.status(500).json({
+    return {statuscode: 500, data:{
       success: false,
       message: "Failed to fetch todos",
-    });
+    }}
   }
-};
+}

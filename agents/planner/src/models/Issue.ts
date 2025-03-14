@@ -78,11 +78,11 @@ class Issue {
   @prop({ required: true })
   public repoName!: string;
   
-  @prop({ required: true })
-  public aggregator!: AggregatorInfo;
+  @prop({ required: false })
+  public aggregator?: AggregatorInfo;
 
 
-  @prop({ required: false, type: () => [AssignedInfo], default: [] })
+  @prop({ required: true, type: () => [AssignedInfo], default: [] })
   public assignedTo!: AssignedInfo[];
 }
 
