@@ -14,7 +14,11 @@ from ..types import (
 )
 from src.utils.logging import log_section, log_key_value, log_error
 from src.utils.errors import ClientAPIError
-from src.utils.retry import is_retryable_error
+from src.utils.retry import (
+    is_retryable_error,
+    send_message_with_retry,
+    execute_tool_with_retry,
+)
 import json
 import ast
 
@@ -489,8 +493,8 @@ class Client(ABC):
                 try:
                     # Update tool arguments with context
                     tool_call["arguments"].update(context)
-                    # Execute the tool
-                    result = self.execute_tool(tool_call)
+                    # Execute the tool with retry
+                    result = execute_tool_with_retry(self, tool_call)
                     if not result:
                         result = {
                             "success": False,
@@ -534,8 +538,8 @@ class Client(ABC):
             last_results = tool_results
 
             # Send tool results to agent and get next response
-            response = self.send_message(
+            response = send_message_with_retry(
+                self,
                 conversation_id=conversation_id,
                 tool_response=json.dumps(tool_results),
             )
-            # Loop continues - will check new response for more tool calls
