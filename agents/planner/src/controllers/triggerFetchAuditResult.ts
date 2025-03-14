@@ -54,7 +54,7 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
 
         // ============== Update the subtask status ==============
         const todos = await TodoModel.find({ "assignedTo.stakingKey": { $in: [...positiveKeys, ...negativeKeys] } });
-
+        // console.log('Todos Found');
         for (const todo of todos) {
             for (const assignee of todo.assignedTo) {
                 if (positiveKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
@@ -67,9 +67,10 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
             // Save the todo
             await todo.save();
         }
-        // Get all the todos issueUuid
+        // console.log('Todo Saved');
+        // get all the issue's for this round changed todos
         const issueUuids = todos.map((todo) => todo.issueUuid);
-        // Check if all subtasks of an issue are completed, if so, update the issue status
+        // Check if all subtasks of an issue are completed, if so, update the issue status to assign pending
         const issues = await IssueModel.find({ issueUuid: { $in: issueUuids } });
         for (const issue of issues) {
             const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
@@ -77,9 +78,9 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
                 issue.status = IssueStatus.ASSIGN_PENDING;
             }
             // Save the issue
-        await issue.save();
-
-
+            await issue.save();
+        }
+        // console.log('Issue Saved');
 
         // Now update the has pr issues
         const hasPRIssues = await IssueModel.find({"assignedTo.stakingKey": {$in: [...positiveKeys, ...negativeKeys]}, "assignedTo.prUrl": {$exists: true}});
@@ -97,7 +98,6 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
             }
             await issue.save();
         }
-    }
     return {statuscode: 200, data: {
         success: true,
         message: 'Task processed successfully.',
