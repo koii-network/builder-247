@@ -199,6 +199,7 @@ def create_worker_pull_request(
     pub_key: str,
     staking_signature: str,
     public_signature: str,
+    base_branch: str = "main",
     **kwargs,
 ) -> ToolOutput:
     """Create a pull request for a worker node.
@@ -217,6 +218,7 @@ def create_worker_pull_request(
         pub_key: Worker's public key
         staking_signature: Worker's staking signature
         public_signature: Worker's public signature
+        base_branch: Base branch to merge into (default: main)
     """
     # Format lists into markdown bullets
     tests_bullets = " - " + "\n - ".join(tests)
@@ -227,6 +229,7 @@ def create_worker_pull_request(
         repo_owner=repo_owner,
         repo_name=repo_name,
         head_branch=head_branch,
+        base_branch=base_branch,
         pr_template=TEMPLATES["worker_pr_template"],
         data={
             "title": title,
