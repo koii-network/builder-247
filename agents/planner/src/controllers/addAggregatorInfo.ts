@@ -77,13 +77,18 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
 
 };
 export const addAggregatorInfoLogic = async (requestBody: {signature: string, stakingKey: string, pubKey: string}, signatureData: {roundNumber: number, githubUsername: string, issueUuid: string}) => {
-  const issue = await IssueModel.findOneAndUpdate({
+  console.log("Searching for issue with:", {
     issueUuid: signatureData.issueUuid,
     aggregator: {
       stakingKey: requestBody.stakingKey,
       githubUsername: signatureData.githubUsername,
       roundNumber: signatureData.roundNumber,
     },
+  });
+  const issue = await IssueModel.findOneAndUpdate({
+    issueUuid: signatureData.issueUuid,
+    "aggregator.stakingKey": requestBody.stakingKey,
+    "aggregator.githubUsername": signatureData.githubUsername,
   }, {
     $set: {
       status: IssueStatus.IN_PROCESS,

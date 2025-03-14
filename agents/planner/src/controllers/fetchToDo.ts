@@ -206,7 +206,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
       let isDependencyFinished = true;
       for (const dependency of todo.dependencyTasks) {
         const dependencyFinishedTodo = await TodoModel.findOne({
-          _id: dependency,
+          uuid: dependency,
           status: TodoStatus.AUDITED,
         });
         if (!dependencyFinishedTodo) {
@@ -215,7 +215,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
         }
       }
       if (isDependencyFinished) {
-        dependencyFinishedTodosUUID.push(todo._id);
+        dependencyFinishedTodosUUID.push(todo.uuid);
       }
     }
 
@@ -228,7 +228,6 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
     console.log("todos listed:", todos.length);
 
     const inProcessIssues = await IssueModel.find({
-      issueUuid: { $in: dependencyFinishedTodosUUID },
       status: IssueStatus.IN_PROCESS,
     });
 
@@ -252,7 +251,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
           { $and: [{ "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 3 } }, { status: TodoStatus.IN_PROGRESS }] },
           { $and: [ { status: TodoStatus.INITIALIZED }] }
         ], 
-        _id: { $in: dependencyFinishedTodosUUID },
+        uuid: { $in: dependencyFinishedTodosUUID },
     }, 
     {
       $push: {
@@ -280,7 +279,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
     const dependencyTaskPRUrls = [];
     for (const dependency of updatedTodo.dependencyTasks) {
       const dependencyTask = await TodoModel.findOne({
-        _id: dependency,
+        uuid: dependency,
       });
       
       const firstValidAssignment = dependencyTask?.assignedTo.find((assignment: any) => assignment.prUrl);
