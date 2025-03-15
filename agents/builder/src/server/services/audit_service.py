@@ -22,6 +22,7 @@ def verify_pr_ownership(
     round_number: int,
     staking_key: str,
     pub_key: str,
+    signature: str,
 ) -> bool:
     """Verify PR ownership and signature.
 
@@ -88,6 +89,7 @@ def verify_pr_ownership(
                 "githubUsername": expected_username,
                 "prUrl": pr_url,
                 "taskId": task_id,
+                "signature": signature,
             },
             headers={"Content-Type": "application/json"},
         )

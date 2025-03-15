@@ -9,11 +9,10 @@ bp = Blueprint("audit", __name__)
 @bp.post("/worker-audit/<round_number>")
 def audit_worker_submission(round_number: str):
     logger.info("Auditing submission")
-
     round_number = int(round_number)
-
     data = request.get_json()
     submission = data.get("submission")
+    signature = data.get("signature")
 
     logger.info(f"Submission data: {submission}")
 
@@ -52,6 +51,7 @@ def audit_worker_submission(round_number: str):
         round_number=round_number,
         staking_key=staking_key,
         pub_key=pub_key,
+        signature=signature,
     )
 
     if not is_valid:
