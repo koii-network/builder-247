@@ -5,8 +5,8 @@
 
     /* Modules */
     "module": "CommonJS",
-    "rootDir": "./src",
-    "outDir": "./dist",
+    "rootDir": "./",
+    "outDir": "./build",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "Node",
@@ -20,6 +20,6 @@
     "noEmit": false,
     "allowImportingTsExtensions": false
   },
-  "include": ["src/**/*", "../builder/src/orcaSettings.js"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*", "tests/**/*", "../builder/src/orcaSettings.js"],
+  "exclude": ["node_modules", "dist", "build"]
 }

@@ -12,12 +12,13 @@ let TASK_TIMES: number[] = [];
 let SUBMISSION_TIMES: number[] = [];
 let AUDIT_TIMES: number[] = [];
 
-function sleep(ms) {
+function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-const keypair = Keypair.generate();
-await namespaceWrapper.stakeOnChain(keypair.publicKey, keypair, keypair.publicKey, 10000);
+
 async function executeTasks() {
+  const keypair = Keypair.generate();
+  await namespaceWrapper.stakeOnChain(keypair.publicKey, keypair, keypair.publicKey, 10000);
   for (let round = 0; round < numRounds; round++) {
     const taskStartTime = Date.now();
     await taskRunner.task(round);
@@ -47,10 +48,10 @@ async function executeTasks() {
     }
   }
   console.log("TIME METRICS BELOW");
-  function metrics(name, times) {
-    const average = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
-    const formatTime = (ms) => (ms / 1000).toFixed(4);
-    const formatSlot = (ms) => Math.ceil(ms / 408);
+  function metrics(name: string, times: number[]) {
+    const average = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+    const formatTime = (ms: number) => (ms / 1000).toFixed(4);
+    const formatSlot = (ms: number) => Math.ceil(ms / 408);
     const min = Math.min(...times);
     const max = Math.max(...times);
     const avg = average(times);

@@ -1,6 +1,7 @@
 from src.tools.github_operations.implementations import (
     fork_repository,
-    create_pull_request,
+    create_worker_pull_request,
+    create_leader_pull_request,
     review_pull_request,
     validate_implementation,
     generate_analysis,
@@ -28,52 +29,151 @@ DEFINITIONS = {
         },
         "function": fork_repository,
     },
-    "create_pull_request": {
-        "name": "create_pull_request",
-        "description": "Create a pull request with formatted description.",
+    "create_worker_pull_request": {
+        "name": "create_worker_pull_request",
+        "description": "Create a pull request for a worker node with task implementation details and signatures.",
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_full_name": {
+                "repo_owner": {
                     "type": "string",
-                    "description": "Full name of repository (owner/repo)",
+                    "description": "Owner of the repository",
                 },
-                "title": {"type": "string", "description": "Title of the pull request"},
-                "head": {
+                "repo_name": {
+                    "type": "string",
+                    "description": "Name of the repository",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Title of the pull request",
+                },
+                "head_branch": {
                     "type": "string",
                     "description": "Name of the branch containing changes",
                 },
-                "base": {
-                    "type": "string",
-                    "description": "Name of the branch to merge into",
-                },
                 "description": {
                     "type": "string",
-                    "description": "A brief summary of the changes made",
+                    "description": "Brief 1-2 sentence overview of the work done",
+                },
+                "changes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Detailed list of specific changes made in the implementation",
                 },
                 "tests": {
                     "type": "array",
-                    "description": "A brief description of what each test does",
                     "items": {"type": "string"},
+                    "description": "List of test descriptions",
                 },
-                "todo": {"type": "string", "description": "Original task description"},
-                "acceptance_criteria": {
+                "todo": {
                     "type": "string",
-                    "description": "Acceptance criteria",
+                    "description": "Original task description",
+                },
+                "acceptance_criteria": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of acceptance criteria",
+                },
+                "staking_key": {
+                    "type": "string",
+                    "description": "Worker's staking key",
+                },
+                "pub_key": {
+                    "type": "string",
+                    "description": "Worker's public key",
+                },
+                "staking_signature": {
+                    "type": "string",
+                    "description": "Worker's staking signature",
+                },
+                "public_signature": {
+                    "type": "string",
+                    "description": "Worker's public signature",
                 },
             },
             "required": [
-                "repo_full_name",
+                "repo_owner",
+                "repo_name",
                 "title",
-                "head",
+                "head_branch",
                 "description",
+                "changes",
                 "tests",
                 "todo",
                 "acceptance_criteria",
+                "staking_key",
+                "pub_key",
+                "staking_signature",
+                "public_signature",
             ],
         },
-        "final_tool": True,
-        "function": create_pull_request,
+        "function": create_worker_pull_request,
+    },
+    "create_leader_pull_request": {
+        "name": "create_leader_pull_request",
+        "description": "Create a pull request for a leader node consolidating multiple worker PRs.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "repo_owner": {
+                    "type": "string",
+                    "description": "Owner of the repository",
+                },
+                "repo_name": {
+                    "type": "string",
+                    "description": "Name of the repository",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Title of the pull request",
+                },
+                "head_branch": {
+                    "type": "string",
+                    "description": "Name of the branch containing changes",
+                },
+                "description": {
+                    "type": "array",
+                    "description": "List of consolidated PRs, each containing number, url, and title",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "number": {"type": "integer"},
+                            "url": {"type": "string"},
+                            "title": {"type": "string"},
+                        },
+                    },
+                },
+                "base_branch": {
+                    "type": "string",
+                    "description": "Base branch to merge into (default: main)",
+                    "default": "main",
+                },
+                "staking_key": {
+                    "type": "string",
+                    "description": "Leader's staking key",
+                },
+                "pub_key": {
+                    "type": "string",
+                    "description": "Leader's public key",
+                },
+                "staking_signature": {
+                    "type": "string",
+                    "description": "Leader's staking signature",
+                },
+                "public_signature": {
+                    "type": "string",
+                    "description": "Leader's public signature",
+                },
+            },
+            "required": [
+                "repo_owner",
+                "repo_name",
+                "title",
+                "head_branch",
+                "description",
+            ],
+        },
+        "function": create_leader_pull_request,
     },
     "review_pull_request": {
         "name": "review_pull_request",
@@ -81,30 +181,36 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_full_name": {
+                "repo_owner": {
                     "type": "string",
-                    "description": "Full name of repository (owner/repo)",
+                    "description": "Owner of the repository",
                 },
-                "pr_number": {"type": "integer", "description": "Pull request number"},
-                "title": {"type": "string", "description": "Title of the PR"},
+                "repo_name": {
+                    "type": "string",
+                    "description": "Name of the repository",
+                },
+                "pr_number": {
+                    "type": "integer",
+                    "description": "Pull request number",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Title of the PR",
+                },
                 "description": {
                     "type": "string",
                     "description": "Description of changes",
                 },
-                "requirements": {
-                    "type": "object",
-                    "description": "Dictionary with 'met' and 'not_met' requirements",
-                    "properties": {
-                        "met": {"type": "array", "items": {"type": "string"}},
-                        "not_met": {"type": "array", "items": {"type": "string"}},
-                    },
+                "unmet_requirements": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of unmet requirements",
                 },
                 "test_evaluation": {
                     "type": "object",
                     "description": "Dictionary with test evaluation details",
                     "properties": {
-                        "coverage": {"type": "array", "items": {"type": "string"}},
-                        "issues": {"type": "array", "items": {"type": "string"}},
+                        "failed": {"type": "array", "items": {"type": "string"}},
                         "missing": {"type": "array", "items": {"type": "string"}},
                     },
                 },
@@ -122,17 +228,38 @@ DEFINITIONS = {
                     "items": {"type": "string"},
                     "description": "Required changes or improvements",
                 },
+                "staking_key": {
+                    "type": "string",
+                    "description": "Reviewer's staking key",
+                },
+                "pub_key": {
+                    "type": "string",
+                    "description": "Reviewer's public key",
+                },
+                "staking_signature": {
+                    "type": "string",
+                    "description": "Reviewer's staking signature",
+                },
+                "public_signature": {
+                    "type": "string",
+                    "description": "Reviewer's public signature",
+                },
             },
             "required": [
-                "repo_full_name",
+                "repo_owner",
+                "repo_name",
                 "pr_number",
                 "title",
                 "description",
-                "requirements",
+                "unmet_requirements",
                 "test_evaluation",
                 "recommendation",
                 "recommendation_reason",
                 "action_items",
+                "staking_key",
+                "pub_key",
+                "staking_signature",
+                "public_signature",
             ],
         },
         "final_tool": True,
@@ -300,7 +427,7 @@ DEFINITIONS = {
             "properties": {
                 "tasks": {
                     "type": "array",
-                    "description": "List of tasks to write to CSV",
+                    "description": "List of subtasks from the feature breakdown",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -321,22 +448,10 @@ DEFINITIONS = {
                                 "minItems": 1,
                             },
                         },
-                        "required": ["title", "description", "acceptance_criteria"],
-                        "additionalProperties": False,
                     },
-                },
-                "file_name": {
-                    "type": "string",
-                    "description": "Name of the output CSV file",
-                    "default": "tasks.csv",
-                },
-                "repo_url": {
-                    "type": "string",
-                    "description": "URL of the repository (for reference)",
-                },
+                }
             },
             "required": ["tasks"],
-            "additionalProperties": False,
         },
         "final_tool": True,
         "function": generate_tasks,

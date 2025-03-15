@@ -10,9 +10,6 @@ from ..types import (
     ToolCallContent,
     ToolChoice,
 )
-from src.utils.retry import is_retryable_error
-from src.utils.logging import log_error
-from src.utils.errors import ClientAPIError
 import json
 
 
@@ -164,37 +161,26 @@ class OpenAIClient(Client):
         tool_choice: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Make API call to OpenAI."""
-        try:
+        # Add system message if provided
+        if system_prompt:
+            messages.insert(0, {"role": "system", "content": system_prompt})
 
-            # Add system message if provided
-            if system_prompt:
-                messages.insert(0, {"role": "system", "content": system_prompt})
+        # Create API request parameters
+        params = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": max_tokens or 2000,
+        }
 
-            # Create API request parameters
-            params = {
-                "model": self.model,
-                "messages": messages,
-                "max_tokens": max_tokens or 2000,
-            }
+        # Add tools if available
+        if tools:
+            params["tools"] = tools
+            if tool_choice:
+                params["tool_choice"] = tool_choice
 
-            # Add tools if available
-            if tools:
-                params["tools"] = tools
-                if tool_choice:
-                    params["tool_choice"] = tool_choice
-
-            # Make API call
-            response = self.client.chat.completions.create(**params)
-            return response.choices[0].message
-
-        except Exception as e:
-            # Only wrap actual API errors
-            log_error(
-                e,
-                context=f"Error making API call to {self.api_name}",
-                include_traceback=not is_retryable_error(e),
-            )
-            raise ClientAPIError(e)
+        # Make API call
+        response = self.client.chat.completions.create(**params)
+        return response.choices[0].message
 
     def _format_tool_response(self, response: str) -> MessageContent:
         """Format a tool response into a message.

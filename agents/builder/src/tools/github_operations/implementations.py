@@ -37,7 +37,7 @@ def _get_github_client() -> Github:
     return Github(auth=Auth.Token(token))
 
 
-def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
+def fork_repository(repo_full_name: str, repo_path: str = None, **kwargs) -> ToolOutput:
     """
     Fork a repository and clone it locally.
 
@@ -127,53 +127,45 @@ def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
 
 
 def create_pull_request(
-    repo_full_name: str,
-    title: str,
-    head: str,
-    description: str,
-    tests: List[str],
-    todo: str,
-    acceptance_criteria: str,
-    base: str = "main",
+    repo_owner: str,
+    repo_name: str,
+    head_branch: str,
+    pr_template: str,
+    data: Dict[str, Any],
+    base_branch: str = "main",
+    **kwargs,
 ) -> ToolOutput:
     """Create PR with formatted description.
 
     Args:
-        repo_full_name: Full name of repository (owner/repo)
+        repo_owner: Owner of the source repository
+        repo_name: Name of the source repository
         title: PR title
-        head: Head branch name
+        head_branch: Head branch name (branch the PR is coming from)
         description: PR description
         tests: List of test descriptions
         todo: Original todo task
         acceptance_criteria: Task acceptance criteria
-        base: Base branch name (default: main)
+        base_branch: Base branch name (default: main)
 
     Returns:
         ToolOutput: Standardized tool output with PR URL on success
     """
     try:
         gh = _get_github_client()
+        repo_full_name = f"{repo_owner}/{repo_name}"
 
-        # Auto-format head branch if needed
-        if ":" not in head:
-            head = f"{os.environ['GITHUB_USERNAME']}:{head}"
+        head = f"{os.environ['GITHUB_USERNAME']}:{head_branch}"
 
-        # Ensure base branch is just the name without owner
-        base = base.split(":")[-1]  # Remove owner prefix if present
+        title = data["title"]
 
-        # Format tests into markdown bullets
-        tests_bullets = " - " + "\n - ".join(tests)
+        if not title:
+            raise ValueError("Title is required")
 
-        body = TEMPLATES["pr_template"].format(
-            todo=todo,
-            title=title,
-            acceptance_criteria=acceptance_criteria,
-            description=description,
-            tests=tests_bullets,
-        )
+        body = pr_template.format(**data)
 
         repo = gh.get_repo(repo_full_name)
-        pr = repo.create_pull(title=title, body=body, head=head, base=base)
+        pr = repo.create_pull(title=title, body=body, head=head, base=base_branch)
         return {
             "success": True,
             "message": f"Successfully created PR: {title}",
@@ -193,7 +185,125 @@ def create_pull_request(
         }
 
 
-def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
+def create_worker_pull_request(
+    repo_owner: str,
+    repo_name: str,
+    title: str,
+    head_branch: str,
+    description: str,
+    changes: List[str],
+    tests: List[str],
+    todo: str,
+    acceptance_criteria: List[str],
+    staking_key: str,
+    pub_key: str,
+    staking_signature: str,
+    public_signature: str,
+    base_branch: str = "main",
+    **kwargs,
+) -> ToolOutput:
+    """Create a pull request for a worker node.
+
+    Args:
+        repo_owner: Owner of the repository
+        repo_name: Name of the repository
+        title: PR title
+        head_branch: Head branch name
+        description: Brief overview of the work done
+        changes: Detailed list of changes made
+        tests: List of test descriptions
+        todo: Original todo task
+        acceptance_criteria: Task acceptance criteria
+        staking_key: Worker's staking key
+        pub_key: Worker's public key
+        staking_signature: Worker's staking signature
+        public_signature: Worker's public signature
+        base_branch: Base branch to merge into (default: main)
+    """
+    # Format lists into markdown bullets
+    tests_bullets = " - " + "\n - ".join(tests)
+    changes_bullets = " - " + "\n - ".join(changes)
+    acceptance_criteria_bullets = " - " + "\n - ".join(acceptance_criteria)
+
+    return create_pull_request(
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        head_branch=head_branch,
+        base_branch=base_branch,
+        pr_template=TEMPLATES["worker_pr_template"],
+        data={
+            "title": title,
+            "description": description,
+            "changes": changes_bullets,
+            "todo": todo,
+            "acceptance_criteria": acceptance_criteria_bullets,
+            "tests": tests_bullets,
+            "staking_key": staking_key,
+            "pub_key": pub_key,
+            "staking_signature": staking_signature,
+            "public_signature": public_signature,
+        },
+    )
+
+
+def create_leader_pull_request(
+    repo_owner: str,
+    repo_name: str,
+    title: str,
+    head_branch: str,
+    description: str,
+    pull_requests: List[str],
+    base_branch: str = "main",
+    staking_key: str = None,
+    pub_key: str = None,
+    staking_signature: str = None,
+    public_signature: str = None,
+    **kwargs,
+) -> ToolOutput:
+    """Create a pull request for a leader node.
+
+    Args:
+        repo_owner: Owner of the source repository
+        repo_name: Name of the source repository
+        title: PR title
+        head_branch: Head branch name (branch the PR is coming from)
+        description: List of consolidated PRs, each containing:
+            - number: PR number
+            - url: PR URL
+            - title: PR title
+        base_branch: Base branch name (default: main)
+        staking_key: Leader's staking key
+        pub_key: Leader's public key
+        staking_signature: Leader's staking signature
+        public_signature: Leader's public signature
+
+    Returns:
+        ToolOutput: Standardized tool output with PR URL on success
+    """
+    # Format the consolidated PRs into a markdown list
+    consolidated_prs = "The following PRs have been consolidated:\n\n"
+    for pr in pull_requests:
+        consolidated_prs += f"- [#{pr['number']} {pr['title']}]({pr['url']})\n"
+
+    return create_pull_request(
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        head_branch=head_branch,
+        base_branch=base_branch,
+        pr_template=TEMPLATES["leader_pr_template"],
+        data={
+            "title": title,
+            "description": description,
+            "consolidated_prs": consolidated_prs,
+            "staking_key": staking_key,
+            "pub_key": pub_key,
+            "staking_signature": staking_signature,
+            "public_signature": public_signature,
+        },
+    )
+
+
+def sync_fork(repo_path: str, branch: str = "main", **kwargs) -> ToolOutput:
     """
     Sync a fork with its upstream repository.
 
@@ -261,7 +371,7 @@ def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
         }
 
 
-def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
+def check_fork_exists(owner: str, repo_name: str, **kwargs) -> ToolOutput:
     """
     Check if fork exists using GitHub API.
 
@@ -317,36 +427,47 @@ def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
 
 
 def review_pull_request(
-    repo_full_name: str,
+    repo_owner: str,
+    repo_name: str,
     pr_number: int,
     title: str,
     description: str,
-    requirements: Dict[str, List[str]],
+    unmet_requirements: List[str],
     test_evaluation: Dict[str, List[str]],
     recommendation: str,
     recommendation_reason: List[str],
     action_items: List[str],
+    staking_key: str,
+    pub_key: str,
+    staking_signature: str,
+    public_signature: str,
+    **kwargs,
 ) -> ToolOutput:
     """
     Post a structured review comment on a pull request.
 
     Args:
-        repo_full_name (str): Full name of the repository (owner/repo)
+        repo_owner (str): Owner of the repository
+        repo_name (str): Name of the repository
         pr_number (int): Pull request number
         title (str): Title of the PR
         description (str): Description of the changes
-        requirements (Dict[str, List[str]]): Dictionary with 'met' and 'not_met' requirements
+        unmet_requirements (List[str]): List of unmet requirements
         test_evaluation (Dict[str, List[str]]): Dictionary with test evaluation details
         recommendation (str): APPROVE/REVISE/REJECT
         recommendation_reason (List[str]): List of reasons for the recommendation
         action_items (List[str]): List of required changes or improvements
+        staking_key (str): Reviewer's staking key
+        pub_key (str): Reviewer's public key
+        staking_signature (str): Reviewer's staking signature
+        public_signature (str): Reviewer's public signature
 
     Returns:
         ToolOutput: Standardized tool output with review status and details
     """
     try:
         gh = _get_github_client()
-        repo = gh.get_repo(repo_full_name)
+        repo = gh.get_repo(f"{repo_owner}/{repo_name}")
         pr = repo.get_pull(pr_number)
 
         # Format lists into markdown bullet points
@@ -359,15 +480,7 @@ def review_pull_request(
         review_body = TEMPLATES["review_template"].format(
             title=title,
             description=description,
-            met_requirements=format_list(
-                requirements.get("met", []), "No requirements met"
-            ),
-            unmet_requirements=format_list(
-                requirements.get("not_met", []), "All requirements met"
-            ),
-            passed_tests=format_list(
-                test_evaluation.get("passed", []), "No passing tests"
-            ),
+            unmet_requirements=format_list(unmet_requirements, "All requirements met"),
             failed_tests=format_list(
                 test_evaluation.get("failed", []), "No failing tests"
             ),
@@ -379,6 +492,10 @@ def review_pull_request(
                 recommendation_reason, "No specific reasons provided"
             ),
             action_items=format_list(action_items, "No action items required"),
+            staking_key=staking_key,
+            pub_key=pub_key,
+            staking_signature=staking_signature,
+            public_signature=public_signature,
         )
 
         # Post the review
@@ -410,6 +527,7 @@ def validate_implementation(
     directory_check: dict,
     issues: list,
     required_fixes: list,
+    **kwargs,
 ) -> ToolOutput:
     """Submit a validation result with formatted message.
 
@@ -485,6 +603,7 @@ def generate_analysis(
     code_quality_issues=None,
     file_name="bugs.csv",
     repo_url=None,
+    **kwargs,
 ) -> ToolOutput:
     """
     Generate analysis of bugs, security vulnerabilities, and code quality issues.
@@ -587,7 +706,7 @@ def generate_analysis(
 
 
 def merge_pull_request(
-    repo_full_name: str, pr_number: int, merge_method: str = "merge"
+    repo_full_name: str, pr_number: int, merge_method: str = "merge", **kwargs
 ) -> ToolOutput:
     """
     Merge a pull request using the GitHub API.
@@ -662,6 +781,7 @@ def generate_tasks(
     tasks: List[Dict[str, Any]] = None,
     file_name: str = "tasks.csv",
     repo_url: str = None,
+    **kwargs,
 ) -> dict:
     """Generate a CSV file containing tasks.
 

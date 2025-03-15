@@ -1,7 +1,19 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
+import { getLeaderNode } from "../utils/leader";
 
+interface PodCallBody {
+  taskId: string;
+  roundNumber: number;
+  stakingKey: string;
+  pubKey: string;
+  stakingSignature: string;
+  publicSignature: string;
+  repoOwner: string;
+  repoName: string;
+  distributionList: Record<string, number>;
+}
 export async function task(roundNumber: number): Promise<void> {
   /**
    * Run your task and store the proofs to be submitted for auditing
@@ -12,87 +24,77 @@ export async function task(roundNumber: number): Promise<void> {
   try {
     const orcaClient = await getOrcaClient();
 
+    await orcaClient.podCall(`create-aggregator-repo/${roundNumber + 1}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      // TODO: Change to dynamic repo owner and name by checking the middle server
+      body: JSON.stringify({ taskId: TASK_ID, repoOwner: "koii-network", repoName: "builder-test" }),
+    });
+
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
       throw new Error("No staking keypair found");
     }
     const stakingKey = stakingKeypair.publicKey.toBase58();
     const pubKey = await namespaceWrapper.getMainAccountPubkey();
+    if (!pubKey) {
+      throw new Error("No public key found");
+    }
+    const { isLeader, leaderNode } = await getLeaderNode({
+      roundNumber,
+      leaderNumber: 1,
+      submitterPublicKey: stakingKey,
+    });
+    console.log({ isLeader, leaderNode });
+    if (leaderNode === null) {
+      return;
+    }
+    const payload = {
+      taskId: TASK_ID,
+      roundNumber,
+      githubUsername: process.env.GITHUB_USERNAME,
+      repoOwner: leaderNode,
+      repoName: "builder-test",
+      stakingKey,
+      pubKey,
+      action: "task",
+    };
+    const stakingSignature = await namespaceWrapper.payloadSigning(payload, stakingKeypair.secretKey);
+    const publicSignature = await namespaceWrapper.payloadSigning(payload);
+    if (!stakingSignature || !publicSignature) {
+      throw new Error("Signature generation failed");
+    }
 
-    const signature = await namespaceWrapper.payloadSigning(
-      {
-        taskId: TASK_ID,
-        roundNumber,
-        githubUsername: process.env.GITHUB_USERNAME,
-        stakingKey,
-        pubKey,
-        action: "fetch",
+    const podCallBody: PodCallBody = {
+      taskId: TASK_ID!,
+      roundNumber,
+      stakingKey,
+      pubKey,
+      stakingSignature,
+      publicSignature,
+      repoOwner: leaderNode,
+      repoName: "builder-test",
+      distributionList: {},
+    };
+    let podCallUrl;
+    if (isLeader) {
+      podCallUrl = `leader-task/${roundNumber}`;
+      const distributionList = await namespaceWrapper.getDistributionList(TASK_ID!, roundNumber);
+      if (distributionList) {
+        podCallBody.distributionList = JSON.parse(distributionList);
+      }
+    } else {
+      podCallUrl = `worker-task/${roundNumber}`;
+    }
+    await orcaClient.podCall(podCallUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      stakingKeypair.secretKey,
-    );
-
-    orcaClient
-      .podCall(`task/${roundNumber}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          taskId: TASK_ID,
-          roundNumber,
-          stakingKey,
-          pubKey,
-          signature,
-        }),
-      })
-      .then((result: any) => {
-        const prUrl = result.data.prUrl;
-        if (!prUrl) {
-          throw new Error("No PR URL found");
-        }
-        namespaceWrapper.getSubmitterAccount().then((stakingKeypair) => {
-          if (!stakingKeypair) {
-            throw new Error("No staking keypair found");
-          }
-          const stakingKey = stakingKeypair.publicKey.toBase58();
-          namespaceWrapper
-            .payloadSigning(
-              {
-                taskId: TASK_ID,
-                roundNumber,
-                prUrl,
-                stakingKey,
-                pubKey,
-                action: "add",
-              },
-              stakingKeypair.secretKey,
-            )
-            .then((signature) => {
-              orcaClient
-                .podCall(`submit-pr/${roundNumber}`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    signature,
-                    stakingKey,
-                    pubKey,
-                    prUrl,
-                  }),
-                })
-                .then((result: any) => {
-                  console.log(`${roundNumber} task result: ${result.data.message}`);
-                })
-                .catch((error: any) => {
-                  console.error("EXECUTE TASK ERROR:", error);
-                });
-            });
-        });
-      })
-      .catch((error: any) => {
-        console.error("EXECUTE TASK ERROR:", error);
-      });
+      body: JSON.stringify(podCallBody),
+    });
   } catch (error) {
     console.error("EXECUTE TASK ERROR:", error);
   }

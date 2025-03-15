@@ -19,8 +19,7 @@ PROMPTS = {
         "issues, and reject those with major problems."
     ),
     "review_pr": (
-        "A pull request has been checked out for you. The repository is {repo_owner}/{repo_name} and "
-        "the PR number is {pr_number}. The following files are available:\n"
+        "A pull request has been checked out for you. The following files are available:\n"
         "{current_files}\n\n"
         "Requirements to check:\n"
         "Implementation matches problem description\n"
