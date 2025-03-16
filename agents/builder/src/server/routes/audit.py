@@ -70,8 +70,6 @@ def audit_worker_submission(round_number: str):
         )
         return jsonify(False)
 
-    pr_number = pr_url.split("/")[-1]
-
     try:
         is_approved = review_pr(
             pr_url,
@@ -79,9 +77,6 @@ def audit_worker_submission(round_number: str):
             pub_key,
             staking_signature,
             public_signature,
-            repo_owner,
-            repo_name,
-            pr_number,
         )
         return jsonify(is_approved)
     except Exception as e:
