@@ -11,14 +11,14 @@ def audit_worker_submission(round_number: str):
     logger.info("Auditing submission")
     round_number = int(round_number)
     data = request.get_json()
+    logger.info(f"Request data: {data}")
+
     submission = data.get("submission")
     submitter_signature = data.get("submitterSignature")
     staking_key = data.get("stakingKey")
     pub_key = data.get("pubKey")
     staking_signature = data.get("stakingSignature")
     public_signature = data.get("publicSignature")
-
-    logger.info(f"Submission data: {submission}")
 
     if not submission:
         return jsonify({"error": "Missing submission"}), 400
@@ -29,8 +29,8 @@ def audit_worker_submission(round_number: str):
     github_username = submission.get("githubUsername")
     repo_owner = submission.get("repoOwner")
     repo_name = submission.get("repoName")
-    submitter_staking_key = submission.get("submitterStakingKey")
-    submitter_pub_key = submission.get("submitterPubKey")
+    submitter_staking_key = submission.get("stakingKey")
+    submitter_pub_key = submission.get("pubKey")
 
     if round_number != submission_round_number:
         return jsonify({"error": "Round number mismatch"}), 400
