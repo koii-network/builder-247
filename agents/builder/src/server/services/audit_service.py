@@ -104,7 +104,7 @@ def verify_pr_ownership(
         return True
 
 
-def review_pr(pr_url):
+def review_pr(pr_url, staking_key, pub_key, staking_signature, public_signature):
     """Review PR and decide if it should be accepted, revised, or rejected."""
     try:
         # Set up client and workflow
@@ -113,6 +113,10 @@ def review_pr(pr_url):
             client=client,
             prompts=AUDIT_PROMPTS,
             pr_url=pr_url,
+            staking_key=staking_key,
+            pub_key=pub_key,
+            staking_signature=staking_signature,
+            public_signature=public_signature,
         )
 
         # Run workflow and get result

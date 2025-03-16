@@ -12,7 +12,11 @@ def audit_worker_submission(round_number: str):
     round_number = int(round_number)
     data = request.get_json()
     submission = data.get("submission")
-    signature = data.get("signature")
+    submitter_signature = data.get("submitterSignature")
+    staking_key = data.get("stakingKey")
+    pub_key = data.get("pubKey")
+    staking_signature = data.get("stakingSignature")
+    public_signature = data.get("publicSignature")
 
     logger.info(f"Submission data: {submission}")
 
@@ -25,8 +29,8 @@ def audit_worker_submission(round_number: str):
     github_username = submission.get("githubUsername")
     repo_owner = submission.get("repoOwner")
     repo_name = submission.get("repoName")
-    staking_key = submission.get("stakingKey")
-    pub_key = submission.get("pubKey")
+    submitter_staking_key = submission.get("submitterStakingKey")
+    submitter_pub_key = submission.get("submitterPubKey")
 
     if round_number != submission_round_number:
         return jsonify({"error": "Round number mismatch"}), 400
@@ -39,6 +43,11 @@ def audit_worker_submission(round_number: str):
         or not repo_name
         or not staking_key
         or not pub_key
+        or not submitter_signature
+        or not submitter_staking_key
+        or not submitter_pub_key
+        or not staking_signature
+        or not public_signature
     ):
         return jsonify({"error": "Missing submission data"}), 400
 
@@ -49,9 +58,9 @@ def audit_worker_submission(round_number: str):
         expected_repo=repo_name,
         task_id=task_id,
         round_number=round_number,
-        staking_key=staking_key,
-        pub_key=pub_key,
-        signature=signature,
+        staking_key=submitter_staking_key,
+        pub_key=submitter_pub_key,
+        signature=submitter_signature,
     )
 
     if not is_valid:
@@ -61,8 +70,19 @@ def audit_worker_submission(round_number: str):
         )
         return jsonify(False)
 
+    pr_number = pr_url.split("/")[-1]
+
     try:
-        is_approved = review_pr(pr_url)
+        is_approved = review_pr(
+            pr_url,
+            staking_key,
+            pub_key,
+            staking_signature,
+            public_signature,
+            repo_owner,
+            repo_name,
+            pr_number,
+        )
         return jsonify(is_approved)
     except Exception as e:
         log_error(e, context="Error reviewing PR")

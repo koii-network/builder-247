@@ -56,15 +56,39 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     } else {
       podCallUrl = `worker-audit/${roundNumber}`;
     }
+    const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
+    if (!stakingKeypair) {
+      throw new Error("No staking keypair found");
+    }
+    const stakingKey = stakingKeypair.publicKey.toBase58();
+    const pubKey = await namespaceWrapper.getMainAccountPubkey();
+    if (!pubKey) {
+      throw new Error("No public key found");
+    }
+    const payload = {
+      taskId: TASK_ID,
+      roundNumber: roundNumber,
+      prUrl: data.prUrl,
+    };
+    const stakingSignature = await namespaceWrapper.payloadSigning(payload, stakingKeypair.secretKey);
+    const publicSignature = await namespaceWrapper.payloadSigning(payload);
+    if (!stakingSignature || !publicSignature) {
+      throw new Error("Signature generation failed");
+    }
+
     const podCallBody = {
       submission: data,
-      signature: submission.signature,
-      stakingKey: submitterKey,
-      pubKey: data.pubKey,
+      submitterSignature: submission.signature,
+      submitterStakingKey: submitterKey,
+      submitterPubKey: data.pubKey,
       prUrl: data.prUrl,
       repoOwner: data.repoOwner,
       repoName: data.repoName,
       githubUsername: data.githubUsername,
+      stakingKey: stakingKey,
+      pubKey: pubKey,
+      stakingSignature: stakingSignature,
+      publicSignature: publicSignature,
     };
     console.log({ podCallBody });
     const auditResult = await orca.podCall(podCallUrl, {

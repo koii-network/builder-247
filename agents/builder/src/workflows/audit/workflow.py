@@ -17,7 +17,16 @@ from src.workflows.audit.phases import AuditPhase
 
 
 class AuditWorkflow(Workflow):
-    def __init__(self, client, prompts, pr_url):
+    def __init__(
+        self,
+        client,
+        prompts,
+        pr_url,
+        staking_key,
+        pub_key,
+        staking_signature,
+        public_signature,
+    ):
         repo_owner, repo_name, pr_number = self._parse_github_pr_url(pr_url)
         super().__init__(
             client=client,
@@ -25,6 +34,10 @@ class AuditWorkflow(Workflow):
             repo_owner=repo_owner,
             repo_name=repo_name,
             pr_number=pr_number,
+            staking_key=staking_key,
+            pub_key=pub_key,
+            staking_signature=staking_signature,
+            public_signature=public_signature,
         )
 
     def setup(self):

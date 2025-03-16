@@ -181,18 +181,6 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_owner": {
-                    "type": "string",
-                    "description": "Owner of the repository",
-                },
-                "repo_name": {
-                    "type": "string",
-                    "description": "Name of the repository",
-                },
-                "pr_number": {
-                    "type": "integer",
-                    "description": "Pull request number",
-                },
                 "title": {
                     "type": "string",
                     "description": "Title of the PR",
@@ -228,27 +216,8 @@ DEFINITIONS = {
                     "items": {"type": "string"},
                     "description": "Required changes or improvements",
                 },
-                "staking_key": {
-                    "type": "string",
-                    "description": "Reviewer's staking key",
-                },
-                "pub_key": {
-                    "type": "string",
-                    "description": "Reviewer's public key",
-                },
-                "staking_signature": {
-                    "type": "string",
-                    "description": "Reviewer's staking signature",
-                },
-                "public_signature": {
-                    "type": "string",
-                    "description": "Reviewer's public signature",
-                },
             },
             "required": [
-                "repo_owner",
-                "repo_name",
-                "pr_number",
                 "title",
                 "description",
                 "unmet_requirements",
@@ -256,10 +225,6 @@ DEFINITIONS = {
                 "recommendation",
                 "recommendation_reason",
                 "action_items",
-                "staking_key",
-                "pub_key",
-                "staking_signature",
-                "public_signature",
             ],
         },
         "final_tool": True,
