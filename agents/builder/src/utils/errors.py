@@ -2,17 +2,19 @@
 
 
 class ClientAPIError(Exception):
-    """Error that has already been logged at source.
+    """Exception raised for API client errors."""
 
-    Used to wrap API errors that have been logged where they occurred,
-    to prevent duplicate logging higher up the stack.
-    """
-
-    def __init__(self, original_error: Exception):
-        self.original_error = original_error
+    def __init__(self, original_error):
         super().__init__(str(original_error))
-
-    @property
-    def status_code(self) -> int:
-        """Preserve status code from original error if it exists."""
-        return getattr(self.original_error, "status_code", None)
+        self.original_error = original_error
+        # Try to get status code from different error types
+        self.status_code = getattr(original_error, "status_code", None)
+        if self.status_code is None:
+            # Handle Anthropic errors
+            if hasattr(original_error, "response") and hasattr(
+                original_error.response, "status_code"
+            ):
+                self.status_code = original_error.response.status_code
+            # Handle other API errors that might have status in different attributes
+            elif hasattr(original_error, "status"):
+                self.status_code = original_error.status
