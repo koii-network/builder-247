@@ -28,40 +28,64 @@ def complete_todo(
     **kwargs,
 ):
     """Handle task creation request."""
-    todo_result = get_todo(staking_signature, staking_key, pub_key)
-    if not todo_result.get("success", False):
+    try:
+        # Check if base branch exists in target repo
+        github = gh(os.environ["GITHUB_TOKEN"])
+        target_repo = github.get_repo(f"{repo_owner}/{repo_name}")
+        base_branch = f"task-{task_id}-round-{round_number}"
+
+        try:
+            target_repo.get_branch(base_branch)
+        except Exception:
+            return {
+                "success": False,
+                "status": 400,
+                "error": (
+                    f"Base branch '{base_branch}' does not exist in target repository."
+                ),
+            }
+
+        # Proceed with todo request
+        todo_result = get_todo(staking_signature, staking_key, pub_key)
+        if not todo_result.get("success", False):
+            return {
+                "success": False,
+                "status": todo_result.get("status", 500),
+                "error": todo_result.get("error", "Unknown error fetching todo"),
+            }
+        todo = todo_result["data"]
+
+        try:
+            result = run_todo_task(
+                task_id=task_id,
+                round_number=round_number,
+                todo=todo,
+                staking_key=staking_key,
+                pub_key=pub_key,
+                staking_signature=staking_signature,
+                public_signature=public_signature,
+                repo_owner=repo_owner,
+                repo_name=repo_name,
+            )
+
+            if not result.get("success", False):
+                return result
+
+            return {
+                "success": True,
+                "data": {
+                    "pr_url": result["data"]["pr_url"],
+                    "message": result["data"]["message"],
+                },
+            }
+        except Exception as e:
+            return {"success": False, "status": 500, "error": str(e)}
+    except Exception as e:
         return {
             "success": False,
-            "status": todo_result.get("status", 500),
-            "error": todo_result.get("error", "Unknown error fetching todo"),
+            "status": 500,
+            "error": f"Failed to check base branch: {str(e)}",
         }
-    todo = todo_result["data"]
-
-    try:
-        result = run_todo_task(
-            task_id=task_id,
-            round_number=round_number,
-            todo=todo,
-            staking_key=staking_key,
-            pub_key=pub_key,
-            staking_signature=staking_signature,
-            public_signature=public_signature,
-            repo_owner=repo_owner,
-            repo_name=repo_name,
-        )
-
-        if not result.get("success", False):
-            return result
-
-        return {
-            "success": True,
-            "data": {
-                "pr_url": result["data"]["pr_url"],
-                "message": result["data"]["message"],
-            },
-        }
-    except Exception as e:
-        return {"success": False, "status": 500, "error": str(e)}
 
 
 def get_todo(signature, staking_key, pub_key):
