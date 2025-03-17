@@ -141,6 +141,8 @@ class TodoCreatorWorkflow(Workflow):
                     "Issue generation failed",
                 )
                 return None
+            
+            # TODO: save it to db
             print(generate_issues_result)
                 
             return generate_issues_result
