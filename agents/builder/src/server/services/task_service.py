@@ -10,7 +10,8 @@ from src.workflows.mergeconflict.workflow import MergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 from src.utils.logging import logger, log_error, log_key_value
-from src.workflows.utils import verify_pr_signatures, filter_leader_prs
+from src.workflows.utils import verify_pr_signatures
+from src.utils.filter_distribution import filter_leader_prs
 from dotenv import load_dotenv
 
 load_dotenv()

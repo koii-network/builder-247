@@ -11,7 +11,7 @@ import os
 from typing import Dict, Set
 from git import Repo
 from src.workflows.utils import verify_pr_signatures
-from agents.builder.src.utils.filter_distribution import filter_leader_prs
+from src.utils.filter_distribution import filter_leader_prs
 
 
 def verify_pr_ownership(
