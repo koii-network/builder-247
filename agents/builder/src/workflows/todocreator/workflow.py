@@ -125,7 +125,7 @@ class TodoCreatorWorkflow(Workflow):
         generate_issues_result = self.generate_issues()
         for issue in generate_issues_result["data"]["issues"]:
             self.context["feature_spec"] = issue
-            self.generate_tasks()
+            self.generate_tasks(issue["uuid"])
         # generate_issues_result = self.generate_tasks()
     def generate_issues(self):
         """Execute the issue generation workflow."""
@@ -153,7 +153,7 @@ class TodoCreatorWorkflow(Workflow):
                 "message": f"Issue generation workflow failed: {str(e)}",
                 "data": None,
             }
-    def generate_tasks(self):
+    def generate_tasks(self, issue_uuid):
         """Execute the task decomposition workflow."""
         try:
             self.setup()
@@ -264,7 +264,8 @@ class TodoCreatorWorkflow(Workflow):
                         repoOwner=self.context["repo_owner"],
                         repoName=self.context["repo_name"],
                         dependencyTasks=task["dependency_tasks"],
-                        uuid=task["uuid"]
+                        uuid=task["uuid"],
+                        issueUuid=issue_uuid
                     )
                     insert_task_to_mongodb(task_model)
 

@@ -9,13 +9,12 @@ PROMPTS = {
     ),
     "generate_issues": (
         "Your task is to create a list of issues from a feature breakdown.\n"
+        "The issue should be a small, discrete task that can be implemented in a single PR.\n"
         "Feature: {issue_spec}\n"
         "Repository: {repo_url}\n"
         "For each issue, you must provide:\n"
         "1. A clear, specific title\n"
         "2. A detailed description of the issue\n"
-        "3. A list of subtasks that can be used to implement the issue\n"
-        "4. A list of the tasks that must be completed before the issue can be considered done\n"
     ),
     "decompose_feature": (
         "Your task is to break down the following feature request into small, discrete subtasks:\n\n"
