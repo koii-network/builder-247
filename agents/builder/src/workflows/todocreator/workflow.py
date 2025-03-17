@@ -14,7 +14,7 @@ from src.workflows.utils import (
     cleanup_repo_directory,
     get_current_files,
 )
-from src.workflows.todocreator.utils import TaskModel, insert_task_to_mongodb
+from src.workflows.todocreator.utils import TaskModel, insert_task_to_mongodb, IssueModel, insert_issue_to_mongodb
 
 class Task:
     def __init__(self, title: str, description: str, acceptance_criteria: list[str]):
@@ -123,9 +123,9 @@ class TodoCreatorWorkflow(Workflow):
         # Clean up the MongoDB
     def run(self):
         generate_issues_result = self.generate_issues()
-        for issue in generate_issues_result["data"]["issues"]:
-            self.context["feature_spec"] = issue
-            self.generate_tasks(issue["uuid"])
+        # for issue in generate_issues_result["data"]["issues"]:
+        #     self.context["feature_spec"] = issue
+        #     self.generate_tasks(issue["uuid"])
         # generate_issues_result = self.generate_tasks()
     def generate_issues(self):
         """Execute the issue generation workflow."""
@@ -143,8 +143,18 @@ class TodoCreatorWorkflow(Workflow):
                 return None
             
             # TODO: save it to db
-            print(generate_issues_result)
-                
+            for issue in generate_issues_result["data"]["issues"]:
+                issueModel = {
+                    "title": issue["title"],
+                    "description": issue["description"],
+                    "repoOwner": self.context["repo_owner"],
+                    "repoName": self.context["repo_name"],
+                    "uuid": issue["uuid"]
+                }
+                print(issueModel)
+                issue_model = IssueModel(**issueModel)
+                insert_issue_to_mongodb(issue_model)
+                print("Issue inserted to MongoDB")
             return generate_issues_result
         except Exception as e:
             log_error(e, "Issue generation workflow failed")
@@ -193,6 +203,8 @@ class TodoCreatorWorkflow(Workflow):
                     Exception(validation_result.get("error", "No result")),
                     "Task validation failed",
                 )
+                return None
+            
             # Get the decisions from the validation result
             decisions = validation_result["data"]["decisions"]
             
