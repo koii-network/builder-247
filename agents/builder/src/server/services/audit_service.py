@@ -154,6 +154,7 @@ def audit_leader_submission(
                          - Have positive rewards
                          - Have valid submissions
                          - Have real PR URLs (not "none")
+                         Note: May include leader PRs that need additional filtering
     """
     try:
         gh = Github(os.environ["GITHUB_TOKEN"])
@@ -193,7 +194,70 @@ def audit_leader_submission(
         if not is_valid:
             return False
 
-        # 3. Clone the repository and analyze merge commits
+        # 3. Filter out leader PRs from distribution list
+        filtered_distribution_list = {}
+        source_repo = gh.get_repo(f"{repo_owner}/{repo_name}")  # Original repository
+        default_branch = source_repo.default_branch
+
+        for node_key, amount in distribution_list.items():
+            try:
+                # For each node in distribution list, check their PR
+                response = requests.get(
+                    os.environ["MIDDLE_SERVER_URL"] + "/api/check-to-do",
+                    json={
+                        "stakingKey": node_key,
+                        "roundNumber": round_number,
+                        "taskId": task_id,
+                    },
+                    headers={"Content-Type": "application/json"},
+                )
+                todo_data = response.json()
+                if not todo_data.get("success"):
+                    continue
+
+                pr_url = todo_data.get("data", {}).get("prUrl")
+                if not pr_url:
+                    continue
+
+                # Parse PR URL to check if it's a leader PR
+                pr_match = re.match(
+                    r"https://github.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url
+                )
+                if not pr_match:
+                    continue
+
+                pr_owner, pr_repo, pr_num = pr_match.groups()
+                pr_repo = gh.get_repo(f"{pr_owner}/{pr_repo}")
+                node_pr = pr_repo.get_pull(int(pr_num))
+
+                # Skip if PR targets default branch of original repo (leader PR)
+                if (
+                    node_pr.base.repo.full_name == f"{repo_owner}/{repo_name}"
+                    and node_pr.base.ref == default_branch
+                ):
+                    print(f"Skipping leader PR from node {node_key}")
+                    continue
+
+                # Include this node in filtered list
+                filtered_distribution_list[node_key] = amount
+
+            except Exception as e:
+                print(f"Error checking PR for node {node_key}: {str(e)}")
+                continue
+
+        if not filtered_distribution_list:
+            log_error(
+                Exception("No eligible worker PRs"),
+                context="After filtering out leader PRs, no eligible worker PRs remain",
+            )
+            return False
+
+        print(
+            f"Filtered distribution list from {len(distribution_list)} to {len(filtered_distribution_list)} nodes "
+            "after removing leader PRs"
+        )
+
+        # 4. Clone the repository and analyze merge commits
         clone_path = f"/tmp/audit-{repo_owner}-{repo_name}-{pr.head.ref}"
         if os.path.exists(clone_path):
             os.system(f"rm -rf {clone_path}")
@@ -206,7 +270,7 @@ def audit_leader_submission(
         # Get all commits in the PR
         commits = list(repo.iter_commits(f"{pr.base.ref}..{pr.head.ref}"))
 
-        # 4. Verify all commits are merge commits
+        # 5. Verify all commits are merge commits
         non_merge_commits = [c for c in commits if len(c.parents) != 2]
         if non_merge_commits:
             log_error(
@@ -215,8 +279,8 @@ def audit_leader_submission(
             )
             return False
 
-        # 5. Verify number of merge commits matches number of PRs in distribution list
-        eligible_prs = len(distribution_list)
+        # 6. Verify number of merge commits matches number of PRs in filtered distribution list
+        eligible_prs = len(filtered_distribution_list)
         if len(commits) != eligible_prs:
             log_error(
                 Exception("Merge commit count mismatch"),
@@ -227,7 +291,7 @@ def audit_leader_submission(
         # Track used staking keys to prevent duplicates
         used_staking_keys: Set[str] = set()
 
-        # 6. Verify each merge commit corresponds to a PR from an eligible node
+        # 7. Verify each merge commit corresponds to a PR from an eligible node
         for commit in commits:
             # Extract PR number from merge commit message
             pr_match = re.search(r"Merge PR #(\d+)", commit.message)
@@ -242,7 +306,7 @@ def audit_leader_submission(
             source_pr = repo.get_pull(int(pr_number))
 
             # Extract staking key from PR body and verify signature
-            for submitter_staking_key in distribution_list:
+            for submitter_staking_key in filtered_distribution_list:
                 is_valid = verify_pr_signatures(
                     source_pr.body,
                     task_id,
@@ -295,9 +359,9 @@ def audit_leader_submission(
                 )
                 return False
 
-        # 7. Verify all eligible nodes are included
-        if used_staking_keys != set(distribution_list.keys()):
-            missing_keys = set(distribution_list.keys()) - used_staking_keys
+        # 8. Verify all eligible nodes are included
+        if used_staking_keys != set(filtered_distribution_list.keys()):
+            missing_keys = set(filtered_distribution_list.keys()) - used_staking_keys
             log_error(
                 Exception("Missing PRs"),
                 context=f"Leader did not include PRs from all eligible nodes. Missing: {missing_keys}",

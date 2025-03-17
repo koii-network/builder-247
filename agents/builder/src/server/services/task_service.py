@@ -12,6 +12,7 @@ from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 from src.utils.logging import logger, log_error, log_key_value
 from src.workflows.utils import verify_pr_signatures
 from dotenv import load_dotenv
+import re
 
 load_dotenv()
 
@@ -342,26 +343,80 @@ def consolidate_prs(
         staking_signature (str): Leader's staking signature
         public_signature (str): Leader's public signature
     """
-    # source_repo_result = fetch_source_repo(task_id)
-    # if source_repo_result.get("status"):
-    #     return source_repo_result
-    # source_repo = source_repo_result["data"]
-    # repo_url = source_repo["repo_url"]
-    # repo_owner = source_repo["repo_owner"]
-    # repo_name = source_repo["repo_name"]
     branch = f"task-{task_id}-round-{round_number - 3}"
     repo_url = f"https://github.com/{repo_owner}/{repo_name}"
 
     # Initialize Claude client
     client = setup_client("anthropic")
 
-    source_fork = gh.get_repo(f"{repo_owner}/{repo_name}")
+    github = gh(os.environ["GITHUB_TOKEN"])
+    source_fork = github.get_repo(f"{repo_owner}/{repo_name}")
 
     if not source_fork.fork:
         raise Exception("Source repository is not a fork")
 
     upstream_repo = source_fork.parent
     print(f"Found upstream repository: {upstream_repo.html_url}")
+
+    # Filter out leader PRs from distribution list
+    filtered_distribution_list = {}
+    default_branch = upstream_repo.default_branch
+
+    for node_key, amount in distribution_list.items():
+        try:
+            # For each node in distribution list, check their PR
+            response = requests.post(
+                os.environ["MIDDLE_SERVER_URL"] + "/api/check-to-do",
+                json={
+                    "stakingKey": node_key,
+                    "roundNumber": round_number,
+                    "taskId": task_id,
+                },
+                headers={"Content-Type": "application/json"},
+            )
+            todo_data = response.json()
+            if not todo_data.get("success"):
+                continue
+
+            pr_url = todo_data.get("data", {}).get("prUrl")
+            if not pr_url:
+                continue
+
+            # Parse PR URL to check if it's a leader PR
+            pr_match = re.match(
+                r"https://github.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url
+            )
+            if not pr_match:
+                continue
+
+            pr_owner, pr_repo, pr_num = pr_match.groups()
+            pr_repo = github.get_repo(f"{pr_owner}/{pr_repo}")
+            node_pr = pr_repo.get_pull(int(pr_num))
+
+            # Skip if PR targets default branch of original repo (leader PR)
+            if (
+                node_pr.base.repo.full_name == f"{repo_owner}/{repo_name}"
+                and node_pr.base.ref == default_branch
+            ):
+                print(f"Skipping leader PR from node {node_key}")
+                continue
+
+            # Include this node in filtered list
+            filtered_distribution_list[node_key] = amount
+
+        except Exception as e:
+            print(f"Error checking PR for node {node_key}: {str(e)}")
+            continue
+
+    if not filtered_distribution_list:
+        print("No eligible worker PRs to consolidate after filtering out leader PRs")
+        return None
+
+    orig_count = len(distribution_list)
+    filtered_count = len(filtered_distribution_list)
+    print(
+        f"Filtered distribution list from {orig_count} to {filtered_count} nodes after filtering"
+    )
 
     # Get list of open PRs
     open_prs = list(source_fork.get_pulls(state="open", base=branch))
@@ -371,10 +426,7 @@ def consolidate_prs(
     valid_prs = []
     for pr in open_prs:
         # For each PR, try to find a valid signature from a rewarded staking key
-        for submitter_key, amount in distribution_list.items():
-            if amount <= 0:
-                continue
-
+        for submitter_key, amount in filtered_distribution_list.items():
             is_valid = verify_pr_signatures(
                 pr.body,
                 task_id,
@@ -404,7 +456,7 @@ def consolidate_prs(
         public_signature=public_signature,
         task_id=task_id,  # Add task_id for signature validation
         round_number=round_number,  # Add round_number for signature validation
-        distribution_list=distribution_list,  # Add distribution list for signature validation
+        distribution_list=filtered_distribution_list,  # Use filtered distribution list
     )
 
     # Run workflow
