@@ -150,7 +150,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
   try {
     const todos = await TodoModel.find({
       status: TodoStatus.INITIALIZED,
-      $expr: { $lt: [{ $size: "$assignedTo" }, 15] },
+      $expr: { $lt: [{ $size: "$assignedTo" }, 20] },
       $nor: [
         { "assignedTo.stakingKey": requestBody.stakingKey },
         { "assignedTo.githubUsername": signatureData.githubUsername },
@@ -169,7 +169,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
     const updatedTodo = await TodoModel.findOneAndUpdate(
       {
         _id: todos[0]?._id,
-        $expr: { $lt: [{ $size: "$assignedTo" }, 15] },
+        $expr: { $lt: [{ $size: "$assignedTo" }, 20] },
         $nor: [
           { "assignedTo.stakingKey": requestBody.stakingKey },
           { "assignedTo.githubUsername": signatureData.githubUsername },
