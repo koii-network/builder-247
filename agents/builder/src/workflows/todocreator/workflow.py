@@ -275,7 +275,7 @@ class TodoCreatorWorkflow(Workflow):
                     task_model = TaskModel(
                         title=task["title"],
                         description=task["description"],
-                        acceptanceCriteria=task["acceptance_criteria"],
+                        acceptanceCriteria="\n".join(task["acceptance_criteria"]),
                         repoOwner=self.context["repo_owner"],
                         repoName=self.context["repo_name"],
                         dependencyTasks=task["dependency_tasks"],
