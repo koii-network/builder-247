@@ -178,9 +178,7 @@ def log_error(
     """Log an error with consistent formatting and optional stack trace."""
     if not _logging_configured:
         configure_logging()
-    logger.error("\n=== ERROR ===")
-    if context:
-        logger.info(f"Context: {context}")
+    logger.error(f"\n=== {context.upper() if context else 'ERROR'} ===")
     logger.info(f"Error: {str(error)}")
     if include_traceback and error.__traceback__:
         logger.info("Stack trace:")
