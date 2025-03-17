@@ -91,11 +91,9 @@ class MergeConflictWorkflow(Workflow):
         if not self.task_id or not self.round_number:
             return True
 
-        # For each staking key with amount > 0, verify their signature exists in PR
-        for submitter_staking_key, amount in self.distribution_list.items():
-            if amount <= 0:
-                continue
-
+        # The distribution list is already filtered to only include eligible nodes
+        # Just verify signature for each node in the list
+        for submitter_staking_key in self.distribution_list:
             # Extract signatures using parser
             staking_signature_section = extract_section(pr.body, "STAKING_KEY")
 

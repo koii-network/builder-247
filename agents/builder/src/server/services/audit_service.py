@@ -149,10 +149,11 @@ def audit_leader_submission(
         staking_key: Leader's staking key
         pub_key: Leader's public key
         signature: Leader's signature
-        distribution_list: Dictionary mapping staking keys to reward amounts
-
-    Returns:
-        bool: True if the submission passes all audit checks, False otherwise
+        distribution_list: Pre-filtered dictionary mapping eligible staking keys to reward amounts.
+                         This list has already been filtered to only include nodes that:
+                         - Have positive rewards
+                         - Have valid submissions
+                         - Have real PR URLs (not "none")
     """
     try:
         gh = Github(os.environ["GITHUB_TOKEN"])
@@ -192,7 +193,7 @@ def audit_leader_submission(
         if not is_valid:
             return False
 
-        # 4. Clone the repository and analyze merge commits
+        # 3. Clone the repository and analyze merge commits
         clone_path = f"/tmp/audit-{repo_owner}-{repo_name}-{pr.head.ref}"
         if os.path.exists(clone_path):
             os.system(f"rm -rf {clone_path}")
@@ -205,7 +206,7 @@ def audit_leader_submission(
         # Get all commits in the PR
         commits = list(repo.iter_commits(f"{pr.base.ref}..{pr.head.ref}"))
 
-        # 5. Verify all commits are merge commits
+        # 4. Verify all commits are merge commits
         non_merge_commits = [c for c in commits if len(c.parents) != 2]
         if non_merge_commits:
             log_error(
@@ -214,21 +215,19 @@ def audit_leader_submission(
             )
             return False
 
-        # Count rewarded PRs from distribution list
-        rewarded_prs = sum(1 for amount in distribution_list.values() if amount > 0)
-
-        # 6. Verify number of merge commits matches rewarded PRs
-        if len(commits) != rewarded_prs:
+        # 5. Verify number of merge commits matches number of PRs in distribution list
+        eligible_prs = len(distribution_list)
+        if len(commits) != eligible_prs:
             log_error(
                 Exception("Merge commit count mismatch"),
-                context=f"Expected {rewarded_prs} merge commits, got {len(commits)}",
+                context=f"Expected {eligible_prs} merge commits, got {len(commits)}",
             )
             return False
 
         # Track used staking keys to prevent duplicates
         used_staking_keys: Set[str] = set()
 
-        # 7. Verify each merge commit
+        # 6. Verify each merge commit corresponds to a PR from an eligible node
         for commit in commits:
             # Extract PR number from merge commit message
             pr_match = re.search(r"Merge PR #(\d+)", commit.message)
@@ -243,10 +242,7 @@ def audit_leader_submission(
             source_pr = repo.get_pull(int(pr_number))
 
             # Extract staking key from PR body and verify signature
-            for submitter_staking_key, amount in distribution_list.items():
-                if amount <= 0:
-                    continue
-
+            for submitter_staking_key in distribution_list:
                 is_valid = verify_pr_signatures(
                     source_pr.body,
                     task_id,
@@ -265,10 +261,10 @@ def audit_leader_submission(
                     used_staking_keys.add(submitter_staking_key)
                     break
             else:
-                # No valid signature found for any rewarded staking key
+                # No valid signature found for any eligible staking key
                 log_error(
                     Exception("Invalid signature"),
-                    context=f"No valid signature found in PR #{pr_number}",
+                    context=f"No valid signature found in PR #{pr_number} from eligible nodes",
                 )
                 return False
 
@@ -298,6 +294,15 @@ def audit_leader_submission(
                     context=f"Files in PR #{pr_number} don't match merge branch",
                 )
                 return False
+
+        # 7. Verify all eligible nodes are included
+        if used_staking_keys != set(distribution_list.keys()):
+            missing_keys = set(distribution_list.keys()) - used_staking_keys
+            log_error(
+                Exception("Missing PRs"),
+                context=f"Leader did not include PRs from all eligible nodes. Missing: {missing_keys}",
+            )
+            return False
 
         # All checks passed
         return True

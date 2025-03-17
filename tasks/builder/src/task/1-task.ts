@@ -107,8 +107,56 @@ export async function task(roundNumber: number): Promise<void> {
             return;
           }
 
-          podCallBody.distributionList = parsedDistributionList;
-          console.log("Successfully parsed distribution list:", podCallBody.distributionList);
+          // Get submissions for this round to filter out ineligible ones
+          const submissionsResponse = await orcaClient.podCall(`submission/${roundNumber}`);
+          const submissions = submissionsResponse.data;
+
+          if (!Array.isArray(submissions)) {
+            console.log("No valid submissions data available, skipping leader task");
+            return;
+          }
+
+          // Create filtered distribution list excluding ineligible nodes
+          const filteredDistributionList: Record<string, number> = {};
+          for (const [stakingKey, amount] of Object.entries(parsedDistributionList)) {
+            const numericAmount = amount as number;
+
+            // Skip if amount is zero or negative (failed audit)
+            if (numericAmount <= 0) {
+              console.log(`Skipping staking key ${stakingKey} due to zero/negative reward: ${numericAmount}`);
+              continue;
+            }
+
+            // Find corresponding submission
+            const submission = submissions.find((s) => s.stakingKey === stakingKey);
+
+            // Skip if no submission found
+            if (!submission) {
+              console.log(`Skipping staking key ${stakingKey} - no submission found`);
+              continue;
+            }
+
+            // Skip if submission has no PR URL or is a dummy submission
+            if (!submission.prUrl || submission.prUrl === "none") {
+              console.log(`Skipping staking key ${stakingKey} - no valid PR URL`);
+              continue;
+            }
+
+            // Node is eligible, include in filtered list
+            filteredDistributionList[stakingKey] = numericAmount;
+            console.log(`Including eligible node ${stakingKey} with amount ${numericAmount}`);
+          }
+
+          if (Object.keys(filteredDistributionList).length === 0) {
+            console.log("No eligible nodes in distribution list after filtering, skipping leader task");
+            return;
+          }
+
+          podCallBody.distributionList = filteredDistributionList;
+          console.log(
+            "Successfully filtered distribution list. Eligible nodes:",
+            Object.keys(filteredDistributionList).length,
+          );
         } catch (parseError) {
           console.error("Failed to parse distribution list:", parseError);
           console.log("Raw distribution list:", distributionList);
