@@ -99,13 +99,15 @@ class Client(ABC):
                 tool_choice=tool_choice,
             )
         except Exception as e:
-            # Only wrap actual API errors
-            log_error(
-                e,
-                context=f"Error making API call to {self.api_name}",
-                include_traceback=not is_retryable_error(e),
-            )
-            raise ClientAPIError(e)
+            # Only wrap non-ClientAPIError exceptions
+            if not isinstance(e, ClientAPIError):
+                log_error(
+                    e,
+                    context=f"Error making API call to {self.api_name}",
+                    include_traceback=not is_retryable_error(e),
+                )
+                raise ClientAPIError(e)
+            raise
 
     def register_tools(self, tools_dir: str) -> List[str]:
         """Register all tools found in a directory.
@@ -281,6 +283,10 @@ class Client(ABC):
             return result
 
         except Exception as e:
+            # Let ClientAPIError propagate for retry handling
+            if isinstance(e, ClientAPIError):
+                raise
+            # For tool execution errors, log and return error response
             log_key_value("Status", "✗ Failed")
             log_key_value("Error", str(e))
             return {"success": False, "message": str(e), "data": None}
@@ -421,7 +427,7 @@ class Client(ABC):
                 else None
             )
 
-            # Make API call
+            # Make API call - errors will already be wrapped in ClientAPIError
             response = self.make_api_call(
                 messages=api_messages,
                 system_prompt=system_prompt,
@@ -456,13 +462,14 @@ class Client(ABC):
             return converted_response
 
         except Exception as e:
-            # Only wrap actual API errors
+            # Let ClientAPIError propagate for retry handling
+            if isinstance(e, ClientAPIError):
+                raise
+            # Wrap other unexpected errors
             log_error(
-                e,
-                context=f"Error making API call to {self.api_name}",
-                include_traceback=not is_retryable_error(e),
+                e, context="Unexpected error in send_message", include_traceback=True
             )
-            raise ClientAPIError(e)
+            raise
 
     def _get_tool_calls(self, msg: MessageContent) -> List[ToolCallContent]:
         """Return all tool call blocks from the message."""
