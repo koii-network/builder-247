@@ -1,6 +1,7 @@
 from src.tools.github_operations.implementations import (
     fork_repository,
     create_pull_request,
+    generate_issues,
     review_pull_request,
     validate_implementation,
     generate_analysis,
@@ -328,15 +329,7 @@ DEFINITIONS = {
                         "additionalProperties": False,
                     },
                 },
-                # "file_name": {
-                #     "type": "string",
-                #     "description": "Name of the output JSON file",
-                #     "default": "tasks.json",
-                # },
-                # "repo_url": {
-                #     "type": "string",
-                #     "description": "URL of the repository (for reference)",
-                # },
+
             },
             "required": ["tasks"],
             "additionalProperties": False,
@@ -452,5 +445,40 @@ DEFINITIONS = {
         },
         "final_tool": True,
         "function": create_task_dependency,
+    },
+    "generate_issues": {
+        "name": "generate_issues",
+        "description": "Generate a JSON file containing issues from a feature breakdown.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "issues": {
+                    "type": "array",
+                    "description": "List of issues",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string",
+                                "description": "Clear, specific title of the issue",
+                                "maxLength": 100,
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Detailed explanation of the issue",
+                                "minLength": 10,
+                            },
+                        },
+                        "required": ["title", "description"],
+                        "additionalProperties": False,
+                    },
+                },
+
+            },
+            "required": ["issues"],
+            "additionalProperties": False,
+        },
+        "final_tool": True,
+        "function": generate_issues,    
     },
 }

@@ -23,12 +23,12 @@ def main():
         required=True,
         help="GitHub repository URL (e.g., https://github.com/owner/repo)",
     )
-    parser.add_argument(
-        "--feature-spec",
-        type=str,
-        required=True,
-        help="Description of the feature to implement",
-    )
+    # parser.add_argument(
+    #     "--feature-spec",
+    #     type=str,
+    #     required=True,
+    #     help="Description of the feature to implement",
+    # )
     parser.add_argument(
         "--output",
         type=str,
@@ -42,6 +42,12 @@ def main():
         choices=["anthropic", "openai", "xai"],
         help="Model provider to use (default: anthropic)",
     )
+    parser.add_argument(
+        "--issue-spec",
+        type=str,
+        required=True,
+        help="Description of the issue to implement",
+    )
     args = parser.parse_args()
 
     # Initialize client
@@ -52,8 +58,10 @@ def main():
         client=client,
         prompts=PROMPTS,
         repo_url=args.repo,
-        feature_spec=args.feature_spec,
+        # feature_spec=args.feature_spec,
+        issue_spec=args.issue_spec,
     )
+
 
     result = workflow.run()
     if not result or not result.get("success"):

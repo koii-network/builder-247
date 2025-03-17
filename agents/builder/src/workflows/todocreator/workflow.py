@@ -46,7 +46,8 @@ class TodoCreatorWorkflow(Workflow):
         client,
         prompts,
         repo_url,
-        feature_spec,
+        # feature_spec,
+        issue_spec,
     ):
         # Extract owner and repo name from URL
         # URL format: https://github.com/owner/repo
@@ -62,7 +63,8 @@ class TodoCreatorWorkflow(Workflow):
             repo_name=repo_name,
             
         )
-        self.feature_spec = feature_spec
+        # self.feature_spec = feature_spec
+        self.issue_spec = issue_spec
 
     def setup(self):
         """Set up repository and workspace."""
@@ -107,8 +109,8 @@ class TodoCreatorWorkflow(Workflow):
         self.context["current_files"] = get_current_files()
 
         # Add feature spec to context
-        self.context["feature_spec"] = self.feature_spec
-        
+        # self.context["feature_spec"] = self.feature_spec
+        self.context["issue_spec"] = self.issue_spec
 
     def cleanup(self):
         """Cleanup workspace."""
@@ -119,8 +121,37 @@ class TodoCreatorWorkflow(Workflow):
         # Clean up the repository directory
         cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
         # Clean up the MongoDB
-
     def run(self):
+        generate_issues_result = self.generate_issues()
+        for issue in generate_issues_result["data"]["issues"]:
+            self.context["feature_spec"] = issue
+            self.generate_tasks()
+        # generate_issues_result = self.generate_tasks()
+    def generate_issues(self):
+        """Execute the issue generation workflow."""
+        try:
+            self.setup()
+            # ==================== Generate issues ====================
+            generate_issues_phase = phases.IssueGenerationPhase(workflow=self)
+            generate_issues_result = generate_issues_phase.execute()
+            # Check Issue Generation Result
+            if not generate_issues_result or not generate_issues_result.get("success"):
+                log_error(
+                    Exception(generate_issues_result.get("error", "No result")),
+                    "Issue generation failed",
+                )
+                return None
+            print(generate_issues_result)
+                
+            return generate_issues_result
+        except Exception as e:
+            log_error(e, "Issue generation workflow failed")
+            return {
+                "success": False,
+                "message": f"Issue generation workflow failed: {str(e)}",
+                "data": None,
+            }
+    def generate_tasks(self):
         """Execute the task decomposition workflow."""
         try:
             self.setup()

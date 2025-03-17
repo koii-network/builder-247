@@ -807,3 +807,44 @@ def create_task_dependency(task_uuid: str, dependency_tasks: List[str]) -> dict:
         }
     except Exception as e:
         return {"success": False, "message": f"Failed to update dependency tasks: {str(e)}", "data": None, "error": str(e)}
+    
+def generate_issues(
+    issues: List[Dict[str, Any]] = None,
+) -> dict:
+    """Generate issues for the repository.
+
+    Args:
+        issues: List of issue dictionaries, each containing:
+            - title: Issue title
+            - description: Issue description
+            - acceptance_criteria: List of acceptance criteria
+
+    Returns:
+        dict: Result of the operation containing:
+            - success: Whether the operation succeeded
+            - message: Success/error message
+            - data: Dictionary containing:
+                - issue_count: Number of issues generated
+                - issues: List of issue dictionaries with UUIDs
+            - error: Error message if any
+    """
+    try:
+        for issue in issues:
+            issue_uuid = str(uuid.uuid4())
+            issue["uuid"] = issue_uuid
+        return {
+            "success": True,
+            "message": f"Successfully generated {len(issues)} issues",
+            "data": {
+                "issue_count": len(issues),
+                "issues": issues,
+            },
+            "error": None,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to generate issues: {str(e)}",
+            "data": None,
+            "error": str(e),
+        }   

@@ -3,6 +3,16 @@
 from src.workflows.base import WorkflowPhase, Workflow
 
 
+class IssueGenerationPhase(WorkflowPhase):
+    def __init__(self, workflow: Workflow, conversation_id: str = None):
+        super().__init__(
+            workflow=workflow,
+            prompt_name="generate_issues",
+            available_tools=["generate_issues"],
+            conversation_id=conversation_id,
+            name="Issue Generation",
+        )
+
 class TaskDecompositionPhase(WorkflowPhase):
     def __init__(self, workflow: Workflow, conversation_id: str = None):
         super().__init__(
