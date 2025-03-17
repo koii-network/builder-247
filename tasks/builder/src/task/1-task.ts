@@ -42,12 +42,16 @@ export async function task(roundNumber: number): Promise<void> {
     if (!pubKey) {
       throw new Error("No public key found");
     }
-    const { isLeader, leaderNode } = await getLeaderNode({
+    const {
+      isLeader,
+      leaderNode,
+      stakingKey: leaderStakingKey,
+    } = await getLeaderNode({
       roundNumber,
       leaderNumber: 1,
       submitterPublicKey: stakingKey,
     });
-    console.log({ isLeader, leaderNode });
+    console.log({ isLeader, leaderNode, leaderStakingKey });
     if (leaderNode === null) {
       return;
     }
@@ -81,13 +85,45 @@ export async function task(roundNumber: number): Promise<void> {
     let podCallUrl;
     if (isLeader) {
       podCallUrl = `leader-task/${roundNumber}`;
-      const distributionList = await namespaceWrapper.getDistributionList(TASK_ID!, roundNumber);
-      if (distributionList) {
-        podCallBody.distributionList = JSON.parse(distributionList);
+      if (leaderStakingKey === null) {
+        console.log("Leader staking key is null, skipping leader task");
+        return;
+      }
+
+      try {
+        console.log("Fetching distribution list for round", roundNumber, "with leader staking key", leaderStakingKey);
+        const distributionList = await namespaceWrapper.getDistributionList(leaderStakingKey, roundNumber);
+
+        if (!distributionList) {
+          console.log("No distribution list available for this round, skipping leader task");
+          return;
+        }
+
+        try {
+          const parsedDistributionList = JSON.parse(distributionList);
+
+          if (Object.keys(parsedDistributionList).length === 0) {
+            console.log("Distribution list is empty, skipping leader task");
+            return;
+          }
+
+          podCallBody.distributionList = parsedDistributionList;
+          console.log("Successfully parsed distribution list:", podCallBody.distributionList);
+        } catch (parseError) {
+          console.error("Failed to parse distribution list:", parseError);
+          console.log("Raw distribution list:", distributionList);
+          console.log("Skipping leader task due to invalid distribution list");
+          return;
+        }
+      } catch (distError) {
+        console.error("Error fetching distribution list:", distError);
+        console.log("Skipping leader task due to distribution list fetch error");
+        return;
       }
     } else {
       podCallUrl = `worker-task/${roundNumber}`;
     }
+
     await orcaClient.podCall(podCallUrl, {
       method: "POST",
       headers: {
