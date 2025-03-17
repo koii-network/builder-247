@@ -106,7 +106,6 @@ class Client(ABC):
                     context=f"Error making API call to {self.api_name}",
                     include_traceback=not is_retryable_error(e),
                 )
-                raise ClientAPIError(e)
             raise
 
     def register_tools(self, tools_dir: str) -> List[str]:

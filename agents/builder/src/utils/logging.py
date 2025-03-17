@@ -172,18 +172,6 @@ def log_tool_result(result: Any) -> None:
         logger.info(format_value(result))
 
 
-def log_claude_response(response: Any) -> None:
-    """Log Claude's response with consistent formatting."""
-    if not _logging_configured:
-        configure_logging()
-    log_section("CLAUDE'S RESPONSE")
-    for block in response:
-        if hasattr(block, "text"):
-            logger.info(f"\nREPLY:\n{block.text}")
-        elif hasattr(block, "name"):
-            logger.info(f"\nTOOL REQUEST: {block.name} (ID: {block.id})")
-
-
 def log_error(
     error: Exception, context: str = "", include_traceback: bool = True
 ) -> None:
@@ -288,33 +276,3 @@ def log_tool_response(response_str: str, tool_use_id: str = None) -> None:
     except (ValueError, SyntaxError):
         # If not a valid Python literal, log as formatted string
         logger.info(format_value(response_str))
-
-
-def log_message_to_claude(
-    prompt: str = None,
-    tool_response: str = None,
-    tool_use_id: str = None,
-    conversation_id: str = None,
-    is_retry: bool = False,
-) -> None:
-    """Log a message being sent to Claude with consistent formatting.
-
-    Args:
-        prompt: Optional prompt text
-        tool_response: Optional tool response
-        tool_use_id: Optional tool use ID
-        conversation_id: Optional conversation ID
-        is_retry: Whether this is a retry attempt
-    """
-    if not _logging_configured:
-        configure_logging()
-    log_section("SENDING MESSAGE TO CLAUDE")
-    if is_retry:
-        logger.info("Is Retry: True")
-    if conversation_id:
-        logger.info(f"Conversation ID: {conversation_id}")
-    if prompt:
-        logger.info("PROMPT:")
-        logger.info(format_value(prompt))
-    if tool_response:
-        log_tool_response(tool_response, tool_use_id)
