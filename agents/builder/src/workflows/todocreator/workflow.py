@@ -123,6 +123,7 @@ class TodoCreatorWorkflow(Workflow):
         # Clean up the MongoDB
     def run(self):
         generate_issues_result = self.generate_issues()
+        return generate_issues_result
         # for issue in generate_issues_result["data"]["issues"]:
         #     self.context["feature_spec"] = issue
         #     self.generate_tasks(issue["uuid"])
@@ -151,13 +152,18 @@ class TodoCreatorWorkflow(Workflow):
                     "repoName": self.context["repo_name"],
                     "uuid": issue["uuid"]
                 }
-                print(issueModel)
+                # print(issueModel)
                 issue_model = IssueModel(**issueModel)
                 insert_issue_to_mongodb(issue_model)
-                print("Issue inserted to MongoDB")
-            return generate_issues_result
+                # print("Issue inserted to MongoDB")
+            return {
+                "success": True,
+                "message": "Issue generation workflow completed successfully",
+                "data": generate_issues_result
+            }
         except Exception as e:
             log_error(e, "Issue generation workflow failed")
+            print(e)
             return {
                 "success": False,
                 "message": f"Issue generation workflow failed: {str(e)}",
