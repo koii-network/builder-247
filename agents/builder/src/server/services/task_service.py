@@ -10,9 +10,8 @@ from src.workflows.mergeconflict.workflow import MergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 from src.utils.logging import logger, log_error, log_key_value
-from src.workflows.utils import verify_pr_signatures
+from src.workflows.utils import verify_pr_signatures, filter_leader_prs
 from dotenv import load_dotenv
-import re
 
 load_dotenv()
 
@@ -359,64 +358,18 @@ def consolidate_prs(
     print(f"Found upstream repository: {upstream_repo.html_url}")
 
     # Filter out leader PRs from distribution list
-    filtered_distribution_list = {}
-    default_branch = upstream_repo.default_branch
-
-    for node_key, amount in distribution_list.items():
-        try:
-            # For each node in distribution list, check their PR
-            response = requests.post(
-                os.environ["MIDDLE_SERVER_URL"] + "/api/check-to-do",
-                json={
-                    "stakingKey": node_key,
-                    "roundNumber": round_number,
-                    "taskId": task_id,
-                },
-                headers={"Content-Type": "application/json"},
-            )
-            todo_data = response.json()
-            if not todo_data.get("success"):
-                continue
-
-            pr_url = todo_data.get("data", {}).get("prUrl")
-            if not pr_url:
-                continue
-
-            # Parse PR URL to check if it's a leader PR
-            pr_match = re.match(
-                r"https://github.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url
-            )
-            if not pr_match:
-                continue
-
-            pr_owner, pr_repo, pr_num = pr_match.groups()
-            pr_repo = github.get_repo(f"{pr_owner}/{pr_repo}")
-            node_pr = pr_repo.get_pull(int(pr_num))
-
-            # Skip if PR targets default branch of original repo (leader PR)
-            if (
-                node_pr.base.repo.full_name == f"{repo_owner}/{repo_name}"
-                and node_pr.base.ref == default_branch
-            ):
-                print(f"Skipping leader PR from node {node_key}")
-                continue
-
-            # Include this node in filtered list
-            filtered_distribution_list[node_key] = amount
-
-        except Exception as e:
-            print(f"Error checking PR for node {node_key}: {str(e)}")
-            continue
+    filtered_distribution_list, _ = filter_leader_prs(
+        distribution_list=distribution_list,
+        task_id=task_id,
+        round_number=round_number,
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        github_client=github,
+    )
 
     if not filtered_distribution_list:
         print("No eligible worker PRs to consolidate after filtering out leader PRs")
         return None
-
-    orig_count = len(distribution_list)
-    filtered_count = len(filtered_distribution_list)
-    print(
-        f"Filtered distribution list from {orig_count} to {filtered_count} nodes after filtering"
-    )
 
     # Get list of open PRs
     open_prs = list(source_fork.get_pulls(state="open", base=branch))

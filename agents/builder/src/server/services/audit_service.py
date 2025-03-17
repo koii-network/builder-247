@@ -11,6 +11,7 @@ import os
 from typing import Dict, Set
 from git import Repo
 from src.workflows.utils import verify_pr_signatures
+from agents.builder.src.utils.filter_distribution import filter_leader_prs
 
 
 def verify_pr_ownership(
@@ -81,7 +82,7 @@ def verify_pr_ownership(
 
         # Verify todo assignment with middle server
         response = requests.post(
-            os.environ.get("MIDDLE_SERVER_URL") + "/api/check-to-do",
+            os.environ["MIDDLE_SERVER_URL"] + "/api/check-to-do",
             json={
                 "stakingKey": staking_key,
                 "pubKey": pub_key,
@@ -195,55 +196,14 @@ def audit_leader_submission(
             return False
 
         # 3. Filter out leader PRs from distribution list
-        filtered_distribution_list = {}
-        source_repo = gh.get_repo(f"{repo_owner}/{repo_name}")  # Original repository
-        default_branch = source_repo.default_branch
-
-        for node_key, amount in distribution_list.items():
-            try:
-                # For each node in distribution list, check their PR
-                response = requests.get(
-                    os.environ["MIDDLE_SERVER_URL"] + "/api/check-to-do",
-                    json={
-                        "stakingKey": node_key,
-                        "roundNumber": round_number,
-                        "taskId": task_id,
-                    },
-                    headers={"Content-Type": "application/json"},
-                )
-                todo_data = response.json()
-                if not todo_data.get("success"):
-                    continue
-
-                pr_url = todo_data.get("data", {}).get("prUrl")
-                if not pr_url:
-                    continue
-
-                # Parse PR URL to check if it's a leader PR
-                pr_match = re.match(
-                    r"https://github.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url
-                )
-                if not pr_match:
-                    continue
-
-                pr_owner, pr_repo, pr_num = pr_match.groups()
-                pr_repo = gh.get_repo(f"{pr_owner}/{pr_repo}")
-                node_pr = pr_repo.get_pull(int(pr_num))
-
-                # Skip if PR targets default branch of original repo (leader PR)
-                if (
-                    node_pr.base.repo.full_name == f"{repo_owner}/{repo_name}"
-                    and node_pr.base.ref == default_branch
-                ):
-                    print(f"Skipping leader PR from node {node_key}")
-                    continue
-
-                # Include this node in filtered list
-                filtered_distribution_list[node_key] = amount
-
-            except Exception as e:
-                print(f"Error checking PR for node {node_key}: {str(e)}")
-                continue
+        filtered_distribution_list, default_branch = filter_leader_prs(
+            distribution_list=distribution_list,
+            task_id=task_id,
+            round_number=round_number,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            github_client=gh,
+        )
 
         if not filtered_distribution_list:
             log_error(
@@ -251,11 +211,6 @@ def audit_leader_submission(
                 context="After filtering out leader PRs, no eligible worker PRs remain",
             )
             return False
-
-        print(
-            f"Filtered distribution list from {len(distribution_list)} to {len(filtered_distribution_list)} nodes "
-            "after removing leader PRs"
-        )
 
         # 4. Clone the repository and analyze merge commits
         clone_path = f"/tmp/audit-{repo_owner}-{repo_name}-{pr.head.ref}"

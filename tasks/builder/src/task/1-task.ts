@@ -2,6 +2,7 @@ import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 import { getLeaderNode } from "../utils/leader";
+import { filterIneligibleNodes } from "../utils/filterDistribution";
 
 interface PodCallBody {
   taskId: string;
@@ -14,6 +15,12 @@ interface PodCallBody {
   repoName: string;
   distributionList: Record<string, number>;
 }
+
+interface Submission {
+  stakingKey: string;
+  prUrl?: string;
+}
+
 export async function task(roundNumber: number): Promise<void> {
   /**
    * Run your task and store the proofs to be submitted for auditing
@@ -116,36 +123,8 @@ export async function task(roundNumber: number): Promise<void> {
             return;
           }
 
-          // Create filtered distribution list excluding ineligible nodes
-          const filteredDistributionList: Record<string, number> = {};
-          for (const [stakingKey, amount] of Object.entries(parsedDistributionList)) {
-            const numericAmount = amount as number;
-
-            // Skip if amount is zero or negative (failed audit)
-            if (numericAmount <= 0) {
-              console.log(`Skipping staking key ${stakingKey} due to zero/negative reward: ${numericAmount}`);
-              continue;
-            }
-
-            // Find corresponding submission
-            const submission = submissions.find((s) => s.stakingKey === stakingKey);
-
-            // Skip if no submission found
-            if (!submission) {
-              console.log(`Skipping staking key ${stakingKey} - no submission found`);
-              continue;
-            }
-
-            // Skip if submission has no PR URL or is a dummy submission
-            if (!submission.prUrl || submission.prUrl === "none") {
-              console.log(`Skipping staking key ${stakingKey} - no valid PR URL`);
-              continue;
-            }
-
-            // Node is eligible, include in filtered list
-            filteredDistributionList[stakingKey] = numericAmount;
-            console.log(`Including eligible node ${stakingKey} with amount ${numericAmount}`);
-          }
+          // Filter out ineligible nodes
+          const filteredDistributionList = await filterIneligibleNodes(parsedDistributionList, submissions);
 
           if (Object.keys(filteredDistributionList).length === 0) {
             console.log("No eligible nodes in distribution list after filtering, skipping leader task");
