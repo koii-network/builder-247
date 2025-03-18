@@ -202,7 +202,6 @@ def audit_leader_submission(
             round_number=round_number,
             repo_owner=repo_owner,
             repo_name=repo_name,
-            github_client=gh,
         )
 
         if not filtered_distribution_list:

@@ -11,7 +11,7 @@ from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 from src.utils.logging import logger, log_error, log_key_value
 from src.workflows.utils import verify_pr_signatures
-from src.utils.filter_distribution import filter_leader_prs
+from src.utils.filter_distribution import remove_leaders
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -359,13 +359,12 @@ def consolidate_prs(
     print(f"Found upstream repository: {upstream_repo.html_url}")
 
     # Filter out leader PRs from distribution list
-    filtered_distribution_list, _ = filter_leader_prs(
+    filtered_distribution_list = remove_leaders(
         distribution_list=distribution_list,
         task_id=task_id,
         round_number=round_number,
         repo_owner=repo_owner,
         repo_name=repo_name,
-        github_client=github,
     )
 
     if not filtered_distribution_list:
