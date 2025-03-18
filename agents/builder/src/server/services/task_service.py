@@ -361,8 +361,6 @@ def consolidate_prs(
     # Filter out leader PRs from distribution list
     filtered_distribution_list = remove_leaders(
         distribution_list=distribution_list,
-        task_id=task_id,
-        round_number=round_number,
         repo_owner=repo_owner,
         repo_name=repo_name,
     )
@@ -379,11 +377,11 @@ def consolidate_prs(
     valid_prs = []
     for pr in open_prs:
         # For each PR, try to find a valid signature from a rewarded staking key
-        for submitter_key, amount in filtered_distribution_list.items():
+        for submitter_key in filtered_distribution_list:
             is_valid = verify_pr_signatures(
                 pr.body,
                 task_id,
-                round_number,
+                round_number - 3,
                 expected_staking_key=submitter_key,
             )
             if is_valid:
@@ -408,8 +406,8 @@ def consolidate_prs(
         staking_signature=staking_signature,
         public_signature=public_signature,
         task_id=task_id,  # Add task_id for signature validation
-        round_number=round_number,  # Add round_number for signature validation
-        distribution_list=filtered_distribution_list,  # Use filtered distribution list
+        round_number=round_number - 3,  # Add round_number for signature validation
+        staking_keys=filtered_distribution_list.keys(),  # Use filtered distribution list
     )
 
     # Run workflow

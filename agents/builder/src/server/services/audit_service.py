@@ -198,8 +198,6 @@ def audit_leader_submission(
         # 3. Filter out leader PRs from distribution list
         filtered_distribution_list = remove_leaders(
             distribution_list=distribution_list,
-            task_id=task_id,
-            round_number=round_number,
             repo_owner=repo_owner,
             repo_name=repo_name,
         )
@@ -264,7 +262,7 @@ def audit_leader_submission(
                 is_valid = verify_pr_signatures(
                     source_pr.body,
                     task_id,
-                    round_number,
+                    round_number - 3,
                     expected_staking_key=submitter_staking_key,
                 )
                 if is_valid:
