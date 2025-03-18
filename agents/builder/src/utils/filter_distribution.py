@@ -1,91 +1,63 @@
 """Distribution list filtering utilities."""
 
-import os
 import re
-import requests
-from github import Github
-from typing import Dict, Tuple
-from src.utils.logging import log_key_value
+from github import Github as gh
+from typing import Dict
+from src.utils.logging import log_key_value, log_value
 
 
-def filter_leader_prs(
-    distribution_list: Dict[str, float],
-    task_id: str,
-    round_number: int,
+def remove_leaders(
+    distribution_list: Dict[str, Dict[str, str]],
     repo_owner: str,
     repo_name: str,
-    github_client: Github,
-) -> Tuple[Dict[str, float], str]:
+) -> Dict[str, Dict[str, str]]:
     """Filter out leader PRs from distribution list.
 
-    Args:
-        distribution_list: Dictionary mapping staking keys to reward amounts
-        task_id: Task ID for fetching PR info
-        round_number: Round number for fetching PR info
-        repo_owner: Owner of the source repository
-        repo_name: Name of the source repository
-        github_client: Initialized Github client
-
-    Returns:
-        Tuple containing:
-        - Filtered distribution list with only worker PRs
-        - Default branch name of the source repository
+    A PR is considered a leader PR if it was made directly to the upstream repo.
     """
     filtered_distribution_list = {}
-    source_repo = github_client.get_repo(f"{repo_owner}/{repo_name}")
-    default_branch = source_repo.default_branch
 
-    for node_key, amount in distribution_list.items():
+    # Get source repo and its upstream
+    source_repo = gh.get_repo(f"{repo_owner}/{repo_name}")
+    if not source_repo.fork:
+        raise ValueError("Source repo is not a fork")
+    else:
+        # Get the upstream repo
+        upstream_owner = source_repo.parent.owner.login
+
+    log_key_value("Upstream repo owner", upstream_owner)
+
+    for node_key, node_data in distribution_list.items():
         try:
-            # For each node in distribution list, check their PR
-            response = requests.get(
-                os.environ["MIDDLE_SERVER_URL"] + "/api/check-to-do",
-                json={
-                    "stakingKey": node_key,
-                    "roundNumber": round_number,
-                    "taskId": task_id,
-                },
-                headers={"Content-Type": "application/json"},
-            )
-            todo_data = response.json()
-            if not todo_data.get("success"):
-                continue
-
-            pr_url = todo_data.get("data", {}).get("prUrl")
-            if not pr_url:
-                continue
+            # Skip if no PR URL or dummy PR
+            pr_url = node_data.get("prUrl")
 
             # Parse PR URL to check if it's a leader PR
             pr_match = re.match(
                 r"https://github.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url
             )
             if not pr_match:
+                log_value("PR URL is not a valid GitHub PR URL")
                 continue
 
-            pr_owner, pr_repo, pr_num = pr_match.groups()
-            pr_repo = github_client.get_repo(f"{pr_owner}/{pr_repo}")
-            node_pr = pr_repo.get_pull(int(pr_num))
+            pr_owner = pr_match.groups()[0]
 
-            # Skip if PR targets default branch of original repo (leader PR)
-            if (
-                node_pr.base.repo.full_name == f"{repo_owner}/{repo_name}"
-                and node_pr.base.ref == default_branch
-            ):
-                log_key_value("Filtering", f"Skipping leader PR from node {node_key}")
+            # If PR was made to upstream repo, it's a leader PR - skip it
+            if pr_owner == upstream_owner:
+                log_value(f"Skipping leader PR from node {node_key}")
                 continue
 
             # Include this node in filtered list
-            filtered_distribution_list[node_key] = amount
+            filtered_distribution_list[node_key] = node_data
 
         except Exception as e:
-            log_key_value("Error", f"Error checking PR for node {node_key}: {str(e)}")
+            log_value(f"Error checking PR for node {node_key}: {str(e)}")
             continue
 
     orig_count = len(distribution_list)
     filtered_count = len(filtered_distribution_list)
-    log_key_value(
-        "Filtering",
+    log_value(
         f"Filtered distribution list from {orig_count} to {filtered_count} nodes after removing leader PRs",
     )
 
-    return filtered_distribution_list, default_branch
+    return filtered_distribution_list

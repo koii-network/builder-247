@@ -11,7 +11,7 @@ import os
 from typing import Dict, Set
 from git import Repo
 from src.workflows.utils import verify_pr_signatures
-from src.utils.filter_distribution import filter_leader_prs
+from src.utils.filter_distribution import remove_leaders
 
 
 def verify_pr_ownership(
@@ -137,7 +137,7 @@ def audit_leader_submission(
     staking_key: str,
     pub_key: str,
     signature: str,
-    distribution_list: Dict[str, float],
+    distribution_list: Dict[str, Dict[str, str]],
 ) -> bool:
     """Audit a leader's consolidated PR submission.
 
@@ -196,7 +196,7 @@ def audit_leader_submission(
             return False
 
         # 3. Filter out leader PRs from distribution list
-        filtered_distribution_list, default_branch = filter_leader_prs(
+        filtered_distribution_list = remove_leaders(
             distribution_list=distribution_list,
             task_id=task_id,
             round_number=round_number,
@@ -210,7 +210,7 @@ def audit_leader_submission(
                 Exception("No eligible worker PRs"),
                 context="After filtering out leader PRs, no eligible worker PRs remain",
             )
-            return False
+            return True
 
         # 4. Clone the repository and analyze merge commits
         clone_path = f"/tmp/audit-{repo_owner}-{repo_name}-{pr.head.ref}"

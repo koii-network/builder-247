@@ -2,7 +2,7 @@ import { getFile } from "../utils/ipfs";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import { getLeaderNode } from "../utils/leader";
-
+import { getDistributionList } from "../utils/distributionList";
 export async function audit(cid: string, roundNumber: number, submitterKey: string): Promise<boolean | void> {
   /**
    * Audit a submission
@@ -106,83 +106,14 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
       podCallUrl = `leader-audit/${roundNumber}`;
 
       // For leader audits, we need to get the distribution list
-      try {
-        console.log("Fetching distribution list for leader audit of round", roundNumber);
-        const distributionList = await namespaceWrapper.getDistributionList(submitterKey, roundNumber);
+      console.log("Fetching distribution list for leader audit of round", roundNumber);
+      const distributionList = await getDistributionList(roundNumber - 4);
 
-        if (!distributionList) {
-          console.log("No distribution list available for this round, failing leader audit");
-          return false;
-        }
-
-        try {
-          const parsedDistributionList = JSON.parse(distributionList);
-
-          if (Object.keys(parsedDistributionList).length === 0) {
-            console.log("Distribution list is empty, failing leader audit");
-            return false;
-          }
-
-          // Get submissions for this round to filter out ineligible ones
-          const submissionsResponse = await orca.podCall(`submission/${roundNumber}`);
-          const submissions = submissionsResponse.data;
-
-          if (!Array.isArray(submissions)) {
-            console.log("No valid submissions data available, failing leader audit");
-            return false;
-          }
-
-          // Create filtered distribution list excluding ineligible nodes
-          const filteredDistributionList: Record<string, number> = {};
-          for (const [stakingKey, amount] of Object.entries(parsedDistributionList)) {
-            const numericAmount = amount as number;
-
-            // Skip if amount is zero or negative (failed audit)
-            if (numericAmount <= 0) {
-              console.log(`Audit: Skipping staking key ${stakingKey} due to zero/negative reward: ${numericAmount}`);
-              continue;
-            }
-
-            // Find corresponding submission
-            const submission = submissions.find((s) => s.stakingKey === stakingKey);
-
-            // Skip if no submission found
-            if (!submission) {
-              console.log(`Audit: Skipping staking key ${stakingKey} - no submission found`);
-              continue;
-            }
-
-            // Skip if submission has no PR URL or is a dummy submission
-            if (!submission.prUrl || submission.prUrl === "none") {
-              console.log(`Audit: Skipping staking key ${stakingKey} - no valid PR URL`);
-              continue;
-            }
-
-            // Node is eligible, include in filtered list
-            filteredDistributionList[stakingKey] = numericAmount;
-            console.log(`Audit: Including eligible node ${stakingKey} with amount ${numericAmount}`);
-          }
-
-          if (Object.keys(filteredDistributionList).length === 0) {
-            console.log("No eligible nodes in distribution list after filtering, failing leader audit");
-            return false;
-          }
-
-          // Add filtered distribution list to podCallBody for leader audit
-          podCallBody.distributionList = filteredDistributionList;
-          console.log(
-            "Audit: Successfully filtered distribution list. Eligible nodes:",
-            Object.keys(filteredDistributionList).length,
-          );
-        } catch (parseError) {
-          console.error("Failed to parse distribution list during audit:", parseError);
-          console.log("Raw distribution list:", distributionList);
-          return false;
-        }
-      } catch (distError) {
-        console.error("Error fetching distribution list during audit:", distError);
-        return false;
+      if (!distributionList || Object.keys(distributionList).length === 0) {
+        console.log("No distribution list available for this round, failing leader audit");
+        return true;
       }
+      podCallBody.distributionList = distributionList;
     } else {
       podCallUrl = `worker-audit/${roundNumber}`;
     }

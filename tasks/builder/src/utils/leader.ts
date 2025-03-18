@@ -191,7 +191,7 @@ export async function getLeaderNode({
   roundNumber: number;
   leaderNumber?: number;
   submitterPublicKey: string;
-}): Promise<{ isLeader: boolean; leaderNode: string | null; stakingKey: string | null }> {
+}): Promise<{ isLeader: boolean; leaderNode: string | null }> {
   // Find leader for current round
   const currentLeader = await getLeaderForRound(roundNumber, leaderNumber, submitterPublicKey);
   console.log({ currentLeader });
@@ -200,11 +200,11 @@ export async function getLeaderNode({
     // If we're the leader, get the leader from 3 rounds ago
     const previousLeader = await getLeaderForRound(roundNumber - 3, leaderNumber, submitterPublicKey);
     console.log({ previousLeader });
-    return { isLeader: true, leaderNode: previousLeader.leaderNode, stakingKey: previousLeader.chosenKey };
+    return { isLeader: true, leaderNode: previousLeader.leaderNode };
   }
 
   // Not the leader, return the current leader's info
-  return { isLeader: false, leaderNode: currentLeader.leaderNode, stakingKey: currentLeader.chosenKey };
+  return { isLeader: false, leaderNode: currentLeader.leaderNode };
 }
 
 function base58ToNumber(char: string): number {

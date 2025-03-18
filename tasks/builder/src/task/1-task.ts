@@ -2,7 +2,7 @@ import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 import { getLeaderNode } from "../utils/leader";
-import { filterIneligibleNodes } from "../utils/filterDistribution";
+import { getDistributionList } from "../utils/distributionList";
 
 interface PodCallBody {
   taskId: string;
@@ -49,16 +49,12 @@ export async function task(roundNumber: number): Promise<void> {
     if (!pubKey) {
       throw new Error("No public key found");
     }
-    const {
-      isLeader,
-      leaderNode,
-      stakingKey: leaderStakingKey,
-    } = await getLeaderNode({
+    const { isLeader, leaderNode } = await getLeaderNode({
       roundNumber,
       leaderNumber: 1,
       submitterPublicKey: stakingKey,
     });
-    console.log({ isLeader, leaderNode, leaderStakingKey });
+    console.log({ isLeader, leaderNode });
     if (leaderNode === null) {
       return;
     }
@@ -92,50 +88,16 @@ export async function task(roundNumber: number): Promise<void> {
     let podCallUrl;
     if (isLeader) {
       podCallUrl = `leader-task/${roundNumber}`;
-      if (leaderStakingKey === null) {
-        console.log("Leader staking key is null, skipping leader task");
-        return;
-      }
 
       try {
-        console.log("Fetching distribution list for round", roundNumber, "with leader staking key", leaderStakingKey);
-        const distributionList = await namespaceWrapper.getDistributionList(leaderStakingKey, roundNumber);
-
-        if (!distributionList) {
+        const distributionList = await getDistributionList(roundNumber - 3);
+        if (!distributionList || Object.keys(distributionList).length === 0) {
           console.log("No distribution list available for this round, skipping leader task");
           return;
         }
 
         try {
-          const parsedDistributionList = JSON.parse(distributionList);
-
-          if (Object.keys(parsedDistributionList).length === 0) {
-            console.log("Distribution list is empty, skipping leader task");
-            return;
-          }
-
-          // Get submissions for this round to filter out ineligible ones
-          const submissionsResponse = await orcaClient.podCall(`submission/${roundNumber}`);
-          const submissions = submissionsResponse.data;
-
-          if (!Array.isArray(submissions)) {
-            console.log("No valid submissions data available, skipping leader task");
-            return;
-          }
-
-          // Filter out ineligible nodes
-          const filteredDistributionList = await filterIneligibleNodes(parsedDistributionList, submissions);
-
-          if (Object.keys(filteredDistributionList).length === 0) {
-            console.log("No eligible nodes in distribution list after filtering, skipping leader task");
-            return;
-          }
-
-          podCallBody.distributionList = filteredDistributionList;
-          console.log(
-            "Successfully filtered distribution list. Eligible nodes:",
-            Object.keys(filteredDistributionList).length,
-          );
+          podCallBody.distributionList = distributionList;
         } catch (parseError) {
           console.error("Failed to parse distribution list:", parseError);
           console.log("Raw distribution list:", distributionList);
