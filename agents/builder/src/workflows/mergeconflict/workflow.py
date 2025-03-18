@@ -27,7 +27,7 @@ class MergeConflictWorkflow(Workflow):
         public_signature=None,  # Leader's public signature
         task_id=None,  # Task ID for signature validation
         round_number=None,  # Round number for signature validation
-        distribution_list=None,  # Distribution list for signature validation
+        staking_keys=None,  # Distribution list for signature validation
     ):
         # Extract source repo info from source fork URL
         parts = source_fork_url.strip("/").split("/")
@@ -44,7 +44,7 @@ class MergeConflictWorkflow(Workflow):
         self.is_source_fork_owner = is_source_fork_owner
         self.task_id = task_id
         self.round_number = round_number
-        self.distribution_list = distribution_list or {}
+        self.staking_keys = staking_keys or []
 
         # Initialize context with source info
         self.context.update(
@@ -93,7 +93,7 @@ class MergeConflictWorkflow(Workflow):
 
         # The distribution list is already filtered to only include eligible nodes
         # Just verify signature for each node in the list
-        for submitter_staking_key in self.distribution_list:
+        for submitter_staking_key in self.staking_keys:
             # Extract signatures using parser
             staking_signature_section = extract_section(pr.body, "STAKING_KEY")
 
