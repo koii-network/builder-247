@@ -11,6 +11,7 @@ from src.workflows.utils import (
     setup_git_user_config,
     get_current_files,
     repository_context,
+    get_fork_name,
 )
 
 
@@ -71,7 +72,7 @@ class AuditWorkflow(Workflow):
         # Set up repository
         log_section("SETTING UP REPOSITORY")
         repo_url = f"https://github.com/{self.context['repo_owner']}/{self.context['repo_name']}"
-        fork_name = f"{self.context['repo_name']}-{self.context['repo_owner']}"
+        fork_name = get_fork_name(self.context["repo_owner"], repo_url, github=gh)
         with repository_context(
             repo_url,
             github_token=self.github_token,

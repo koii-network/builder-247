@@ -4,7 +4,7 @@ import os
 from github import Github
 from src.workflows.base import Workflow
 from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.utils import repository_context
+from src.workflows.utils import repository_context, get_fork_name
 from src.workflows.mergeconflict.phases import (
     ConflictResolutionPhase,
     CreatePullRequestPhase,
@@ -142,9 +142,8 @@ class MergeConflictWorkflow(Workflow):
             # Use repository_context to handle forking and cloning
             log_section("SETTING UP REPOSITORY")
             repo_url = self.context["source_fork"]["url"]
-            fork_name = (
-                f"{self.context['source_fork']['name']}-{self.source_fork_owner}"
-            )
+            gh = Github(self.github_token)
+            fork_name = get_fork_name(self.source_fork_owner, repo_url, github=gh)
             with repository_context(
                 repo_url,
                 github_token=self.github_token,

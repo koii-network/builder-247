@@ -12,6 +12,46 @@ from src.utils.signatures import verify_and_parse_signature
 from typing import Optional, Tuple, Generator
 
 
+def get_fork_name(
+    source_owner: str, source_repo_url: str, github: Github | str | None = None
+) -> str:
+    """Generate a unique fork name based on the upstream repo name and source owner.
+
+    Args:
+        source_owner: The owner of the source fork (where we're getting PRs from)
+        source_repo_url: The URL of the source repository (can be fork or upstream)
+        github: Optional Github client instance or token. If None, uses environment variables.
+
+    Returns:
+        str: The unique fork name in the format {upstream_repo_name}-{source_owner}
+    """
+    # Set up GitHub client
+    if isinstance(github, str):
+        gh = Github(github)
+    elif isinstance(github, Github):
+        gh = github
+    else:
+        gh = Github(
+            os.environ.get("GITHUB_TOKEN") or os.environ.get("MERGE_GITHUB_TOKEN")
+        )
+
+    # Extract owner/repo from URL
+    parts = source_repo_url.strip("/").split("/")
+    repo_owner, repo_name = parts[-2:]
+
+    # Get the source repo
+    source_repo = gh.get_repo(f"{repo_owner}/{repo_name}")
+
+    # Get the upstream repo name:
+    # If source_repo is a fork, get name from its parent (upstream)
+    # If source_repo is the upstream itself, use its own name
+    # Either way, we get the upstream repo name
+    upstream_name = source_repo.parent.name if source_repo.fork else source_repo.name
+
+    # Create fork name using upstream name and source owner
+    return f"{upstream_name}-{source_owner}"
+
+
 def check_required_env_vars(env_vars: list[str]):
     """Check if all required environment variables are set."""
     missing_vars = [var for var in env_vars if not os.environ.get(var)]
