@@ -35,21 +35,9 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_owner": {
-                    "type": "string",
-                    "description": "Owner of the repository",
-                },
-                "repo_name": {
-                    "type": "string",
-                    "description": "Name of the repository",
-                },
                 "title": {
                     "type": "string",
                     "description": "Title of the pull request",
-                },
-                "head_branch": {
-                    "type": "string",
-                    "description": "Name of the branch containing changes",
                 },
                 "description": {
                     "type": "string",
@@ -69,42 +57,13 @@ DEFINITIONS = {
                     "type": "string",
                     "description": "Original task description",
                 },
-                "acceptance_criteria": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of acceptance criteria",
-                },
-                "staking_key": {
-                    "type": "string",
-                    "description": "Worker's staking key",
-                },
-                "pub_key": {
-                    "type": "string",
-                    "description": "Worker's public key",
-                },
-                "staking_signature": {
-                    "type": "string",
-                    "description": "Worker's staking signature",
-                },
-                "public_signature": {
-                    "type": "string",
-                    "description": "Worker's public signature",
-                },
             },
             "required": [
-                "repo_owner",
-                "repo_name",
                 "title",
-                "head_branch",
                 "description",
                 "changes",
                 "tests",
                 "todo",
-                "acceptance_criteria",
-                "staking_key",
-                "pub_key",
-                "staking_signature",
-                "public_signature",
             ],
         },
         "function": create_worker_pull_request,
@@ -115,23 +74,15 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_owner": {
-                    "type": "string",
-                    "description": "Owner of the repository",
-                },
-                "repo_name": {
-                    "type": "string",
-                    "description": "Name of the repository",
-                },
                 "title": {
                     "type": "string",
                     "description": "Title of the pull request",
                 },
-                "head_branch": {
-                    "type": "string",
-                    "description": "Name of the branch containing changes",
-                },
                 "description": {
+                    "type": "string",
+                    "description": "Brief 1-2 sentence overview of the work done",
+                },
+                "pull_requests": {
                     "type": "array",
                     "description": "List of consolidated PRs, each containing number, url, and title",
                     "items": {
@@ -143,34 +94,11 @@ DEFINITIONS = {
                         },
                     },
                 },
-                "base_branch": {
-                    "type": "string",
-                    "description": "Base branch to merge into (default: main)",
-                    "default": "main",
-                },
-                "staking_key": {
-                    "type": "string",
-                    "description": "Leader's staking key",
-                },
-                "pub_key": {
-                    "type": "string",
-                    "description": "Leader's public key",
-                },
-                "staking_signature": {
-                    "type": "string",
-                    "description": "Leader's staking signature",
-                },
-                "public_signature": {
-                    "type": "string",
-                    "description": "Leader's public signature",
-                },
             },
             "required": [
-                "repo_owner",
-                "repo_name",
                 "title",
-                "head_branch",
                 "description",
+                "pull_requests",
             ],
         },
         "function": create_leader_pull_request,
