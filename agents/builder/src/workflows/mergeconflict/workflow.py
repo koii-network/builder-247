@@ -4,7 +4,7 @@ import os
 from github import Github
 from src.workflows.base import Workflow
 from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.utils import setup_repository
+from src.workflows.utils import repository_context
 from src.workflows.mergeconflict.phases import (
     ConflictResolutionPhase,
     CreatePullRequestPhase,
@@ -28,6 +28,8 @@ class MergeConflictWorkflow(Workflow):
         task_id=None,  # Task ID for signature validation
         round_number=None,  # Round number for signature validation
         staking_keys=None,  # Distribution list for signature validation
+        github_token=os.getenv("GITHUB_TOKEN"),
+        github_username=os.getenv("GITHUB_USERNAME"),
     ):
         # Extract source repo info from source fork URL
         parts = source_fork_url.strip("/").split("/")
@@ -45,6 +47,8 @@ class MergeConflictWorkflow(Workflow):
         self.task_id = task_id
         self.round_number = round_number
         self.staking_keys = staking_keys or []
+        self.github_token = github_token
+        self.github_username = github_username
 
         # Initialize context with source info
         self.context.update(
@@ -55,9 +59,9 @@ class MergeConflictWorkflow(Workflow):
                     "name": parts[-1],
                     "branch": source_branch,
                 },
-                "merge_branch": f"{source_branch}-merged",  # Predictable branch name for merging
-                "merged_prs": [],  # Track successfully merged PRs
-                "failed_prs": [],  # Track failed PRs
+                "head_branch": f"{source_branch}-merged",  # Branch where we'll merge all PRs
+                "merged_prs": [],  # List of PR numbers for type compatibility
+                "pr_details": [],  # List of {number, title, url} for merged PRs
                 # Add leader signature info to context
                 "staking_key": staking_key,
                 "pub_key": pub_key,
@@ -67,7 +71,7 @@ class MergeConflictWorkflow(Workflow):
         )
 
         # Get upstream repo info and add to context
-        gh = Github(os.environ["GITHUB_TOKEN"])
+        gh = Github(self.github_token)
         source_fork = gh.get_repo(f"{source_fork_owner}/{parts[-1]}")
         upstream = source_fork.parent
 
@@ -135,60 +139,69 @@ class MergeConflictWorkflow(Workflow):
     def setup(self):
         """Set up repository and workspace."""
         try:
-            # Use setup_repository to handle forking and cloning
-            setup_result = setup_repository(
-                self.context["source_fork"]["url"],
-                github_token=os.environ["GITHUB_TOKEN"],
+            # Use repository_context to handle forking and cloning
+            log_section("SETTING UP REPOSITORY")
+            repo_url = self.context["source_fork"]["url"]
+            fork_name = (
+                f"{self.context['source_fork']['name']}-{self.source_fork_owner}"
             )
-            if not setup_result["success"]:
-                raise Exception(
-                    f"Error setting up repository: {setup_result.get('message', 'Unknown error')}"
+            with repository_context(
+                repo_url,
+                github_token=self.github_token,
+                fork_name=fork_name,
+            ) as setup_result:
+                # Add working fork info to context
+                self.context["working_fork"] = {
+                    "url": setup_result["data"]["fork_url"],
+                    "owner": setup_result["data"]["owner"],
+                    "name": self.context["source_fork"]["name"],
+                }
+
+                # Set required context variables for PR creation
+                self.context["repo_owner"] = self.context["upstream"]["owner"]
+                self.context["repo_name"] = self.context["upstream"]["name"]
+
+                # Change to repo directory
+                self.context["repo_path"] = setup_result["data"]["clone_path"]
+                os.chdir(setup_result["data"]["clone_path"])
+
+                # Configure source remote if we don't own the source fork
+                if not self.is_source_fork_owner:
+                    os.system(
+                        f"git remote add source {self.context['source_fork']['url']}"
+                    )
+                    os.system("git fetch source")
+
+                # Create head branch from source branch
+                source_branch = self.context["source_fork"]["branch"]
+                head_branch = self.context["head_branch"]
+
+                # Checkout source branch first
+                os.system(
+                    f"git fetch {'origin' if self.is_source_fork_owner else 'source'} {source_branch}"
                 )
+                os.system(f"git checkout -b {head_branch} FETCH_HEAD")
+                # Push head branch to our fork
+                os.system(f"git push -u origin {head_branch}")
 
-            # Add working fork info to context
-            self.context["working_fork"] = {
-                "url": setup_result["data"]["fork_url"],
-                "owner": setup_result["data"]["owner"],
-                "name": self.context["source_fork"]["name"],
-            }
-
-            # Change to repo directory
-            os.chdir(setup_result["data"]["clone_path"])
-            self.context["repo_path"] = setup_result["data"]["clone_path"]
-
-            # Create merge branch from source branch
-            source_branch = self.context["source_fork"]["branch"]
-            merge_branch = self.context["merge_branch"]
-
-            # Checkout source branch first
-            os.system(
-                f"git fetch {'origin' if self.is_source_fork_owner else 'source'} {source_branch}"
-            )
-            os.system(f"git checkout -b {merge_branch} FETCH_HEAD")
-            # Push merge branch to our fork
-            os.system(f"git push -u origin {merge_branch}")
-
-            return True
+                return True
 
         except Exception as e:
             log_error(e, "Failed to set up repository")
             return False
 
-    def merge_pr(self, pr_url):
-        """Merge a single PR into the merge branch."""
-        # Extract PR info
+    def merge_pr(self, pr_url, pr_title):
+        """Merge a single PR into the head branch.
+
+        Args:
+            pr_url: URL of the original PR in the source fork
+            pr_title: Title of the PR to merge
+        """
+        # Extract PR info from URL
         parts = pr_url.strip("/").split("/")
         pr_number = int(parts[-1])
         pr_repo_owner = parts[-4]
         pr_repo_name = parts[-3]
-
-        # Add PR info to context for tools/templates
-        self.context["current_pr"] = {
-            "number": pr_number,
-            "url": pr_url,
-            "repo_owner": pr_repo_owner,
-            "repo_name": pr_repo_name,
-        }
 
         try:
             # Create unique branch name for PR content
@@ -205,8 +218,8 @@ class MergeConflictWorkflow(Workflow):
             # Push PR branch to our fork for auditing
             os.system(f"git push origin {pr_branch}")
 
-            # Try to merge into merge branch
-            os.system(f"git checkout {self.context['merge_branch']}")
+            # Try to merge into head branch
+            os.system(f"git checkout {self.context['head_branch']}")
             merge_output = os.popen(
                 f"git merge --no-commit --no-ff {pr_branch} 2>&1"
             ).read()
@@ -220,15 +233,20 @@ class MergeConflictWorkflow(Workflow):
 
             # Commit the merge
             os.system('git commit -m "Merge PR #{pr_number}"')
-            os.system(f"git push origin {self.context['merge_branch']}")
+            os.system(f"git push origin {self.context['head_branch']}")
 
-            # Add to merged PRs list
-            self.context["merged_prs"].append(pr_number)
+            # Track merged PR
+            self.context["merged_prs"].append(pr_number)  # For type compatibility
+            self.context["pr_details"].append(
+                {
+                    "number": pr_number,
+                    "title": pr_title,
+                    "url": pr_url,  # Original PR URL
+                }
+            )
             return {"success": True, "message": f"Successfully merged PR #{pr_number}"}
 
         except Exception as e:
-            # Add to failed PRs list
-            self.context["failed_prs"].append(pr_number)
             log_error(e, f"Failed to merge PR #{pr_number}")
             return {"success": False, "message": str(e)}
 
@@ -239,7 +257,7 @@ class MergeConflictWorkflow(Workflow):
                 return {"success": False, "message": "Setup failed"}
 
             # Get list of PRs to process
-            gh = Github(os.environ["GITHUB_TOKEN"])
+            gh = Github(self.github_token)
             source_fork = gh.get_repo(
                 f"{self.source_fork_owner}/{self.context['source_fork']['name']}"
             )
@@ -260,20 +278,34 @@ class MergeConflictWorkflow(Workflow):
             # Process each valid PR
             for pr in valid_prs:
                 log_section(f"Processing PR #{pr.number}")
-                self.merge_pr(pr.html_url)
+                self.merge_pr(pr.html_url, pr.title)
 
             # Create consolidated PR if we have any merged PRs
             if self.context["merged_prs"]:
                 pr_phase = CreatePullRequestPhase(workflow=self)
-                pr_result = pr_phase.execute()
+                try:
+                    pr_result = pr_phase.execute()
+                    if not pr_result:
+                        log_error(
+                            Exception("PR creation phase returned None"),
+                            "PR creation failed",
+                        )
+                        return None
 
-            if pr_result.get("success"):
-                pr_url = pr_result.get("data", {}).get("pr_url")
-                log_key_value("PR created successfully", pr_url)
-                return pr_url
-            else:
-                log_error(Exception(pr_result.get("error")), "PR creation failed")
-                return None
+                    if pr_result.get("success"):
+                        pr_url = pr_result.get("data", {}).get("pr_url")
+                        log_key_value("PR created successfully", pr_url)
+                        return pr_url
+                    else:
+                        log_error(
+                            Exception(pr_result.get("error")), "PR creation failed"
+                        )
+                        return None
+                except Exception as e:
+                    log_error(e, "PR creation phase failed")
+                    return None
+
+            return None
 
         except Exception as e:
             log_error(e, "Error in task workflow")

@@ -3,20 +3,19 @@
 import os
 import time
 from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository
 from src.utils.logging import log_section, log_key_value, log_error, log_value
 from src.workflows.task import phases
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
-    setup_repo_directory,
     setup_git_user_config,
-    cleanup_repo_directory,
     get_current_files,
+    repository_context,
 )
 
 
 class TaskWorkflow(Workflow):
+
     def __init__(
         self,
         client,
@@ -33,6 +32,8 @@ class TaskWorkflow(Workflow):
         task_id,
         base_branch,
         max_implementation_attempts=3,
+        github_token=os.getenv("GITHUB_TOKEN"),
+        github_username=os.getenv("GITHUB_USERNAME"),
     ):
         super().__init__(
             client=client,
@@ -54,36 +55,30 @@ class TaskWorkflow(Workflow):
     def setup(self):
         """Set up repository and workspace."""
         check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
-        validate_github_auth(os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_USERNAME"))
+        validate_github_auth(self.github_token, self.github_username)
         log_key_value("Base branch", self.context["base_branch"])
 
-        # Set up repository directory
-        repo_path, original_dir = setup_repo_directory()
-        self.context["repo_path"] = repo_path
-        self.original_dir = original_dir
+        # Set up repository
+        log_section("SETTING UP REPOSITORY")
+        repo_url = f"https://github.com/{self.context['repo_owner']}/{self.context['repo_name']}"
+        with repository_context(
+            repo_url, github_token=self.github_token
+        ) as setup_result:
+            # Update context with setup results
+            self.context["repo_path"] = setup_result["data"]["clone_path"]
+            self.original_dir = setup_result["data"]["original_dir"]
 
-        # Fork and clone repository
-        log_section("FORKING AND CLONING REPOSITORY")
-        fork_result = fork_repository(
-            f"{self.context['repo_owner']}/{self.context['repo_name']}",
-            self.context["repo_path"],
-        )
-        if not fork_result["success"]:
-            error = fork_result.get("error", "Unknown error")
-            log_error(Exception(error), "Fork failed")
-            raise Exception(error)
+            # Enter repo directory
+            os.chdir(self.context["repo_path"])
 
-        # Enter repo directory
-        os.chdir(self.context["repo_path"])
+            # Configure Git user info
+            setup_git_user_config(self.context["repo_path"])
 
-        # Configure Git user info
-        setup_git_user_config(self.context["repo_path"])
-
-        self.context["current_files"] = get_current_files()
+            self.context["current_files"] = get_current_files()
 
     def cleanup(self):
-        """Cleanup workspace."""
-        cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
+        """Cleanup is now handled by repository_context."""
+        pass
 
     def run(self):
         """Execute the task workflow."""

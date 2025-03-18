@@ -2,13 +2,14 @@
 
 import os
 import shutil
+from contextlib import contextmanager
 from github import Github
 from git import Repo
 from src.utils.logging import log_key_value, log_error
 from src.tools.file_operations.implementations import list_files
 from src.tools.github_operations.parser import extract_section
 from src.utils.signatures import verify_and_parse_signature
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Generator
 
 
 def check_required_env_vars(env_vars: list[str]):
@@ -38,7 +39,7 @@ def validate_github_auth(github_token: str, github_username: str):
         raise RuntimeError(str(e))
 
 
-def setup_repo_directory() -> tuple[str, str]:
+def _setup_repo_directory() -> tuple[str, str]:
     """Set up a unique repository directory.
 
     Returns:
@@ -69,6 +70,102 @@ def setup_repo_directory() -> tuple[str, str]:
     return repo_path, original_dir
 
 
+def _setup_repository(
+    repo_url: str, clone_only: bool = False, github_token: Optional[str] = None
+) -> dict:
+    """Set up a repository by forking (optional) and cloning.
+
+    Args:
+        repo_url: URL of the repository (e.g., https://github.com/owner/repo)
+        clone_only: If True, just clone without forking. Defaults to False.
+        github_token: Optional GitHub token to use. Defaults to GITHUB_TOKEN env var.
+
+    Returns:
+        dict: Result with success status, repository details, and paths
+    """
+    try:
+        # Extract owner/repo from URL
+        parts = repo_url.strip("/").split("/")
+        repo_owner = parts[-2]
+        repo_name = parts[-1]
+        repo_full_name = f"{repo_owner}/{repo_name}"
+
+        # Set up directory
+        repo_path, original_dir = _setup_repo_directory()
+
+        # Fork if needed
+        if not clone_only:
+            fork_result = _fork_repository(repo_full_name, github_token=github_token)
+            if not fork_result["success"]:
+                _cleanup_repository(original_dir, repo_path)
+                return fork_result
+            clone_url = fork_result["data"]["fork_url"]
+        else:
+            clone_url = repo_url
+
+        # Clone the repository
+        clone_result = _clone_repository(
+            clone_url, repo_path, github_token=github_token
+        )
+        if not clone_result["success"]:
+            _cleanup_repository(original_dir, repo_path)
+            return clone_result
+
+        return {
+            "success": True,
+            "message": "Successfully set up repository",
+            "data": {
+                "clone_path": repo_path,
+                "original_dir": original_dir,
+                "clone_url": clone_url,
+                "git_repo": clone_result["data"]["repo"],
+                **(fork_result["data"] if not clone_only else {}),
+            },
+        }
+
+    except Exception as e:
+        error_msg = str(e)
+        log_error(e, "Repository setup failed")
+        if locals().get("repo_path") and locals().get("original_dir"):
+            _cleanup_repository(original_dir, repo_path)
+        return {
+            "success": False,
+            "message": "Failed to set up repository",
+            "data": None,
+            "error": error_msg,
+        }
+
+
+@contextmanager
+def repository_context(
+    repo_url: str, clone_only: bool = False, github_token: Optional[str] = None
+) -> Generator[dict, None, None]:
+    """Context manager for repository operations.
+
+    Handles setup and cleanup of repository directory automatically.
+
+    Args:
+        repo_url: URL of the repository (e.g., https://github.com/owner/repo)
+        clone_only: If True, just clone without forking. Defaults to False.
+        github_token: Optional GitHub token to use. Defaults to GITHUB_TOKEN env var.
+
+    Yields:
+        dict: Repository setup result containing paths and repository details
+    """
+    result = _setup_repository(repo_url, clone_only, github_token)
+    if not result["success"]:
+        raise Exception(result.get("error", "Repository setup failed"))
+
+    try:
+        yield result
+    finally:
+        # Always clean up
+        repo_path = result["data"].get("clone_path")
+        original_dir = result["data"].get("original_dir")
+        if repo_path and original_dir:
+            _cleanup_repository(original_dir, repo_path)
+
+
 def setup_git_user_config(repo_path):
     """Configure Git user info for the repository."""
     repo = Repo(repo_path)
@@ -81,7 +178,7 @@ def setup_git_user_config(repo_path):
         )
 
 
-def cleanup_repo_directory(original_dir, repo_path):
+def _cleanup_repository(original_dir: str, repo_path: str):
     """Clean up repository directory and return to original directory.
 
     Args:
@@ -102,12 +199,17 @@ def get_current_files():
     return files_result["data"]["files"]
 
 
-def fork_repository(repo_full_name: str, github_token: Optional[str] = None) -> dict:
+def _fork_repository(
+    repo_full_name: str,
+    github_token: Optional[str] = None,
+    fork_name: Optional[str] = None,
+) -> dict:
     """Fork a repository.
 
     Args:
         repo_full_name: Full name of repository (owner/repo)
         github_token: Optional GitHub token to use. Defaults to GITHUB_TOKEN env var.
+        fork_name: Optional custom name for the fork. If not provided, uses the original repo name.
 
     Returns:
         dict: Result with success status and fork URL if successful
@@ -121,13 +223,16 @@ def fork_repository(repo_full_name: str, github_token: Optional[str] = None) -> 
         user = gh.get_user()
         username = user.login
 
+        # Use provided fork name or original repo name
+        repo_name = fork_name or source_repo.name
+
         # Check if fork already exists
         try:
-            fork = gh.get_repo(f"{username}/{source_repo.name}")
+            fork = gh.get_repo(f"{username}/{repo_name}")
             log_key_value("Using existing fork", fork.html_url)
         except Exception:
             # Create fork if it doesn't exist
-            fork = user.create_fork(source_repo)
+            fork = user.create_fork(source_repo, name=repo_name)
             log_key_value("Created new fork", fork.html_url)
 
         # Wait for fork to be ready
@@ -148,7 +253,7 @@ def fork_repository(repo_full_name: str, github_token: Optional[str] = None) -> 
             "data": {
                 "fork_url": fork.html_url,
                 "owner": username,
-                "repo": source_repo.name,
+                "repo": repo_name,
             },
         }
 
@@ -163,7 +268,7 @@ def fork_repository(repo_full_name: str, github_token: Optional[str] = None) -> 
         }
 
 
-def clone_repository(
+def _clone_repository(
     repo_url: str, repo_path: str, github_token: Optional[str] = None
 ) -> dict:
     """Clone a repository directly without forking.
@@ -198,70 +303,6 @@ def clone_repository(
         return {
             "success": False,
             "message": "Failed to clone repository",
-            "data": None,
-            "error": error_msg,
-        }
-
-
-def setup_repository(
-    repo_url: str, clone_only: bool = False, github_token: Optional[str] = None
-) -> dict:
-    """Set up a repository by forking (optional) and cloning.
-
-    Args:
-        repo_url: URL of the repository (e.g., https://github.com/owner/repo)
-        clone_only: If True, just clone without forking. Defaults to False.
-        github_token: Optional GitHub token to use. Defaults to GITHUB_TOKEN env var.
-
-    Returns:
-        dict: Result with success status, repository details, and paths
-    """
-    try:
-        # Extract owner/repo from URL
-        parts = repo_url.strip("/").split("/")
-        repo_owner = parts[-2]
-        repo_name = parts[-1]
-        repo_full_name = f"{repo_owner}/{repo_name}"
-
-        # Set up directory
-        repo_path, original_dir = setup_repo_directory()
-
-        # Fork if needed
-        if not clone_only:
-            fork_result = fork_repository(repo_full_name, github_token=github_token)
-            if not fork_result["success"]:
-                cleanup_repo_directory(original_dir, repo_path)
-                return fork_result
-            clone_url = fork_result["data"]["fork_url"]
-        else:
-            clone_url = repo_url
-
-        # Clone the repository
-        clone_result = clone_repository(clone_url, repo_path, github_token=github_token)
-        if not clone_result["success"]:
-            cleanup_repo_directory(original_dir, repo_path)
-            return clone_result
-
-        return {
-            "success": True,
-            "message": "Successfully set up repository",
-            "data": {
-                "clone_path": repo_path,
-                "original_dir": original_dir,
-                "clone_url": clone_url,
-                "git_repo": clone_result["data"]["repo"],
-                **(fork_result["data"] if not clone_only else {}),
-            },
-        }
-
-    except Exception as e:
-        error_msg = str(e)
-        log_error(e, "Repository setup failed")
-        if locals().get("repo_path") and locals().get("original_dir"):
-            cleanup_repo_directory(original_dir, repo_path)
-        return {
-            "success": False,
-            "message": "Failed to set up repository",
             "data": None,
             "error": error_msg,
         }
