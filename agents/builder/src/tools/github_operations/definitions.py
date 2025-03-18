@@ -1,5 +1,4 @@
 from src.tools.github_operations.implementations import (
-    fork_repository,
     create_worker_pull_request,
     create_leader_pull_request,
     review_pull_request,
@@ -10,25 +9,6 @@ from src.tools.github_operations.implementations import (
 )
 
 DEFINITIONS = {
-    "fork_repository": {
-        "name": "fork_repository",
-        "description": "Fork a repository and optionally clone it locally.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "repo_full_name": {
-                    "type": "string",
-                    "description": "Full name of repository (owner/repo)",
-                },
-                "repo_path": {
-                    "type": "string",
-                    "description": "Local path to clone to",
-                },
-            },
-            "required": ["repo_full_name"],
-        },
-        "function": fork_repository,
-    },
     "create_worker_pull_request": {
         "name": "create_worker_pull_request",
         "description": "Create a pull request for a worker node with task implementation details and signatures.",
