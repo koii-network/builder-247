@@ -107,7 +107,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
 
       // For leader audits, we need to get the distribution list
       console.log("Fetching distribution list for leader audit of round", roundNumber);
-      const distributionList = await getDistributionList(roundNumber - 4);
+      const distributionList = await getDistributionList(roundNumber - 3);
 
       if (!distributionList || Object.keys(distributionList).length === 0) {
         console.log("No distribution list available for this round, failing leader audit");
