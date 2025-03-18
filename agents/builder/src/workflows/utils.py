@@ -246,7 +246,7 @@ def setup_repository(
             "success": True,
             "message": "Successfully set up repository",
             "data": {
-                "repo_path": repo_path,
+                "clone_path": repo_path,
                 "original_dir": original_dir,
                 "clone_url": clone_url,
                 "git_repo": clone_result["data"]["repo"],
