@@ -1,7 +1,7 @@
 """Distribution list filtering utilities."""
 
 import re
-from github import Github as gh
+from github import Github
 from typing import Dict
 from src.utils.logging import log_key_value, log_value
 
@@ -18,6 +18,7 @@ def remove_leaders(
     filtered_distribution_list = {}
 
     # Get source repo and its upstream
+    gh = Github()
     source_repo = gh.get_repo(f"{repo_owner}/{repo_name}")
     if not source_repo.fork:
         raise ValueError("Source repo is not a fork")
