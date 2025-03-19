@@ -138,6 +138,7 @@ def audit_leader_submission(
     pub_key: str,
     signature: str,
     distribution_list: Dict[str, Dict[str, str]],
+    leader_username: str,
 ) -> bool:
     """Audit a leader's consolidated PR submission.
 
@@ -156,6 +157,7 @@ def audit_leader_submission(
                          - Have valid submissions
                          - Have real PR URLs (not "none")
                          Note: May include leader PRs that need additional filtering
+        leader_username: GitHub username of the leader
     """
     try:
         gh = Github(os.environ["GITHUB_TOKEN"])
@@ -167,21 +169,32 @@ def audit_leader_submission(
             return False
 
         pr_owner, pr_repo, pr_number = match.groups()
-        repo = gh.get_repo(f"{pr_owner}/{pr_repo}")
-        pr = repo.get_pull(int(pr_number))
 
-        # 1. Verify PR is to the original source repo's default branch
-        if pr_owner != repo_owner or pr_repo != repo_name:
+        # Get source repo and PR
+        source_repo = gh.get_repo(f"{repo_owner}/{repo_name}")
+        pr = source_repo.get_pull(int(pr_number))
+
+        # 1. Verify PR is targeting the source repo's default branch
+        if pr.base.repo.owner.login != repo_owner or pr.base.repo.name != repo_name:
             log_error(
                 Exception("PR target mismatch"),
-                context=f"PR should target {repo_owner}/{repo_name}, got {pr_owner}/{pr_repo}",
+                context=f"PR should target {repo_owner}/{repo_name}, got {pr.base.repo.full_name}",
             )
             return False
 
-        if pr.base.ref != repo.default_branch:
+        # Get source repo's default branch
+        if pr.base.ref != source_repo.default_branch:
             log_error(
                 Exception("Wrong base branch"),
-                context=f"PR should target {repo.default_branch}, got {pr.base.ref}",
+                context=f"PR should target {source_repo.default_branch}, got {pr.base.ref}",
+            )
+            return False
+
+        # 2. Verify PR is coming from the leader's fork
+        if pr.head.repo.owner.login != leader_username:
+            log_error(
+                Exception("PR owner mismatch"),
+                context=f"PR should come from leader {leader_username}, got {pr.head.repo.owner.login}",
             )
             return False
 
@@ -217,10 +230,14 @@ def audit_leader_submission(
         # Clone using the token for auth
         clone_url = f"https://{os.environ['GITHUB_TOKEN']}@github.com/{pr.head.repo.full_name}.git"
         repo = Repo.clone_from(clone_url, clone_path)
-        repo.git.checkout(pr.head.ref)
+
+        # Checkout the -merged branch
+        source_branch = f"task-{task_id}-round-{round_number - 3}"
+        merged_branch = f"{source_branch}-merged"
+        repo.git.checkout(merged_branch)
 
         # Get all commits in the PR
-        commits = list(repo.iter_commits(f"{pr.base.ref}..{pr.head.ref}"))
+        commits = list(repo.iter_commits(f"{pr.base.ref}..{merged_branch}"))
 
         # 5. Verify all commits are merge commits
         non_merge_commits = [c for c in commits if len(c.parents) != 2]

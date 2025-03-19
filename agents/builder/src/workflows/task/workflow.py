@@ -8,9 +8,9 @@ from src.workflows.task import phases
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
-    setup_git_user_config,
+    setup_repository,
+    cleanup_repository,
     get_current_files,
-    repository_context,
 )
 
 
@@ -32,8 +32,8 @@ class TaskWorkflow(Workflow):
         task_id,
         base_branch,
         max_implementation_attempts=3,
-        github_token=os.getenv("GITHUB_TOKEN"),
-        github_username=os.getenv("GITHUB_USERNAME"),
+        github_token="GITHUB_TOKEN",
+        github_username="GITHUB_USERNAME",
     ):
         super().__init__(
             client=client,
@@ -50,35 +50,44 @@ class TaskWorkflow(Workflow):
             task_id=task_id,
             base_branch=base_branch,
         )
+        check_required_env_vars([github_token, github_username])
         self.max_implementation_attempts = max_implementation_attempts
+        self.context["github_token"] = os.getenv(github_token)
+        self.context["github_username"] = os.getenv(github_username)
 
     def setup(self):
         """Set up repository and workspace."""
-        check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
-        validate_github_auth(self.github_token, self.github_username)
+        validate_github_auth(
+            self.context["github_token"], self.context["github_username"]
+        )
         log_key_value("Base branch", self.context["base_branch"])
 
         # Set up repository
         log_section("SETTING UP REPOSITORY")
         repo_url = f"https://github.com/{self.context['repo_owner']}/{self.context['repo_name']}"
-        with repository_context(
-            repo_url, github_token=self.github_token
-        ) as setup_result:
-            # Update context with setup results
-            self.context["repo_path"] = setup_result["data"]["clone_path"]
-            self.original_dir = setup_result["data"]["original_dir"]
 
-            # Enter repo directory
-            os.chdir(self.context["repo_path"])
+        result = setup_repository(
+            repo_url,
+            github_token=self.context["github_token"],
+            github_username=self.context["github_username"],
+        )
+        if not result["success"]:
+            raise Exception(result.get("error", "Repository setup failed"))
 
-            # Configure Git user info
-            setup_git_user_config(self.context["repo_path"])
+        # Update context with setup results
+        self.context["repo_path"] = result["data"]["clone_path"]
+        self.original_dir = result["data"]["original_dir"]
 
-            self.context["current_files"] = get_current_files()
+        # Enter repo directory
+        os.chdir(self.context["repo_path"])
+
+        # Get current files for context
+        self.context["current_files"] = get_current_files()
 
     def cleanup(self):
-        """Cleanup is now handled by repository_context."""
-        pass
+        """Clean up repository."""
+        if hasattr(self, "original_dir") and "repo_path" in self.context:
+            cleanup_repository(self.original_dir, self.context["repo_path"])
 
     def run(self):
         """Execute the task workflow."""

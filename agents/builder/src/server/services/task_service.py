@@ -432,17 +432,16 @@ def create_aggregator_repo(round_number, task_id, repo_owner, repo_name):
             - data (dict): Contains fork_url and branch_name if successful
     """
     try:
-        # Get source repo info
-        # source_repo_result = fetch_source_repo(task_id)
-        # if source_repo_result.get("status"):
-        #     return source_repo_result
-        # source_repo = source_repo_result["data"]
-        # repo_owner = source_repo["repo_owner"]
-        # repo_name = source_repo["repo_name"]
-
         # Initialize GitHub client with token
         github = gh(os.environ["GITHUB_TOKEN"])
         username = os.environ["GITHUB_USERNAME"]
+
+        # Get original source repo
+        source_repo = github.get_repo(f"{repo_owner}/{repo_name}")
+        if source_repo.fork:
+            source_repo = source_repo.parent
+            repo_owner = source_repo.owner.login
+            repo_name = source_repo.name
 
         # Check if fork already exists
         try:
@@ -450,11 +449,10 @@ def create_aggregator_repo(round_number, task_id, repo_owner, repo_name):
             log_key_value("Using existing fork", fork.html_url)
         except Exception:
             # Create new fork if it doesn't exist
-            source = github.get_repo(f"{repo_owner}/{repo_name}")
-            fork = github.get_user().create_fork(source)
+            fork = github.get_user().create_fork(source_repo)
             log_key_value("Created new fork", fork.html_url)
 
-        # Create branch name
+        # Create standard aggregator branch name
         branch_name = f"task-{task_id}-round-{round_number}"
 
         try:

@@ -236,7 +236,9 @@ def install_dependency(
     }
 
 
-def install_dependencies(repo_path: str = None, **kwargs) -> ToolOutput:
+def setup_dependencies(
+    package_manager: str, repo_path: str = None, **kwargs
+) -> ToolOutput:
     """Install dependencies from requirements.txt or package.json.
 
     Args:
@@ -249,63 +251,68 @@ def install_dependencies(repo_path: str = None, **kwargs) -> ToolOutput:
         working_dir = repo_path or os.getcwd()
         print(f"Installing dependencies in {working_dir}")
 
-        results = {
-            "python": {"found": False, "success": False},
-            "node": {"found": False, "success": False},
-        }
+        if package_manager == "pip":
+            requirements_path = os.path.join(working_dir, "requirements.txt")
+            if not os.path.exists(requirements_path):
+                return {
+                    "success": False,
+                    "message": "Requirements.txt not found",
+                    "data": None,
+                }
 
-        # Check for requirements.txt
-        requirements_path = os.path.join(working_dir, "requirements.txt")
-        if os.path.exists(requirements_path):
-            results["python"]["found"] = True
             result = execute_command(
                 f"pip install --no-cache-dir -r {requirements_path}"
             )
-            results["python"]["success"] = result["data"]["command_succeeded"]
-            results["python"]["output"] = (
-                result["data"]["stdout"] or result["data"]["stderr"]
-            )
-
-        # Check for package.json
-        package_json_path = os.path.join(working_dir, "package.json")
-        if os.path.exists(package_json_path):
-            results["node"]["found"] = True
+        elif package_manager == "npm":
+            package_json_path = os.path.join(working_dir, "package.json")
+            if not os.path.exists(package_json_path):
+                return {
+                    "success": False,
+                    "message": "package.json not found",
+                    "data": None,
+                }
             result = execute_command(
-                f"cd {working_dir} && npm install --no-fund --no-audit"
+                f"npm install --no-fund --no-audit -r {requirements_path}"
             )
-            results["node"]["success"] = result["data"]["command_succeeded"]
-            results["node"]["output"] = (
-                result["data"]["stdout"] or result["data"]["stderr"]
+        elif package_manager == "yarn":
+            package_json_path = os.path.join(working_dir, "package.json")
+            if not os.path.exists(package_json_path):
+                return {
+                    "success": False,
+                    "message": "package.json not found",
+                    "data": None,
+                }
+            result = execute_command(
+                f"yarn add --non-interactive -r {requirements_path}"
             )
+        elif package_manager == "pnpm":
+            package_json_path = os.path.join(working_dir, "package.json")
+            if not os.path.exists(package_json_path):
+                return {
+                    "success": False,
+                    "message": "package.json not found",
+                    "data": None,
+                }
+            result = execute_command(f"pnpm add --no-fund -r {requirements_path}")
 
-        if not results["python"]["found"] and not results["node"]["found"]:
-            return {
-                "success": False,
-                "message": "No requirements.txt or package.json found",
-                "data": results,
-            }
+        success = result["data"]["command_succeeded"]
+        stdout = result["data"]["stdout"]
+        stderr = result["data"]["stderr"]
+        returncode = result["data"]["returncode"]
 
-        # Determine overall success and create appropriate message
-        success_msg = []
-        error_msg = []
+        if success:
+            message = "Dependencies installed successfully"
+        else:
+            message = "Failed to install dependencies"
 
-        if results["python"]["found"]:
-            if results["python"]["success"]:
-                success_msg.append("Python dependencies installed successfully")
-            else:
-                error_msg.append("Failed to install Python dependencies")
-
-        if results["node"]["found"]:
-            if results["node"]["success"]:
-                success_msg.append("Node.js dependencies installed successfully")
-            else:
-                error_msg.append("Failed to install Node.js dependencies")
-
-        message = ". ".join(success_msg + error_msg)
         return {
             "success": True,  # Tool executed without exceptions
             "message": message,
-            "data": results,
+            "data": {
+                "stdout": stdout,
+                "stderr": stderr,
+                "returncode": returncode,
+            },
         }
 
     except Exception as e:

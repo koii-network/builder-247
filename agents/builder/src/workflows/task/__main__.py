@@ -5,7 +5,7 @@ import json
 import argparse
 import os
 import uuid
-from datetime import datetime
+from github import Github, GithubException
 from src.workflows.task.workflow import TaskWorkflow
 from src.utils.logging import (
     log_section,
@@ -14,25 +14,41 @@ from src.utils.logging import (
 )
 from src.database import get_db, Log
 from src.clients import setup_client
+from src.workflows.utils import create_remote_branch
 from src.workflows.task.prompts import PROMPTS
 from src.utils.test_signatures import create_test_signatures
-from src.workflows.utils import create_remote_branch
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def generate_test_task_id():
     """Generate a unique task ID for testing.
-    Format: test-{timestamp}-{uuid4_short}
+    Format: uuid4_short
     """
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    unique_id = str(uuid.uuid4())[:8]  # Use first 8 chars of UUID
-    return f"test-{timestamp}-{unique_id}"
+    return str(uuid.uuid4())[:8]
 
 
-def run_workflow(repo_owner, repo_name, todo, acceptance_criteria):
+def run_workflow(source_repo_url, todo, acceptance_criteria):
+    """Run task workflow on GitHub repository.
+
+    Args:
+        source_repo_url: URL of the source repository (fork) to create PRs to
+        todo: Todo task description
+        acceptance_criteria: List of acceptance criteria
+    """
     # Check for required environment variables
-    if not os.environ.get("UPSTREAM_GITHUB_TOKEN"):
+    required_env_vars = [
+        "LEADER_GITHUB_TOKEN",
+        "LEADER_GITHUB_USERNAME",
+        "WORKER_GITHUB_TOKEN",
+        "WORKER_GITHUB_USERNAME",
+    ]
+    missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
+    if missing_vars:
         print(
-            "Error: UPSTREAM_GITHUB_TOKEN environment variable is required for testing"
+            f"Error: Missing required environment variables: {', '.join(missing_vars)}"
         )
         sys.exit(1)
 
@@ -42,13 +58,33 @@ def run_workflow(repo_owner, repo_name, todo, acceptance_criteria):
     test_task_id = generate_test_task_id()
     test_round_number = 1
 
-    # Create base branch on upstream repo
-    base_branch = f"round-{test_round_number}-{test_task_id}"
+    # Parse source repo URL
+    parts = source_repo_url.strip("/").split("/")
+    if len(parts) < 5 or parts[2] != "github.com":
+        print("Invalid repository URL format. Use https://github.com/owner/repo")
+        sys.exit(1)
+    source_owner, source_repo = parts[-2:]
+
+    # 1. Get or create leader's fork from source repo
+    leader_gh = Github(os.environ["LEADER_GITHUB_TOKEN"])
+    source = leader_gh.get_repo(f"{source_owner}/{source_repo}")
+    leader_user = leader_gh.get_user()
+
+    try:
+        leader_fork = leader_gh.get_repo(f"{leader_user.login}/{source_repo}")
+        log_key_value("Using existing leader fork", leader_fork.html_url)
+    except GithubException:
+        # Create new fork from source
+        leader_fork = leader_user.create_fork(source)
+        log_key_value("Created leader fork", leader_fork.html_url)
+
+    # Create unique base branch on leader's fork
+    base_branch = f"task-{test_task_id}-round-{test_round_number}"
     create_result = create_remote_branch(
-        repo_owner=repo_owner,
-        repo_name=repo_name,
+        repo_owner=leader_user.login,
+        repo_name=source_repo,
         branch_name=base_branch,
-        github_token=os.environ.get("UPSTREAM_GITHUB_TOKEN"),
+        github_token=os.environ["LEADER_GITHUB_TOKEN"],
     )
     if not create_result["success"]:
         error = create_result.get("error", "Unknown error")
@@ -84,11 +120,12 @@ def run_workflow(repo_owner, repo_name, todo, acceptance_criteria):
             "public_signature": "dummy_public_signature",
         }
 
+    # Run workflow as worker, creating PRs to leader's fork
     workflow = TaskWorkflow(
         client=client,
         prompts=PROMPTS,
-        repo_owner=repo_owner,
-        repo_name=repo_name,
+        repo_owner=leader_user.login,
+        repo_name=source_repo,
         todo=todo,
         acceptance_criteria=acceptance_criteria,
         staking_key=signatures["staking_key"],
@@ -97,9 +134,34 @@ def run_workflow(repo_owner, repo_name, todo, acceptance_criteria):
         public_signature=signatures["public_signature"],
         round_number=test_round_number,
         task_id=test_task_id,
+        base_branch=base_branch,
+        github_token="WORKER_GITHUB_TOKEN",
+        github_username="WORKER_GITHUB_USERNAME",
     )
 
     workflow.run()
+
+
+def parse_repo_url(url: str) -> tuple[str, str]:
+    """Parse a GitHub repository URL into owner and repo name.
+
+    Args:
+        url (str): GitHub repository URL
+
+    Returns:
+        tuple[str, str]: (owner, repo_name)
+    """
+    # Remove .git suffix if present
+    if url.endswith(".git"):
+        url = url[:-4]
+
+    # Remove protocol and github.com
+    url = url.replace("https://github.com/", "")
+    url = url.replace("git@github.com:", "")
+
+    # Split into owner/repo
+    parts = url.split("/")
+    return parts[-2], parts[-1]
 
 
 def main():
@@ -110,12 +172,14 @@ def main():
     parser.add_argument(
         "--repo",
         type=str,
-        help="GitHub repository URL (e.g., https://github.com/owner/repo)",
+        required=True,
+        help="GitHub repository URL to create PRs to (e.g., https://github.com/owner/repo)",
     )
     parser.add_argument(
         "--input",
         type=str,
         help="Path to CSV file containing todos and acceptance criteria",
+        default="test_todos_small.csv",
     )
     parser.add_argument(
         "--model",
@@ -129,31 +193,10 @@ def main():
     # Set up logging
     configure_logging()
 
-    # Parse repository URL to get owner and name
-    repo_owner = None
-    repo_name = None
-
-    if args.repo:
-        # Extract owner and name from URL
-        # Format: https://github.com/owner/repo
-        parts = args.repo.strip("/").split("/")
-        if len(parts) >= 4 and parts[2] == "github.com":
-            repo_owner = parts[3]
-            repo_name = parts[4] if len(parts) > 4 else None
-
-    # If repo owner or name is missing, use defaults
-    if not repo_owner:
-        repo_owner = "koii-network"
-    if not repo_name:
-        repo_name = "builder-test"
-
     # Determine CSV file path
     todos_path = Path(__file__).parent.parent.parent.parent.parent.parent / "data"
 
-    if args.input:
-        todos_file = todos_path / args.input
-    else:
-        todos_file = todos_path / "test_todos_small.csv"
+    todos_file = todos_path / args.input
 
     if not os.path.exists(todos_file):
         db = get_db()
@@ -179,8 +222,7 @@ def main():
                     try:
                         log_section(f"PROCESSING TODO {i}")
                         run_workflow(
-                            repo_owner=repo_owner,
-                            repo_name=repo_name,
+                            source_repo_url=args.repo,
                             todo=todo.strip(),
                             acceptance_criteria=acceptance_criteria,
                         )

@@ -8,10 +8,9 @@ from src.workflows.audit import phases
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
-    setup_git_user_config,
+    setup_repository,
+    cleanup_repository,
     get_current_files,
-    repository_context,
-    get_fork_name,
 )
 
 
@@ -25,8 +24,8 @@ class AuditWorkflow(Workflow):
         pub_key,
         staking_signature,
         public_signature,
-        github_token=os.getenv("GITHUB_TOKEN"),
-        github_username=os.getenv("GITHUB_USERNAME"),
+        github_token="GITHUB_TOKEN",
+        github_username="GITHUB_USERNAME",
     ):
         # Extract owner/repo from PR URL
         # URL format: https://github.com/owner/repo/pull/123
@@ -47,17 +46,19 @@ class AuditWorkflow(Workflow):
             staking_signature=staking_signature,
             public_signature=public_signature,
         )
-        self.github_token = github_token
-        self.github_username = github_username
+        check_required_env_vars([github_token, github_username])
+        self.context["github_token"] = os.getenv(github_token)
+        self.context["github_username"] = os.getenv(github_username)
 
     def setup(self):
         """Set up repository and workspace."""
-        check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
-        validate_github_auth(self.github_token, self.github_username)
+        validate_github_auth(
+            self.context["github_token"], self.context["github_username"]
+        )
 
         # Get PR info from GitHub
         try:
-            gh = Github(self.github_token)
+            gh = Github(self.context["github_token"])
             repo = gh.get_repo(
                 f"{self.context['repo_owner']}/{self.context['repo_name']}"
             )
@@ -72,28 +73,29 @@ class AuditWorkflow(Workflow):
         # Set up repository
         log_section("SETTING UP REPOSITORY")
         repo_url = f"https://github.com/{self.context['repo_owner']}/{self.context['repo_name']}"
-        fork_name = get_fork_name(self.context["repo_owner"], repo_url, github=gh)
-        with repository_context(
+
+        result = setup_repository(
             repo_url,
-            github_token=self.github_token,
-            fork_name=fork_name,
-        ) as setup_result:
-            # Update context with setup results
-            self.context["repo_path"] = setup_result["data"]["clone_path"]
-            self.original_dir = setup_result["data"]["original_dir"]
+            github_token=self.context["github_token"],
+            github_username=self.context["github_username"],
+        )
+        if not result["success"]:
+            raise Exception(result.get("error", "Repository setup failed"))
 
-            # Enter repo directory
-            os.chdir(self.context["repo_path"])
+        # Update context with setup results
+        self.context["repo_path"] = result["data"]["clone_path"]
+        self.original_dir = result["data"]["original_dir"]
 
-            # Configure Git user info
-            setup_git_user_config(self.context["repo_path"])
+        # Enter repo directory
+        os.chdir(self.context["repo_path"])
 
-            # Get current files for context
-            self.context["current_files"] = get_current_files()
+        # Get current files for context
+        self.context["current_files"] = get_current_files()
 
     def cleanup(self):
-        """Cleanup is now handled by repository_context."""
-        pass
+        """Clean up repository."""
+        if hasattr(self, "original_dir") and "repo_path" in self.context:
+            cleanup_repository(self.original_dir, self.context["repo_path"])
 
     def run(self):
         """Execute the audit workflow."""

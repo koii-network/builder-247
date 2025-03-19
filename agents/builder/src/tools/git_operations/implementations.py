@@ -64,10 +64,24 @@ def init_repository(
 
 
 def clone_repository(
-    url: str, path: str, user_name: str = None, user_email: str = None, **kwargs
+    url: str,
+    path: str,
+    user_name: str = None,
+    user_email: str = None,
+    github_token: str = None,
+    github_username: str = None,
+    **kwargs,
 ) -> ToolOutput:
     """
     Clone a Git repository with proper path handling and cleanup.
+
+    Args:
+        url (str): URL of the repository to clone
+        path (str): Path to clone to
+        user_name (str, optional): Git user name to configure
+        user_email (str, optional): Git user email to configure
+        github_token (str, optional): GitHub token for authentication
+        github_username (str, optional): GitHub username for commit config
 
     Returns:
         ToolOutput: Result of the operation
@@ -89,15 +103,14 @@ def clone_repository(
         os.makedirs(path, exist_ok=True)
 
         # Add GitHub token authentication
-        if "github.com" in url and "GITHUB_TOKEN" in os.environ:
-            token = os.environ["GITHUB_TOKEN"]
+        if "github.com" in url and github_token:
             log_key_value(
                 "Adding GitHub token authentication", "Using token for authentication"
             )
             if url.startswith("https://"):
-                url = url.replace("https://", f"https://{token}@")
+                url = url.replace("https://", f"https://{github_token}@")
             elif url.startswith("git@"):
-                url = f"https://{token}@github.com/{url.split(':', 1)[1]}"
+                url = f"https://{github_token}@github.com/{url.split(':', 1)[1]}"
             log_key_value("Modified URL", url)
 
         # Clone repository
@@ -114,14 +127,15 @@ def clone_repository(
                 if user_email:
                     config.set_value("user", "email", user_email)
 
-        # Enforce GitHub Actions user configuration
-        with repo.config_writer() as config:
-            config.set_value("user", "name", os.environ["GITHUB_USERNAME"])
-            config.set_value(
-                "user",
-                "email",
-                f"{os.environ['GITHUB_USERNAME']}@users.noreply.github.com",
-            )
+        # Configure GitHub user if provided
+        if github_username:
+            with repo.config_writer() as config:
+                config.set_value("user", "name", github_username)
+                config.set_value(
+                    "user",
+                    "email",
+                    f"{github_username}@users.noreply.github.com",
+                )
 
         return {
             "success": True,
@@ -138,18 +152,18 @@ def clone_repository(
         }
 
 
-def create_branch(branch_base: str, **kwargs) -> ToolOutput:
-    """Create branch with automatic timestamp suffix"""
-    try:
-        # Check for GitHub token first
-        if "GITHUB_TOKEN" not in os.environ:
-            return {
-                "success": False,
-                "message": "GitHub token not found in environment. Please set GITHUB_TOKEN environment variable.",
-                "data": None,
-            }
+def create_branch(branch_base: str, repo_path: str, **kwargs) -> ToolOutput:
+    """Create a new branch with timestamp suffix and push to remote.
 
-        # Validate base name
+    Args:
+        branch_base: Base name for the branch
+        repo_path: Path to the repository
+
+    Returns:
+        ToolOutput: Result of branch creation
+    """
+    try:
+        # Validate and clean branch base name
         if not branch_base:
             return {
                 "success": False,
@@ -157,108 +171,25 @@ def create_branch(branch_base: str, **kwargs) -> ToolOutput:
                 "data": None,
             }
 
-        # Clean branch base name - remove special characters and spaces
+        # Clean branch base name
         branch_base = branch_base.strip().lower()
         branch_base = "".join(
             c if c.isalnum() or c in "-_" else "-" for c in branch_base
         )
-        if not branch_base:
-            return {
-                "success": False,
-                "message": "Invalid branch name after cleaning",
-                "data": None,
-            }
 
-        # Generate branch name
+        # Generate branch name with timestamp
         timestamp = int(time.time())
         branch_name = f"{branch_base}-{timestamp}"
 
-        repo = Repo(os.getcwd())
+        # Get repo instance
+        repo = _get_repo(repo_path)
         log_key_value("Creating branch", f"'{branch_name}' in {repo.working_dir}")
 
-        # Check if we're in a git repo
-        if not os.path.exists(os.path.join(repo.working_dir, ".git")):
-            return {
-                "success": False,
-                "message": "Not a git repository",
-                "data": None,
-            }
-
-        # Check if we have a remote named 'origin'
-        try:
-            origin = repo.remote("origin")
-            # Update origin URL with token
-            url = origin.url
-            if "github.com" in url:
-                token = os.environ["GITHUB_TOKEN"]
-                if url.startswith("https://"):
-                    new_url = url.replace("https://", f"https://{token}@")
-                elif url.startswith("git@"):
-                    new_url = f"https://{token}@github.com/{url.split(':', 1)[1]}"
-                origin.set_url(new_url)
-        except ValueError:
-            return {
-                "success": False,
-                "message": "No 'origin' remote found",
-                "data": None,
-            }
-
         # Create and checkout branch
-        try:
-            repo.git.checkout("-b", branch_name)
-        except GitCommandError as e:
-            if "already exists" in str(e):
-                return {
-                    "success": False,
-                    "message": f"Branch '{branch_name}' already exists",
-                    "data": None,
-                }
-            raise
+        repo.git.checkout("-b", branch_name)
 
-        # Verify branch exists
-        if branch_name not in repo.heads:
-            return {
-                "success": False,
-                "message": f"Failed to create branch: {branch_name}",
-                "data": None,
-            }
-
-        # Configure upstream tracking
-        try:
-            repo.git.push("--set-upstream", "origin", branch_name)
-        except GitCommandError as e:
-            # Try to delete the local branch since push failed
-            try:
-                repo.git.checkout("main")
-                repo.git.branch("-D", branch_name)
-            except GitCommandError:
-                pass
-
-            error_msg = str(e)
-            if "Permission denied" in error_msg:
-                return {
-                    "success": False,
-                    "message": (
-                        "Permission denied pushing to remote. "
-                        "Please check your GitHub token has the correct permissions."
-                    ),
-                    "data": None,
-                }
-            elif "Authentication failed" in error_msg:
-                return {
-                    "success": False,
-                    "message": (
-                        "Authentication failed. "
-                        "Please check your GitHub token is valid and has the correct permissions."
-                    ),
-                    "data": None,
-                }
-            else:
-                return {
-                    "success": False,
-                    "message": f"Failed to push branch: {error_msg}",
-                    "data": None,
-                }
+        # Push to remote with upstream tracking
+        repo.git.push("--set-upstream", "origin", branch_name)
 
         return {
             "success": True,
@@ -270,14 +201,6 @@ def create_branch(branch_base: str, **kwargs) -> ToolOutput:
         }
     except GitCommandError as e:
         error_msg = f"Git error: {str(e)}"
-        log_error(e, error_msg)
-        return {
-            "success": False,
-            "message": error_msg,
-            "data": None,
-        }
-    except Exception as e:
-        error_msg = f"Unexpected error: {str(e)}"
         log_error(e, error_msg)
         return {
             "success": False,

@@ -4,13 +4,14 @@ import os
 from github import Github
 from src.workflows.base import Workflow
 from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.utils import repository_context, get_fork_name
+from src.workflows.utils import setup_repository, cleanup_repository
 from src.workflows.mergeconflict.phases import (
     ConflictResolutionPhase,
     CreatePullRequestPhase,
 )
 from src.tools.github_operations.parser import extract_section
 from src.utils.signatures import verify_and_parse_signature
+from src.utils.env_vars import check_required_env_vars
 
 
 class MergeConflictWorkflow(Workflow):
@@ -28,8 +29,8 @@ class MergeConflictWorkflow(Workflow):
         task_id=None,  # Task ID for signature validation
         round_number=None,  # Round number for signature validation
         staking_keys=None,  # Distribution list for signature validation
-        github_token=os.getenv("GITHUB_TOKEN"),
-        github_username=os.getenv("GITHUB_USERNAME"),
+        github_token="GITHUB_TOKEN",
+        github_username="GITHUB_USERNAME",
     ):
         # Extract source repo info from source fork URL
         parts = source_fork_url.strip("/").split("/")
@@ -40,6 +41,10 @@ class MergeConflictWorkflow(Workflow):
             prompts=prompts,
         )
 
+        check_required_env_vars([github_token, github_username])
+        self.context["github_token"] = os.getenv(github_token)
+        self.context["github_username"] = os.getenv(github_username)
+
         self.source_fork_owner = (
             source_fork_owner  # Only property we need for branch naming
         )
@@ -47,8 +52,6 @@ class MergeConflictWorkflow(Workflow):
         self.task_id = task_id
         self.round_number = round_number
         self.staking_keys = staking_keys or []
-        self.github_token = github_token
-        self.github_username = github_username
 
         # Initialize context with source info
         self.context.update(
@@ -71,7 +74,7 @@ class MergeConflictWorkflow(Workflow):
         )
 
         # Get upstream repo info and add to context
-        gh = Github(self.github_token)
+        gh = Github(self.context["github_token"])
         source_fork = gh.get_repo(f"{source_fork_owner}/{parts[-1]}")
         upstream = source_fork.parent
 
@@ -139,51 +142,67 @@ class MergeConflictWorkflow(Workflow):
     def setup(self):
         """Set up repository and workspace."""
         try:
-            # Use repository_context to handle forking and cloning
+            # Set up repository
             log_section("SETTING UP REPOSITORY")
             repo_url = self.context["source_fork"]["url"]
-            gh = Github(self.github_token)
-            fork_name = get_fork_name(self.source_fork_owner, repo_url, github=gh)
-            with repository_context(
-                repo_url,
-                github_token=self.github_token,
-                fork_name=fork_name,
-            ) as setup_result:
-                # Add working fork info to context
+
+            # If we own the source fork, clone it directly
+            # Otherwise, let setup_repository fork it
+            if self.is_source_fork_owner:
+                result = setup_repository(
+                    repo_url,
+                    github_token=self.context["github_token"],
+                    github_username=self.context["github_username"],
+                    skip_fork=True,  # Don't fork if we own the source
+                )
+            else:
+                result = setup_repository(
+                    repo_url,
+                    github_token=self.context["github_token"],
+                    github_username=self.context["github_username"],
+                )
+
+            if not result["success"]:
+                raise Exception(result.get("error", "Repository setup failed"))
+
+            # Add working fork info to context
+            if self.is_source_fork_owner:
                 self.context["working_fork"] = {
-                    "url": setup_result["data"]["fork_url"],
-                    "owner": setup_result["data"]["owner"],
+                    "url": repo_url,  # We're working directly on the source fork
+                    "owner": self.context["source_fork"]["owner"],
                     "name": self.context["source_fork"]["name"],
                 }
+            else:
+                self.context["working_fork"] = {
+                    "url": result["data"]["fork_url"],
+                    "owner": result["data"]["fork_owner"],
+                    "name": result["data"]["fork_name"],
+                }
 
-                # Set required context variables for PR creation
-                self.context["repo_owner"] = self.context["upstream"]["owner"]
-                self.context["repo_name"] = self.context["upstream"]["name"]
+            # Set required context variables for PR creation
+            self.context["repo_owner"] = self.context["upstream"]["owner"]
+            self.context["repo_name"] = self.context["upstream"]["name"]
 
-                # Change to repo directory
-                self.context["repo_path"] = setup_result["data"]["clone_path"]
-                os.chdir(setup_result["data"]["clone_path"])
+            # Change to repo directory
+            self.context["repo_path"] = result["data"]["clone_path"]
+            os.chdir(self.context["repo_path"])
 
-                # Configure source remote if we don't own the source fork
-                if not self.is_source_fork_owner:
-                    os.system(
-                        f"git remote add source {self.context['source_fork']['url']}"
-                    )
-                    os.system("git fetch source")
+            # Configure source remote if we don't own the source fork
+            if not self.is_source_fork_owner:
+                os.system(f"git remote add source {self.context['source_fork']['url']}")
+                os.system("git fetch source")
 
-                # Create head branch from source branch
-                source_branch = self.context["source_fork"]["branch"]
-                head_branch = self.context["head_branch"]
+            # Create head branch from source branch
+            source_branch = self.context["source_fork"]["branch"]
+            head_branch = f"{source_branch}-merged"
+            self.context["head_branch"] = head_branch
 
-                # Checkout source branch first
-                os.system(
-                    f"git fetch {'origin' if self.is_source_fork_owner else 'source'} {source_branch}"
-                )
-                os.system(f"git checkout -b {head_branch} FETCH_HEAD")
-                # Push head branch to our fork
-                os.system(f"git push -u origin {head_branch}")
+            # Checkout source branch first
+            os.system(
+                f"git fetch {'origin' if self.is_source_fork_owner else 'source'} {source_branch}"
+            )
 
-                return True
+            return True
 
         except Exception as e:
             log_error(e, "Failed to set up repository")
@@ -256,7 +275,7 @@ class MergeConflictWorkflow(Workflow):
                 return {"success": False, "message": "Setup failed"}
 
             # Get list of PRs to process
-            gh = Github(self.github_token)
+            gh = Github(self.context["github_token"])
             source_fork = gh.get_repo(
                 f"{self.source_fork_owner}/{self.context['source_fork']['name']}"
             )
@@ -312,3 +331,8 @@ class MergeConflictWorkflow(Workflow):
 
         finally:
             self.cleanup()
+
+    def cleanup(self):
+        """Clean up repository."""
+        if hasattr(self, "original_dir") and "repo_path" in self.context:
+            cleanup_repository(self.original_dir, self.context["repo_path"])

@@ -192,6 +192,12 @@ class WorkflowPhase:
                 system_prompt=workflow.prompts["system_prompt"],
                 available_tools=self.available_tools,
             )
+        else:
+            # Update tools for existing conversation
+            workflow.client.storage.update_tools(
+                conversation_id=self.conversation_id,
+                available_tools=self.available_tools,
+            )
 
         # Handle required tools
         tool_choice = {"type": "optional"}

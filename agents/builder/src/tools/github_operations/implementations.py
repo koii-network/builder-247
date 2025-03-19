@@ -10,6 +10,7 @@ from src.tools.git_operations.implementations import (
 )
 from src.utils.logging import log_key_value, log_error
 from src.types import ToolOutput
+from src.workflows.utils import get_fork_name
 
 from git import Repo, GitCommandError
 from src.tools.github_operations.templates import TEMPLATES
@@ -115,7 +116,7 @@ def create_worker_pull_request(
     """Create a pull request for a worker node.
 
     Args:
-        repo_owner: Owner of the repository
+        repo_owner: Owner of the repository (leader's username)
         repo_name: Name of the repository
         title: PR title
         head_branch: Head branch name
@@ -305,10 +306,14 @@ def check_fork_exists(owner: str, repo_name: str, **kwargs) -> ToolOutput:
                 "data": None,
             }
 
-        # Then check if we have a fork
+        # Get our expected fork name
+        source_repo_url = f"https://github.com/{owner}/{repo_name}"
+        fork_name = get_fork_name(owner, source_repo_url, github=gh)
+
+        # Then check if we have a fork with that name
         user = gh.get_user()
         try:
-            fork = user.get_repo(repo_name)
+            fork = user.get_repo(fork_name)
             # Verify it's actually a fork of the target repo
             if fork.fork and fork.parent.full_name == f"{owner}/{repo_name}":
                 return {

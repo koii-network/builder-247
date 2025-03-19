@@ -2,7 +2,7 @@ from src.tools.execute_command.implementations import (
     execute_command,
     run_tests,
     install_dependency,
-    install_dependencies,
+    setup_dependencies,
 )
 
 
@@ -71,18 +71,20 @@ DEFINITIONS = {
         },
         "function": install_dependency,
     },
-    "install_dependencies": {
-        "name": "install_dependencies",
-        "description": "Install all dependencies from requirements.txt and/or package.json files",
+    "setup_dependencies": {
+        "name": "setup_dependencies",
+        "description": "Install all required dependencies for the project",
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_path": {
+                "package_manager": {
                     "type": "string",
-                    "description": "Path to the repository root. If not provided, uses current directory.",
+                    "description": "Package manager to use",
+                    "enum": ["npm", "pip", "yarn", "pnpm"],
                 },
             },
+            "required": ["package_manager"],
         },
-        "function": install_dependencies,
+        "function": setup_dependencies,
     },
 }

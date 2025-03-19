@@ -8,9 +8,9 @@ from src.workflows.todocreator import phases
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
-    setup_git_user_config,
+    setup_repository,
+    cleanup_repository,
     get_current_files,
-    repository_context,
 )
 
 
@@ -46,6 +46,8 @@ class TodoCreatorWorkflow(Workflow):
         repo_url,
         feature_spec,
         output_csv_path="tasks.csv",
+        github_token="GITHUB_TOKEN",
+        github_username="GITHUB_USERNAME",
     ):
         # Extract owner and repo name from URL
         # URL format: https://github.com/owner/repo
@@ -61,17 +63,21 @@ class TodoCreatorWorkflow(Workflow):
             repo_name=repo_name,
             output_csv_path=output_csv_path,
         )
+        check_required_env_vars([github_token, github_username])
+        self.context["github_token"] = os.getenv(github_token)
+        self.context["github_username"] = os.getenv(github_username)
         self.feature_spec = feature_spec
         self.tasks: list[Task] = []
 
     def setup(self):
         """Set up repository and workspace."""
-        check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
-        validate_github_auth(os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_USERNAME"))
+        validate_github_auth(
+            self.context["github_token"], self.context["github_username"]
+        )
 
         # Get the default branch from GitHub
         try:
-            gh = Github(os.getenv("GITHUB_TOKEN"))
+            gh = Github(self.context["github_token"])
             repo = gh.get_repo(
                 f"{self.context['repo_owner']}/{self.context['repo_name']}"
             )
@@ -84,32 +90,32 @@ class TodoCreatorWorkflow(Workflow):
         # Set up repository
         log_section("SETTING UP REPOSITORY")
         repo_url = f"https://github.com/{self.context['repo_owner']}/{self.context['repo_name']}"
-        with repository_context(
-            repo_url, github_token=os.getenv("GITHUB_TOKEN")
-        ) as setup_result:
-            # Update context with setup results
-            self.context.update(
-                {
-                    "repo_path": setup_result["data"]["clone_path"],
-                    "original_dir": setup_result["data"]["original_dir"],
-                }
-            )
 
-            # Enter repo directory
-            os.chdir(self.context["repo_path"])
+        result = setup_repository(
+            repo_url,
+            github_token=self.context["github_token"],
+            github_username=self.context["github_username"],
+        )
+        if not result["success"]:
+            raise Exception(result.get("error", "Repository setup failed"))
 
-            # Configure Git user info
-            setup_git_user_config(self.context["repo_path"])
+        # Update context with setup results
+        self.context["repo_path"] = result["data"]["clone_path"]
+        self.original_dir = result["data"]["original_dir"]
 
-            # Get current files for context
-            self.context["current_files"] = get_current_files()
+        # Enter repo directory
+        os.chdir(self.context["repo_path"])
 
-            # Add feature spec to context
-            self.context["feature_spec"] = self.feature_spec
+        # Get current files for context
+        self.context["current_files"] = get_current_files()
+
+        # Add feature spec to context
+        self.context["feature_spec"] = self.feature_spec
 
     def cleanup(self):
-        """Cleanup is now handled by repository_context."""
-        pass
+        """Clean up repository."""
+        if hasattr(self, "original_dir") and "repo_path" in self.context:
+            cleanup_repository(self.original_dir, self.context["repo_path"])
 
     def run(self):
         """Execute the task decomposition workflow."""
