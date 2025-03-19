@@ -549,10 +549,9 @@ def generate_analysis(
         ToolOutput: Standardized tool output with success status and file path
     """
     try:
-        # Use the project's main data directory instead of a local one
-        data_dir = "/home/laura/git/github/builder-247/data"
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
+        data_dir = os.environ.get("DATA_DIR")
+        if not data_dir:
+            raise ValueError("DATA_DIR environment variable must be set")
 
         # Ensure the file has a .csv extension
         if not file_name.endswith(".csv"):
@@ -733,9 +732,9 @@ def generate_tasks(
             - error: Error message if any
     """
     try:
-        # Ensure data directory exists
-        data_dir = "/home/laura/git/github/builder-247/data"
-        os.makedirs(data_dir, exist_ok=True)
+        data_dir = os.environ.get("DATA_DIR")
+        if not data_dir:
+            raise ValueError("DATA_DIR environment variable must be set")
 
         # Full path for the CSV file
         file_path = os.path.join(data_dir, file_name)

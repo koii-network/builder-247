@@ -1,5 +1,4 @@
 import sys
-from pathlib import Path
 import csv
 import json
 import argparse
@@ -193,10 +192,12 @@ def main():
     # Set up logging
     configure_logging()
 
-    # Determine CSV file path
-    todos_path = Path(__file__).parent.parent.parent.parent.parent.parent / "data"
+    # Get data directory from environment
+    data_dir = os.environ.get("DATA_DIR")
+    if not data_dir:
+        raise ValueError("DATA_DIR environment variable must be set")
 
-    todos_file = todos_path / args.input
+    todos_file = os.path.join(data_dir, args.input)
 
     if not os.path.exists(todos_file):
         db = get_db()

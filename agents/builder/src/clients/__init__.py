@@ -1,7 +1,6 @@
 # check if a fork exists, sync if it does, create a fork if it doesn't
 from dotenv import load_dotenv
 import os
-from pathlib import Path
 from src.clients.base_client import Client
 from src.clients.anthropic_client import AnthropicClient
 from src.clients.xai_client import XAIClient
@@ -12,29 +11,29 @@ from src.clients.openrouter_client import OpenRouterClient
 # from src.clients.ollama_client import OllamaClient
 
 
-def setup_client(client: str, tools_dir: str = None) -> Client:
+def setup_client(client: str, model: str = None) -> Client:
     """Configure and return the an LLM client with tools.
 
     Args:
-        client: The client type to use ("openai", "anthropic", or "xai")
-        tools_dir: Optional path to tools directory. If not provided, will use default location
+        client: The client type to use ("openai", "anthropic", "xai", etc.)
+        model: Optional model to use (overrides client's default model)
+
+    Returns:
+        Client: Configured client instance with tools loaded
+
+    Environment Variables:
+        TOOLS_DIR: Path to tools directory (required)
     """
     load_dotenv()
 
     client_config = clients[client]
-    if client_config["api_key"] == "N/A":
-        client = client_config["client"]()
-    else:
-        client = client_config["client"](api_key=os.environ[client_config["api_key"]])
+    client = client_config["client"](
+        api_key=os.environ[client_config["api_key"]], model=model
+    )
 
-    # If no tools_dir provided, calculate it relative to project root
-    if tools_dir is None:
-        # Get the project root (3 levels up from this file)
-        project_root = Path(__file__).resolve().parent.parent.parent
-        tools_dir = str(project_root / "src" / "tools")
-    else:
-        # Convert provided path to absolute path
-        tools_dir = str(Path(tools_dir).resolve())
+    tools_dir = os.environ.get("TOOLS_DIR")
+    if not tools_dir:
+        raise ValueError("TOOLS_DIR environment variable must be set")
 
     client.register_tools(tools_dir)
     return client
