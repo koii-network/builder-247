@@ -1,6 +1,6 @@
 """Base classes for workflow implementation."""
 
-from typing import Optional, Dict, Any, List, Type, Union, get_args, get_origin
+from typing import Optional, Dict, Any, List, Type, Union, get_args, get_origin, Tuple
 from abc import ABC, abstractmethod
 import ast
 from dataclasses import dataclass
@@ -14,6 +14,8 @@ from src.clients import clients, setup_client
 import argparse
 import sys
 import os
+from nacl.signing import SigningKey
+import base58
 
 
 @dataclass
@@ -316,6 +318,34 @@ class WorkflowExecution(ABC):
 
         self.prompts = prompts
 
+    @staticmethod
+    def _load_keypair(keypair_path: str) -> Tuple[SigningKey, str]:
+        """Load a Solana keypair from a JSON file and return the signing key and public key.
+
+        Args:
+            keypair_path: Path to the JSON file containing the keypair
+
+        Returns:
+            Tuple containing:
+            - SigningKey: The nacl signing key object
+            - str: The base58 encoded public key
+        """
+        with open(keypair_path) as f:
+            # Solana keypair files contain an array of integers (0-255)
+            keypair_bytes = bytes(json.load(f))
+
+            # The first 32 bytes are the private key
+            private_key = keypair_bytes[:32]
+
+            # Create the signing key from the private key bytes
+            signing_key = SigningKey(private_key)
+
+            # Get the verify key (public key) and encode it in base58
+            verify_key = signing_key.verify_key
+            public_key = base58.b58encode(bytes(verify_key)).decode("utf-8")
+
+            return signing_key, public_key
+
     def _create_test_signatures(
         self,
         payload: Dict[str, Any],
@@ -338,21 +368,23 @@ class WorkflowExecution(ABC):
         """
         try:
             # Read keypair files
-            with open(staking_keypair_path, "r") as f:
-                staking_keypair = json.load(f)
-            with open(public_keypair_path, "r") as f:
-                public_keypair = json.load(f)
+            staking_signing_key, staking_key = self._load_keypair(staking_keypair_path)
+            public_signing_key, pub_key = self._load_keypair(public_keypair_path)
 
             # Convert payload to string
-            payload_str = json.dumps(payload, sort_keys=True)
+            payload_str = json.dumps(payload, sort_keys=True).encode()
 
             # Create signatures
-            staking_signature = staking_keypair["sign"](payload_str)
-            public_signature = public_keypair["sign"](payload_str)
+            staking_signature = base58.b58encode(
+                staking_signing_key.sign(payload_str).signature
+            ).decode()
+            public_signature = base58.b58encode(
+                public_signing_key.sign(payload_str).signature
+            ).decode()
 
             return {
-                "staking_key": staking_keypair["public"],
-                "pub_key": public_keypair["public"],
+                "staking_key": staking_key,
+                "pub_key": pub_key,
                 "staking_signature": staking_signature,
                 "public_signature": public_signature,
             }
@@ -412,6 +444,7 @@ class WorkflowExecution(ABC):
     def _setup(
         self,
         required_env_vars: Optional[List[str]] = None,
+        **kwargs,
     ):
         """Set up workflow context and resources.
 
@@ -466,7 +499,7 @@ class WorkflowExecution(ABC):
         return parts[-2], parts[-1]
 
     @abstractmethod
-    def _run(self):
+    def _run(self, **kwargs):
         """Run the workflow.
 
         Override this to execute the workflow with the prepared context.
