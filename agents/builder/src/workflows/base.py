@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from functools import wraps
 from src.types import ToolResponse, PhaseResult
 from src.utils.retry import send_message_with_retry
-from src.utils.logging import log_section, log_error
+from src.utils.logging import log_section, log_error, configure_logging
+from src.clients import clients, setup_client
+import argparse
+import sys
+import os
 
 
 @dataclass
@@ -249,6 +253,132 @@ class Workflow(ABC):
         """Main workflow implementation."""
         pass
 
-    def cleanup(self):
-        """Cleanup steps."""
+
+class WorkflowExecution(ABC):
+    """Base class for workflow execution."""
+
+    def __init__(
+        self,
+        description: str,
+        additional_arguments: Optional[Dict[str, Dict[str, Any]]] = None,
+    ):
+        """Initialize the workflow execution.
+
+        Args:
+            description: Description of the workflow for help text
+            additional_arguments: Optional dictionary of additional arguments to add to parser.
+                                Format: {"arg_name": {"type": type, "help": "help text", **other_argparse_kwargs}}
+        """
+        self.description = description
+        self.context: Dict[str, Any] = {}
+
+        # Create parser and parse args immediately
+        parser = argparse.ArgumentParser(description=self.description)
+
+        # Add common arguments
+        parser.add_argument(
+            "--model",
+            type=str,
+            default="anthropic",
+            choices=list(clients.keys()),
+            help=f"Model provider to use (default: anthropic). Available models: {', '.join(clients.keys())}",
+        )
+
+        # Add workflow-specific arguments
+        for arg_name, arg_config in (additional_arguments or {}).items():
+            parser.add_argument(f"--{arg_name}", **arg_config)
+
+        # Parse args immediately since these scripts are always run directly
+        self.args = parser.parse_args()
+
+    def _setup(
+        self,
+        required_env_vars: Optional[List[str]] = None,
+        prompts=None,
+    ):
+        """Set up workflow context and resources.
+
+        Args:
+            required_env_vars: List of required environment variables
+            prompts: Dictionary of prompts for this workflow
+
+        This base implementation:
+        1. Sets up logging
+        2. Checks required environment variables
+        3. Sets up client and prompts
+
+        Override this method to add workflow-specific setup, calling super()._setup() first.
+        """
+        # Set up logging
+        configure_logging()
+
+        # Check env vars
+        if required_env_vars:
+            self._check_env_vars(required_env_vars)
+
+        # Set up common context
+        self.context["client"] = setup_client(self.args.model)
+        if prompts:
+            self.context["prompts"] = prompts
+
+    def _check_env_vars(self, required_vars: List[str]):
+        """Check if required environment variables are set.
+
+        Args:
+            required_vars: List of required environment variable names
+
+        Raises:
+            EnvironmentError: If any required variables are missing
+        """
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        if missing_vars:
+            raise EnvironmentError(
+                f"Missing required environment variables: {', '.join(missing_vars)}"
+            )
+
+    def _parse_github_url(self, url: str) -> tuple[str, str]:
+        """Parse a GitHub repository URL into owner and repo name.
+
+        Args:
+            url: GitHub repository URL (e.g., https://github.com/owner/repo)
+
+        Returns:
+            tuple[str, str]: (owner, repo_name)
+
+        Raises:
+            ValueError: If URL format is invalid
+        """
+        parts = url.strip("/").split("/")
+        if len(parts) < 5 or parts[2] != "github.com":
+            raise ValueError(
+                "Invalid repository URL format. Use https://github.com/owner/repo"
+            )
+        return parts[-2], parts[-1]
+
+    @abstractmethod
+    def _run(self):
+        """Run the workflow.
+
+        Override this to execute the workflow with the prepared context.
+        """
         pass
+
+    def start(self):
+        """Execute the workflow.
+
+        This orchestrates the full execution flow:
+        1. Run setup
+        2. Run the workflow
+
+        This is the main public interface for running workflows.
+        """
+        try:
+            # Run setup
+            self._setup()
+
+            # Run workflow
+            self._run()
+
+        except Exception as e:
+            log_error(e, "Workflow failed")
+            sys.exit(1)
