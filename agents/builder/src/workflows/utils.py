@@ -284,46 +284,6 @@ def _fork_repository(
         }
 
 
-def _clone_repository(
-    repo_url: str, repo_path: str, github_token: Optional[str] = None
-) -> dict:
-    """Clone a repository directly without forking.
-
-    Args:
-        repo_url: URL of the repository to clone
-        repo_path: Local path to clone to
-        github_token: Optional GitHub token to use. Defaults to GITHUB_TOKEN env var.
-
-    Returns:
-        dict: Result with success status and error message if any
-    """
-    try:
-        # Add GitHub token to URL for authentication
-        token = github_token or os.environ["GITHUB_TOKEN"]
-        auth_url = repo_url.replace("https://", f"https://{token}@")
-
-        # Clone the repository
-        log_key_value("Cloning repository", repo_url)
-        log_key_value("Clone path", repo_path)
-
-        repo = Repo.clone_from(auth_url, repo_path)
-
-        return {
-            "success": True,
-            "message": f"Successfully cloned repository to {repo_path}",
-            "data": {"clone_path": repo_path, "repo": repo},
-        }
-    except Exception as e:
-        error_msg = str(e)
-        log_error(e, "Clone failed")
-        return {
-            "success": False,
-            "message": "Failed to clone repository",
-            "data": None,
-            "error": error_msg,
-        }
-
-
 def extract_pr_signature(
     pr_body: str, section_name: str = "STAKING_KEY"
 ) -> Tuple[Optional[str], Optional[str]]:
