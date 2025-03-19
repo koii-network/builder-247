@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 import ast
 from dataclasses import dataclass
 from functools import wraps
+import uuid
+import json
 from src.types import ToolResponse, PhaseResult
 from src.utils.retry import send_message_with_retry
 from src.utils.logging import log_section, log_error, configure_logging
@@ -260,12 +262,14 @@ class WorkflowExecution(ABC):
     def __init__(
         self,
         description: str,
+        prompts: Dict[str, str],
         additional_arguments: Optional[Dict[str, Dict[str, Any]]] = None,
     ):
         """Initialize the workflow execution.
 
         Args:
             description: Description of the workflow for help text
+            prompts: Dictionary of prompts for this workflow
             additional_arguments: Optional dictionary of additional arguments to add to parser.
                                 Format: {"arg_name": {"type": type, "help": "help text", **other_argparse_kwargs}}
         """
@@ -277,35 +281,146 @@ class WorkflowExecution(ABC):
 
         # Add common arguments
         parser.add_argument(
-            "--model",
+            "--client",
             type=str,
             default="anthropic",
             choices=list(clients.keys()),
-            help=f"Model provider to use (default: anthropic). Available models: {', '.join(clients.keys())}",
+            help=f"Client provider to use (default: anthropic). Available clients: {', '.join(clients.keys())}",
+        )
+        parser.add_argument(
+            "--model",
+            type=str,
+            help="Model to use (overrides client's default model)",
+        )
+        parser.add_argument(
+            "--task-id",
+            type=str,
+            default=str(uuid.uuid4())[:8],
+            help="Task ID to use (defaults to generated UUID)",
+        )
+        parser.add_argument(
+            "--round-number",
+            type=int,
+            default=1,
+            help="Round number to use (default: 1)",
         )
 
         # Add workflow-specific arguments
         for arg_name, arg_config in (additional_arguments or {}).items():
             parser.add_argument(f"--{arg_name}", **arg_config)
 
-        # Parse args immediately since these scripts are always run directly
         self.args = parser.parse_args()
+
+        # Set up client with optional model override
+        self.client = setup_client(self.args.client, model=self.args.model)
+
+        self.prompts = prompts
+
+    def _create_test_signatures(
+        self,
+        payload: Dict[str, Any],
+        staking_keypair_path: str,
+        public_keypair_path: str,
+    ) -> Dict[str, str]:
+        """Create test signatures for a payload using test keypairs.
+
+        Args:
+            payload: Data to sign
+            staking_keypair_path: Path to staking keypair file
+            public_keypair_path: Path to public keypair file
+
+        Returns:
+            Dict containing:
+                - staking_key: Staking public key
+                - pub_key: Public key
+                - staking_signature: Signature from staking keypair
+                - public_signature: Signature from public keypair
+        """
+        try:
+            # Read keypair files
+            with open(staking_keypair_path, "r") as f:
+                staking_keypair = json.load(f)
+            with open(public_keypair_path, "r") as f:
+                public_keypair = json.load(f)
+
+            # Convert payload to string
+            payload_str = json.dumps(payload, sort_keys=True)
+
+            # Create signatures
+            staking_signature = staking_keypair["sign"](payload_str)
+            public_signature = public_keypair["sign"](payload_str)
+
+            return {
+                "staking_key": staking_keypair["public"],
+                "pub_key": public_keypair["public"],
+                "staking_signature": staking_signature,
+                "public_signature": public_signature,
+            }
+        except Exception as e:
+            log_error(e, "Failed to create test signatures")
+            return {
+                "staking_key": "dummy_staking_key",
+                "pub_key": "dummy_pub_key",
+                "staking_signature": "dummy_staking_signature",
+                "public_signature": "dummy_public_signature",
+            }
+
+    def _add_signature_context(
+        self, additional_payload: Optional[Dict[str, Any]] = None
+    ):
+        """Add task ID, round number, and signatures to the workflow context.
+
+        Args:
+            payload: Optional additional data to include in signature payload.
+                    Will be merged with task_id and round_number.
+        """
+        # Create payload
+        payload = {
+            "taskId": self.args.task_id,
+            "roundNumber": self.args.round_number,
+        }
+        if additional_payload:
+            payload.update(additional_payload)
+
+        # Create signatures if keypairs available
+        staking_keypair_path = os.getenv("STAKING_KEYPAIR")
+        public_keypair_path = os.getenv("PUBLIC_KEYPAIR")
+
+        if staking_keypair_path and public_keypair_path:
+            signatures = self._create_test_signatures(
+                payload=payload,
+                staking_keypair_path=staking_keypair_path,
+                public_keypair_path=public_keypair_path,
+            )
+        else:
+            signatures = {
+                "staking_key": "dummy_staking_key",
+                "pub_key": "dummy_pub_key",
+                "staking_signature": "dummy_staking_signature",
+                "public_signature": "dummy_public_signature",
+            }
+
+        # Add everything to context
+        self.context.update(
+            {
+                "task_id": self.args.task_id,
+                "round_number": self.args.round_number,
+                **signatures,
+            }
+        )
 
     def _setup(
         self,
         required_env_vars: Optional[List[str]] = None,
-        prompts=None,
     ):
         """Set up workflow context and resources.
 
         Args:
             required_env_vars: List of required environment variables
-            prompts: Dictionary of prompts for this workflow
 
         This base implementation:
         1. Sets up logging
         2. Checks required environment variables
-        3. Sets up client and prompts
 
         Override this method to add workflow-specific setup, calling super()._setup() first.
         """
@@ -315,11 +430,6 @@ class WorkflowExecution(ABC):
         # Check env vars
         if required_env_vars:
             self._check_env_vars(required_env_vars)
-
-        # Set up common context
-        self.context["client"] = setup_client(self.args.model)
-        if prompts:
-            self.context["prompts"] = prompts
 
     def _check_env_vars(self, required_vars: List[str]):
         """Check if required environment variables are set.
@@ -363,7 +473,7 @@ class WorkflowExecution(ABC):
         """
         pass
 
-    def start(self):
+    def start(self, required_env_vars: Optional[List[str]] = None, **kwargs):
         """Execute the workflow.
 
         This orchestrates the full execution flow:
@@ -374,10 +484,10 @@ class WorkflowExecution(ABC):
         """
         try:
             # Run setup
-            self._setup()
+            self._setup(required_env_vars=required_env_vars, **kwargs)
 
             # Run workflow
-            self._run()
+            self._run(**kwargs)
 
         except Exception as e:
             log_error(e, "Workflow failed")
