@@ -66,6 +66,8 @@ class AuditWorkflow(Workflow):
             self.context["pr"] = pr
             self.context["base_branch"] = pr.base.ref
             log_key_value("Base branch", self.context["base_branch"])
+            log_key_value("PR branch", pr.head.ref)
+            log_key_value("PR repository", pr.head.repo.full_name)
         except Exception as e:
             log_error(e, "Failed to get PR info")
             raise
@@ -88,6 +90,10 @@ class AuditWorkflow(Workflow):
 
         # Enter repo directory
         os.chdir(self.context["repo_path"])
+
+        # Fetch and checkout PR branch
+        os.system(f"git fetch origin {pr.head.ref}")
+        os.system(f"git checkout {pr.head.ref}")
 
         # Get current files for context
         self.context["current_files"] = get_current_files()

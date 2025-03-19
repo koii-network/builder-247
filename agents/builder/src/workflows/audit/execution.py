@@ -1,6 +1,5 @@
 """Audit workflow execution."""
 
-import os
 from src.workflows.base import WorkflowExecution
 from src.workflows.audit.workflow import AuditWorkflow
 from src.workflows.audit.prompts import PROMPTS
@@ -25,25 +24,26 @@ class AuditExecution(WorkflowExecution):
         self,
         github_token_env_var: str = "GITHUB_TOKEN",
         github_username_env_var: str = "GITHUB_USERNAME",
-        additional_env_vars: List[str] = None,
+        required_env_vars: List[str] = None,
+        **kwargs,
     ):
         """Set up audit workflow context.
 
         Args:
             github_token_env_var: Name of env var containing GitHub token
             github_username_env_var: Name of env var containing GitHub username
-            additional_env_vars: Additional required environment variables
+            required_env_vars: Additional required environment variables
         """
         # Combine GitHub env vars with any additional required vars
-        required_env_vars = [github_token_env_var, github_username_env_var]
-        if additional_env_vars:
-            required_env_vars.extend(additional_env_vars)
+        env_vars = [github_token_env_var, github_username_env_var]
+        if required_env_vars:
+            env_vars.extend(required_env_vars)
 
-        super()._setup(required_env_vars=required_env_vars)
+        super()._setup(required_env_vars=env_vars)
 
         # Add task ID, round number, and signatures to context
         self._add_signature_context(
-            payload={
+            additional_payload={
                 "pr_url": self.args.pr_url,
                 "action": "audit",
             }
@@ -58,11 +58,11 @@ class AuditExecution(WorkflowExecution):
             pub_key=self.context["pub_key"],
             staking_signature=self.context["staking_signature"],
             public_signature=self.context["public_signature"],
-            github_token=os.getenv(github_token_env_var),
-            github_username=os.getenv(github_username_env_var),
+            github_token=github_token_env_var,
+            github_username=github_username_env_var,
         )
 
-    def _run(self):
+    def _run(self, **kwargs):
         """Run the audit workflow."""
         result = self.workflow.run()
 
