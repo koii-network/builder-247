@@ -363,8 +363,8 @@ class WorkflowExecution(ABC):
             Dict containing:
                 - staking_key: Staking public key
                 - pub_key: Public key
-                - staking_signature: Signature from staking keypair
-                - public_signature: Signature from public keypair
+                - staking_signature: Combined signature (payload + signature) from staking keypair
+                - public_signature: Combined signature (payload + signature) from public keypair
         """
         try:
             # Read keypair files
@@ -375,12 +375,16 @@ class WorkflowExecution(ABC):
             payload_str = json.dumps(payload, sort_keys=True).encode()
 
             # Create signatures
-            staking_signature = base58.b58encode(
-                staking_signing_key.sign(payload_str).signature
-            ).decode()
-            public_signature = base58.b58encode(
-                public_signing_key.sign(payload_str).signature
-            ).decode()
+            staking_signed = staking_signing_key.sign(payload_str)
+            public_signed = public_signing_key.sign(payload_str)
+
+            # Combine payload with signatures
+            staking_combined = payload_str + staking_signed.signature
+            public_combined = payload_str + public_signed.signature
+
+            # Encode combined data
+            staking_signature = base58.b58encode(staking_combined).decode()
+            public_signature = base58.b58encode(public_combined).decode()
 
             return {
                 "staking_key": staking_key,
