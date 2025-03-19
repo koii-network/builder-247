@@ -1,13 +1,15 @@
 """Task workflow execution."""
 
 import os
+import csv
+from pathlib import Path
 from github import Github, GithubException
 from src.workflows.base import WorkflowExecution
 from src.workflows.task.workflow import TaskWorkflow
 from src.workflows.task.prompts import PROMPTS
 from src.workflows.utils import create_remote_branch
-from src.utils.logging import log_key_value
-from typing import List
+from src.utils.logging import log_key_value, log_section
+from typing import List, Optional
 
 
 class TaskExecution(WorkflowExecution):
@@ -20,119 +22,142 @@ class TaskExecution(WorkflowExecution):
                     "required": True,
                     "help": "GitHub repository URL to create PRs to (e.g., https://github.com/owner/repo)",
                 },
-                "todo": {
+                "input": {
                     "type": str,
-                    "required": True,
-                    "help": "Todo task description",
-                },
-                "acceptance-criteria": {
-                    "type": str,
-                    "required": True,
-                    "help": "Semicolon-separated list of acceptance criteria",
+                    "help": "Path to CSV file containing todos and acceptance criteria",
+                    "default": "test_todos_small.csv",
                 },
             },
             prompts=PROMPTS,
         )
+        self.leader_token = None
+        self.leader_user = None
+        self.source_owner = None
+        self.source_repo = None
+        self.todos_file = None
 
     def _setup(
         self,
+        required_env_vars: Optional[List[str]] = None,
         leader_token_env_var: str = "LEADER_GITHUB_TOKEN",
         leader_username_env_var: str = "LEADER_GITHUB_USERNAME",
         worker_token_env_var: str = "WORKER_GITHUB_TOKEN",
         worker_username_env_var: str = "WORKER_GITHUB_USERNAME",
-        additional_env_vars: List[str] = None,
+        **kwargs,
     ):
         """Set up task workflow context.
 
         Args:
+            required_env_vars: List of required environment variables
             leader_token_env_var: Name of env var containing leader's GitHub token
             leader_username_env_var: Name of env var containing leader's GitHub username
             worker_token_env_var: Name of env var containing worker's GitHub token
             worker_username_env_var: Name of env var containing worker's GitHub username
-            additional_env_vars: Additional required environment variables
         """
         # Combine GitHub env vars with any additional required vars
-        required_env_vars = [
+        env_vars = [
             leader_token_env_var,
             leader_username_env_var,
             worker_token_env_var,
             worker_username_env_var,
+            "DATA_DIR",
         ]
-        if additional_env_vars:
-            required_env_vars.extend(additional_env_vars)
+        if required_env_vars:
+            env_vars.extend(required_env_vars)
 
-        super()._setup(required_env_vars=required_env_vars)
+        super()._setup(required_env_vars=env_vars)
 
-        # Parse acceptance criteria into list
-        acceptance_criteria = [
-            criterion.strip()
-            for criterion in self.args.acceptance_criteria.split(";")
-            if criterion.strip()
-        ]
+        # Get data directory from environment
+        data_dir = Path(os.environ["DATA_DIR"])
+        self.todos_file = data_dir / self.args.input
 
-        # Add task ID, round number, and signatures to context
-        self._add_signature_context(
-            payload={
-                "todo": self.args.todo,
-                "acceptance_criteria": acceptance_criteria,
-                "action": "task",
-            }
-        )
+        if not self.todos_file.exists():
+            raise Exception(f"Todos file not found at {self.todos_file}")
 
         # Parse source repo URL
-        source_owner, source_repo = self._parse_github_url(self.args.repo)
+        self.source_owner, self.source_repo = self._parse_github_url(self.args.repo)
 
         # Set up leader's fork
-        leader_gh = Github(os.getenv(leader_token_env_var))
-        source = leader_gh.get_repo(f"{source_owner}/{source_repo}")
-        leader_user = leader_gh.get_user()
+        self.leader_token = os.getenv(leader_token_env_var)
+        leader_gh = Github(self.leader_token)
+        source = leader_gh.get_repo(f"{self.source_owner}/{self.source_repo}")
+        self.leader_user = leader_gh.get_user()
 
         try:
-            leader_fork = leader_gh.get_repo(f"{leader_user.login}/{source_repo}")
+            leader_fork = leader_gh.get_repo(
+                f"{self.leader_user.login}/{self.source_repo}"
+            )
             log_key_value("Using existing leader fork", leader_fork.html_url)
         except GithubException:
-            leader_fork = leader_user.create_fork(source)
+            leader_fork = self.leader_user.create_fork(source)
             log_key_value("Created leader fork", leader_fork.html_url)
 
-        # Create unique base branch on leader's fork
-        base_branch = (
-            f"task-{self.context['task_id']}-round-{self.context['round_number']}"
-        )
-        create_result = create_remote_branch(
-            repo_owner=leader_user.login,
-            repo_name=source_repo,
-            branch_name=base_branch,
-            github_token=os.getenv(leader_token_env_var),
-        )
-        if not create_result["success"]:
-            raise Exception(
-                f"Failed to create base branch: {create_result.get('error', 'Unknown error')}"
-            )
-
-        # Create workflow instance
-        self.workflow = TaskWorkflow(
-            client=self.client,
-            prompts=self.prompts,
-            repo_owner=leader_user.login,
-            repo_name=source_repo,
-            todo=self.args.todo,
-            acceptance_criteria=acceptance_criteria,
-            staking_key=self.context["staking_key"],
-            pub_key=self.context["pub_key"],
-            staking_signature=self.context["staking_signature"],
-            public_signature=self.context["public_signature"],
-            round_number=self.context["round_number"],
-            task_id=self.context["task_id"],
-            base_branch=base_branch,
-            github_token=os.getenv(worker_token_env_var),
-            github_username=os.getenv(worker_username_env_var),
-        )
-
-    def _run(self):
+    def _run(self, **kwargs):
         """Run the task workflow."""
-        result = self.workflow.run()
+        try:
+            with self.todos_file.open("r") as f:
+                reader = csv.reader(f)
+                next(reader)  # Skip header
+                for i, row in enumerate(reader):
+                    if len(row) >= 2:
+                        todo, acceptance_criteria_str = row[0], row[1]
+                        # Parse acceptance criteria string into list
+                        acceptance_criteria = [
+                            criterion.strip()
+                            for criterion in acceptance_criteria_str.split(";")
+                            if criterion.strip()
+                        ]
 
-        if result is None:
-            raise Exception("Task workflow failed")
+                        log_section(f"PROCESSING TODO {i}")
 
-        return result
+                        # Add task ID, round number, and signatures to context
+                        self._add_signature_context(
+                            additional_payload={
+                                "todo": todo,
+                                "acceptance_criteria": acceptance_criteria,
+                                "action": "task",
+                            }
+                        )
+
+                        # Create unique base branch on leader's fork
+                        base_branch = f"task-{self.context['task_id']}-round-{self.context['round_number']}"
+                        create_result = create_remote_branch(
+                            repo_owner=self.leader_user.login,
+                            repo_name=self.source_repo,
+                            branch_name=base_branch,
+                            github_token=self.leader_token,
+                        )
+                        if not create_result["success"]:
+                            raise Exception(
+                                f"Failed to create base branch: {create_result.get('error', 'Unknown error')}"
+                            )
+
+                        # Create workflow instance
+                        self.workflow = TaskWorkflow(
+                            client=self.client,
+                            prompts=self.prompts,
+                            repo_owner=self.leader_user.login,
+                            repo_name=self.source_repo,
+                            todo=todo.strip(),
+                            acceptance_criteria=acceptance_criteria,
+                            staking_key=self.context["staking_key"],
+                            pub_key=self.context["pub_key"],
+                            staking_signature=self.context["staking_signature"],
+                            public_signature=self.context["public_signature"],
+                            round_number=self.context["round_number"],
+                            task_id=self.context["task_id"],
+                            base_branch=base_branch,
+                            github_token="WORKER_GITHUB_TOKEN",  # Pass env var name instead of value
+                            github_username="WORKER_GITHUB_USERNAME",  # Pass env var name instead of value
+                        )
+
+                        result = self.workflow.run()
+                        if result is None:
+                            raise Exception(f"Task workflow failed for todo {i}")
+                    else:
+                        log_key_value("Skipping invalid row", row)
+
+            return True
+
+        except Exception:
+            raise
