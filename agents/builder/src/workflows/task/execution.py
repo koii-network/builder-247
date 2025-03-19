@@ -35,6 +35,7 @@ class TaskExecution(WorkflowExecution):
         self.source_owner = None
         self.source_repo = None
         self.todos_file = None
+        self.base_branch = None
 
     def _setup(
         self,
@@ -92,6 +93,20 @@ class TaskExecution(WorkflowExecution):
             leader_fork = self.leader_user.create_fork(source)
             log_key_value("Created leader fork", leader_fork.html_url)
 
+        # Create base branch that all PRs will target
+        self.base_branch = f"task-{self.args.task_id}-round-{self.args.round_number}"
+        create_result = create_remote_branch(
+            repo_owner=self.leader_user.login,
+            repo_name=self.source_repo,
+            branch_name=self.base_branch,
+            github_token=self.leader_token,
+        )
+        if not create_result["success"]:
+            raise Exception(
+                f"Failed to create base branch: {create_result.get('error', 'Unknown error')}"
+            )
+        log_key_value("Base branch", self.base_branch)
+
     def _run(self, **kwargs):
         """Run the task workflow."""
         try:
@@ -119,19 +134,6 @@ class TaskExecution(WorkflowExecution):
                             }
                         )
 
-                        # Create unique base branch on leader's fork
-                        base_branch = f"task-{self.context['task_id']}-round-{self.context['round_number']}"
-                        create_result = create_remote_branch(
-                            repo_owner=self.leader_user.login,
-                            repo_name=self.source_repo,
-                            branch_name=base_branch,
-                            github_token=self.leader_token,
-                        )
-                        if not create_result["success"]:
-                            raise Exception(
-                                f"Failed to create base branch: {create_result.get('error', 'Unknown error')}"
-                            )
-
                         # Create workflow instance
                         self.workflow = TaskWorkflow(
                             client=self.client,
@@ -146,7 +148,7 @@ class TaskExecution(WorkflowExecution):
                             public_signature=self.context["public_signature"],
                             round_number=self.context["round_number"],
                             task_id=self.context["task_id"],
-                            base_branch=base_branch,
+                            base_branch=self.base_branch,
                             github_token="WORKER_GITHUB_TOKEN",  # Pass env var name instead of value
                             github_username="WORKER_GITHUB_USERNAME",  # Pass env var name instead of value
                         )
