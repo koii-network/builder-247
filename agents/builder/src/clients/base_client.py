@@ -70,6 +70,7 @@ class Client(ABC):
         max_tokens: Optional[int] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> Any:
         """Make API call to the LLM service.
 
@@ -85,6 +86,7 @@ class Client(ABC):
         max_tokens: Optional[int] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> Any:
         """Make API call with error handling.
 
@@ -97,6 +99,7 @@ class Client(ABC):
                 max_tokens=max_tokens,
                 tools=tools,
                 tool_choice=tool_choice,
+                extra_headers=extra_headers,
             )
         except Exception as e:
             # Only wrap non-ClientAPIError exceptions
@@ -315,6 +318,7 @@ class Client(ABC):
         tool_choice: Optional[ToolChoice] = None,
         tool_response: Optional[str] = None,
         is_retry: bool = False,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> Any:
         """Send a message to the LLM."""
         if not prompt and not tool_response:
@@ -354,39 +358,45 @@ class Client(ABC):
 
         # Get conversation details including system prompt
         conversation = self.storage.get_conversation(conversation_id)
-        system_prompt = conversation.get("system_prompt")
+        system_prompt = conversation["system_prompt"]
 
-        # Get previous messages
+        # Get conversation history
         messages = self.storage.get_messages(conversation_id)
 
-        # Add new message if it's a prompt or tool response and not a retry
-        if not is_retry:
-            if prompt:
+        # Add new message if prompt provided
+        if prompt:
+            messages.append({"role": "user", "content": prompt})
+            if not is_retry:
                 self.storage.save_message(conversation_id, "user", prompt)
-                messages.append({"role": "user", "content": prompt})
-            elif tool_response:
-                if self._should_split_tool_responses():
-                    # Send each tool response as a separate message
-                    results = json.loads(tool_response)
-                    for result in results:
-                        formatted_response = self._format_tool_response(
-                            json.dumps([result])
-                        )
-                        self.storage.save_message(
-                            conversation_id,
-                            formatted_response["role"],
-                            formatted_response["content"],
-                        )
-                        messages.append(formatted_response)
-                else:
-                    # Send all tool responses in one message
-                    formatted_response = self._format_tool_response(tool_response)
-                    self.storage.save_message(
-                        conversation_id,
-                        formatted_response["role"],
-                        formatted_response["content"],
+
+        # Add tool response if provided
+        if tool_response:
+            tool_message = self._format_tool_response(tool_response)
+            if self._should_split_tool_responses():
+                # Some APIs (e.g. OpenAI) require separate messages for each tool response
+                results = json.loads(tool_response)
+                for result in results:
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "content": [
+                                {
+                                    "type": "tool_response",
+                                    "tool_response": {
+                                        "tool_call_id": result["tool_call_id"],
+                                        "content": result["response"],
+                                    },
+                                }
+                            ],
+                        }
                     )
-                    messages.append(formatted_response)
+            else:
+                messages.append(tool_message)
+
+            if not is_retry:
+                self.storage.save_message(
+                    conversation_id, "tool", tool_message["content"]
+                )
 
         try:
             # Convert messages to API format
@@ -433,6 +443,7 @@ class Client(ABC):
                 max_tokens=max_tokens,
                 tools=api_tools,
                 tool_choice=api_tool_choice,
+                extra_headers=extra_headers,
             )
 
             # Convert response to internal format

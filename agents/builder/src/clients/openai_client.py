@@ -21,6 +21,7 @@ class OpenAIClient(Client):
         api_key: str,
         model: Optional[str] = None,
         base_url: Optional[str] = None,
+        default_headers: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
         super().__init__(model=model, **kwargs)
@@ -28,6 +29,7 @@ class OpenAIClient(Client):
             api_key=api_key,
             base_url=base_url,  # Use default OpenAI URL if not specified
         )
+        self.default_headers = default_headers
 
     def _get_api_name(self) -> str:
         """Get API name for logging."""
@@ -159,6 +161,7 @@ class OpenAIClient(Client):
         max_tokens: Optional[int] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Make API call to OpenAI."""
         # Add system message if provided
@@ -177,6 +180,12 @@ class OpenAIClient(Client):
             params["tools"] = tools
             if tool_choice:
                 params["tool_choice"] = tool_choice
+
+        # Add extra headers if we have them
+        if extra_headers:
+            params["extra_headers"] = extra_headers
+        elif self.default_headers:
+            params["extra_headers"] = self.default_headers
 
         # Make API call
         response = self.client.chat.completions.create(**params)
