@@ -32,7 +32,7 @@ class Client(ABC):
     ):
         """Initialize the client."""
         self.storage = ConversationManager()
-        self.model = self._get_default_model() if model is None else model
+        self.model = model or self._get_default_model()
         self.tools: Dict[str, ToolDefinition] = {}
         self.tool_functions: Dict[str, Callable] = {}
         self.api_name = self._get_api_name()
