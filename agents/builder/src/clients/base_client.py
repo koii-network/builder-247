@@ -93,14 +93,20 @@ class Client(ABC):
         This method wraps the client-specific _make_api_call with common error handling.
         """
         try:
-            return self._make_api_call(
-                messages=messages,
-                system_prompt=system_prompt,
-                max_tokens=max_tokens,
-                tools=tools,
-                tool_choice=tool_choice,
-                extra_headers=extra_headers,
-            )
+            # Build kwargs based on what the specific client implementation supports
+            kwargs = {
+                "messages": messages,
+                "system_prompt": system_prompt,
+                "max_tokens": max_tokens,
+                "tools": tools,
+                "tool_choice": tool_choice,
+            }
+
+            # Only pass extra_headers to OpenAI-based clients
+            if extra_headers:
+                kwargs["extra_headers"] = extra_headers
+
+            return self._make_api_call(**kwargs)
         except Exception as e:
             # Only wrap non-ClientAPIError exceptions
             if not isinstance(e, ClientAPIError):
