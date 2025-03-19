@@ -4,6 +4,7 @@ import os
 from src.workflows.base import WorkflowExecution
 from src.workflows.todocreator.workflow import TodoCreatorWorkflow
 from src.workflows.todocreator.prompts import PROMPTS
+from typing import List
 
 
 class TodoCreatorExecution(WorkflowExecution):
@@ -30,9 +31,24 @@ class TodoCreatorExecution(WorkflowExecution):
             prompts=PROMPTS,
         )
 
-    def _setup(self):
-        """Set up todo creator workflow context."""
-        required_env_vars = ["GITHUB_TOKEN", "GITHUB_USERNAME", "DATA_DIR"]
+    def _setup(
+        self,
+        github_token_env_var: str = "GITHUB_TOKEN",
+        github_username_env_var: str = "GITHUB_USERNAME",
+        additional_env_vars: List[str] = None,
+    ):
+        """Set up todo creator workflow context.
+
+        Args:
+            github_token_env_var: Name of env var containing GitHub token
+            github_username_env_var: Name of env var containing GitHub username
+            additional_env_vars: Additional required environment variables
+        """
+        # Combine GitHub env vars with any additional required vars
+        required_env_vars = [github_token_env_var, github_username_env_var, "DATA_DIR"]
+        if additional_env_vars:
+            required_env_vars.extend(additional_env_vars)
+
         super()._setup(required_env_vars=required_env_vars)
 
         # Create workflow instance
@@ -42,8 +58,8 @@ class TodoCreatorExecution(WorkflowExecution):
             repo_url=self.args.repo,
             feature_spec=self.args.feature_spec,
             output_csv_path=self.args.output,
-            github_token=os.environ["GITHUB_TOKEN"],
-            github_username=os.environ["GITHUB_USERNAME"],
+            github_token=os.getenv(github_token_env_var),
+            github_username=os.getenv(github_username_env_var),
         )
 
     def _run(self):

@@ -7,6 +7,7 @@ from src.workflows.task.workflow import TaskWorkflow
 from src.workflows.task.prompts import PROMPTS
 from src.workflows.utils import create_remote_branch
 from src.utils.logging import log_key_value
+from typing import List
 
 
 class TaskExecution(WorkflowExecution):
@@ -33,14 +34,33 @@ class TaskExecution(WorkflowExecution):
             prompts=PROMPTS,
         )
 
-    def _setup(self):
-        """Set up task workflow context."""
+    def _setup(
+        self,
+        leader_token_env_var: str = "LEADER_GITHUB_TOKEN",
+        leader_username_env_var: str = "LEADER_GITHUB_USERNAME",
+        worker_token_env_var: str = "WORKER_GITHUB_TOKEN",
+        worker_username_env_var: str = "WORKER_GITHUB_USERNAME",
+        additional_env_vars: List[str] = None,
+    ):
+        """Set up task workflow context.
+
+        Args:
+            leader_token_env_var: Name of env var containing leader's GitHub token
+            leader_username_env_var: Name of env var containing leader's GitHub username
+            worker_token_env_var: Name of env var containing worker's GitHub token
+            worker_username_env_var: Name of env var containing worker's GitHub username
+            additional_env_vars: Additional required environment variables
+        """
+        # Combine GitHub env vars with any additional required vars
         required_env_vars = [
-            "LEADER_GITHUB_TOKEN",
-            "LEADER_GITHUB_USERNAME",
-            "WORKER_GITHUB_TOKEN",
-            "WORKER_GITHUB_USERNAME",
+            leader_token_env_var,
+            leader_username_env_var,
+            worker_token_env_var,
+            worker_username_env_var,
         ]
+        if additional_env_vars:
+            required_env_vars.extend(additional_env_vars)
+
         super()._setup(required_env_vars=required_env_vars)
 
         # Parse acceptance criteria into list
@@ -52,7 +72,7 @@ class TaskExecution(WorkflowExecution):
 
         # Add task ID, round number, and signatures to context
         self._add_signature_context(
-            additional_payload={
+            payload={
                 "todo": self.args.todo,
                 "acceptance_criteria": acceptance_criteria,
                 "action": "task",
@@ -63,7 +83,7 @@ class TaskExecution(WorkflowExecution):
         source_owner, source_repo = self._parse_github_url(self.args.repo)
 
         # Set up leader's fork
-        leader_gh = Github(os.environ["LEADER_GITHUB_TOKEN"])
+        leader_gh = Github(os.getenv(leader_token_env_var))
         source = leader_gh.get_repo(f"{source_owner}/{source_repo}")
         leader_user = leader_gh.get_user()
 
@@ -82,7 +102,7 @@ class TaskExecution(WorkflowExecution):
             repo_owner=leader_user.login,
             repo_name=source_repo,
             branch_name=base_branch,
-            github_token=os.environ["LEADER_GITHUB_TOKEN"],
+            github_token=os.getenv(leader_token_env_var),
         )
         if not create_result["success"]:
             raise Exception(
@@ -104,8 +124,8 @@ class TaskExecution(WorkflowExecution):
             round_number=self.context["round_number"],
             task_id=self.context["task_id"],
             base_branch=base_branch,
-            github_token=os.environ["WORKER_GITHUB_TOKEN"],
-            github_username=os.environ["WORKER_GITHUB_USERNAME"],
+            github_token=os.getenv(worker_token_env_var),
+            github_username=os.getenv(worker_username_env_var),
         )
 
     def _run(self):
