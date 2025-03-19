@@ -1,7 +1,7 @@
 """Module for GitHub operations."""
 
 import os
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
 from src.tools.git_operations.implementations import (
@@ -14,6 +14,7 @@ from src.workflows.utils import get_fork_name
 
 from git import Repo, GitCommandError
 from src.tools.github_operations.templates import TEMPLATES
+from github.PullRequest import PullRequest
 
 import csv
 
@@ -21,20 +22,22 @@ import csv
 load_dotenv()
 
 
-def _get_github_client() -> Github:
+def _get_github_client(github_token: str) -> Github:
     """
     Get an authenticated GitHub client.
+
+    Args:
+        github_token: GitHub token for authentication
 
     Returns:
         Github: Authenticated GitHub client
 
     Raises:
-        ValueError: If GITHUB_TOKEN is not set
+        ValueError: If github_token is not provided
     """
-    token = os.environ.get("GITHUB_TOKEN")
-    if not token:
-        raise ValueError("Missing GITHUB_TOKEN")
-    return Github(auth=Auth.Token(token))
+    if not github_token:
+        raise ValueError("GitHub token is required")
+    return Github(auth=Auth.Token(github_token))
 
 
 def create_pull_request(
@@ -44,6 +47,7 @@ def create_pull_request(
     pr_template: str,
     data: Dict[str, Any],
     base_branch: str = "main",
+    github_token: Optional[str] = None,
     **kwargs,
 ) -> ToolOutput:
     """Create PR with formatted description.
@@ -58,12 +62,13 @@ def create_pull_request(
         todo: Original todo task
         acceptance_criteria: Task acceptance criteria
         base_branch: Base branch name (default: main)
+        github_token: Optional GitHub token for authentication
 
     Returns:
         ToolOutput: Standardized tool output with PR URL on success
     """
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(github_token)
         repo_full_name = f"{repo_owner}/{repo_name}"
 
         head = f"{os.environ['GITHUB_USERNAME']}:{head_branch}"
@@ -97,52 +102,39 @@ def create_pull_request(
 
 
 def create_worker_pull_request(
-    repo_owner: str,
-    repo_name: str,
     title: str,
-    head_branch: str,
     description: str,
     changes: List[str],
     tests: List[str],
     todo: str,
+    repo_owner: str,
+    repo_name: str,
     acceptance_criteria: List[str],
     staking_key: str,
     pub_key: str,
     staking_signature: str,
     public_signature: str,
-    base_branch: str = "main",
-    **kwargs,
+    round_number: int,
+    task_id: str,
+    base_branch: str,
+    github_token: str,
+    github_username: str,
+    repo_path: str,
+    current_files: List[str],
+    head_branch: str,
 ) -> ToolOutput:
-    """Create a pull request for a worker node.
+    """Create a pull request with worker information."""
+    try:
+        # Get GitHub client
+        gh = _get_github_client(github_token)
 
-    Args:
-        repo_owner: Owner of the repository (leader's username)
-        repo_name: Name of the repository
-        title: PR title
-        head_branch: Head branch name
-        description: Brief overview of the work done
-        changes: Detailed list of changes made
-        tests: List of test descriptions
-        todo: Original todo task
-        acceptance_criteria: Task acceptance criteria
-        staking_key: Worker's staking key
-        pub_key: Worker's public key
-        staking_signature: Worker's staking signature
-        public_signature: Worker's public signature
-        base_branch: Base branch to merge into (default: main)
-    """
-    # Format lists into markdown bullets
-    tests_bullets = " - " + "\n - ".join(tests)
-    changes_bullets = " - " + "\n - ".join(changes)
-    acceptance_criteria_bullets = " - " + "\n - ".join(acceptance_criteria)
+        # Format lists into markdown bullets
+        tests_bullets = " - " + "\n - ".join(tests)
+        changes_bullets = " - " + "\n - ".join(changes)
+        acceptance_criteria_bullets = " - " + "\n - ".join(acceptance_criteria)
 
-    return create_pull_request(
-        repo_owner=repo_owner,
-        repo_name=repo_name,
-        head_branch=head_branch,
-        base_branch=base_branch,
-        pr_template=TEMPLATES["worker_pr_template"],
-        data={
+        # Format the pull request data
+        data = {
             "title": title,
             "description": description,
             "changes": changes_bullets,
@@ -153,8 +145,30 @@ def create_worker_pull_request(
             "pub_key": pub_key,
             "staking_signature": staking_signature,
             "public_signature": public_signature,
-        },
-    )
+        }
+
+        # Create the pull request
+        repo = gh.get_repo(f"{repo_owner}/{repo_name}")
+        head = f"{github_username}:{head_branch}"  # Format head with username prefix
+        pr = repo.create_pull(
+            title=title,
+            body=TEMPLATES["worker_pr_template"].format(**data),
+            head=head,
+            base=base_branch,
+        )
+
+        return {
+            "success": True,
+            "message": f"Successfully created PR: {title}",
+            "data": {"pr_url": pr.html_url},
+        }
+    except Exception as e:
+        print(f"Failed to create worker pull request: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Failed to create worker pull request: {str(e)}",
+            "data": None,
+        }
 
 
 def create_leader_pull_request(
@@ -294,7 +308,7 @@ def check_fork_exists(owner: str, repo_name: str, **kwargs) -> ToolOutput:
         ToolOutput: Standardized tool output with fork existence status
     """
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(os.environ.get("GITHUB_TOKEN"))
 
         # First check if the source repo exists
         try:
@@ -381,7 +395,7 @@ def review_pull_request(
         ToolOutput: Standardized tool output with review status and details
     """
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(os.environ.get("GITHUB_TOKEN"))
         repo = gh.get_repo(f"{repo_owner}/{repo_name}")
         pr = repo.get_pull(pr_number)
 
@@ -638,7 +652,7 @@ def merge_pull_request(
         log_key_value("Merging PR", f"{repo_full_name}#{pr_number}")
 
         # Get GitHub client
-        gh = _get_github_client()
+        gh = _get_github_client(os.environ.get("GITHUB_TOKEN"))
 
         # Get repository
         repo = gh.get_repo(repo_full_name)
@@ -759,3 +773,34 @@ def generate_tasks(
             "data": None,
             "error": str(e),
         }
+
+
+def check_repository_exists(repo_owner: str, repo_name: str, github_token: str) -> bool:
+    """Check if a repository exists."""
+    try:
+        gh = _get_github_client(github_token)
+
+        # First check if the source repo exists
+        try:
+            gh.get_repo(f"{repo_owner}/{repo_name}")
+        except GithubException:
+            return False
+
+        return True
+    except Exception as e:
+        print(f"Failed to check repository existence: {str(e)}")
+        return False
+
+
+def get_pull_request(
+    repo_owner: str, repo_name: str, pr_number: int, github_token: str
+) -> PullRequest:
+    """Get a pull request by number."""
+    try:
+        gh = _get_github_client(github_token)
+        repo = gh.get_repo(f"{repo_owner}/{repo_name}")
+        pr = repo.get_pull(pr_number)
+        return pr
+    except Exception as e:
+        print(f"Failed to get pull request: {str(e)}")
+        return None

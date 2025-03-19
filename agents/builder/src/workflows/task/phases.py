@@ -145,6 +145,7 @@ class ValidationPhase(WorkflowPhase):
         "pub_key": str,  # Worker's public key
         "staking_signature": str,  # Worker's staking signature
         "public_signature": str,  # Worker's public signature
+        "github_token": str,  # GitHub token for authentication
     },
 )
 class PullRequestPhase(WorkflowPhase):
