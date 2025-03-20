@@ -5,6 +5,8 @@ import base58
 import subprocess
 import time
 import signal
+import argparse
+import csv
 from nacl.signing import SigningKey
 from github import Github
 from src.tools.github_operations.parser import extract_section
@@ -15,6 +17,52 @@ from queue import Queue, Empty
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Define valid stages
+VALID_STAGES = ["start", "worker-audit", "leader-task", "leader-audit"]
+
+
+class TestState:
+    def __init__(self, state_file="test_state.csv"):
+        self.state_file = state_file
+        self.pr_urls = {}
+        self.load_state()
+
+    def save_state(self):
+        """Save current state to CSV file"""
+        with open(self.state_file, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["role", "pr_url"])  # Header
+            for role, url in self.pr_urls.items():
+                writer.writerow([role, url])
+
+    def load_state(self):
+        """Load state from CSV file if it exists"""
+        try:
+            if os.path.exists(self.state_file):
+                with open(self.state_file, "r", newline="") as f:
+                    reader = csv.DictReader(f)
+                    self.pr_urls = {row["role"]: row["pr_url"] for row in reader}
+            else:
+                self.pr_urls = {}
+        except Exception as e:
+            print(f"Warning: Failed to load state: {e}")
+            self.pr_urls = {}
+
+    def store_pr_url(self, key: str, url: str):
+        """Store a PR URL"""
+        self.pr_urls[key] = url
+        self.save_state()
+
+    def get_pr_url(self, key: str) -> str:
+        """Get a stored PR URL"""
+        return self.pr_urls.get(key)
+
+    def clear_state(self):
+        """Clear all stored state"""
+        self.pr_urls = {}
+        if os.path.exists(self.state_file):
+            os.remove(self.state_file)
 
 
 def log_request(method: str, url: str, payload: dict = None):
@@ -153,7 +201,7 @@ class ServerInstance:
 
 
 class EndpointTester:
-    def __init__(self):
+    def __init__(self, start_stage="start"):
         # Check required environment variables
         required_env_vars = [
             "TASK_ID",  # Add TASK_ID to required env vars
@@ -175,7 +223,10 @@ class EndpointTester:
             )
 
         self.task_id = os.getenv("TASK_ID")  # Get task ID from environment
+        self.start_stage = start_stage
+        self.state = TestState()  # Initialize state storage
         print(f"\nInitializing test sequence with TASK_ID: {self.task_id}")
+        print(f"Starting from stage: {self.start_stage}")
         self.source_owner = "koii-network"
         self.source_repo = "builder-test"
         self.current_github_username = None  # Track current GitHub username
@@ -650,26 +701,34 @@ class EndpointTester:
         repo = gh.get_repo(f"{pr_repo_owner}/{pr_repo_name}")
         pr = repo.get_pull(pr_number)
 
-        # Create signatures for auditor with submission data
-        signatures = self.create_signature(
+        # Create submission payload like in 2-submission.ts
+        submission_payload = {
+            "taskId": self.task_id,
+            "roundNumber": round_number,
+            "action": "audit",
+            "githubUsername": pr.user.login,
+            "prUrl": pr_url,
+            "repoOwner": pr_repo_owner,
+            "repoName": pr_repo_name,
+        }
+
+        # Create signatures for auditor
+        signatures = self.create_signature(submission_payload)
+
+        # Add signature info to submission payload
+        submission_payload.update(
             {
-                "taskId": self.task_id,
-                "roundNumber": round_number,
-                "action": "audit",
-                "githubUsername": pr.user.login,  # Include these fields from the submission
-                "prUrl": pr_url,
+                "stakingKey": signatures["staking_key"],
+                "pubKey": signatures["pub_key"],
+                "signature": signatures[
+                    "staking_signature"
+                ],  # Only need one signature for leader audit
             }
         )
 
-        # Create full payload matching task implementation
+        # Create full payload matching 3-audit.ts format
         payload = {
-            "taskId": self.task_id,
-            "roundNumber": round_number,
-            "stakingKey": signatures["staking_key"],
-            "pubKey": signatures["pub_key"],
-            "signature": signatures["staking_signature"],  # Only send one signature
-            "githubUsername": pr.user.login,
-            "prUrl": pr_url,
+            "submission": submission_payload,  # Wrap in submission object
         }
 
         log_request(
@@ -692,71 +751,96 @@ class EndpointTester:
     def run_test_sequence(self):
         """Run the full test sequence"""
         try:
-            # 1. Create aggregator repo
-            log_step(1, "Creating aggregator repo")
-            result = self.create_aggregator_repo(1)
-            if not result.get("success"):
-                raise Exception(
-                    f"Failed to create aggregator repo: {result.get('message')}"
-                )
-            print("✓ Aggregator repo created successfully")
+            pr1_url = self.state.get_pr_url("worker1")
+            pr2_url = self.state.get_pr_url("worker2")
+            leader_pr_url = self.state.get_pr_url("leader")
 
-            # 2. Worker 1 task
-            log_step(2, "Running Worker 1 task")
-            pr1_url = self.run_worker_task("worker1", 1)
-            if not pr1_url:
-                raise Exception("Worker 1 task failed - no PR URL returned")
-            print(f"✓ Worker 1 PR created: {pr1_url}")
+            if self.start_stage == "start":
+                # 1. Create aggregator repo
+                log_step(1, "Creating aggregator repo")
+                result = self.create_aggregator_repo(1)
+                if not result.get("success"):
+                    raise Exception(
+                        f"Failed to create aggregator repo: {result.get('message')}"
+                    )
+                print("✓ Aggregator repo created successfully")
 
-            # 3. Worker 2 task - only start after Worker 1 is complete
-            log_step(3, "Running Worker 2 task")
-            pr2_url = self.run_worker_task("worker2", 1)
-            if not pr2_url:
-                raise Exception("Worker 2 task failed - no PR URL returned")
-            print(f"✓ Worker 2 PR created: {pr2_url}")
+                # 2. Worker 1 task
+                log_step(2, "Running Worker 1 task")
+                pr1_url = self.run_worker_task("worker1", 1)
+                if not pr1_url:
+                    raise Exception("Worker 1 task failed - no PR URL returned")
+                self.state.store_pr_url("worker1", pr1_url)
+                print(f"✓ Worker 1 PR created: {pr1_url}")
 
-            # 4. Cross audits
-            log_step(4, "Running cross audits")
-            print("\nWorker 2 auditing Worker 1's PR...")
-            audit1_result = self.run_worker_audit("worker2", pr1_url, 1)
-            if not audit1_result.get("success"):
-                raise Exception(
-                    f"Worker 2 audit failed: {audit1_result.get('message')}"
-                )
-            print("✓ Worker 2 audit complete")
+                # 3. Worker 2 task
+                log_step(3, "Running Worker 2 task")
+                pr2_url = self.run_worker_task("worker2", 1)
+                if not pr2_url:
+                    raise Exception("Worker 2 task failed - no PR URL returned")
+                self.state.store_pr_url("worker2", pr2_url)
+                print(f"✓ Worker 2 PR created: {pr2_url}")
 
-            print("\nWorker 1 auditing Worker 2's PR...")
-            audit2_result = self.run_worker_audit("worker1", pr2_url, 1)
-            if not audit2_result.get("success"):
-                raise Exception(
-                    f"Worker 1 audit failed: {audit2_result.get('message')}"
-                )
-            print("✓ Worker 1 audit complete")
+            if self.start_stage in ["start", "worker-audit"]:
+                # 4. Cross audits
+                log_step(4, "Running cross audits")
+                if not pr1_url or not pr2_url:
+                    raise Exception("Missing worker PR URLs for cross audits")
 
-            # 5. Leader task
-            log_step(5, "Running leader task")
-            leader_pr_url = self.run_leader_task([pr1_url, pr2_url], 4)
-            if not leader_pr_url:
-                raise Exception("Leader task failed - no PR URL returned")
-            print(f"✓ Leader PR created: {leader_pr_url}")
+                print("\nWorker 2 auditing Worker 1's PR...")
+                audit1_result = self.run_worker_audit("worker2", pr1_url, 1)
+                if not audit1_result.get("success"):
+                    raise Exception(
+                        f"Worker 2 audit failed: {audit1_result.get('message')}"
+                    )
+                print("✓ Worker 2 audit complete")
 
-            # 6. Leader audits
-            log_step(6, "Running leader audits")
-            print("\nFirst leader audit...")
-            audit3_result = self.run_leader_audit(leader_pr_url, 4)
-            if not audit3_result.get("success"):
-                raise Exception(
-                    f"First leader audit failed: {audit3_result.get('message')}"
-                )
-            print("✓ First leader audit complete")
+                print("\nWorker 1 auditing Worker 2's PR...")
+                audit2_result = self.run_worker_audit("worker1", pr2_url, 1)
+                if not audit2_result.get("success"):
+                    raise Exception(
+                        f"Worker 1 audit failed: {audit2_result.get('message')}"
+                    )
+                print("✓ Worker 1 audit complete")
 
-            print("\nSecond leader audit...")
-            audit4_result = self.run_leader_audit(leader_pr_url, 4)
-            if not audit4_result.get("success"):
-                raise Exception(
-                    f"Second leader audit failed: {audit4_result.get('message')}"
-                )
-            print("✓ Second leader audit complete")
+            if self.start_stage in ["start", "worker-audit", "leader-task"]:
+                # 5. Leader task
+                log_step(5, "Running leader task")
+                if not pr1_url or not pr2_url:
+                    raise Exception("Missing worker PR URLs for leader task")
+
+                leader_pr_url = self.run_leader_task([pr1_url, pr2_url], 4)
+                if not leader_pr_url:
+                    raise Exception("Leader task failed - no PR URL returned")
+                self.state.store_pr_url("leader", leader_pr_url)
+                print(f"✓ Leader PR created: {leader_pr_url}")
+
+            if self.start_stage in [
+                "start",
+                "worker-audit",
+                "leader-task",
+                "leader-audit",
+            ]:
+                # 6. Leader audits
+                log_step(6, "Running leader audits")
+                if not leader_pr_url:
+                    raise Exception("Missing leader PR URL for leader audits")
+
+                print("\nFirst leader audit...")
+                audit3_result = self.run_leader_audit(leader_pr_url, 4)
+                if not audit3_result.get("success"):
+                    raise Exception(
+                        f"First leader audit failed: {audit3_result.get('message')}"
+                    )
+                print("✓ First leader audit complete")
+
+                print("\nSecond leader audit...")
+                audit4_result = self.run_leader_audit(leader_pr_url, 4)
+                if not audit4_result.get("success"):
+                    raise Exception(
+                        f"Second leader audit failed: {audit4_result.get('message')}"
+                    )
+                print("✓ Second leader audit complete")
 
             print("\n" + "=" * 80)
             print("TEST SEQUENCE COMPLETED SUCCESSFULLY")
@@ -770,8 +854,23 @@ class EndpointTester:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Run test sequence for builder task")
+    parser.add_argument(
+        "--stage",
+        type=str,
+        choices=VALID_STAGES,
+        default="start",
+        help="Stage to start from (default: start)",
+    )
+    parser.add_argument(
+        "--clear-state", action="store_true", help="Clear stored state before running"
+    )
+    args = parser.parse_args()
+
     try:
-        with EndpointTester() as tester:
+        with EndpointTester(start_stage=args.stage) as tester:
+            if args.clear_state:
+                tester.state.clear_state()
             tester.run_test_sequence()
     except Exception as e:
         print(f"Test sequence failed: {str(e)}")
