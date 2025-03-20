@@ -85,7 +85,8 @@ def start_task(round_number, node_type, request):
         staking_key=request_data["stakingKey"],
         pub_key=request_data["pubKey"],
         pr_url=response_data["pr_url"],
-        node_type=node_type,  # Pass the node type to control remote recording
+        task_id=request_data["taskId"],
+        node_type=node_type,
     )
     response_data = response.get("data", {})
     if not response.get("success", False):

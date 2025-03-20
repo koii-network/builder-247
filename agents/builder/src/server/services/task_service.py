@@ -249,7 +249,7 @@ def run_todo_task(
         return {"success": False, "status": 500, "error": str(e)}
 
 
-def _check_existing_pr(round_number: int) -> dict:
+def _check_existing_pr(round_number: int, task_id: str) -> dict:
     """Check if we already have a completed record for this round."""
     try:
         db = get_db()
@@ -257,13 +257,14 @@ def _check_existing_pr(round_number: int) -> dict:
             db.query(Submission)
             .filter(
                 Submission.round_number == round_number,
+                Submission.task_id == task_id,
                 Submission.status == "completed",
             )
             .first()
         )
 
         if submission:
-            logger.info(f"PR already recorded for round {round_number}")
+            logger.info(f"PR already recorded for task {task_id}, round {round_number}")
             return {
                 "success": True,
                 "data": {"message": "PR already recorded", "pr_url": submission.pr_url},
@@ -308,7 +309,7 @@ def _store_pr_remotely(
         }
 
 
-def _store_pr_locally(round_number: int, pr_url: str) -> dict:
+def _store_pr_locally(round_number: int, pr_url: str, task_id: str) -> dict:
     """Store PR URL in local database."""
     try:
         db = get_db()
@@ -316,7 +317,12 @@ def _store_pr_locally(round_number: int, pr_url: str) -> dict:
 
         # Update submission status
         submission = (
-            db.query(Submission).filter(Submission.round_number == round_number).first()
+            db.query(Submission)
+            .filter(
+                Submission.round_number == round_number,
+                Submission.task_id == task_id,
+            )
+            .first()
         )
         if submission:
             submission.status = "completed"
@@ -330,7 +336,7 @@ def _store_pr_locally(round_number: int, pr_url: str) -> dict:
                 "data": {"message": "PR recorded locally", "pr_url": pr_url},
             }
         else:
-            error_msg = f"No submission found for round {round_number}"
+            error_msg = f"No submission found for task {task_id}, round {round_number}"
             log_error(
                 Exception("Submission not found"),
                 context=error_msg,
@@ -342,7 +348,13 @@ def _store_pr_locally(round_number: int, pr_url: str) -> dict:
 
 
 def record_pr(
-    staking_key, staking_signature, pub_key, pr_url, round_number, node_type="worker"
+    staking_key,
+    staking_signature,
+    pub_key,
+    pr_url,
+    round_number,
+    task_id,
+    node_type="worker",
 ):
     """Record PR URL locally and optionally remotely.
 
@@ -352,10 +364,11 @@ def record_pr(
         pub_key: Node's public key
         pr_url: URL of the PR to record
         round_number: Round number
+        task_id: Task ID
         node_type: Type of node ("worker" or "leader"). Workers record both locally and remotely.
     """
     # First check if we already have a record
-    existing = _check_existing_pr(round_number)
+    existing = _check_existing_pr(round_number, task_id)
     if existing["success"]:
         return existing
 
@@ -369,7 +382,7 @@ def record_pr(
 
     # Only record locally after successful remote recording (for workers)
     # or immediately (for leaders)
-    local_result = _store_pr_locally(round_number, pr_url)
+    local_result = _store_pr_locally(round_number, pr_url, task_id)
     if not local_result["success"]:
         return local_result
 
