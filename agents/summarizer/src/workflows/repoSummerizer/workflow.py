@@ -62,6 +62,7 @@ class RepoSummerizerWorkflow(Workflow):
         )
 
 
+
     def setup(self):
         """Set up repository and workspace."""
         check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
@@ -130,7 +131,18 @@ class RepoSummerizerWorkflow(Workflow):
                     "Readme file generation failed",
                 )
                 return None
-            
+            # pr_phase = phases.PullRequestPhase(
+            #     workflow=self, conversation_id=generate_readme_file_phase.conversation_id
+            # )
+            # pr_result = pr_phase.execute()
+
+            # if pr_result.get("success"):
+            #     pr_url = pr_result.get("data", {}).get("pr_url")
+            #     log_key_value("PR created successfully", pr_url)
+            #     return pr_url
+            # else:
+            #     log_error(Exception(pr_result.get("error")), "PR creation failed")
+            #     return None
             return generate_readme_file_result
         except Exception as e:
             log_error(e, "Readme file generation workflow failed")
