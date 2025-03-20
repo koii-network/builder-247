@@ -466,25 +466,60 @@ class EndpointTester:
         pr_repo_owner = parts[-4]
         pr_repo_name = parts[-3]
 
-        gh = Github(os.environ.get("GITHUB_TOKEN"))
+        gh = Github(os.getenv("GITHUB_TOKEN"))
         repo = gh.get_repo(f"{pr_repo_owner}/{pr_repo_name}")
         pr = repo.get_pull(pr_number)
 
-        # Extract submitter's staking key and signature from PR
+        # Extract submitter's keys from PR
         staking_section = extract_section(pr.body, "STAKING_KEY")
         if not staking_section:
             raise ValueError(f"No staking key found in PR {pr_url}")
-        submitter_key, submitter_signature = staking_section.split(":")
-        submitter_key = submitter_key.strip()
-        submitter_signature = submitter_signature.strip()
+        submitter_key = staking_section.split(":")[0].strip()
 
-        # Extract submitter's public key from PR
         pub_section = extract_section(pr.body, "PUB_KEY")
         if not pub_section:
             raise ValueError(f"No public key found in PR {pr_url}")
         submitter_pub_key = pub_section.split(":")[0].strip()
 
-        # Create auditor's signature
+        # Create submission payload like in 2-submission.ts
+        submission_payload = {
+            "taskId": self.task_id,
+            "roundNumber": round_number,
+            "stakingKey": submitter_key,
+            "pubKey": submitter_pub_key,
+            "action": "audit",
+            "githubUsername": pr.user.login,
+            "prUrl": pr_url,
+            "repoOwner": pr_repo_owner,
+            "repoName": pr_repo_name,
+        }
+
+        # Sign submission with submitter's keypair
+        # Find the submitter's role by matching staking key
+        submitter_role = None
+        for role, keypairs in self.keypairs.items():
+            staking_signing_key, staking_key = self._load_keypair(keypairs["staking"])
+            if staking_key == submitter_key:
+                submitter_role = role
+                break
+
+        if not submitter_role:
+            raise ValueError(
+                f"Could not find keypair for submitter staking key {submitter_key}"
+            )
+
+        # Create submitter's signature using their keypair
+        submitter_keypair = self.keypairs[submitter_role]
+        staking_signing_key, _ = self._load_keypair(submitter_keypair["staking"])
+
+        # Sign the submission payload
+        payload_str = json.dumps(submission_payload, sort_keys=True).encode()
+        submitter_signed = staking_signing_key.sign(payload_str)
+        submitter_signature = base58.b58encode(
+            submitter_signed.signature + payload_str
+        ).decode()
+
+        # Now create auditor's signature
         signatures = self.create_signature(
             {
                 "taskId": self.task_id,
@@ -495,18 +530,9 @@ class EndpointTester:
             }
         )
 
-        # Create full payload matching task implementation
+        # Create full payload matching 3-audit.ts podCallBody
         payload = {
-            "submission": {
-                "taskId": self.task_id,
-                "roundNumber": round_number,
-                "prUrl": pr_url,
-                "githubUsername": pr.user.login,
-                "stakingKey": submitter_key,
-                "pubKey": submitter_pub_key,
-                "repoOwner": pr_repo_owner,  # Add repo info
-                "repoName": pr_repo_name,
-            },
+            "submission": submission_payload,
             "submitterSignature": submitter_signature,
             "submitterStakingKey": submitter_key,
             "submitterPubKey": submitter_pub_key,
@@ -585,8 +611,8 @@ class EndpointTester:
             "pubKey": signatures["pub_key"],
             "stakingSignature": signatures["staking_signature"],
             "publicSignature": signatures["public_signature"],
-            "repoOwner": os.environ.get("LEADER_GITHUB_USERNAME"),
-            "repoName": f"aggregator-{self.task_id}",
+            "repoOwner": os.getenv("LEADER_GITHUB_USERNAME"),
+            "repoName": self.source_repo,
             "distributionList": distribution_list,
         }
 
