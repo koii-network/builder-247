@@ -13,6 +13,7 @@ from src.utils.logging import logger, log_error, log_key_value
 from src.workflows.utils import verify_pr_signatures
 from src.utils.filter_distribution import remove_leaders
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
@@ -248,12 +249,10 @@ def run_todo_task(
         return {"success": False, "status": 500, "error": str(e)}
 
 
-def record_pr(staking_key, staking_signature, pub_key, pr_url, round_number):
-    """Submit PR to middle server and update submission."""
+def _check_existing_pr(round_number: int) -> dict:
+    """Check if we already have a completed record for this round."""
     try:
         db = get_db()
-
-        # First check if we already have a completed record
         submission = (
             db.query(Submission)
             .filter(
@@ -269,8 +268,17 @@ def record_pr(staking_key, staking_signature, pub_key, pr_url, round_number):
                 "success": True,
                 "data": {"message": "PR already recorded", "pr_url": submission.pr_url},
             }
+        return {"success": False}
+    except Exception as e:
+        log_error(e, "Failed to check existing PR")
+        return {"success": False, "status": 500, "error": str(e)}
 
-        # Try to record with middle server
+
+def _store_pr_remotely(
+    staking_key: str, staking_signature: str, pub_key: str, pr_url: str
+) -> dict:
+    """Store PR URL in middle server."""
+    try:
         response = requests.post(
             os.environ["MIDDLE_SERVER_URL"] + "/api/add-pr-to-to-do",
             json={
@@ -282,31 +290,10 @@ def record_pr(staking_key, staking_signature, pub_key, pr_url, round_number):
             headers={"Content-Type": "application/json"},
         )
         response.raise_for_status()
-        username = os.environ["GITHUB_USERNAME"]
-
-        # Update submission status after successful middle server record
-        submission = (
-            db.query(Submission).filter(Submission.round_number == round_number).first()
-        )
-        if submission:
-            submission.status = "completed"
-            if not submission.pr_url:  # Only update PR URL if not already set
-                submission.pr_url = pr_url
-            submission.username = username
-            db.commit()
-            logger.info("Database updated successfully")
-            return {
-                "success": True,
-                "data": {"message": "PR submitted successfully", "pr_url": pr_url},
-            }
-        else:
-            error_msg = f"No submission found for round {round_number}"
-            log_error(
-                Exception("Submission not found"),
-                context=error_msg,
-            )
-            return {"success": False, "status": 404, "error": error_msg}
-
+        return {
+            "success": True,
+            "data": {"message": "PR recorded remotely", "pr_url": pr_url},
+        }
     except requests.exceptions.RequestException as e:
         if not hasattr(e, "response"):
             return {
@@ -321,6 +308,77 @@ def record_pr(staking_key, staking_signature, pub_key, pr_url, round_number):
         }
 
 
+def _store_pr_locally(round_number: int, pr_url: str) -> dict:
+    """Store PR URL in local database."""
+    try:
+        db = get_db()
+        username = os.environ["GITHUB_USERNAME"]
+
+        # Update submission status
+        submission = (
+            db.query(Submission).filter(Submission.round_number == round_number).first()
+        )
+        if submission:
+            submission.status = "completed"
+            if not submission.pr_url:  # Only update PR URL if not already set
+                submission.pr_url = pr_url
+            submission.username = username
+            db.commit()
+            logger.info("Local database updated successfully")
+            return {
+                "success": True,
+                "data": {"message": "PR recorded locally", "pr_url": pr_url},
+            }
+        else:
+            error_msg = f"No submission found for round {round_number}"
+            log_error(
+                Exception("Submission not found"),
+                context=error_msg,
+            )
+            return {"success": False, "status": 404, "error": error_msg}
+    except Exception as e:
+        log_error(e, "Failed to store PR locally")
+        return {"success": False, "status": 500, "error": str(e)}
+
+
+def record_pr(
+    staking_key, staking_signature, pub_key, pr_url, round_number, node_type="worker"
+):
+    """Record PR URL locally and optionally remotely.
+
+    Args:
+        staking_key: Node's staking key
+        staking_signature: Node's signature
+        pub_key: Node's public key
+        pr_url: URL of the PR to record
+        round_number: Round number
+        node_type: Type of node ("worker" or "leader"). Workers record both locally and remotely.
+    """
+    # First check if we already have a record
+    existing = _check_existing_pr(round_number)
+    if existing["success"]:
+        return existing
+
+    # For workers, record with middle server first as it's the source of truth
+    if node_type == "worker":
+        remote_result = _store_pr_remotely(
+            staking_key, staking_signature, pub_key, pr_url
+        )
+        if not remote_result["success"]:
+            return remote_result
+
+    # Only record locally after successful remote recording (for workers)
+    # or immediately (for leaders)
+    local_result = _store_pr_locally(round_number, pr_url)
+    if not local_result["success"]:
+        return local_result
+
+    return {
+        "success": True,
+        "data": {"message": "PR recorded successfully", "pr_url": pr_url},
+    }
+
+
 def consolidate_prs(
     task_id,
     round_number,
@@ -332,90 +390,198 @@ def consolidate_prs(
     repo_owner,
     repo_name,
 ):
-    """Consolidate PRs from workers.
+    """Consolidate PRs from workers."""
+    try:
+        db = get_db()
 
-    Args:
-        task_id (str): The task ID
-        round_number (int): The round number
-        distribution_list (dict): Dictionary mapping staking keys to amounts
-        submitter_staking_key (str): Leader's staking key
-        pub_key (str): Leader's public key
-        staking_signature (str): Leader's staking signature
-        public_signature (str): Leader's public signature
-    """
-    branch = f"task-{task_id}-round-{round_number - 3}"
-    repo_url = f"https://github.com/{repo_owner}/{repo_name}"
-
-    # Initialize Claude client
-    client = setup_client("anthropic")
-
-    github = gh(os.environ["GITHUB_TOKEN"])
-    source_fork = github.get_repo(f"{repo_owner}/{repo_name}")
-
-    if not source_fork.fork:
-        raise Exception("Source repository is not a fork")
-
-    upstream_repo = source_fork.parent
-    print(f"Found upstream repository: {upstream_repo.html_url}")
-
-    # Filter out leader PRs from distribution list
-    filtered_distribution_list = remove_leaders(
-        distribution_list=distribution_list,
-        repo_owner=repo_owner,
-        repo_name=repo_name,
-    )
-
-    if not filtered_distribution_list:
-        print("No eligible worker PRs to consolidate after filtering out leader PRs")
-        return None
-
-    # Get list of open PRs
-    open_prs = list(source_fork.get_pulls(state="open", base=branch))
-    print(f"Found {len(open_prs)} open PRs")
-
-    # Filter PRs based on signature validation
-    valid_prs = []
-    for pr in open_prs:
-        # For each PR, try to find a valid signature from a rewarded staking key
-        for submitter_key in filtered_distribution_list:
-            is_valid = verify_pr_signatures(
-                pr.body,
-                task_id,
-                round_number - 3,
-                expected_staking_key=submitter_key,
+        # Check if we already have a PR URL for this submission
+        existing_submission = (
+            db.query(Submission)
+            .filter(
+                Submission.task_id == task_id, Submission.round_number == round_number
             )
-            if is_valid:
-                valid_prs.append(pr)
-                break
+            .first()
+        )
 
-    print(f"Found {len(valid_prs)} PRs with valid signatures")
+        if existing_submission and existing_submission.pr_url:
+            logger.info(
+                f"Found existing PR URL for task {task_id}, round {round_number}"
+            )
+            return {
+                "success": True,
+                "data": {
+                    "pr_url": existing_submission.pr_url,
+                    "message": "Using existing PR URL",
+                },
+            }
 
-    if not valid_prs:
-        print("No valid PRs to consolidate")
-        return None
+        # If no existing submission with PR URL, delete any incomplete submission
+        if existing_submission:
+            db.delete(existing_submission)
+            db.commit()
+            logger.info(
+                f"Deleted existing incomplete submission for task {task_id}, round {round_number}"
+            )
 
-    # Create workflow instance with validated PRs
-    workflow = MergeConflictWorkflow(
-        client=client,
-        prompts=CONFLICT_PROMPTS,
-        source_fork_url=repo_url,
-        source_branch=branch,
-        is_source_fork_owner=False,  # We're consolidating PRs from another fork
-        staking_key=staking_key,
-        pub_key=pub_key,
-        staking_signature=staking_signature,
-        public_signature=public_signature,
-        task_id=task_id,  # Add task_id for signature validation
-        round_number=round_number - 3,  # Add round_number for signature validation
-        staking_keys=filtered_distribution_list.keys(),  # Use filtered distribution list
-    )
+        # Create new submission
+        submission = Submission(
+            task_id=task_id,
+            round_number=round_number,
+            status="running",
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+        )
+        db.add(submission)
+        db.commit()
 
-    # Run workflow
-    pr_url = workflow.run()
-    return {
-        "success": True,
-        "data": {"pr_url": pr_url, "message": "PRs consolidated successfully"},
-    }
+        branch = f"task-{task_id}-round-{round_number - 3}"
+        repo_url = f"https://github.com/{repo_owner}/{repo_name}"
+
+        # Initialize Claude client
+        client = setup_client("anthropic")
+
+        github = gh(os.environ["GITHUB_TOKEN"])
+        source_fork = github.get_repo(f"{repo_owner}/{repo_name}")
+
+        if not source_fork.fork:
+            raise Exception("Source repository is not a fork")
+
+        upstream_repo = source_fork.parent
+        print(f"Found upstream repository: {upstream_repo.html_url}")
+
+        # Debug distribution list
+        print("\nOriginal distribution list:")
+        print(json.dumps(distribution_list, indent=2))
+
+        # Filter out leader PRs from distribution list
+        filtered_distribution_list = remove_leaders(
+            distribution_list=distribution_list,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+        )
+
+        print("\nFiltered distribution list (after removing leaders):")
+        print(json.dumps(filtered_distribution_list, indent=2))
+
+        if not filtered_distribution_list:
+            print(
+                "No eligible worker PRs to consolidate after filtering out leader PRs"
+            )
+            submission.status = "failed"
+            db.commit()
+            return {
+                "success": False,
+                "status": 400,
+                "error": "No eligible worker PRs after filtering leaders",
+            }
+
+        # Get list of open PRs
+        open_prs = list(source_fork.get_pulls(state="open", base=branch))
+        print(f"\nFound {len(open_prs)} open PRs")
+        print("Open PRs:")
+        for pr in open_prs:
+            print(f"  #{pr.number}: {pr.title} by {pr.user.login}")
+
+        # Filter PRs based on signature validation
+        valid_prs = []
+        for pr in open_prs:
+            # For each PR, try to find a valid signature from a rewarded staking key
+            print(f"\nChecking PR #{pr.number} against staking keys:")
+            for submitter_key in filtered_distribution_list:
+                print(f"  Checking staking key: {submitter_key}")
+                is_valid = verify_pr_signatures(
+                    pr.body,
+                    task_id,
+                    round_number - 3,
+                    expected_staking_key=submitter_key,
+                )
+                if is_valid:
+                    valid_prs.append(pr)
+                    print(f"  ✓ Found valid signature for {submitter_key}")
+                    break
+                else:
+                    print(f"  ✗ No valid signature for {submitter_key}")
+
+        print(f"\nFound {len(valid_prs)} PRs with valid signatures")
+
+        if not valid_prs:
+            print("No valid PRs to consolidate")
+            submission.status = "failed"
+            db.commit()
+            return {
+                "success": False,
+                "status": 400,
+                "error": "No PRs with valid signatures found",
+            }
+
+        # Create workflow instance with validated PRs
+        print("\nCreating workflow with:")
+        print(f"  task_id: {task_id}")
+        print(f"  round_number: {round_number}")
+        print(f"  staking_keys: {list(filtered_distribution_list.keys())}")
+
+        workflow = MergeConflictWorkflow(
+            client=client,
+            prompts=CONFLICT_PROMPTS,
+            source_fork_url=repo_url,
+            source_branch=branch,
+            is_source_fork_owner=False,  # We're consolidating PRs from another fork
+            staking_key=staking_key,
+            pub_key=pub_key,
+            staking_signature=staking_signature,
+            public_signature=public_signature,
+            task_id=task_id,  # Add task_id for signature validation
+            round_number=round_number - 3,  # Add round_number for signature validation
+            staking_keys=filtered_distribution_list.keys(),  # Use filtered distribution list
+        )
+
+        # Run workflow
+        pr_url = workflow.run()
+        if not pr_url:
+            log_error(
+                Exception("No PR URL returned from workflow"),
+                context="Merge workflow failed to create PR",
+            )
+            submission.status = "failed"
+            db.commit()
+            return {
+                "success": False,
+                "status": 500,
+                "error": "Merge workflow failed to create PR",
+            }
+
+        # Store PR URL in local DB immediately
+        submission.pr_url = pr_url
+        submission.status = "pending_record"  # New status to indicate PR exists but not recorded with middle server
+        db.commit()
+        logger.info(
+            f"Stored PR URL {pr_url} locally for task {task_id}, round {round_number}"
+        )
+
+        return {
+            "success": True,
+            "data": {"pr_url": pr_url, "message": "PRs consolidated successfully"},
+        }
+
+    except Exception as e:
+        log_error(e, context="PR consolidation failed")
+        if "db" in locals():
+            # Update submission status
+            submission = (
+                db.query(Submission)
+                .filter(
+                    Submission.task_id == task_id,
+                    Submission.round_number == round_number,
+                )
+                .first()
+            )
+            if submission:
+                submission.status = "failed"
+                db.commit()
+                logger.info(
+                    f"Updated status to failed for task {task_id}, round {round_number}"
+                )
+        return {"success": False, "status": 500, "error": str(e)}
 
 
 def create_aggregator_repo(round_number, task_id, repo_owner, repo_name):

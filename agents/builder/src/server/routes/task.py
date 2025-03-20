@@ -78,23 +78,25 @@ def start_task(round_number, node_type, request):
 
     logger.info(response_data["message"])
 
+    # Record PR for both worker and leader tasks, but only workers record remotely
     response = task_service.record_pr(
         round_number=int(round_number),
         staking_signature=request_data["stakingSignature"],
         staking_key=request_data["stakingKey"],
         pub_key=request_data["pubKey"],
         pr_url=response_data["pr_url"],
+        node_type=node_type,  # Pass the node type to control remote recording
     )
     response_data = response.get("data", {})
-    if response.get("success", False):
-        return jsonify(
-            {
-                "success": True,
-                "message": response_data["message"],
-                "pr_url": response_data["pr_url"],
-            }
-        )
-    else:
+    if not response.get("success", False):
         status = response.get("status", 500)
         error = response.get("error", "Unknown error")
         return jsonify({"success": False, "error": error}), status
+
+    return jsonify(
+        {
+            "success": True,
+            "message": response_data["message"],
+            "pr_url": response_data["pr_url"],
+        }
+    )
