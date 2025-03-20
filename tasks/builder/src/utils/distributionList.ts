@@ -10,8 +10,8 @@ import { getFile } from "../utils/ipfs";
 async function filterIneligibleNodes(
   distributionList: Record<string, number>,
   roundNumber: number,
-): Promise<Record<string, number>> {
-  const filteredDistributionList: Record<string, number> = {};
+): Promise<Record<string, any>> {
+  const filteredDistributionList: Record<string, any> = {};
 
   if (Object.keys(distributionList).length === 0) {
     console.log("Distribution list is empty, skipping filterIneligibleNodes");
@@ -69,7 +69,7 @@ async function filterIneligibleNodes(
   return filteredDistributionList;
 }
 
-export async function getDistributionList(roundNumber: number): Promise<Record<string, number> | null> {
+export async function getDistributionList(roundNumber: number): Promise<Record<string, any> | null> {
   try {
     const taskDistributionInfo = await namespaceWrapper.getTaskDistributionInfo(roundNumber);
     if (!taskDistributionInfo) {

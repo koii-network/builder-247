@@ -13,7 +13,7 @@ interface PodCallBody {
   publicSignature: string;
   repoOwner: string;
   repoName: string;
-  distributionList: Record<string, number>;
+  distributionList: Record<string, any>;
 }
 
 interface Submission {
