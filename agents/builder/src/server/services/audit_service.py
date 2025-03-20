@@ -11,7 +11,7 @@ import os
 from typing import Dict, Set
 from git import Repo
 from src.workflows.utils import verify_pr_signatures
-from src.utils.filter_distribution import remove_leaders
+from src.utils.distribution import validate_distribution_list
 
 
 def verify_pr_ownership(
@@ -140,25 +140,7 @@ def audit_leader_submission(
     distribution_list: Dict[str, Dict[str, str]],
     leader_username: str,
 ) -> bool:
-    """Audit a leader's consolidated PR submission.
-
-    Args:
-        task_id: Task ID
-        round_number: Round number
-        pr_url: URL of the consolidated PR
-        repo_owner: Owner of the source repository
-        repo_name: Name of the source repository
-        staking_key: Leader's staking key
-        pub_key: Leader's public key
-        signature: Leader's signature
-        distribution_list: Pre-filtered dictionary mapping eligible staking keys to reward amounts.
-                         This list has already been filtered to only include nodes that:
-                         - Have positive rewards
-                         - Have valid submissions
-                         - Have real PR URLs (not "none")
-                         Note: May include leader PRs that need additional filtering
-        leader_username: GitHub username of the leader
-    """
+    """Audit a leader's consolidated PR submission."""
     try:
         gh = Github(os.environ["GITHUB_TOKEN"])
 
@@ -209,19 +191,18 @@ def audit_leader_submission(
         if not is_valid:
             return False
 
-        # 3. Filter out leader PRs from distribution list
-        filtered_distribution_list = remove_leaders(
+        # 3. Validate and filter distribution list
+        filtered_distribution_list, error = validate_distribution_list(
             distribution_list=distribution_list,
             repo_owner=repo_owner,
             repo_name=repo_name,
         )
-
-        if not filtered_distribution_list:
+        if error:
             log_error(
-                Exception("No eligible worker PRs"),
-                context="After filtering out leader PRs, no eligible worker PRs remain",
+                Exception("Distribution list validation failed"),
+                context=error,
             )
-            return True
+            return False
 
         # 4. Clone the repository and analyze merge commits
         clone_path = f"/tmp/audit-{repo_owner}-{repo_name}-{pr.head.ref}"

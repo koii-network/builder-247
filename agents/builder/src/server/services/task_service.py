@@ -2,7 +2,7 @@
 
 import requests
 import os
-from github import Github as gh
+from github import Github
 from src.database import get_db, Submission
 from src.clients import setup_client
 from src.workflows.task.workflow import TaskWorkflow
@@ -11,9 +11,8 @@ from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 from src.utils.logging import logger, log_error, log_key_value
 from src.workflows.utils import verify_pr_signatures
-from src.utils.filter_distribution import remove_leaders
+from src.utils.distribution import validate_distribution_list
 from dotenv import load_dotenv
-import json
 
 load_dotenv()
 
@@ -32,7 +31,7 @@ def complete_todo(
     """Handle task creation request."""
     try:
         # Check if base branch exists in target repo
-        github = gh(os.environ["GITHUB_TOKEN"])
+        github = Github(os.environ["GITHUB_TOKEN"])
         target_repo = github.get_repo(f"{repo_owner}/{repo_name}")
         base_branch = f"task-{task_id}-round-{round_number}"
 
@@ -447,48 +446,38 @@ def consolidate_prs(
         db.add(submission)
         db.commit()
 
-        branch = f"task-{task_id}-round-{round_number - 3}"
-        repo_url = f"https://github.com/{repo_owner}/{repo_name}"
+        # Get source fork
+        github = Github(os.environ["GITHUB_TOKEN"])
+        source_fork = github.get_repo(f"{os.environ['GITHUB_USERNAME']}/{repo_name}")
 
-        # Initialize Claude client
-        client = setup_client("anthropic")
-
-        github = gh(os.environ["GITHUB_TOKEN"])
-        source_fork = github.get_repo(f"{repo_owner}/{repo_name}")
-
+        # Verify this is a fork
         if not source_fork.fork:
-            raise Exception("Source repository is not a fork")
-
-        upstream_repo = source_fork.parent
-        print(f"Found upstream repository: {upstream_repo.html_url}")
-
-        # Debug distribution list
-        print("\nOriginal distribution list:")
-        print(json.dumps(distribution_list, indent=2))
-
-        # Filter out leader PRs from distribution list
-        filtered_distribution_list = remove_leaders(
-            distribution_list=distribution_list,
-            repo_owner=repo_owner,
-            repo_name=repo_name,
-        )
-
-        print("\nFiltered distribution list (after removing leaders):")
-        print(json.dumps(filtered_distribution_list, indent=2))
-
-        if not filtered_distribution_list:
-            print(
-                "No eligible worker PRs to consolidate after filtering out leader PRs"
-            )
             submission.status = "failed"
             db.commit()
             return {
                 "success": False,
                 "status": 400,
-                "error": "No eligible worker PRs after filtering leaders",
+                "error": "Source repository is not a fork",
+            }
+
+        upstream_repo = source_fork.parent
+        print(f"Found upstream repository: {upstream_repo.html_url}")
+
+        # Validate and filter distribution list
+        filtered_distribution_list, error = validate_distribution_list(
+            distribution_list, repo_owner, repo_name
+        )
+        if error:
+            submission.status = "failed"
+            db.commit()
+            return {
+                "success": False,
+                "status": 400,
+                "error": error,
             }
 
         # Get list of open PRs
+        branch = f"task-{task_id}-round-{round_number - 3}"
         open_prs = list(source_fork.get_pulls(state="open", base=branch))
         print(f"\nFound {len(open_prs)} open PRs")
         print("Open PRs:")
@@ -533,10 +522,13 @@ def consolidate_prs(
         print(f"  round_number: {round_number}")
         print(f"  staking_keys: {list(filtered_distribution_list.keys())}")
 
+        # Initialize Claude client
+        client = setup_client("anthropic")
+
         workflow = MergeConflictWorkflow(
             client=client,
             prompts=CONFLICT_PROMPTS,
-            source_fork_url=repo_url,
+            source_fork_url=source_fork.html_url,
             source_branch=branch,
             is_source_fork_owner=False,  # We're consolidating PRs from another fork
             staking_key=staking_key,
@@ -612,7 +604,7 @@ def create_aggregator_repo(round_number, task_id, repo_owner, repo_name):
     """
     try:
         # Initialize GitHub client with token
-        github = gh(os.environ["GITHUB_TOKEN"])
+        github = Github(os.environ["GITHUB_TOKEN"])
         username = os.environ["GITHUB_USERNAME"]
 
         # Get original source repo
