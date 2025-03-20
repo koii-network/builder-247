@@ -91,9 +91,12 @@ class AuditWorkflow(Workflow):
         # Enter repo directory
         os.chdir(self.context["repo_path"])
 
-        # Fetch and checkout PR branch
-        os.system(f"git fetch origin {pr.head.ref}")
-        os.system(f"git checkout {pr.head.ref}")
+        # Add remote for PR's repository and fetch the branch
+        os.system(
+            f"git remote add pr_source https://github.com/{pr.head.repo.full_name}"
+        )
+        os.system(f"git fetch pr_source {pr.head.ref}")
+        os.system("git checkout FETCH_HEAD")
 
         # Get current files for context
         self.context["current_files"] = get_current_files()
