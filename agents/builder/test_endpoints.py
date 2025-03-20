@@ -205,10 +205,12 @@ class EndpointTester:
         # Check required environment variables
         required_env_vars = [
             "TASK_ID",  # Add TASK_ID to required env vars
-            "STAKING1_KEYPAIR",  # Keypair for leader and worker1
-            "PUBLIC1_KEYPAIR",
-            "STAKING2_KEYPAIR",  # Keypair for worker2
-            "PUBLIC2_KEYPAIR",
+            "WORKER1_STAKING_KEYPAIR",  # Keypair for worker1
+            "WORKER1_PUBLIC_KEYPAIR",
+            "WORKER2_STAKING_KEYPAIR",  # Keypair for worker2
+            "WORKER2_PUBLIC_KEYPAIR",
+            "LEADER_STAKING_KEYPAIR",  # Keypair for leader
+            "LEADER_PUBLIC_KEYPAIR",
             "LEADER_GITHUB_TOKEN",
             "LEADER_GITHUB_USERNAME",
             "WORKER1_GITHUB_TOKEN",
@@ -235,16 +237,16 @@ class EndpointTester:
         # Store keypair paths for each role
         self.keypairs = {
             "leader": {
-                "staking": os.getenv("STAKING1_KEYPAIR"),
-                "public": os.getenv("PUBLIC1_KEYPAIR"),
+                "staking": os.getenv("LEADER_STAKING_KEYPAIR"),
+                "public": os.getenv("LEADER_PUBLIC_KEYPAIR"),
             },
             "worker1": {
-                "staking": os.getenv("STAKING1_KEYPAIR"),
-                "public": os.getenv("PUBLIC1_KEYPAIR"),
+                "staking": os.getenv("WORKER1_STAKING_KEYPAIR"),
+                "public": os.getenv("WORKER1_PUBLIC_KEYPAIR"),
             },
             "worker2": {
-                "staking": os.getenv("STAKING2_KEYPAIR"),
-                "public": os.getenv("PUBLIC2_KEYPAIR"),
+                "staking": os.getenv("WORKER2_STAKING_KEYPAIR"),
+                "public": os.getenv("WORKER2_PUBLIC_KEYPAIR"),
             },
         }
 
@@ -722,17 +724,14 @@ class EndpointTester:
         # Create signatures for auditor
         signatures = self.create_signature(submission_payload)
 
-        # Use a dummy leader staking key different from worker1
-        leader_staking_key = "LEADER_" + signatures["staking_key"]
-
         # Add signature info to submission payload
         submission_payload.update(
             {
-                "stakingKey": leader_staking_key,  # Use dummy leader key
+                "stakingKey": signatures["staking_key"],  # Use actual leader key
                 "pubKey": signatures["pub_key"],
                 "signature": signatures["staking_signature"],
                 "distributionList": distribution_list,  # Include full distribution list
-                "leaders": [leader_staking_key],  # Use dummy leader key
+                "leaders": [signatures["staking_key"]],  # Use actual leader key
             }
         )
 
