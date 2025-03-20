@@ -11,41 +11,43 @@ import os
 class MergeConflictExecution(WorkflowExecution):
     def __init__(self):
         super().__init__(
-            description="Merge conflict resolver workflow",
+            description="Run merge conflict workflow on a source fork",
             additional_arguments={
                 "source": {
                     "type": str,
+                    "help": "URL of the source fork containing PRs to merge",
                     "required": True,
-                    "help": "URL of the fork containing the PRs to merge",
                 },
                 "branch": {
                     "type": str,
+                    "help": "Branch on source fork containing PRs to merge",
                     "required": True,
-                    "help": "Name of the branch containing PRs to merge (e.g., main)",
                 },
             },
+            prompts=PROMPTS,
         )
         self.workflow = None
 
     def _setup(
         self,
-        github_token_env_var: str = "MERGE_GITHUB_TOKEN",
+        github_token_env_var: str = "GITHUB_TOKEN",
         github_username_env_var: str = "GITHUB_USERNAME",
-        additional_env_vars: List[str] = None,
+        required_env_vars: List[str] = None,
+        **kwargs,
     ):
         """Set up merge conflict workflow context.
 
         Args:
             github_token_env_var: Name of env var containing GitHub token
             github_username_env_var: Name of env var containing GitHub username
-            additional_env_vars: Additional required environment variables
+            required_env_vars: Additional required environment variables
         """
         # Combine GitHub env vars with any additional required vars
-        required_env_vars = [github_token_env_var, github_username_env_var]
-        if additional_env_vars:
-            required_env_vars.extend(additional_env_vars)
+        env_vars = [github_token_env_var, github_username_env_var]
+        if required_env_vars:
+            env_vars.extend(required_env_vars)
 
-        super()._setup(required_env_vars=required_env_vars, prompts=PROMPTS)
+        super()._setup(required_env_vars=env_vars, prompts=PROMPTS)
 
         repo_url = self.args.source
         source_owner, source_repo = self._parse_github_url(repo_url)
@@ -56,18 +58,41 @@ class MergeConflictExecution(WorkflowExecution):
         if not source_fork.fork:
             raise Exception("Source repository is not a fork")
 
+        # Parse task_id and round_number from branch name
+        # Format: task-{task_id}-round-{round_number}
+        branch_parts = self.args.branch.split("-")
+        if (
+            len(branch_parts) != 4
+            or branch_parts[0] != "task"
+            or branch_parts[2] != "round"
+        ):
+            raise ValueError(
+                f"Invalid branch format: {self.args.branch}. Expected: task-<task_id>-round-<round_number>"
+            )
+
+        task_id = branch_parts[1]
+        round_number = int(branch_parts[3])
+
+        # Add task ID, round number, and signatures to context
+        self._add_signature_context(additional_payload={"action": "merge"})
+
         # Create workflow instance
         self.workflow = MergeConflictWorkflow(
             client=self.client,
             prompts=self.prompts,
             source_fork_url=repo_url,
             source_branch=self.args.branch,
-            is_source_fork_owner=source_owner == os.getenv(github_username_env_var),
-            github_token=os.getenv(github_token_env_var),
-            github_username=os.getenv(github_username_env_var),
+            task_id=task_id,
+            round_number=round_number,
+            staking_key=self.context["staking_key"],
+            pub_key=self.context["pub_key"],
+            staking_signature=self.context["staking_signature"],
+            public_signature=self.context["public_signature"],
+            github_token=github_token_env_var,
+            github_username=github_username_env_var,
         )
 
-    def _run(self):
+    def _run(self, **kwargs):
         """Run the merge conflict workflow."""
         result = self.workflow.run()
 

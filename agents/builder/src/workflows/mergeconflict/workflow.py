@@ -4,14 +4,19 @@ import os
 from github import Github
 from src.workflows.base import Workflow
 from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.utils import setup_repository, cleanup_repository
+from src.workflows.utils import (
+    check_required_env_vars,
+    setup_repository,
+    cleanup_repository,
+    get_current_files,
+)
 from src.workflows.mergeconflict.phases import (
     ConflictResolutionPhase,
     CreatePullRequestPhase,
+    TestVerificationPhase,
 )
 from src.tools.github_operations.parser import extract_section
 from src.utils.signatures import verify_and_parse_signature
-from src.utils.env_vars import check_required_env_vars
 
 
 class MergeConflictWorkflow(Workflow):
@@ -35,6 +40,7 @@ class MergeConflictWorkflow(Workflow):
         # Extract source repo info from source fork URL
         parts = source_fork_url.strip("/").split("/")
         source_fork_owner = parts[-2]
+        source_repo_name = parts[-1]
 
         super().__init__(
             client=client,
@@ -43,15 +49,22 @@ class MergeConflictWorkflow(Workflow):
 
         check_required_env_vars([github_token, github_username])
         self.context["github_token"] = os.getenv(github_token)
-        self.context["github_username"] = os.getenv(github_username)
+        consolidation_username = os.getenv(github_username)
+        self.context["github_username"] = consolidation_username
 
-        self.source_fork_owner = (
-            source_fork_owner  # Only property we need for branch naming
-        )
-        self.is_source_fork_owner = is_source_fork_owner
+        self.source_fork_owner = source_fork_owner
+        # We own the source fork if our consolidation username matches the source fork owner
+        self.is_source_fork_owner = consolidation_username == source_fork_owner
         self.task_id = task_id
         self.round_number = round_number
         self.staking_keys = staking_keys or []
+
+        # Verify source branch format matches task_id and round_number
+        expected_branch = f"task-{task_id}-round-{round_number}"
+        if source_branch != expected_branch:
+            raise ValueError(
+                f"Source branch {source_branch} does not match expected format {expected_branch}"
+            )
 
         # Initialize context with source info
         self.context.update(
@@ -59,7 +72,7 @@ class MergeConflictWorkflow(Workflow):
                 "source_fork": {
                     "url": source_fork_url,
                     "owner": source_fork_owner,
-                    "name": parts[-1],
+                    "name": source_repo_name,
                     "branch": source_branch,
                 },
                 "head_branch": f"{source_branch}-merged",  # Branch where we'll merge all PRs
@@ -75,7 +88,7 @@ class MergeConflictWorkflow(Workflow):
 
         # Get upstream repo info and add to context
         gh = Github(self.context["github_token"])
-        source_fork = gh.get_repo(f"{source_fork_owner}/{parts[-1]}")
+        source_fork = gh.get_repo(f"{source_fork_owner}/{source_repo_name}")
         upstream = source_fork.parent
 
         self.context["upstream"] = {
@@ -192,15 +205,16 @@ class MergeConflictWorkflow(Workflow):
                 os.system(f"git remote add source {self.context['source_fork']['url']}")
                 os.system("git fetch source")
 
-            # Create head branch from source branch
+            # Create merge branch from source branch
             source_branch = self.context["source_fork"]["branch"]
-            head_branch = f"{source_branch}-merged"
-            self.context["head_branch"] = head_branch
+            head_branch = self.context["head_branch"]
 
-            # Checkout source branch first
+            # Fetch source branch and create merge branch from it
             os.system(
                 f"git fetch {'origin' if self.is_source_fork_owner else 'source'} {source_branch}"
             )
+            os.system(f"git checkout -b {head_branch} FETCH_HEAD")
+            os.system(f"git push origin {head_branch}")
 
             return True
 
@@ -214,6 +228,9 @@ class MergeConflictWorkflow(Workflow):
         Args:
             pr_url: URL of the original PR in the source fork
             pr_title: Title of the PR to merge
+
+        Returns:
+            dict: {"success": bool, "message": str}
         """
         # Extract PR info from URL
         parts = pr_url.strip("/").split("/")
@@ -223,15 +240,17 @@ class MergeConflictWorkflow(Workflow):
 
         try:
             # Create unique branch name for PR content
-            pr_branch = f"{pr_repo_owner}-{pr_repo_name}-pr-{pr_number}"
+            pr_branch = f"pr-{pr_number}-{pr_repo_owner}-{pr_repo_name}"
 
+            # Always create a new branch with PR contents, regardless of fork ownership
             if self.is_source_fork_owner:
-                # We own the source fork, just checkout PR branch
-                os.system(f"git checkout {pr_branch}")
+                # Even though we own the fork, create a new branch from the PR's HEAD
+                os.system(f"git fetch origin pull/{pr_number}/head")
+                os.system(f"git checkout -b {pr_branch} FETCH_HEAD")
             else:
-                # Fetch PR from source fork into named branch
-                os.system(f"git fetch source pull/{pr_number}/head:{pr_branch}")
-                os.system(f"git checkout {pr_branch}")
+                # Fetch PR from source fork into new branch
+                os.system(f"git fetch source pull/{pr_number}/head")
+                os.system(f"git checkout -b {pr_branch} FETCH_HEAD")
 
             # Push PR branch to our fork for auditing
             os.system(f"git push origin {pr_branch}")
@@ -244,22 +263,24 @@ class MergeConflictWorkflow(Workflow):
 
             # Handle conflicts through the ConflictResolutionPhase
             if "CONFLICT" in merge_output:
+                self.context["current_files"] = get_current_files()
                 resolution_phase = ConflictResolutionPhase(workflow=self)
                 resolution_result = resolution_phase.execute()
                 if not resolution_result or not resolution_result.get("success"):
                     raise Exception("Failed to resolve conflicts")
 
-            # Commit the merge
-            os.system('git commit -m "Merge PR #{pr_number}"')
-            os.system(f"git push origin {self.context['head_branch']}")
+            # Commit the merge with branch name and PR URL
+            os.system(f'git commit -m "Merged branch {pr_branch} for PR {pr_url}"')
+            if os.system(f"git push origin {self.context['head_branch']}") != 0:
+                raise Exception("Failed to push merge commit")
 
-            # Track merged PR
-            self.context["merged_prs"].append(pr_number)  # For type compatibility
+            # Only track successfully merged PRs
+            self.context["merged_prs"].append(pr_number)
             self.context["pr_details"].append(
                 {
                     "number": pr_number,
                     "title": pr_title,
-                    "url": pr_url,  # Original PR URL
+                    "url": pr_url,
                 }
             )
             return {"success": True, "message": f"Successfully merged PR #{pr_number}"}
@@ -294,12 +315,28 @@ class MergeConflictWorkflow(Workflow):
             log_key_value("PRs with valid signatures", len(valid_prs))
 
             # Process each valid PR
+            all_merged = True
             for pr in valid_prs:
                 log_section(f"Processing PR #{pr.number}")
-                self.merge_pr(pr.html_url, pr.title)
+                result = self.merge_pr(pr.html_url, pr.title)
+                if not result["success"]:
+                    all_merged = False
+                    break
 
-            # Create consolidated PR if we have any merged PRs
-            if self.context["merged_prs"]:
+            # Create consolidated PR only if all PRs were merged successfully
+            if all_merged and self.context["merged_prs"]:
+                # Run tests and fix any issues
+                self.context["current_files"] = get_current_files()
+                test_phase = TestVerificationPhase(workflow=self)
+                test_result = test_phase.execute()
+                if not test_result or not test_result.get("success"):
+                    log_error(
+                        Exception(test_result.get("error", "Test verification failed")),
+                        "Tests failed after merging PRs",
+                    )
+                    return None
+
+                # Create PR if tests pass
                 pr_phase = CreatePullRequestPhase(workflow=self)
                 try:
                     pr_result = pr_phase.execute()

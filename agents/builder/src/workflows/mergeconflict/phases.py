@@ -7,14 +7,9 @@ from src.workflows.base import WorkflowPhase, Workflow, requires_context
 @requires_context(
     templates={
         "current_files": List[str],  # List of files in the repository
-        "repo_path": str,  # Path to the repository
-        "current_pr": Dict[
-            str, str
-        ],  # Current PR info (number, url, repo_owner, repo_name)
     },
     tools={
         "repo_path": str,  # Path to the repository for git operations
-        "current_pr": Dict[str, str],  # PR info for conflict resolution
     },
 )
 class ConflictResolutionPhase(WorkflowPhase):
@@ -32,27 +27,29 @@ class ConflictResolutionPhase(WorkflowPhase):
         )
 
 
-# @requires_context(
-#     templates={
-#         "source_fork": Dict[str, str],  # Source fork info (url, owner, name, branch)
-#         "working_fork": Dict[str, str],  # Working fork info (url, owner, name)
-#         "upstream": Dict[
-#             str, str
-#         ],  # Upstream repo info (url, owner, name, default_branch)
-#         "pr_details": List[
-#             Dict[str, str]
-#         ],  # List of {number, title, url} for merged PRs
-#     },
-#     tools={
-#         "repo_owner": str,  # Owner of the source repository
-#         "repo_name": str,  # Name of the source repository
-#         "staking_key": str,  # Leader's staking key
-#         "pub_key": str,  # Leader's public key
-#         "staking_signature": str,  # Leader's staking signature
-#         "public_signature": str,  # Leader's public signature
-#         "head_branch": str,  # Head branch for the PR
-#     },
-# )
+@requires_context(
+    templates={
+        "source_fork": Dict[str, str],  # Source fork info (url, owner, name, branch)
+        "working_fork": Dict[str, str],  # Working fork info (url, owner, name)
+        "upstream": Dict[
+            str, str
+        ],  # Upstream repo info (url, owner, name, default_branch)
+        "pr_details": List[
+            Dict[str, str]
+        ],  # List of {number, title, url, source_owner, source_repo, description, files_changed} for merged PRs
+    },
+    tools={
+        "repo_owner": str,  # Owner of the source repository
+        "repo_name": str,  # Name of the source repository
+        "staking_key": str,  # Leader's staking key
+        "pub_key": str,  # Leader's public key
+        "staking_signature": str,  # Leader's staking signature
+        "public_signature": str,  # Leader's public signature
+        "head_branch": str,  # Head branch for the PR
+        "github_token": str,  # GitHub token for authentication
+        "github_username": str,  # GitHub username for PR creation
+    },
+)
 class CreatePullRequestPhase(WorkflowPhase):
     def __init__(self, workflow: Workflow, conversation_id: str = None):
         super().__init__(
@@ -65,4 +62,26 @@ class CreatePullRequestPhase(WorkflowPhase):
             ],
             conversation_id=conversation_id,
             name="Create Pull Request",
+        )
+
+
+@requires_context(
+    templates={
+        "current_files": List[str],
+    }
+)
+class TestVerificationPhase(WorkflowPhase):
+    """Run tests and fix any issues after merging PRs."""
+
+    def __init__(self, workflow=None):
+        super().__init__(
+            workflow=workflow,
+            prompt_name="verify_tests",
+            available_tools=[
+                "run_tests",
+                "read_file",
+                "write_file",
+                "list_files",
+            ],
+            name="Test Verification",
         )
