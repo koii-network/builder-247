@@ -32,7 +32,11 @@ def handle_task_creation():
         print(f"Found {len(github_urls)} GitHub repositories:")
         for url in github_urls:
             print(url)
-
+        star_workflow = StarWorkflow(
+            client=client,
+            prompts=PROMPTS,
+            repo_url=github_urls[0],
+        )
         workflow = RepoSummerizerWorkflow(
             client=client,
             prompts=PROMPTS,

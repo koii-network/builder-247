@@ -291,4 +291,17 @@ DEFINITIONS = {
         },
         "function": merge_pull_request,
     },
+    "star_repository": {
+        "name": "star_repository",
+        "description": "Star a repository using the GitHub API.",
+        "parameters": {
+            "type": "object",
+            "properties": { 
+                "owner": {"type": "string", "description": "Owner of the repository"},
+                "repo_name": {"type": "string", "description": "Name of the repository"},
+            },
+            "required": ["owner", "repo_name"],
+        },
+        "function": star_repository,
+    },
 }

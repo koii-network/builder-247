@@ -660,3 +660,31 @@ def merge_pull_request(
         }
 
 
+def star_repository(owner: str, repo_name: str) -> ToolOutput:
+    """
+    Star a repository using the GitHub API.
+
+    Args:
+        repo_full_name: Full name of repository (owner/repo)
+
+    Returns:
+        ToolOutput: Standardized tool output with success status and error message if any
+    """
+    try:
+        gh = _get_github_client()
+        repo = gh.get_repo(f"{owner}/{repo_name}")
+        repo.add_to_starred()
+
+        return {
+            "success": True,
+            "message": f"Successfully starred repository {repo_full_name}",
+            "data": {"repo_name": repo_full_name},
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to star repository: {str(e)}",
+            "data": None,
+        }
+
+
