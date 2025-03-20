@@ -665,22 +665,39 @@ def star_repository(owner: str, repo_name: str) -> ToolOutput:
     Star a repository using the GitHub API.
 
     Args:
-        repo_full_name: Full name of repository (owner/repo)
+        owner: Owner of the repository
+        repo_name: Name of the repository
 
     Returns:
         ToolOutput: Standardized tool output with success status and error message if any
     """
     try:
+        repo_full_name = f"{owner}/{repo_name}"
+        log_key_value("Starring repository", repo_full_name)
+        
         gh = _get_github_client()
-        repo = gh.get_repo(f"{owner}/{repo_name}")
-        repo.add_to_starred()
-
+        repo = gh.get_repo(repo_full_name)
+        
+        # Star the repository
+        user = gh.get_user()
+        user.add_to_starred(repo)
+        
+        log_key_value("Successfully starred", repo_full_name)
+        
         return {
             "success": True,
             "message": f"Successfully starred repository {repo_full_name}",
             "data": {"repo_name": repo_full_name},
         }
+    except GithubException as e:
+        log_error(e, "Repository star failed")
+        return {
+            "success": False,
+            "message": f"GitHub API error: {str(e)}",
+            "data": {"error": str(e)},
+        }
     except Exception as e:
+        log_error(e, "Repository star failed")
         return {
             "success": False,
             "message": f"Failed to star repository: {str(e)}",

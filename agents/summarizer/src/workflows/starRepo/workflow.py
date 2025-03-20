@@ -3,7 +3,7 @@
 import os
 from github import Github
 from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository
+from src.tools.github_operations.implementations import fork_repository, star_repository
 from src.utils.logging import log_section, log_key_value, log_error
 from src.workflows.repoSummerizer import phases
 from src.workflows.utils import (
@@ -39,7 +39,7 @@ class Task:
         )
 
 
-class RepoSummerizerWorkflow(Workflow):
+class StarRepoWorkflow(Workflow):
     def __init__(
         self,
         client,
@@ -60,6 +60,8 @@ class RepoSummerizerWorkflow(Workflow):
             repo_name=repo_name,
             
         )
+        self.context["repo_owner"] = repo_owner
+        self.context["repo_name"] = repo_name
 
 
 
@@ -114,25 +116,22 @@ class RepoSummerizerWorkflow(Workflow):
         cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
         # Clean up the MongoDB
     def run(self):
-        generate_readme_file_result = self.generate_readme_file()
+        star_repo_result = self.start_star_repo()
         
-        return generate_readme_file_result
-    def generate_readme_file(self):
+        return star_repo_result
+    def start_star_repo(self):
         """Execute the issue generation workflow."""
         try:
             self.setup()
             # ==================== Generate issues ====================
-            generate_readme_file_phase = phases.ReadmeGenerationPhase(workflow=self)
-            generate_readme_file_result = generate_readme_file_phase.execute()
-            # Check Issue Generation Result
-            if not generate_readme_file_result or not generate_readme_file_result.get("success"):
+            star_repo_result = star_repository(self.context["repo_owner"], self.context["repo_name"])  
+            if not star_repo_result or not star_repo_result.get("success"):
                 log_error(
-                    Exception(generate_readme_file_result.get("error", "No result")),
-                    "Readme file generation failed",
+                    Exception(star_repo_result.get("error", "No result")),
+                    "Repository star failed",
                 )
                 return None
-            # Star the repository
-            return generate_readme_file_result
+            return star_repo_result
         except Exception as e:
             log_error(e, "Readme file generation workflow failed")
             print(e)
