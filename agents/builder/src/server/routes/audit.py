@@ -68,7 +68,13 @@ def audit_worker_submission(round_number: str):
             Exception("Invalid PR ownership"),
             context=f"Invalid PR ownership: {pr_url}",
         )
-        return jsonify(False)
+        return jsonify(
+            {
+                "success": True,
+                "message": "PR ownership validation failed",
+                "data": {"passed": False},
+            }
+        )
 
     try:
         is_approved = review_pr(
@@ -78,10 +84,24 @@ def audit_worker_submission(round_number: str):
             staking_signature,
             public_signature,
         )
-        return jsonify(is_approved)
+        return jsonify(
+            {
+                "success": True,
+                "message": (
+                    "PR approved by agent" if is_approved else "PR rejected by agent"
+                ),
+                "data": {"passed": is_approved},
+            }
+        )
     except Exception as e:
         log_error(e, context="Error reviewing PR")
-        return jsonify(True)
+        return jsonify(
+            {
+                "success": True,
+                "message": "Error during PR review, defaulting to pass",
+                "data": {"passed": True},
+            }
+        )
 
 
 @bp.post("/leader-audit/<round_number>")

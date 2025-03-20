@@ -35,7 +35,7 @@ def create_aggregator_repo(round_number):
 
 def start_task(round_number, node_type, request):
     if node_type not in ["worker", "leader"]:
-        return jsonify({"error": "Invalid node type"}), 400
+        return jsonify({"success": False, "error": "Invalid node type"}), 400
 
     task_functions = {
         "worker": task_service.complete_todo,
@@ -57,7 +57,7 @@ def start_task(round_number, node_type, request):
         "repoName",
     ]
     if any(request_data.get(field) is None for field in required_fields):
-        return jsonify({"error": "Missing data"}), 401
+        return jsonify({"success": False, "error": "Missing data"}), 401
 
     response = task_functions[node_type](
         task_id=request_data["taskId"],
@@ -74,7 +74,7 @@ def start_task(round_number, node_type, request):
     if not response.get("success", False):
         status = response.get("status", 500)
         error = response.get("error", "Unknown error")
-        return jsonify({"error": error}), status
+        return jsonify({"success": False, "error": error}), status
 
     logger.info(response_data["message"])
 
@@ -87,8 +87,14 @@ def start_task(round_number, node_type, request):
     )
     response_data = response.get("data", {})
     if response.get("success", False):
-        return jsonify({"message": response_data["message"]})
+        return jsonify(
+            {
+                "success": True,
+                "message": response_data["message"],
+                "pr_url": response_data["pr_url"],
+            }
+        )
     else:
         status = response.get("status", 500)
         error = response.get("error", "Unknown error")
-        return jsonify({"error": error}), status
+        return jsonify({"success": False, "error": error}), status
