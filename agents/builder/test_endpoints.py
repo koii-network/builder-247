@@ -697,9 +697,16 @@ class EndpointTester:
         pr_repo_owner = parts[-4]
         pr_repo_name = parts[-3]
 
-        gh = Github(os.environ.get("GITHUB_TOKEN"))
+        gh = Github(os.getenv("GITHUB_TOKEN"))
         repo = gh.get_repo(f"{pr_repo_owner}/{pr_repo_name}")
         pr = repo.get_pull(pr_number)
+
+        # Create distribution list from worker PRs
+        worker_pr_urls = [
+            self.state.get_pr_url("worker1"),
+            self.state.get_pr_url("worker2"),
+        ]
+        distribution_list = self.create_distribution_list(worker_pr_urls, round_number)
 
         # Create submission payload like in 2-submission.ts
         submission_payload = {
@@ -715,14 +722,17 @@ class EndpointTester:
         # Create signatures for auditor
         signatures = self.create_signature(submission_payload)
 
+        # Use a dummy leader staking key different from worker1
+        leader_staking_key = "LEADER_" + signatures["staking_key"]
+
         # Add signature info to submission payload
         submission_payload.update(
             {
-                "stakingKey": signatures["staking_key"],
+                "stakingKey": leader_staking_key,  # Use dummy leader key
                 "pubKey": signatures["pub_key"],
-                "signature": signatures[
-                    "staking_signature"
-                ],  # Only need one signature for leader audit
+                "signature": signatures["staking_signature"],
+                "distributionList": distribution_list,  # Include full distribution list
+                "leaders": [leader_staking_key],  # Use dummy leader key
             }
         )
 
