@@ -24,4 +24,4 @@ class OpenRouterClient(OpenAIClient):
         return "OpenRouter"
 
     def _get_default_model(self) -> str:
-        return "open-r1/olympiccoder-32b:free"
+        return "mistralai/mistral-small-3.1-24b-instruct:free"
