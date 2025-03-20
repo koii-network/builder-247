@@ -204,7 +204,7 @@ def audit_leader_submission(
             task_id,
             round_number,
             expected_staking_key=staking_key,
-            expected_action="merge",
+            expected_action="task",
         )
         if not is_valid:
             return False
