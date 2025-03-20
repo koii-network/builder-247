@@ -71,6 +71,9 @@ class ServerInstance:
         # Get the absolute path to the agents/builder directory
         self.builder_path = "/home/laura/git/github/builder-247/agents/builder"
 
+        # Create unique database path for each server instance
+        self.db_path = os.path.join(self.builder_path, f"database_{role}.db")
+
         # Set up environment
         self.env = os.environ.copy()
         self.env.update(
@@ -79,6 +82,7 @@ class ServerInstance:
                 "GITHUB_USERNAME": github_username,
                 "PORT": str(port),
                 "PYTHONPATH": self.builder_path,
+                "DATABASE_PATH": self.db_path,  # Set unique database path
             }
         )
 
@@ -153,8 +157,10 @@ class EndpointTester:
         # Check required environment variables
         required_env_vars = [
             "TASK_ID",  # Add TASK_ID to required env vars
-            "STAKING_KEYPAIR",
-            "PUBLIC_KEYPAIR",
+            "STAKING1_KEYPAIR",  # Keypair for leader and worker1
+            "PUBLIC1_KEYPAIR",
+            "STAKING2_KEYPAIR",  # Keypair for worker2
+            "PUBLIC2_KEYPAIR",
             "LEADER_GITHUB_TOKEN",
             "LEADER_GITHUB_USERNAME",
             "WORKER1_GITHUB_TOKEN",
@@ -173,10 +179,23 @@ class EndpointTester:
         self.source_owner = "koii-network"
         self.source_repo = "builder-test"
         self.current_github_username = None  # Track current GitHub username
+        self.current_role = None  # Track current role
 
-        # Use single keypair for all agents
-        self.staking_keypair_path = os.getenv("STAKING_KEYPAIR")
-        self.public_keypair_path = os.getenv("PUBLIC_KEYPAIR")
+        # Store keypair paths for each role
+        self.keypairs = {
+            "leader": {
+                "staking": os.getenv("STAKING1_KEYPAIR"),
+                "public": os.getenv("PUBLIC1_KEYPAIR"),
+            },
+            "worker1": {
+                "staking": os.getenv("STAKING1_KEYPAIR"),
+                "public": os.getenv("PUBLIC1_KEYPAIR"),
+            },
+            "worker2": {
+                "staking": os.getenv("STAKING2_KEYPAIR"),
+                "public": os.getenv("PUBLIC2_KEYPAIR"),
+            },
+        }
 
         # Initialize server instances
         self.leader_server = ServerInstance(
@@ -249,13 +268,18 @@ class EndpointTester:
             self.current_github_username = os.getenv("WORKER2_GITHUB_USERNAME")
         else:
             raise ValueError(f"Unknown role: {role}")
+        self.current_role = role
 
     def create_signature(self, payload):
         """Create test signatures for a payload using test keypairs."""
         try:
-            # Read keypair files
-            staking_keypair_path = os.getenv("STAKING_KEYPAIR")
-            public_keypair_path = os.getenv("PUBLIC_KEYPAIR")
+            # Get keypair paths for current role
+            if not self.current_role:
+                raise ValueError("No role selected - call switch_role first")
+
+            keypair = self.keypairs[self.current_role]
+            staking_keypair_path = keypair["staking"]
+            public_keypair_path = keypair["public"]
 
             if not staking_keypair_path or not public_keypair_path:
                 return {
@@ -272,36 +296,16 @@ class EndpointTester:
             print("\nDebug - Input Payload:")
             print(json.dumps(payload, indent=2))
 
-            # Create base payload with required fields in a specific order
-            base_payload = {
-                "action": payload.get(
-                    "action", "task"
-                ),  # Default to "task" if not specified
-                "githubUsername": self.current_github_username,
-                "pubKey": pub_key,
-                "roundNumber": payload["roundNumber"],
-                "stakingKey": staking_key,
-                "taskId": payload["taskId"],
-            }
-
-            # Add any additional fields from the original payload
-            # Skip fields we've already handled
-            skip_fields = {
-                "action",
-                "githubUsername",
-                "pubKey",
-                "roundNumber",
-                "stakingKey",
-                "taskId",
-            }
-            for key, value in sorted(
-                payload.items()
-            ):  # Sort to ensure consistent order
-                if key not in skip_fields:
-                    base_payload[key] = value
+            # Only add required fields if not already present
+            if "pubKey" not in payload:
+                payload["pubKey"] = pub_key
+            if "stakingKey" not in payload:
+                payload["stakingKey"] = staking_key
+            if "githubUsername" not in payload:
+                payload["githubUsername"] = self.current_github_username
 
             # Convert payload to string with sorted keys
-            payload_str = json.dumps(base_payload, sort_keys=True).encode()
+            payload_str = json.dumps(payload, sort_keys=True).encode()
 
             print("\nDebug - Final Payload to Sign:")
             print(json.dumps(json.loads(payload_str), indent=2))
@@ -456,15 +460,6 @@ class EndpointTester:
         """Run worker audit endpoint"""
         self.switch_role(auditor)
 
-        # Create signatures for auditor
-        signatures = self.create_signature(
-            {
-                "taskId": self.task_id,
-                "roundNumber": round_number,
-                "action": "audit",
-            }
-        )
-
         # Get PR info using GitHub API
         parts = pr_url.strip("/").split("/")
         pr_number = int(parts[-1])
@@ -489,17 +484,28 @@ class EndpointTester:
             raise ValueError(f"No public key found in PR {pr_url}")
         submitter_pub_key = pub_section.split(":")[0].strip()
 
+        # Create auditor's signature
+        signatures = self.create_signature(
+            {
+                "taskId": self.task_id,
+                "roundNumber": round_number,
+                "action": "audit",
+                "githubUsername": pr.user.login,
+                "prUrl": pr_url,
+            }
+        )
+
         # Create full payload matching task implementation
         payload = {
             "submission": {
                 "taskId": self.task_id,
                 "roundNumber": round_number,
                 "prUrl": pr_url,
-                "repoOwner": pr_repo_owner,
-                "repoName": pr_repo_name,
                 "githubUsername": pr.user.login,
                 "stakingKey": submitter_key,
                 "pubKey": submitter_pub_key,
+                "repoOwner": pr_repo_owner,  # Add repo info
+                "repoName": pr_repo_name,
             },
             "submitterSignature": submitter_signature,
             "submitterStakingKey": submitter_key,
@@ -519,11 +525,39 @@ class EndpointTester:
         )
         log_response(response)
 
-        result = response.json()
+        # Handle API errors first
+        if response.status_code >= 400:
+            raise Exception(
+                f"Worker audit API call failed with status {response.status_code}: {response.text}"
+            )
+
+        # Handle both boolean and JSON responses
+        try:
+            result = response.json()
+            # If result is boolean, convert to standard format
+            if isinstance(result, bool):
+                result = {
+                    "success": True,  # API call succeeded
+                    "data": {"passed": result},  # Audit result
+                }
+        except json.JSONDecodeError:
+            # If response is not JSON, assume it's a boolean string
+            passed = response.text.strip().lower() == "true"
+            result = {
+                "success": True,  # API call succeeded
+                "data": {"passed": passed},  # Audit result
+            }
+
+        # Check if API call was successful
         if not result.get("success"):
             raise Exception(
-                f"Worker audit failed: {result.get('message', 'Unknown error')}"
+                f"Worker audit API call failed: {result.get('message', 'Unknown error')}"
             )
+
+        # Check if audit passed
+        if not result.get("data", {}).get("passed"):
+            print(f"⚠️  Worker {auditor} rejected PR {pr_url}")
+            raise Exception("Audit validation failed - PR was rejected")
 
         return result
 
@@ -580,15 +614,6 @@ class EndpointTester:
         """Run leader audit endpoint"""
         self.switch_role("leader")
 
-        # Create signatures for auditor
-        signatures = self.create_signature(
-            {
-                "taskId": self.task_id,
-                "roundNumber": round_number,
-                "action": "audit",
-            }
-        )
-
         # Get PR info using GitHub API
         parts = pr_url.strip("/").split("/")
         pr_number = int(parts[-1])
@@ -599,42 +624,26 @@ class EndpointTester:
         repo = gh.get_repo(f"{pr_repo_owner}/{pr_repo_name}")
         pr = repo.get_pull(pr_number)
 
-        # Extract leader's staking key and signature from PR
-        staking_section = extract_section(pr.body, "STAKING_KEY")
-        if not staking_section:
-            raise ValueError(f"No staking key found in PR {pr_url}")
-        leader_key, leader_signature = staking_section.split(":")
-        leader_key = leader_key.strip()
-        leader_signature = leader_signature.strip()
-
-        # Extract leader's public key from PR
-        pub_section = extract_section(pr.body, "PUB_KEY")
-        if not pub_section:
-            raise ValueError(f"No public key found in PR {pr_url}")
-        leader_pub_key = pub_section.split(":")[0].strip()
-
-        # Get distribution list from PR description
-        distribution_list = {}  # This would be populated from PR description
-        leaders = [leader_key]  # Add the leader's key
+        # Create signatures for auditor with submission data
+        signatures = self.create_signature(
+            {
+                "taskId": self.task_id,
+                "roundNumber": round_number,
+                "action": "audit",
+                "githubUsername": pr.user.login,  # Include these fields from the submission
+                "prUrl": pr_url,
+            }
+        )
 
         # Create full payload matching task implementation
         payload = {
-            "submission": {
-                "roundNumber": round_number,
-                "taskId": self.task_id,
-                "prUrl": pr_url,
-                "repoOwner": pr_repo_owner,
-                "repoName": pr_repo_name,
-                "stakingKey": leader_key,
-                "pubKey": leader_pub_key,
-                "signature": leader_signature,
-                "distributionList": distribution_list,
-                "leaders": leaders,
-            },
+            "taskId": self.task_id,
+            "roundNumber": round_number,
             "stakingKey": signatures["staking_key"],
             "pubKey": signatures["pub_key"],
-            "stakingSignature": signatures["staking_signature"],
-            "publicSignature": signatures["public_signature"],
+            "signature": signatures["staking_signature"],  # Only send one signature
+            "githubUsername": pr.user.login,
+            "prUrl": pr_url,
         }
 
         log_request(
