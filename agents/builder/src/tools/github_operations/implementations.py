@@ -121,6 +121,7 @@ def create_worker_pull_request(
     github_token: str,
     github_username: str,
     head_branch: str,
+    **kwargs,
 ) -> ToolOutput:
     """Create a pull request with worker information."""
     try:
