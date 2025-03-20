@@ -147,6 +147,7 @@ def handle_leader_audit(round_number: int):
     signature = submission.get("signature")
     distribution_list = submission.get("distributionList", {})
     leaders = submission.get("leaders", [])
+    github_username = submission.get("githubUsername")
 
     # Validate required fields
     if int(round_number) != submission_round_number:
@@ -162,6 +163,7 @@ def handle_leader_audit(round_number: int):
         or not signature
         or not distribution_list
         or not leaders
+        or not github_username
     ):
         return jsonify({"error": "Missing submission data"}), 400
 
@@ -181,8 +183,15 @@ def handle_leader_audit(round_number: int):
             pub_key=pub_key,
             signature=signature,
             distribution_list=distribution_list,
+            leader_username=github_username,
         )
-        return jsonify(is_valid)
+        return jsonify(
+            {
+                "success": True,
+                "message": "PR audit completed",
+                "data": {"passed": is_valid},
+            }
+        )
     except Exception as e:
         log_error(e, context="Error auditing leader submission")
         return jsonify({"error": str(e)}), 500
