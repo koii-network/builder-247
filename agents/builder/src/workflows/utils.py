@@ -311,60 +311,59 @@ def verify_pr_signatures(
     pr_body: str,
     task_id: str,
     round_number: int,
-    expected_staking_key: str,
+    expected_staking_key: str = None,
+    expected_action: str = None,
 ) -> bool:
     """Verify signatures in a PR description.
 
     Args:
-        pr_body: PR description to verify
-        task_id: Task ID for signature validation
-        round_number: Round number for signature validation
-        expected_staking_key: The staking key that should be in the PR
+        pr_body: PR description text
+        task_id: Expected task ID
+        round_number: Expected round number
+        expected_staking_key: Optional expected staking key
+        expected_action: Optional expected action type (e.g. "task", "merge", "audit")
 
     Returns:
-        bool: True if signatures are valid and match expected staking key
+        bool: True if signatures are valid
     """
     # Extract signatures using parser
     staking_signature_section = extract_section(pr_body, "STAKING_KEY")
+
     if not staking_signature_section:
-        log_error(
-            Exception("No staking signature section found"),
-            context=f"No staking signature section found in PR body: {pr_body}",
-        )
+        print("Missing staking key signature")
         return False
 
-    # Parse the signature sections
+    # Parse the signature sections to get the specific staking key's signatures
     staking_parts = staking_signature_section.strip().split(":")
+
     if len(staking_parts) != 2:
-        log_error(
-            Exception("Invalid staking signature section"),
-            context=f"Invalid staking signature section in PR body: {staking_signature_section}",
-        )
+        print("Invalid staking signature format")
         return False
 
-    # Verify staking key matches expected
-    pr_staking_key = staking_parts[0].strip()
-    if pr_staking_key != expected_staking_key:
-        log_error(
-            Exception("Staking key mismatch"),
-            context=f"Staking key mismatch: {pr_staking_key} != {expected_staking_key}",
-        )
-        return False
-
+    staking_key = staking_parts[0].strip()
     staking_signature = staking_parts[1].strip()
+
+    # If expected staking key provided, verify it matches
+    if expected_staking_key and staking_key != expected_staking_key:
+        print(f"Staking key mismatch: {staking_key} != {expected_staking_key}")
+        return False
 
     # Verify signature and validate payload
     expected_values = {
         "taskId": task_id,
         "roundNumber": round_number,
-        "stakingKey": expected_staking_key,
+        "stakingKey": staking_key,
     }
+    if expected_action:
+        expected_values["action"] = expected_action
 
-    result = verify_and_parse_signature(
-        staking_signature, expected_staking_key, expected_values
-    )
+    result = verify_and_parse_signature(staking_signature, staking_key, expected_values)
 
-    return not bool(result.get("error"))
+    if result.get("error"):
+        print(f"Invalid signature: {result['error']}")
+        return False
+
+    return True
 
 
 def create_remote_branch(
