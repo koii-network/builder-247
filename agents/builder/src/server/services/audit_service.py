@@ -204,6 +204,7 @@ def audit_leader_submission(
             task_id,
             round_number,
             expected_staking_key=staking_key,
+            expected_action="merge",
         )
         if not is_valid:
             return False
@@ -262,16 +263,19 @@ def audit_leader_submission(
 
         # 7. Verify each merge commit corresponds to a PR from an eligible node
         for commit in commits:
-            # Extract PR number from merge commit message
-            pr_match = re.search(r"Merge PR #(\d+)", commit.message)
-            if not pr_match:
-                log_error(
-                    Exception("Invalid merge commit"),
-                    context=f"Could not find PR number in commit message: {commit.message}",
-                )
-                return False
+            # Extract branch name and PR URL from merge commit message
+            commit_match = re.search(
+                r"Merged branch (pr-\d+-[^-]+-[^-]+) for PR (https://github\.com/[^/]+/[^/]+/pull/\d+)",
+                commit.message,
+            )
+            if not commit_match:
+                continue
 
-            pr_number = pr_match.group(1)
+            copied_branch = commit_match.group(1)
+            pr_url = commit_match.group(2)
+
+            # Extract PR number from URL
+            pr_number = int(pr_url.strip("/").split("/")[-1])
             source_pr = repo.get_pull(int(pr_number))
 
             # Extract staking key from PR body and verify signature
@@ -281,6 +285,7 @@ def audit_leader_submission(
                     task_id,
                     round_number - 3,
                     expected_staking_key=submitter_staking_key,
+                    expected_action="task",
                 )
                 if is_valid:
                     # Check for duplicate staking keys
@@ -301,9 +306,15 @@ def audit_leader_submission(
                 )
                 return False
 
-            # Compare files between PR and merge branch
-            pr_files = set(source_pr.get_files())
-            merge_files = set(repo.git.ls_files().splitlines())
+            # Compare files between original PR and our copied branch before merge
+            original_files = set(source_pr.get_files())
+
+            # Get files from our copied branch (state before merge)
+            repo.git.checkout(copied_branch)
+            copied_files = set(repo.git.ls_files().splitlines())
+
+            # Return to merged branch for next iteration
+            repo.git.checkout(merged_branch)
 
             # Get .gitignore patterns
             gitignore_path = os.path.join(clone_path, ".gitignore")
@@ -318,13 +329,13 @@ def audit_leader_submission(
 
             # Filter out ignored files
             for pattern in ignored_patterns:
-                pr_files = {f for f in pr_files if not re.match(pattern, f)}
-                merge_files = {f for f in merge_files if not re.match(pattern, f)}
+                original_files = {f for f in original_files if not re.match(pattern, f)}
+                copied_files = {f for f in copied_files if not re.match(pattern, f)}
 
-            if pr_files != merge_files:
+            if original_files != copied_files:
                 log_error(
                     Exception("File mismatch"),
-                    context=f"Files in PR #{pr_number} don't match merge branch",
+                    context=f"Files in copied branch {copied_branch} don't match original PR #{pr_number}",
                 )
                 return False
 
