@@ -3,7 +3,7 @@
 import os
 from github import Github
 from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository
+from src.tools.github_operations.implementations import fork_repository, star_repository
 from src.utils.logging import log_section, log_key_value, log_error
 from src.workflows.repoSummerizer import phases
 from src.workflows.utils import (
@@ -51,7 +51,7 @@ class RepoSummerizerWorkflow(Workflow):
         parts = repo_url.strip("/").split("/")
         repo_owner = parts[-2]
         repo_name = parts[-1]
-
+        
         super().__init__(
             client=client,
             prompts=prompts,
@@ -131,18 +131,8 @@ class RepoSummerizerWorkflow(Workflow):
                     "Readme file generation failed",
                 )
                 return None
-            # pr_phase = phases.PullRequestPhase(
-            #     workflow=self, conversation_id=generate_readme_file_phase.conversation_id
-            # )
-            # pr_result = pr_phase.execute()
-
-            # if pr_result.get("success"):
-            #     pr_url = pr_result.get("data", {}).get("pr_url")
-            #     log_key_value("PR created successfully", pr_url)
-            #     return pr_url
-            # else:
-            #     log_error(Exception(pr_result.get("error")), "PR creation failed")
-            #     return None
+            # Star the repository
+            star_repository(self.context["repo_owner"], self.context["repo_name"])  
             return generate_readme_file_result
         except Exception as e:
             log_error(e, "Readme file generation workflow failed")

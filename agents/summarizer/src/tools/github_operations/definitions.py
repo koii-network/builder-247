@@ -5,6 +5,7 @@ from src.tools.github_operations.implementations import (
     validate_implementation,
     generate_analysis,
     merge_pull_request,
+    star_repository,
 )
 
 DEFINITIONS = {
