@@ -39,9 +39,13 @@ async function verifySignatureData(
     console.log({
       taskIDFromEnv: taskID,
       taskIdFromPayload: body.taskId,
-      roundNumberType: typeof body.roundNumber,
       roundNumberValue: body.roundNumber,
-      action: body.action,
+      githubUsername: body.githubUsername,
+      pubKey: body.pubKey,
+      stakingKey: body.stakingKey,
+      taskIDMatch: body.taskId === taskID,
+      roundNumberTypeMatch: typeof body.roundNumber === "number",
+      actionMatch: body.action === "task",
       pubKeyMatch: body.pubKey === pubKey,
       stakingKeyMatch: body.stakingKey === stakingKey,
     });
