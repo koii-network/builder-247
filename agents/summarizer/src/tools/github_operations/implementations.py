@@ -705,3 +705,42 @@ def star_repository(owner: str, repo_name: str) -> ToolOutput:
         }
 
 
+def get_user_starred_repos(username: str = None) -> ToolOutput:
+    """
+    Get list of repositories starred by a user.
+    If username is None, gets starred repos for authenticated user.
+
+    Args:
+        username: GitHub username (optional)
+
+    Returns:
+        ToolOutput: Standardized tool output with list of starred repos
+    """
+    try:
+        gh = _get_github_client()
+        
+        # Get user object
+        user = gh.get_user(username) if username else gh.get_user()
+        
+        # Get starred repos
+        starred_repos = list(user.get_starred())
+        
+        return {
+            "success": True,
+            "message": f"Found {len(starred_repos)} starred repositories",
+            "data": {
+                "starred_repos": [
+                    {
+                        "full_name": repo.full_name,
+                        "url": repo.html_url,
+                        "description": repo.description
+                    } for repo in starred_repos
+                ]
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to get starred repositories: {str(e)}",
+            "data": None
+        } 

@@ -7,13 +7,14 @@ from src.database import get_db, Submission
 from src.clients import setup_client
 from src.workflows.repoSummerizer.workflow import RepoSummerizerWorkflow
 from src.utils.logging import logger, log_error
+from src.workflows.starRepo.workflow import StarRepoWorkflow
 from dotenv import load_dotenv
 from src.workflows.repoSummerizer.prompts import PROMPTS
 import re
 load_dotenv()
 
 
-def handle_task_creation():
+def handle_task_creation(task_id, round_number, signature, staking_key, pub_key):
     """Handle task creation request."""
     try:    
 
@@ -32,7 +33,18 @@ def handle_task_creation():
         print(f"Found {len(github_urls)} GitHub repositories:")
         for url in github_urls:
             print(url)
-
+        for url in github_urls:
+            star_workflow = StarRepoWorkflow(
+                client=client,
+                prompts=PROMPTS,
+                repo_url=url,
+            )
+            star_result = star_workflow.run()
+            if not star_result or not star_result.get("success"):
+                log_error(
+                    Exception(star_result.get("error", "No result")),
+                    "Repository star failed",
+                )
         workflow = RepoSummerizerWorkflow(
             client=client,
             prompts=PROMPTS,
