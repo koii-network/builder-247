@@ -28,6 +28,7 @@ metadata.json
 .vscode
 data/chunks
 data/process
+test_state.csv
 todos-example.csv
 
 
