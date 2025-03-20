@@ -47,6 +47,9 @@ class MergeConflictWorkflow(Workflow):
             prompts=prompts,
         )
 
+        # Initialize conversation ID
+        self.conversation_id = None
+
         check_required_env_vars([github_token, github_username])
         self.context["github_token"] = os.getenv(github_token)
         consolidation_username = os.getenv(github_username)
@@ -111,45 +114,46 @@ class MergeConflictWorkflow(Workflow):
         if not self.task_id or not self.round_number:
             return True
 
-        # The distribution list is already filtered to only include eligible nodes
-        # Just verify signature for each node in the list
-        for submitter_staking_key in self.staking_keys:
-            # Extract signatures using parser
-            staking_signature_section = extract_section(pr.body, "STAKING_KEY")
+        # Extract signatures using parser
+        staking_signature_section = extract_section(pr.body, "STAKING_KEY")
 
-            if not staking_signature_section:
-                print(f"Missing staking key signature in PR #{pr.number}")
-                return False
+        if not staking_signature_section:
+            print(f"Missing staking key signature in PR #{pr.number}")
+            return False
 
-            # Parse the signature sections to get the specific staking key's signatures
-            staking_parts = staking_signature_section.strip().split(":")
+        # Parse the signature sections to get the staking key
+        staking_parts = staking_signature_section.strip().split(":")
 
-            if (
-                len(staking_parts) != 2
-                or staking_parts[0].strip() != submitter_staking_key
-            ):
-                print(
-                    f"Invalid or missing staking signature for staking key {submitter_staking_key} in PR #{pr.number}"
-                )
-                return False
+        if len(staking_parts) != 2:
+            print(f"Invalid signature format in PR #{pr.number}")
+            return False
 
-            staking_signature = staking_parts[1].strip()
+        submitter_staking_key = staking_parts[0].strip()
+        staking_signature = staking_parts[1].strip()
 
-            # Verify signature and validate payload
-            expected_values = {
-                "taskId": self.task_id,
-                "roundNumber": self.round_number,
-                "stakingKey": submitter_staking_key,
-            }
-
-            result = verify_and_parse_signature(
-                staking_signature, submitter_staking_key, expected_values
+        # Verify this staking key is in our distribution list
+        if submitter_staking_key not in self.staking_keys:
+            print(
+                f"PR #{pr.number} has staking key {submitter_staking_key} not in distribution list"
             )
+            return False
 
-            if result.get("error"):
-                print(f"Invalid signature in PR #{pr.number}: {result['error']}")
-                return False
+        # Verify signature and validate payload
+        expected_values = {
+            "taskId": self.task_id,
+            "roundNumber": self.round_number,
+            "stakingKey": submitter_staking_key,
+        }
 
+        result = verify_and_parse_signature(
+            staking_signature, submitter_staking_key, expected_values
+        )
+
+        if result.get("error"):
+            print(f"Invalid signature in PR #{pr.number}: {result['error']}")
+            return False
+
+        print(f"✓ Valid signature found for {submitter_staking_key}")
         return True
 
     def setup(self):
@@ -223,15 +227,7 @@ class MergeConflictWorkflow(Workflow):
             return False
 
     def merge_pr(self, pr_url, pr_title):
-        """Merge a single PR into the head branch.
-
-        Args:
-            pr_url: URL of the original PR in the source fork
-            pr_title: Title of the PR to merge
-
-        Returns:
-            dict: {"success": bool, "message": str}
-        """
+        """Merge a single PR into the head branch."""
         # Extract PR info from URL
         parts = pr_url.strip("/").split("/")
         pr_number = int(parts[-1])
@@ -241,28 +237,60 @@ class MergeConflictWorkflow(Workflow):
         try:
             # Create unique branch name for PR content
             pr_branch = f"pr-{pr_number}-{pr_repo_owner}-{pr_repo_name}"
+            print(
+                f"Attempting to merge PR #{pr_number} from {pr_repo_owner}/{pr_repo_name}"
+            )
+            print(f"Creating branch: {pr_branch}")
+            print(f"Current directory: {os.getcwd()}")
+            print("Git remotes:")
+            remotes_output = os.popen("git remote -v 2>&1").read()
+            print(remotes_output)
 
             # Always create a new branch with PR contents, regardless of fork ownership
             if self.is_source_fork_owner:
                 # Even though we own the fork, create a new branch from the PR's HEAD
-                os.system(f"git fetch origin pull/{pr_number}/head")
-                os.system(f"git checkout -b {pr_branch} FETCH_HEAD")
+                print("Fetching PR from origin (we own the fork)")
+                fetch_output = os.popen(
+                    f"git fetch origin pull/{pr_number}/head 2>&1"
+                ).read()
+                print(f"Fetch output: {fetch_output}")
+                checkout_output = os.popen(
+                    f"git checkout -b {pr_branch} FETCH_HEAD 2>&1"
+                ).read()
+                print(f"Checkout output: {checkout_output}")
             else:
                 # Fetch PR from source fork into new branch
-                os.system(f"git fetch source pull/{pr_number}/head")
-                os.system(f"git checkout -b {pr_branch} FETCH_HEAD")
+                print("Fetching PR from source remote")
+                fetch_output = os.popen(
+                    f"git fetch source pull/{pr_number}/head 2>&1"
+                ).read()
+                print(f"Fetch output: {fetch_output}")
+                checkout_output = os.popen(
+                    f"git checkout -b {pr_branch} FETCH_HEAD 2>&1"
+                ).read()
+                print(f"Checkout output: {checkout_output}")
 
             # Push PR branch to our fork for auditing
-            os.system(f"git push origin {pr_branch}")
+            print(f"Pushing branch {pr_branch} to origin")
+            push_output = os.popen(f"git push origin {pr_branch} 2>&1").read()
+            print(f"Push output: {push_output}")
 
             # Try to merge into head branch
-            os.system(f"git checkout {self.context['head_branch']}")
+            print(f"Checking out head branch: {self.context['head_branch']}")
+            checkout_output = os.popen(
+                f"git checkout {self.context['head_branch']} 2>&1"
+            ).read()
+            print(f"Checkout output: {checkout_output}")
+
+            print(f"Attempting to merge {pr_branch}")
             merge_output = os.popen(
                 f"git merge --no-commit --no-ff {pr_branch} 2>&1"
             ).read()
+            print(f"Merge output: {merge_output}")
 
             # Handle conflicts through the ConflictResolutionPhase
             if "CONFLICT" in merge_output:
+                print("Merge conflicts detected, attempting resolution")
                 self.context["current_files"] = get_current_files()
                 resolution_phase = ConflictResolutionPhase(
                     workflow=self,
@@ -277,11 +305,20 @@ class MergeConflictWorkflow(Workflow):
 
                 if not resolution_result or not resolution_result.get("success"):
                     raise Exception("Failed to resolve conflicts")
+                print("Successfully resolved conflicts")
 
             # Commit the merge with branch name and PR URL
-            os.system(f'git commit -m "Merged branch {pr_branch} for PR {pr_url}"')
-            if os.system(f"git push origin {self.context['head_branch']}") != 0:
-                raise Exception("Failed to push merge commit")
+            print("Committing merge")
+            commit_output = os.popen(
+                f'git commit -m "Merged branch {pr_branch} for PR {pr_url}" 2>&1'
+            ).read()
+            print(f"Commit output: {commit_output}")
+
+            print(f"Pushing merged changes to {self.context['head_branch']}")
+            push_output = os.popen(
+                f"git push origin {self.context['head_branch']} 2>&1"
+            ).read()
+            print(f"Push output: {push_output}")
 
             # Only track successfully merged PRs
             self.context["merged_prs"].append(pr_number)
@@ -293,17 +330,29 @@ class MergeConflictWorkflow(Workflow):
                     "source_owner": pr_repo_owner,
                 }
             )
+            print(f"Successfully merged PR #{pr_number}")
             return {"success": True, "message": f"Successfully merged PR #{pr_number}"}
 
         except Exception as e:
             log_error(e, f"Failed to merge PR #{pr_number}")
+            print(f"Current directory: {os.getcwd()}")
+            print("Git status:")
+            status_output = os.popen("git status 2>&1").read()
+            print(status_output)
+            print("Git branch:")
+            branch_output = os.popen("git branch 2>&1").read()
+            print(branch_output)
+            print("Git log:")
+            log_output = os.popen("git log --oneline -n 5 2>&1").read()
+            print(log_output)
             return {"success": False, "message": str(e)}
 
     def run(self):
         """Execute the merge conflict workflow."""
         try:
             if not self.setup():
-                return {"success": False, "message": "Setup failed"}
+                log_error(Exception("Setup failed"), "Repository setup failed")
+                return None
 
             # Get list of PRs to process
             gh = Github(self.context["github_token"])
@@ -319,69 +368,114 @@ class MergeConflictWorkflow(Workflow):
             # Sort PRs by creation date (oldest first)
             open_prs.sort(key=lambda pr: pr.created_at)
             log_key_value("PRs to process", len(open_prs))
+            for pr in open_prs:
+                print(f"Found PR #{pr.number}: {pr.title} from {pr.user.login}")
+
+            if not open_prs:
+                log_error(Exception("No open PRs found"), "No PRs to process")
+                return None
 
             # Filter PRs based on signature validation
-            valid_prs = [pr for pr in open_prs if self.validate_pr_signatures(pr)]
+            valid_prs = []
+            for pr in open_prs:
+                print(f"\nValidating signatures for PR #{pr.number}")
+                if self.validate_pr_signatures(pr):
+                    valid_prs.append(pr)
+                    print(f"PR #{pr.number} has valid signatures")
+                else:
+                    print(f"PR #{pr.number} failed signature validation")
+
             log_key_value("PRs with valid signatures", len(valid_prs))
+
+            if not valid_prs:
+                log_error(
+                    Exception("No valid PRs found"),
+                    "No PRs passed signature validation",
+                )
+                return None
 
             # Process each valid PR
             all_merged = True
+            merged_count = 0
 
             for pr in valid_prs:
                 log_section(f"Processing PR #{pr.number}")
                 result = self.merge_pr(pr_url=pr.html_url, pr_title=pr.title)
                 if not result["success"]:
                     all_merged = False
-                    break
-
-            # Create consolidated PR only if all PRs were merged successfully
-            if all_merged and self.context["merged_prs"]:
-                # Run tests and fix any issues
-                self.context["current_files"] = get_current_files()
-                test_phase = TestVerificationPhase(
-                    workflow=self, conversation_id=self.conversation_id
-                )
-                test_result = test_phase.execute()
-                if not test_result or not test_result.get("success"):
                     log_error(
-                        Exception(test_result.get("error", "Test verification failed")),
-                        "Tests failed after merging PRs",
+                        Exception(result.get("message", "Unknown error")),
+                        f"Failed to merge PR #{pr.number}",
+                    )
+                    break
+                merged_count += 1
+
+            if not all_merged:
+                log_error(
+                    Exception("Not all PRs were merged successfully"),
+                    f"Merged {merged_count}/{len(valid_prs)} PRs before failure",
+                )
+                return None
+
+            if not self.context["merged_prs"]:
+                log_error(
+                    Exception("No PRs were merged"), "No PRs were successfully merged"
+                )
+                return None
+
+            # Run tests and fix any issues
+            print("\nRunning test verification phase")
+            self.context["current_files"] = get_current_files()
+            test_phase = TestVerificationPhase(
+                workflow=self, conversation_id=self.conversation_id
+            )
+            test_result = test_phase.execute()
+            if not test_result or not test_result.get("success"):
+                log_error(
+                    Exception(test_result.get("error", "Test verification failed")),
+                    "Tests failed after merging PRs",
+                )
+                return None
+
+            # Store the conversation ID from test phase
+            self.conversation_id = test_phase.conversation_id
+
+            # Create PR if tests pass
+            print("\nCreating consolidated PR")
+            pr_phase = CreatePullRequestPhase(
+                workflow=self, conversation_id=self.conversation_id
+            )
+            try:
+                pr_result = pr_phase.execute()
+                if not pr_result:
+                    log_error(
+                        Exception("PR creation phase returned None"),
+                        "PR creation failed - no result returned",
                     )
                     return None
 
-                # Get the conversation ID from test phase if it was created there
-                self.conversation_id = test_phase.conversation_id
-
-                # Create PR if tests pass
-                pr_phase = CreatePullRequestPhase(
-                    workflow=self, conversation_id=self.conversation_id
-                )
-                try:
-                    pr_result = pr_phase.execute()
-                    if not pr_result:
+                if pr_result.get("success"):
+                    pr_url = pr_result.get("data", {}).get("pr_url")
+                    if not pr_url:
                         log_error(
-                            Exception("PR creation phase returned None"),
-                            "PR creation failed",
+                            Exception("No PR URL in successful result"),
+                            "PR creation succeeded but no URL returned",
                         )
                         return None
-
-                    if pr_result.get("success"):
-                        pr_url = pr_result.get("data", {}).get("pr_url")
-                        log_key_value("PR created successfully", pr_url)
-                        return pr_url
-                    else:
-                        log_error(
-                            Exception(pr_result.get("error")), "PR creation failed"
-                        )
-                        return None
-                except Exception as e:
-                    log_error(e, "PR creation phase failed")
+                    log_key_value("PR created successfully", pr_url)
+                    return pr_url
+                else:
+                    error = pr_result.get("error", "Unknown error")
+                    log_error(Exception(error), "PR creation failed with error")
                     return None
+            except Exception as e:
+                log_error(e, "PR creation phase failed with exception")
+                return None
 
             return None
 
         except Exception as e:
-            log_error(e, "Error in task workflow")
+            log_error(e, "Error in merge conflict workflow")
             raise
 
         finally:
