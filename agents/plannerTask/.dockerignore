@@ -1,0 +1,16 @@
+**/.env
+**/.env.*
+
+**/node_modules
+**/dist
+**/build
+**/*.log
+**/Dockerfile
+**/docker-compose.yml
+**/venv
+**/.venv
+**/*__pycache__
+**/.pytest_cache
+**/*.db
+**/*.egg-info
+**/*/repos/
