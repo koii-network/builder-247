@@ -12,6 +12,7 @@ from typing import Dict, Set
 from git import Repo
 from src.workflows.utils import verify_pr_signatures
 from src.utils.distribution import validate_distribution_list
+import json
 
 
 def verify_pr_ownership(
@@ -142,6 +143,12 @@ def audit_leader_submission(
 ) -> bool:
     """Audit a leader's consolidated PR submission."""
     try:
+        print("\nStarting leader audit...")
+        print(f"PR URL: {pr_url}")
+        print(f"Leader username: {leader_username}")
+        print(f"Leader staking key: {staking_key}")
+        print(f"Distribution list: {json.dumps(distribution_list, indent=2)}")
+
         gh = Github(os.environ["GITHUB_TOKEN"])
 
         # Parse PR URL and get PR object
@@ -151,10 +158,13 @@ def audit_leader_submission(
             return False
 
         pr_owner, pr_repo, pr_number = match.groups()
+        print(f"\nPR details - owner: {pr_owner}, repo: {pr_repo}, number: {pr_number}")
 
         # Get source repo and PR
         source_repo = gh.get_repo(f"{repo_owner}/{repo_name}")
         pr = source_repo.get_pull(int(pr_number))
+        print(f"PR base repo: {pr.base.repo.full_name}")
+        print(f"PR head repo: {pr.head.repo.full_name}")
 
         # 1. Verify PR is targeting the source repo's default branch
         if pr.base.repo.owner.login != repo_owner or pr.base.repo.name != repo_name:
@@ -173,6 +183,9 @@ def audit_leader_submission(
             return False
 
         # 2. Verify PR is coming from the leader's fork
+        print(
+            f"\nVerifying PR owner - expected: {leader_username}, actual: {pr.head.repo.owner.login}"
+        )
         if pr.head.repo.owner.login != leader_username:
             log_error(
                 Exception("PR owner mismatch"),
@@ -181,6 +194,7 @@ def audit_leader_submission(
             return False
 
         # 2. Verify leader's staking key and signature in PR description
+        print("\nVerifying leader's signature...")
         is_valid = verify_pr_signatures(
             pr.body,
             task_id,
@@ -189,9 +203,14 @@ def audit_leader_submission(
             expected_action="task",
         )
         if not is_valid:
+            log_error(
+                Exception("Invalid leader signature"),
+                context=f"Failed to verify leader's signature for staking key {staking_key}",
+            )
             return False
 
         # 3. Validate and filter distribution list
+        print("\nValidating distribution list...")
         filtered_distribution_list, error = validate_distribution_list(
             distribution_list=distribution_list,
             repo_owner=repo_owner,
@@ -211,15 +230,18 @@ def audit_leader_submission(
 
         # Clone using the token for auth
         clone_url = f"https://{os.environ['GITHUB_TOKEN']}@github.com/{pr.head.repo.full_name}.git"
+        print(f"\nCloning repository from {pr.head.repo.full_name}...")
         repo = Repo.clone_from(clone_url, clone_path)
 
         # Checkout the -merged branch
         source_branch = f"task-{task_id}-round-{round_number - 3}"
         merged_branch = f"{source_branch}-merged"
+        print(f"Checking out merged branch: {merged_branch}")
         repo.git.checkout(merged_branch)
 
         # Get all commits in the PR
         commits = list(repo.iter_commits(f"{pr.base.ref}..{merged_branch}"))
+        print(f"\nFound {len(commits)} commits in PR")
 
         # 5. Verify all commits are merge commits
         non_merge_commits = [c for c in commits if len(c.parents) != 2]
@@ -232,6 +254,9 @@ def audit_leader_submission(
 
         # 6. Verify number of merge commits matches number of PRs in filtered distribution list
         eligible_prs = len(filtered_distribution_list)
+        print(
+            f"\nVerifying commit count - expected: {eligible_prs}, actual: {len(commits)}"
+        )
         if len(commits) != eligible_prs:
             log_error(
                 Exception("Merge commit count mismatch"),
@@ -243,24 +268,35 @@ def audit_leader_submission(
         used_staking_keys: Set[str] = set()
 
         # 7. Verify each merge commit corresponds to a PR from an eligible node
+        print("\nVerifying individual merge commits...")
         for commit in commits:
+            print(f"\nChecking commit: {commit.hexsha[:8]}")
+            print(f"Commit message: {commit.message}")
+
             # Extract branch name and PR URL from merge commit message
             commit_match = re.search(
                 r"Merged branch (pr-\d+-[^-]+-[^-]+) for PR (https://github\.com/[^/]+/[^/]+/pull/\d+)",
                 commit.message,
             )
             if not commit_match:
-                continue
+                log_error(
+                    Exception("Invalid merge commit message"),
+                    context=f"Could not extract PR info from commit message: {commit.message}",
+                )
+                return False
 
             copied_branch = commit_match.group(1)
             pr_url = commit_match.group(2)
+            print(f"Found PR URL: {pr_url}")
 
             # Extract PR number from URL
             pr_number = int(pr_url.strip("/").split("/")[-1])
             source_pr = repo.get_pull(int(pr_number))
 
             # Extract staking key from PR body and verify signature
+            print("Checking PR against eligible staking keys...")
             for submitter_staking_key in filtered_distribution_list:
+                print(f"  Checking key: {submitter_staking_key}")
                 is_valid = verify_pr_signatures(
                     source_pr.body,
                     task_id,
@@ -278,6 +314,7 @@ def audit_leader_submission(
                         return False
 
                     used_staking_keys.add(submitter_staking_key)
+                    print(f"  ✓ Found valid signature for {submitter_staking_key}")
                     break
             else:
                 # No valid signature found for any eligible staking key
@@ -288,6 +325,7 @@ def audit_leader_submission(
                 return False
 
             # Compare files between original PR and our copied branch before merge
+            print("\nComparing files between original PR and copied branch...")
             original_files = set(source_pr.get_files())
 
             # Get files from our copied branch (state before merge)
@@ -321,6 +359,9 @@ def audit_leader_submission(
                 return False
 
         # 8. Verify all eligible nodes are included
+        print("\nVerifying all eligible nodes are included...")
+        print(f"Used staking keys: {used_staking_keys}")
+        print(f"Expected staking keys: {set(filtered_distribution_list.keys())}")
         if used_staking_keys != set(filtered_distribution_list.keys()):
             missing_keys = set(filtered_distribution_list.keys()) - used_staking_keys
             log_error(
@@ -330,6 +371,7 @@ def audit_leader_submission(
             return False
 
         # All checks passed
+        print("\n✓ All leader audit checks passed!")
         return True
 
     except Exception as e:
