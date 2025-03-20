@@ -1,7 +1,7 @@
 """Module for GitHub operations."""
 
 import os
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
 from src.tools.git_operations.implementations import (
@@ -45,9 +45,10 @@ def create_pull_request(
     repo_name: str,
     head_branch: str,
     pr_template: str,
+    github_token: str,
+    github_username: str,
     data: Dict[str, Any],
     base_branch: str = "main",
-    github_token: Optional[str] = None,
     **kwargs,
 ) -> ToolOutput:
     """Create PR with formatted description.
@@ -71,10 +72,10 @@ def create_pull_request(
         gh = _get_github_client(github_token)
         repo_full_name = f"{repo_owner}/{repo_name}"
 
-        head = f"{os.environ['GITHUB_USERNAME']}:{head_branch}"
+        head = f"{github_username}:{head_branch}"
+        log_key_value("Creating PR with head", head)
 
         title = data["title"]
-
         if not title:
             raise ValueError("Title is required")
 
@@ -88,12 +89,14 @@ def create_pull_request(
             "data": {"pr_url": pr.html_url},
         }
     except GithubException as e:
+        log_error(e, f"GitHub API error: {str(e.data)}")
         return {
             "success": False,
             "message": f"Failed to create pull request: {str(e)}",
             "data": {"errors": e.data.get("errors", [])},
         }
     except Exception as e:
+        log_error(e, f"Error creating PR: {str(e)}")
         return {
             "success": False,
             "message": f"Failed to create pull request: {str(e)}",
@@ -114,13 +117,9 @@ def create_worker_pull_request(
     pub_key: str,
     staking_signature: str,
     public_signature: str,
-    round_number: int,
-    task_id: str,
     base_branch: str,
     github_token: str,
     github_username: str,
-    repo_path: str,
-    current_files: List[str],
     head_branch: str,
 ) -> ToolOutput:
     """Create a pull request with worker information."""
@@ -177,7 +176,9 @@ def create_leader_pull_request(
     title: str,
     head_branch: str,
     description: str,
-    pull_requests: List[str],
+    changes: str,
+    tests: str,
+    pr_details: List[Dict[str, str]],
     base_branch: str = "main",
     staking_key: str = None,
     pub_key: str = None,
@@ -192,10 +193,17 @@ def create_leader_pull_request(
         repo_name: Name of the source repository
         title: PR title
         head_branch: Head branch name (branch the PR is coming from)
-        description: List of consolidated PRs, each containing:
+        description: High-level description of the changes
+        changes: Description of major changes made
+        tests: Description of testing and verification performed
+        pr_details: List of consolidated PRs, each containing:
             - number: PR number
-            - url: PR URL
             - title: PR title
+            - url: Original PR URL
+            - source_owner: Original PR repository owner
+            - source_repo: Original PR repository name
+            - description: Original PR description
+            - files_changed: List of files changed in the PR
         base_branch: Base branch name (default: main)
         staking_key: Leader's staking key
         pub_key: Leader's public key
@@ -205,10 +213,14 @@ def create_leader_pull_request(
     Returns:
         ToolOutput: Standardized tool output with PR URL on success
     """
-    # Format the consolidated PRs into a markdown list
-    consolidated_prs = "The following PRs have been consolidated:\n\n"
-    for pr in pull_requests:
-        consolidated_prs += f"- [#{pr['number']} {pr['title']}]({pr['url']})\n"
+    log_key_value("create_leader_pull_request kwargs", str(kwargs))
+
+    # Format the consolidated PRs into a markdown list with proper links
+    consolidated_prs = "The following pull requests have been merged:\n\n"
+
+    for pr in pr_details:
+        # Add PR to the list with original URL and attribution
+        consolidated_prs += f"- [#{pr['number']}: {pr['title']}]({pr['url']}) from @{pr['source_owner']}\n"
 
     return create_pull_request(
         repo_owner=repo_owner,
@@ -219,12 +231,15 @@ def create_leader_pull_request(
         data={
             "title": title,
             "description": description,
+            "changes": changes,
+            "tests": tests,
             "consolidated_prs": consolidated_prs,
             "staking_key": staking_key,
             "pub_key": pub_key,
             "staking_signature": staking_signature,
             "public_signature": public_signature,
         },
+        **kwargs,
     )
 
 

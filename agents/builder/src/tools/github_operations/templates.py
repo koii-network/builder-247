@@ -54,7 +54,17 @@ TEMPLATES = {
 {description}
 <!-- END_DESCRIPTION -->
 
-### Consolidated Pull Requests
+### Changes Made
+<!-- BEGIN_CHANGES -->
+{changes}
+<!-- END_CHANGES -->
+
+### Tests and Verification
+<!-- BEGIN_TESTS -->
+{tests}
+<!-- END_TESTS -->
+
+### PRs Merged
 <!-- BEGIN_CONSOLIDATED_PRS -->
 {consolidated_prs}
 <!-- END_CONSOLIDATED_PRS -->

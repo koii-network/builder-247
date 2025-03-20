@@ -264,8 +264,17 @@ class MergeConflictWorkflow(Workflow):
             # Handle conflicts through the ConflictResolutionPhase
             if "CONFLICT" in merge_output:
                 self.context["current_files"] = get_current_files()
-                resolution_phase = ConflictResolutionPhase(workflow=self)
+                resolution_phase = ConflictResolutionPhase(
+                    workflow=self,
+                    conversation_id=getattr(
+                        self, "conversation_id", None
+                    ),  # Get conversation_id if it exists
+                )
                 resolution_result = resolution_phase.execute()
+
+                # Store the conversation ID for future phases
+                self.conversation_id = resolution_phase.conversation_id
+
                 if not resolution_result or not resolution_result.get("success"):
                     raise Exception("Failed to resolve conflicts")
 
@@ -281,6 +290,7 @@ class MergeConflictWorkflow(Workflow):
                     "number": pr_number,
                     "title": pr_title,
                     "url": pr_url,
+                    "source_owner": pr_repo_owner,
                 }
             )
             return {"success": True, "message": f"Successfully merged PR #{pr_number}"}
@@ -316,9 +326,10 @@ class MergeConflictWorkflow(Workflow):
 
             # Process each valid PR
             all_merged = True
+
             for pr in valid_prs:
                 log_section(f"Processing PR #{pr.number}")
-                result = self.merge_pr(pr.html_url, pr.title)
+                result = self.merge_pr(pr_url=pr.html_url, pr_title=pr.title)
                 if not result["success"]:
                     all_merged = False
                     break
@@ -327,7 +338,9 @@ class MergeConflictWorkflow(Workflow):
             if all_merged and self.context["merged_prs"]:
                 # Run tests and fix any issues
                 self.context["current_files"] = get_current_files()
-                test_phase = TestVerificationPhase(workflow=self)
+                test_phase = TestVerificationPhase(
+                    workflow=self, conversation_id=self.conversation_id
+                )
                 test_result = test_phase.execute()
                 if not test_result or not test_result.get("success"):
                     log_error(
@@ -336,8 +349,13 @@ class MergeConflictWorkflow(Workflow):
                     )
                     return None
 
+                # Get the conversation ID from test phase if it was created there
+                self.conversation_id = test_phase.conversation_id
+
                 # Create PR if tests pass
-                pr_phase = CreatePullRequestPhase(workflow=self)
+                pr_phase = CreatePullRequestPhase(
+                    workflow=self, conversation_id=self.conversation_id
+                )
                 try:
                     pr_result = pr_phase.execute()
                     if not pr_result:

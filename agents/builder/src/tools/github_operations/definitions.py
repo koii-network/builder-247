@@ -56,30 +56,22 @@ DEFINITIONS = {
             "properties": {
                 "title": {
                     "type": "string",
-                    "description": "Title of the pull request",
+                    "description": "Clear and descriptive title summarizing the main themes of the changes",
                 },
                 "description": {
                     "type": "string",
-                    "description": "Brief 1-2 sentence overview of the work done",
+                    "description": "High-level explanation of the overall purpose and benefits of the changes",
                 },
-                "pull_requests": {
-                    "type": "array",
-                    "description": "List of consolidated PRs, each containing number, url, and title",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "number": {"type": "integer"},
-                            "url": {"type": "string"},
-                            "title": {"type": "string"},
-                        },
-                    },
+                "changes": {
+                    "type": "string",
+                    "description": "Description of major functional and architectural changes made",
+                },
+                "tests": {
+                    "type": "string",
+                    "description": "Description of verification steps taken and test coverage",
                 },
             },
-            "required": [
-                "title",
-                "description",
-                "pull_requests",
-            ],
+            "required": ["title", "description", "changes", "tests"],
         },
         "function": create_leader_pull_request,
     },
