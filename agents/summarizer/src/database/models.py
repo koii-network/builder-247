@@ -3,6 +3,8 @@
 from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import JSON
+from sqlalchemy import Column
 
 
 class Conversation(SQLModel, table=True):
@@ -35,8 +37,7 @@ class Submission(SQLModel, table=True):
     status: str = "pending"
     pr_url: Optional[str] = None
     username: Optional[str] = None
-    repo_owner: str
-    repo_name: str
+    repo_urls: Optional[dict] = Field(default=None, sa_column=Column(JSON))  # Store as JSON type
 
 
 class Log(SQLModel, table=True):

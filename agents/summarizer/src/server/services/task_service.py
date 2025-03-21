@@ -46,13 +46,14 @@ def handle_task_creation(task_id, round_number, signature, staking_key, pub_key,
                     "Repository star failed",
                 )
         
-        db = get_db()
+        # Convert the list of URLs to a dictionary
+        repo_urls_dict = {"urls": github_urls}
+
         submission = Submission(
             task_id=task_id,
             round_number=round_number,
             status="stared",
-            
-            repo_urls=github_urls,
+            repo_urls=repo_urls_dict
         )
         db.add(submission)
         db.commit()
@@ -78,4 +79,8 @@ def handle_task_creation(task_id, round_number, signature, staking_key, pub_key,
 
 
 if __name__ == "__main__":
-    handle_task_creation(task_id="1", round_number=1, signature="1", staking_key="1", pub_key="1", starOnly=False)
+    from flask import Flask
+    app = Flask(__name__)
+    with app.app_context():
+        result = handle_task_creation(task_id="1", round_number=3, signature="1", staking_key="1", pub_key="1", starOnly=False)
+        print(result)
