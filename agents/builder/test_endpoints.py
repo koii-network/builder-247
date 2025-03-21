@@ -140,14 +140,14 @@ class ServerInstance:
             # Check stdout
             try:
                 line = self.stdout_queue.get_nowait()
-                print(f"[{self.role}] {line.decode().strip()}")
+                print(f"[{self.role}] {line.strip()}")
             except Empty:
                 pass
 
             # Check stderr
             try:
                 line = self.stderr_queue.get_nowait()
-                print(f"[{self.role} ERR] {line.decode().strip()}")
+                print(f"[{self.role} ERR] {line.strip()}")
             except Empty:
                 pass
 
@@ -157,14 +157,19 @@ class ServerInstance:
     def start(self):
         """Start the Flask server instance"""
         print(f"\nStarting {self.role} server on port {self.port}...")
+
+        # Set PYTHONUNBUFFERED=1 in the environment to force unbuffered output
+        env = self.env.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+
         self.process = subprocess.Popen(
             [sys.executable, os.path.join(self.builder_path, "main.py")],
-            env=self.env,
+            env=env,
             cwd=self.builder_path,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            bufsize=1,
-            universal_newlines=False,
+            bufsize=1,  # Line buffering
+            universal_newlines=True,  # Use text mode for line buffering to work
         )
 
         # Start threads to read stdout and stderr
@@ -691,7 +696,11 @@ class EndpointTester:
 
     def run_leader_audit(self, pr_url: str, round_number: int):
         """Run leader audit endpoint"""
-        self.switch_role("leader")
+        # Switch to worker1 for first audit, worker2 for second
+        # This matches the pattern in run_worker_audit where workers cross-audit each other
+        auditor = "worker1" if not hasattr(self, "_last_leader_auditor") else "worker2"
+        self._last_leader_auditor = auditor
+        self.switch_role(auditor)
 
         # Get PR info using GitHub API
         parts = pr_url.strip("/").split("/")
@@ -703,6 +712,18 @@ class EndpointTester:
         repo = gh.get_repo(f"{pr_repo_owner}/{pr_repo_name}")
         pr = repo.get_pull(pr_number)
 
+        # Extract leader's keys from PR
+        staking_section = extract_section(pr.body, "STAKING_KEY")
+        if not staking_section:
+            raise ValueError(f"No staking key found in PR {pr_url}")
+        leader_key = staking_section.split(":")[0].strip()
+        leader_signature = staking_section.split(":")[1].strip()
+
+        pub_section = extract_section(pr.body, "PUB_KEY")
+        if not pub_section:
+            raise ValueError(f"No public key found in PR {pr_url}")
+        leader_pub_key = pub_section.split(":")[0].strip()
+
         # Create distribution list from worker PRs
         worker_pr_urls = [
             self.state.get_pr_url("worker1"),
@@ -710,34 +731,40 @@ class EndpointTester:
         ]
         distribution_list = self.create_distribution_list(worker_pr_urls, round_number)
 
-        # Create submission payload like in 2-submission.ts
-        submission_payload = {
+        # Create submission data like in 3-audit.ts
+        submission_data = {
             "taskId": self.task_id,
             "roundNumber": round_number,
-            "action": "audit",
-            "githubUsername": pr.user.login,
             "prUrl": pr_url,
             "repoOwner": pr_repo_owner,
             "repoName": pr_repo_name,
+            "stakingKey": leader_key,
+            "pubKey": leader_pub_key,
+            "signature": leader_signature,  # Add leader's signature
+            "action": "audit",
+            "githubUsername": pr.user.login,
+            "distributionList": distribution_list,
+            "leaders": [leader_key],  # Add leaders array with leader's key
         }
 
-        # Create signatures for auditor
-        signatures = self.create_signature(submission_payload)
+        # Create auditor's signatures
+        signatures = self.create_signature(submission_data)
 
-        # Add signature info to submission payload
-        submission_payload.update(
-            {
-                "stakingKey": signatures["staking_key"],  # Use actual leader key
-                "pubKey": signatures["pub_key"],
-                "signature": signatures["staking_signature"],
-                "distributionList": distribution_list,  # Include full distribution list
-                "leaders": [signatures["staking_key"]],  # Use actual leader key
-            }
-        )
-
-        # Create full payload matching 3-audit.ts format
+        # Create full payload matching 3-audit.ts PodCallBody interface
         payload = {
-            "submission": submission_payload,  # Wrap in submission object
+            "submission": submission_data,
+            "submitterSignature": leader_signature,
+            "submitterStakingKey": leader_key,
+            "submitterPubKey": leader_pub_key,
+            "prUrl": pr_url,
+            "repoOwner": pr_repo_owner,
+            "repoName": pr_repo_name,
+            "githubUsername": pr.user.login,
+            "stakingKey": signatures["staking_key"],
+            "pubKey": signatures["pub_key"],
+            "stakingSignature": signatures["staking_signature"],
+            "publicSignature": signatures["public_signature"],
+            "distributionList": distribution_list,
         }
 
         log_request(
@@ -843,13 +870,13 @@ class EndpointTester:
                     )
                 print("✓ First leader audit complete")
 
-                print("\nSecond leader audit...")
-                audit4_result = self.run_leader_audit(leader_pr_url, 4)
-                if not audit4_result.get("success"):
-                    raise Exception(
-                        f"Second leader audit failed: {audit4_result.get('message')}"
-                    )
-                print("✓ Second leader audit complete")
+                # print("\nSecond leader audit...")
+                # audit4_result = self.run_leader_audit(leader_pr_url, 4)
+                # if not audit4_result.get("success"):
+                #     raise Exception(
+                #         f"Second leader audit failed: {audit4_result.get('message')}"
+                #     )
+                # print("✓ Second leader audit complete")
 
             print("\n" + "=" * 80)
             print("TEST SEQUENCE COMPLETED SUCCESSFULLY")

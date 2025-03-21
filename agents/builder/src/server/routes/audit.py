@@ -108,7 +108,7 @@ def audit_worker_submission(round_number: str):
 def handle_leader_audit(round_number: int):
     """Audit a leader's consolidated PR submission.
 
-    Expected request body:
+    Expected request body matches worker audit:
     {
         "submission": {
             "roundNumber": int,
@@ -118,14 +118,18 @@ def handle_leader_audit(round_number: int):
             "repoName": str,
             "stakingKey": str,
             "pubKey": str,
-            "signature": str,
-            "distributionList": {
-                "stakingKey1": float,  # Reward amount
-                "stakingKey2": float,
-                ...
-            },
-            "leaders": [str]  # List of leader staking keys
-        }
+            "action": "audit",
+            "githubUsername": str,
+            "distributionList": {...}
+        },
+        "submitterSignature": str,
+        "submitterStakingKey": str,
+        "submitterPubKey": str,
+        "stakingKey": str,
+        "pubKey": str,
+        "stakingSignature": str,
+        "publicSignature": str,
+        "distributionList": {...}
     }
     """
     logger.info("Auditing leader submission")
@@ -137,20 +141,26 @@ def handle_leader_audit(round_number: int):
         return jsonify({"error": "Missing submission"}), 400
 
     # Extract submission data
-    submission_round_number = submission.get("roundNumber")
+    submission_round_number = int(submission.get("roundNumber"))
     task_id = submission.get("taskId")
     pr_url = submission.get("prUrl")
     repo_owner = submission.get("repoOwner")
     repo_name = submission.get("repoName")
-    staking_key = submission.get("stakingKey")
-    pub_key = submission.get("pubKey")
-    signature = submission.get("signature")
-    distribution_list = submission.get("distributionList", {})
-    leaders = submission.get("leaders", [])
     github_username = submission.get("githubUsername")
+    distribution_list = data.get("distributionList", {})
+
+    # Extract signature data from top level
+    submitter_signature = data.get("submitterSignature")
+    submitter_staking_key = data.get("submitterStakingKey")
+    submitter_pub_key = data.get("submitterPubKey")
+    staking_key = data.get("stakingKey")
+    pub_key = data.get("pubKey")
+    staking_signature = data.get("stakingSignature")
+    public_signature = data.get("publicSignature")
 
     # Validate required fields
-    if int(round_number) != submission_round_number:
+    round_number = int(round_number)
+    if round_number != submission_round_number:
         return jsonify({"error": "Round number mismatch"}), 400
 
     if (
@@ -158,38 +168,42 @@ def handle_leader_audit(round_number: int):
         or not pr_url
         or not repo_owner
         or not repo_name
+        or not github_username
+        or not distribution_list
+        or not submitter_signature
+        or not submitter_staking_key
+        or not submitter_pub_key
         or not staking_key
         or not pub_key
-        or not signature
-        or not distribution_list
-        or not leaders
-        or not github_username
+        or not staking_signature
+        or not public_signature
     ):
         return jsonify({"error": "Missing submission data"}), 400
 
-    # Verify this node is a leader
-    if staking_key not in leaders:
-        return jsonify({"error": "Not authorized as leader"}), 403
-
     try:
         # Run leader audit checks
-        is_valid = audit_leader_submission(
+        passed, message = audit_leader_submission(
             task_id=task_id,
             round_number=round_number,
             pr_url=pr_url,
             repo_owner=repo_owner,
             repo_name=repo_name,
-            staking_key=staking_key,
-            pub_key=pub_key,
-            signature=signature,
+            staking_key=staking_key,  # Auditor's staking key
+            pub_key=pub_key,  # Auditor's pub key
+            staking_signature=staking_signature,  # Auditor's staking signature
+            public_signature=public_signature,  # Auditor's public signature
+            submitter_signature=submitter_signature,  # Leader's signature
+            submitter_staking_key=submitter_staking_key,  # Leader's staking key
+            submitter_pub_key=submitter_pub_key,  # Leader's pub key
             distribution_list=distribution_list,
             leader_username=github_username,
         )
+
         return jsonify(
             {
                 "success": True,
-                "message": "PR audit completed",
-                "data": {"passed": is_valid},
+                "message": message,
+                "data": {"passed": passed},
             }
         )
     except Exception as e:
