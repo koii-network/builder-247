@@ -63,7 +63,7 @@ def handle_task_creation(task_id, round_number, signature, staking_key, pub_key,
             workflow = RepoSummerizerWorkflow(
                 client=client,
                 prompts=PROMPTS,
-                repo_url=github_urls[0],
+                repo_url="https://github.com/koii-network/namespace-wrapper",
             )
     
             result = workflow.run()
@@ -83,5 +83,5 @@ if __name__ == "__main__":
     from flask import Flask
     app = Flask(__name__)
     with app.app_context():
-        result = handle_task_creation(task_id="1", round_number=4, signature="1", staking_key="1", pub_key="1", starOnly=False)
+        result = handle_task_creation(task_id="1", round_number=6, signature="1", staking_key="1", pub_key="1", starOnly=False)
         print(result)

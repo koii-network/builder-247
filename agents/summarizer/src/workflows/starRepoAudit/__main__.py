@@ -4,8 +4,8 @@ import sys
 import os
 import argparse
 from dotenv import load_dotenv
-from src.workflows.starRepo.workflow import StarRepoWorkflow
-from src.workflows.starRepo.prompts import PROMPTS
+from src.workflows.starRepoAudit.workflow import StarRepoAuditWorkflow
+from src.workflows.starRepoAudit.prompts import PROMPTS
 from src.clients import setup_client
 
 # Load environment variables
@@ -37,10 +37,11 @@ def main():
     client = setup_client(args.model)
 
     # Run the todo creator workflow
-    workflow = StarRepoWorkflow(
+    workflow = StarRepoAuditWorkflow(
         client=client,
         prompts=PROMPTS,
         repo_url=args.repo,
+        github_username="HermanL02",
     )
 
 

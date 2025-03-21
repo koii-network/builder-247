@@ -3,7 +3,7 @@
 import os
 from github import Github
 from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository, star_repository
+from src.tools.github_operations.implementations import fork_repository, get_user_starred_repos
 from src.utils.logging import log_section, log_key_value, log_error
 from src.workflows.repoSummerizer import phases
 from src.workflows.utils import (
@@ -126,7 +126,10 @@ class StarRepoAuditWorkflow(Workflow):
     def check_star_repo(self):
         """Check if the repository is starred."""
         try:
+            print(self.context["github_username"])
+            
             starred_repos = get_user_starred_repos(self.context["github_username"])
+            print(starred_repos)
             if not starred_repos or not starred_repos.get("success"):
                 log_error(
                     Exception(starred_repos.get("error", "No result")),
@@ -134,10 +137,12 @@ class StarRepoAuditWorkflow(Workflow):
                 )
                 return False
             # check if the repository is in the starred_repos
-            if self.context["repo_name"] in [repo["full_name"] for repo in starred_repos["data"]["starred_repos"]]:
-                return True
+            if f"{self.context['repo_owner']}/{self.context['repo_name']}" in [repo["full_name"] for repo in starred_repos["data"]["starred_repos"]]:
+                print("Repository is starred")
+                return {"success": True, "result": "Repository is starred"}
             else:
-                return False
+                print("Repository is not starred")
+                return {"success": False, "result": "Repository is not starred"}
         except Exception as e:
             log_error(e, "Failed to check if repository is starred")
             return False
