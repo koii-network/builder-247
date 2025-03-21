@@ -3,7 +3,7 @@
 import os
 from github import Github
 from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository
+from src.tools.github_operations.implementations import fork_repository, create_pull_request
 from src.utils.logging import log_section, log_key_value, log_error
 from src.workflows.repoSummerizer import phases
 from src.workflows.utils import (
@@ -116,7 +116,20 @@ class RepoSummerizerWorkflow(Workflow):
     def run(self):
         generate_readme_file_result = self.generate_readme_file()
         
-        return generate_readme_file_result
+        # Create pull request with detailed parameters
+        create_pull_request_result = create_pull_request(
+            repo_full_name=f"{self.context['repo_owner']}/{self.context['repo_name']}", 
+            title="Update README.md",
+            head=self.context["base_branch"],  # or a specific branch name
+            description="Automated update of README.md file with repository summary",
+            tests=["README.md file has been updated", "Content is properly formatted"],
+            todo="Review and merge the README changes",
+            acceptance_criteria="README.md contains accurate repository summary",
+            base=self.context["base_branch"]
+        )
+        log_key_value("Create pull request result", create_pull_request_result)
+        
+        return create_pull_request_result
     def generate_readme_file(self):
         """Execute the issue generation workflow."""
         try:

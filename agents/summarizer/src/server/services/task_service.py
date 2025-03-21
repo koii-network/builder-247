@@ -69,6 +69,7 @@ def handle_task_creation(task_id, round_number, signature, staking_key, pub_key,
             result = workflow.run()
             if result.get("success"):
                 submission.status = "summarized"
+                submission.pr_url = result.data.get("pr_url")
                 db.commit()
                 return jsonify({"success": True, "result": result})
             else:
@@ -82,5 +83,5 @@ if __name__ == "__main__":
     from flask import Flask
     app = Flask(__name__)
     with app.app_context():
-        result = handle_task_creation(task_id="1", round_number=3, signature="1", staking_key="1", pub_key="1", starOnly=False)
+        result = handle_task_creation(task_id="1", round_number=4, signature="1", staking_key="1", pub_key="1", starOnly=False)
         print(result)

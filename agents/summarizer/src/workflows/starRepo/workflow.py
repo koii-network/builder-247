@@ -117,7 +117,6 @@ class StarRepoWorkflow(Workflow):
         # Clean up the MongoDB
     def run(self):
         star_repo_result = self.start_star_repo()
-        
         return star_repo_result
     def start_star_repo(self):
         """Execute the issue generation workflow."""
