@@ -14,10 +14,10 @@ import re
 load_dotenv()
 
 
-def handle_task_creation(task_id, round_number, signature, staking_key, pub_key):
+def handle_task_creation(task_id, round_number, signature, staking_key, pub_key, starOnly=True):
     """Handle task creation request."""
     try:    
-
+        db = get_db()
         client = setup_client("anthropic")
         # Convert GitHub web URL to raw content URL
         readmeUrl = "https://raw.githubusercontent.com/koii-network/prometheus-swarm-bounties/master/README.md"
@@ -45,21 +45,37 @@ def handle_task_creation(task_id, round_number, signature, staking_key, pub_key)
                     Exception(star_result.get("error", "No result")),
                     "Repository star failed",
                 )
-        workflow = RepoSummerizerWorkflow(
-            client=client,
-            prompts=PROMPTS,
-            repo_url=github_urls[0],
+        
+        db = get_db()
+        submission = Submission(
+            task_id=task_id,
+            round_number=round_number,
+            status="stared",
+            
+            repo_urls=github_urls,
         )
-
-        result = workflow.run()
-
-        return jsonify({"success": True, "result": result})
-  
-
+        db.add(submission)
+        db.commit()
+        if starOnly:
+            return jsonify({"success": True, "result": "Repository starred"})
+        else:
+            workflow = RepoSummerizerWorkflow(
+                client=client,
+                prompts=PROMPTS,
+                repo_url=github_urls[0],
+            )
+    
+            result = workflow.run()
+            if result.get("success"):
+                submission.status = "summarized"
+                db.commit()
+                return jsonify({"success": True, "result": result})
+            else:
+                return jsonify({"success": False, "result": result.get("error", "No result")})
     except Exception as e:
         logger.error(f"Repo summarizer failed: {str(e)}")
         raise
 
 
 if __name__ == "__main__":
-    handle_task_creation()
+    handle_task_creation(task_id="1", round_number=1, signature="1", staking_key="1", pub_key="1", starOnly=False)
