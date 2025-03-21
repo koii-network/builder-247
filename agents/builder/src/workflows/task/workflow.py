@@ -1,23 +1,21 @@
 """Task workflow implementation using new workflow structure."""
 
 import os
-from github import Github
 import time
 from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository
 from src.utils.logging import log_section, log_key_value, log_error, log_value
 from src.workflows.task import phases
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
-    setup_repo_directory,
-    setup_git_user_config,
-    cleanup_repo_directory,
+    setup_repository,
+    cleanup_repository,
     get_current_files,
 )
 
 
 class TaskWorkflow(Workflow):
+
     def __init__(
         self,
         client,
@@ -26,7 +24,16 @@ class TaskWorkflow(Workflow):
         repo_name,
         todo,
         acceptance_criteria,
+        staking_key,
+        pub_key,
+        staking_signature,
+        public_signature,
+        round_number,
+        task_id,
+        base_branch,
         max_implementation_attempts=3,
+        github_token="GITHUB_TOKEN",
+        github_username="GITHUB_USERNAME",
     ):
         super().__init__(
             client=client,
@@ -35,53 +42,52 @@ class TaskWorkflow(Workflow):
             repo_name=repo_name,
             todo=todo,
             acceptance_criteria=acceptance_criteria,
+            staking_key=staking_key,
+            pub_key=pub_key,
+            staking_signature=staking_signature,
+            public_signature=public_signature,
+            round_number=round_number,
+            task_id=task_id,
+            base_branch=base_branch,
         )
+        check_required_env_vars([github_token, github_username])
         self.max_implementation_attempts = max_implementation_attempts
+        self.context["github_token"] = os.getenv(github_token)
+        self.context["github_username"] = os.getenv(github_username)
 
     def setup(self):
         """Set up repository and workspace."""
-        check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
-        validate_github_auth(os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_USERNAME"))
-
-        # Get the default branch from GitHub
-        try:
-            gh = Github(os.getenv("GITHUB_TOKEN"))
-            repo = gh.get_repo(
-                f"{self.context['repo_owner']}/{self.context['repo_name']}"
-            )
-            self.context["base_branch"] = repo.default_branch
-            log_key_value("Default branch", self.context["base_branch"])
-        except Exception as e:
-            log_error(e, "Failed to get default branch, using 'main'")
-            self.context["base_branch"] = "main"
-
-        # Set up repository directory
-        repo_path, original_dir = setup_repo_directory()
-        self.context["repo_path"] = repo_path
-        self.original_dir = original_dir
-
-        # Fork and clone repository
-        log_section("FORKING AND CLONING REPOSITORY")
-        fork_result = fork_repository(
-            f"{self.context['repo_owner']}/{self.context['repo_name']}",
-            self.context["repo_path"],
+        validate_github_auth(
+            self.context["github_token"], self.context["github_username"]
         )
-        if not fork_result["success"]:
-            error = fork_result.get("error", "Unknown error")
-            log_error(Exception(error), "Fork failed")
-            raise Exception(error)
+        log_key_value("Base branch", self.context["base_branch"])
+
+        # Set up repository
+        log_section("SETTING UP REPOSITORY")
+        repo_url = f"https://github.com/{self.context['repo_owner']}/{self.context['repo_name']}"
+
+        result = setup_repository(
+            repo_url,
+            github_token=self.context["github_token"],
+            github_username=self.context["github_username"],
+        )
+        if not result["success"]:
+            raise Exception(result.get("error", "Repository setup failed"))
+
+        # Update context with setup results
+        self.context["repo_path"] = result["data"]["clone_path"]
+        self.original_dir = result["data"]["original_dir"]
 
         # Enter repo directory
         os.chdir(self.context["repo_path"])
 
-        # Configure Git user info
-        setup_git_user_config(self.context["repo_path"])
-
+        # Get current files for context
         self.context["current_files"] = get_current_files()
 
     def cleanup(self):
-        """Cleanup workspace."""
-        cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
+        """Clean up repository."""
+        if hasattr(self, "original_dir") and "repo_path" in self.context:
+            cleanup_repository(self.original_dir, self.context["repo_path"])
 
     def run(self):
         """Execute the task workflow."""
@@ -95,7 +101,7 @@ class TaskWorkflow(Workflow):
             if not branch_result:
                 return None
 
-            self.context["branch_name"] = branch_result["data"]["branch_name"]
+            self.context["head_branch"] = branch_result["data"]["branch_name"]
 
             # Implementation loop
             for attempt in range(self.max_implementation_attempts):
@@ -158,7 +164,7 @@ class TaskWorkflow(Workflow):
 
             # Base was already set in setup()
             log_value(
-                f"Creating PR from {self.context['branch_name']} to {self.context['base_branch']}",
+                f"Creating PR from {self.context['head_branch']} to {self.context['base_branch']}",
             )
 
             pr_phase = phases.PullRequestPhase(

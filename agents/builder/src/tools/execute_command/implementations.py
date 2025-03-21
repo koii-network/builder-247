@@ -3,7 +3,7 @@ import os
 from src.types import ToolOutput
 
 
-def execute_command(command: str) -> ToolOutput:
+def execute_command(command: str, **kwargs) -> ToolOutput:
     """Execute a shell command in the current working directory."""
     try:
         cwd = os.getcwd()
@@ -58,8 +58,7 @@ def execute_command(command: str) -> ToolOutput:
 
 
 def run_tests(
-    path: str,
-    framework: str,  # Default but can be overridden
+    path: str, framework: str, **kwargs  # Default but can be overridden
 ) -> ToolOutput:
     """Run tests using the specified framework and command.
 
@@ -145,6 +144,7 @@ def install_dependency(
     package_manager: str,
     is_dev_dependency: bool = False,
     version: str = None,
+    **kwargs,
 ) -> ToolOutput:
     """Install a dependency using the specified package manager.
 
@@ -234,3 +234,88 @@ def install_dependency(
         "message": message,
         "data": result_data,
     }
+
+
+def setup_dependencies(
+    package_manager: str, repo_path: str = None, **kwargs
+) -> ToolOutput:
+    """Install dependencies from requirements.txt or package.json.
+
+    Args:
+        repo_path: Path to the repository root. If None, uses current directory.
+
+    Returns:
+        ToolOutput: Standardized tool output with installation status
+    """
+    try:
+        working_dir = repo_path or os.getcwd()
+        print(f"Installing dependencies in {working_dir}")
+
+        if package_manager == "pip":
+            requirements_path = os.path.join(working_dir, "requirements.txt")
+            if not os.path.exists(requirements_path):
+                return {
+                    "success": False,
+                    "message": "Requirements.txt not found",
+                    "data": None,
+                }
+
+            result = execute_command(
+                f"pip install --no-cache-dir -r {requirements_path}"
+            )
+        elif package_manager == "npm":
+            package_json_path = os.path.join(working_dir, "package.json")
+            if not os.path.exists(package_json_path):
+                return {
+                    "success": False,
+                    "message": "package.json not found",
+                    "data": None,
+                }
+            result = execute_command(
+                f"npm install --no-fund --no-audit -r {requirements_path}"
+            )
+        elif package_manager == "yarn":
+            package_json_path = os.path.join(working_dir, "package.json")
+            if not os.path.exists(package_json_path):
+                return {
+                    "success": False,
+                    "message": "package.json not found",
+                    "data": None,
+                }
+            result = execute_command(
+                f"yarn add --non-interactive -r {requirements_path}"
+            )
+        elif package_manager == "pnpm":
+            package_json_path = os.path.join(working_dir, "package.json")
+            if not os.path.exists(package_json_path):
+                return {
+                    "success": False,
+                    "message": "package.json not found",
+                    "data": None,
+                }
+            result = execute_command(f"pnpm add --no-fund -r {requirements_path}")
+
+        success = result["data"]["command_succeeded"]
+        stdout = result["data"]["stdout"]
+        stderr = result["data"]["stderr"]
+        returncode = result["data"]["returncode"]
+
+        if success:
+            message = "Dependencies installed successfully"
+        else:
+            message = "Failed to install dependencies"
+
+        return {
+            "success": True,  # Tool executed without exceptions
+            "message": message,
+            "data": {
+                "stdout": stdout,
+                "stderr": stderr,
+                "returncode": returncode,
+            },
+        }
+
+    except Exception as e:
+        error_msg = f"Error installing dependencies: {str(e)}"
+        print(error_msg)
+        return {"success": False, "message": error_msg, "data": None}

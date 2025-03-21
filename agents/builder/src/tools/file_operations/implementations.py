@@ -13,7 +13,7 @@ def _normalize_path(path: str) -> str:
     return path.lstrip("/")
 
 
-def read_file(file_path: str) -> ToolOutput:
+def read_file(file_path: str, **kwargs) -> ToolOutput:
     """
     Read the contents of a file.
 
@@ -50,7 +50,9 @@ def read_file(file_path: str) -> ToolOutput:
         }
 
 
-def write_file(file_path: str, content: str, commit_message: str = None) -> ToolOutput:
+def write_file(
+    file_path: str, content: str, commit_message: str = None, **kwargs
+) -> ToolOutput:
     """Write file with directory creation and optional commit"""
     try:
         file_path = _normalize_path(file_path)
@@ -79,7 +81,9 @@ def write_file(file_path: str, content: str, commit_message: str = None) -> Tool
         }
 
 
-def copy_file(source: str, destination: str, commit_message: str = None) -> ToolOutput:
+def copy_file(
+    source: str, destination: str, commit_message: str = None, **kwargs
+) -> ToolOutput:
     """Copy a file and optionally commit the change."""
     try:
         source = _normalize_path(source)
@@ -118,7 +122,9 @@ def copy_file(source: str, destination: str, commit_message: str = None) -> Tool
         }
 
 
-def move_file(source: str, destination: str, commit_message: str = None) -> ToolOutput:
+def move_file(
+    source: str, destination: str, commit_message: str = None, **kwargs
+) -> ToolOutput:
     """Move a file and optionally commit the change."""
     try:
         source = _normalize_path(source)
@@ -196,7 +202,7 @@ def rename_file(
         }
 
 
-def delete_file(file_path: str, commit_message: str = None) -> ToolOutput:
+def delete_file(file_path: str, commit_message: str = None, **kwargs) -> ToolOutput:
     """Delete a file and optionally commit the change."""
     try:
         file_path = _normalize_path(file_path)
@@ -230,7 +236,7 @@ def delete_file(file_path: str, commit_message: str = None) -> ToolOutput:
         }
 
 
-def list_files(directory: str) -> ToolOutput:
+def list_files(directory: str, **kwargs) -> ToolOutput:
     """
     Return a list of all files in the specified directory and its subdirectories,
     excluding .git directory and respecting .gitignore.
@@ -307,7 +313,7 @@ def list_files(directory: str) -> ToolOutput:
         }
 
 
-def create_directory(path: str) -> ToolOutput:
+def create_directory(path: str, **kwargs) -> ToolOutput:
     """Create a directory and any necessary parent directories.
 
     Args:

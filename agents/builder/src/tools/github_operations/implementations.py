@@ -10,10 +10,11 @@ from src.tools.git_operations.implementations import (
 )
 from src.utils.logging import log_key_value, log_error
 from src.types import ToolOutput
+from src.workflows.utils import get_fork_name
 
-import time
 from git import Repo, GitCommandError
 from src.tools.github_operations.templates import TEMPLATES
+from github.PullRequest import PullRequest
 
 import csv
 
@@ -21,171 +22,81 @@ import csv
 load_dotenv()
 
 
-def _get_github_client() -> Github:
+def _get_github_client(github_token: str) -> Github:
     """
     Get an authenticated GitHub client.
+
+    Args:
+        github_token: GitHub token for authentication
 
     Returns:
         Github: Authenticated GitHub client
 
     Raises:
-        ValueError: If GITHUB_TOKEN is not set
+        ValueError: If github_token is not provided
     """
-    token = os.environ.get("GITHUB_TOKEN")
-    if not token:
-        raise ValueError("Missing GITHUB_TOKEN")
-    return Github(auth=Auth.Token(token))
-
-
-def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
-    """
-    Fork a repository and clone it locally.
-
-    Args:
-        repo_full_name: Full name of repository (owner/repo)
-        repo_path: Local path to clone to
-
-    Returns:
-        ToolOutput: Standardized tool output with success status and error message if any
-    """
-    try:
-        gh = _get_github_client()
-        original_repo = gh.get_repo(repo_full_name)
-
-        # Get authenticated user
-        user = gh.get_user()
-        username = user.login
-
-        # Check if fork already exists
-        try:
-            fork = gh.get_repo(f"{username}/{original_repo.name}")
-            log_key_value("Using existing fork of", repo_full_name)
-        except GithubException:
-            # Create fork if it doesn't exist
-            fork = user.create_fork(original_repo)
-            log_key_value("Created new fork of", repo_full_name)
-
-        # Wait for fork to be ready
-        log_key_value("Waiting for fork to be ready", "")
-        max_retries = 10
-        for _ in range(max_retries):
-            try:
-                fork.get_commits().get_page(0)
-                break
-            except GithubException:
-                time.sleep(1)
-
-        # Clone repository if path provided
-        if repo_path:
-            log_key_value("Cloning to", repo_path)
-            # Use token for auth
-            token = os.environ["GITHUB_TOKEN"]
-            clone_url = (
-                f"https://{token}@github.com/{username}/{original_repo.name}.git"
-            )
-            log_key_value("Using clone URL", clone_url)
-
-            # Clone the repository
-            repo = Repo.clone_from(clone_url, repo_path)
-
-            # Configure remotes
-            log_key_value("Configuring remotes", "")
-            origin = repo.remote("origin")
-            origin.set_url(f"https://github.com/{username}/{original_repo.name}")
-            log_key_value(
-                "origin", f"https://github.com/{username}/{original_repo.name}"
-            )
-
-            # Create and configure upstream remote
-            repo.create_remote("upstream", f"https://github.com/{repo_full_name}")
-            log_key_value("upstream", f"https://github.com/{repo_full_name}")
-
-            # Fetch from upstream
-            fetch_remote(repo_path, "upstream")
-
-        return {
-            "success": True,
-            "message": f"Successfully forked and cloned {repo_full_name}",
-            "data": {
-                "fork_url": fork.html_url,
-                "clone_path": repo_path,
-                "owner": username,
-                "repo": original_repo.name,
-            },
-            "error": None,
-        }
-
-    except Exception as e:
-        error_msg = str(e)
-        log_error(e, "Fork failed")
-        return {
-            "success": False,
-            "message": "Failed to fork repository",
-            "data": None,
-            "error": error_msg,
-        }
+    if not github_token:
+        raise ValueError("GitHub token is required")
+    return Github(auth=Auth.Token(github_token))
 
 
 def create_pull_request(
-    repo_full_name: str,
-    title: str,
-    head: str,
-    description: str,
-    tests: List[str],
-    todo: str,
-    acceptance_criteria: str,
-    base: str = "main",
+    repo_owner: str,
+    repo_name: str,
+    head_branch: str,
+    pr_template: str,
+    github_token: str,
+    github_username: str,
+    data: Dict[str, Any],
+    base_branch: str = "main",
+    **kwargs,
 ) -> ToolOutput:
     """Create PR with formatted description.
 
     Args:
-        repo_full_name: Full name of repository (owner/repo)
+        repo_owner: Owner of the source repository
+        repo_name: Name of the source repository
         title: PR title
-        head: Head branch name
+        head_branch: Head branch name (branch the PR is coming from)
         description: PR description
         tests: List of test descriptions
         todo: Original todo task
         acceptance_criteria: Task acceptance criteria
-        base: Base branch name (default: main)
+        base_branch: Base branch name (default: main)
+        github_token: Optional GitHub token for authentication
 
     Returns:
         ToolOutput: Standardized tool output with PR URL on success
     """
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(github_token)
+        repo_full_name = f"{repo_owner}/{repo_name}"
 
-        # Auto-format head branch if needed
-        if ":" not in head:
-            head = f"{os.environ['GITHUB_USERNAME']}:{head}"
+        head = f"{github_username}:{head_branch}"
+        log_key_value("Creating PR with head", head)
 
-        # Ensure base branch is just the name without owner
-        base = base.split(":")[-1]  # Remove owner prefix if present
+        title = data["title"]
+        if not title:
+            raise ValueError("Title is required")
 
-        # Format tests into markdown bullets
-        tests_bullets = " - " + "\n - ".join(tests)
-
-        body = TEMPLATES["pr_template"].format(
-            todo=todo,
-            title=title,
-            acceptance_criteria=acceptance_criteria,
-            description=description,
-            tests=tests_bullets,
-        )
+        body = pr_template.format(**data)
 
         repo = gh.get_repo(repo_full_name)
-        pr = repo.create_pull(title=title, body=body, head=head, base=base)
+        pr = repo.create_pull(title=title, body=body, head=head, base=base_branch)
         return {
             "success": True,
             "message": f"Successfully created PR: {title}",
             "data": {"pr_url": pr.html_url},
         }
     except GithubException as e:
+        log_error(e, f"GitHub API error: {str(e.data)}")
         return {
             "success": False,
             "message": f"Failed to create pull request: {str(e)}",
             "data": {"errors": e.data.get("errors", [])},
         }
     except Exception as e:
+        log_error(e, f"Error creating PR: {str(e)}")
         return {
             "success": False,
             "message": f"Failed to create pull request: {str(e)}",
@@ -193,7 +104,147 @@ def create_pull_request(
         }
 
 
-def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
+def create_worker_pull_request(
+    title: str,
+    description: str,
+    changes: List[str],
+    tests: List[str],
+    todo: str,
+    repo_owner: str,
+    repo_name: str,
+    acceptance_criteria: List[str],
+    staking_key: str,
+    pub_key: str,
+    staking_signature: str,
+    public_signature: str,
+    base_branch: str,
+    github_token: str,
+    github_username: str,
+    head_branch: str,
+    **kwargs,
+) -> ToolOutput:
+    """Create a pull request with worker information."""
+    try:
+        # Get GitHub client
+        gh = _get_github_client(github_token)
+
+        # Format lists into markdown bullets
+        tests_bullets = " - " + "\n - ".join(tests)
+        changes_bullets = " - " + "\n - ".join(changes)
+        acceptance_criteria_bullets = " - " + "\n - ".join(acceptance_criteria)
+
+        # Format the pull request data
+        data = {
+            "title": title,
+            "description": description,
+            "changes": changes_bullets,
+            "todo": todo,
+            "acceptance_criteria": acceptance_criteria_bullets,
+            "tests": tests_bullets,
+            "staking_key": staking_key,
+            "pub_key": pub_key,
+            "staking_signature": staking_signature,
+            "public_signature": public_signature,
+        }
+
+        # Create the pull request
+        repo = gh.get_repo(f"{repo_owner}/{repo_name}")
+        head = f"{github_username}:{head_branch}"  # Format head with username prefix
+        pr = repo.create_pull(
+            title=title,
+            body=TEMPLATES["worker_pr_template"].format(**data),
+            head=head,
+            base=base_branch,
+        )
+
+        return {
+            "success": True,
+            "message": f"Successfully created PR: {title}",
+            "data": {"pr_url": pr.html_url},
+        }
+    except Exception as e:
+        print(f"Failed to create worker pull request: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Failed to create worker pull request: {str(e)}",
+            "data": None,
+        }
+
+
+def create_leader_pull_request(
+    repo_owner: str,
+    repo_name: str,
+    title: str,
+    head_branch: str,
+    description: str,
+    changes: str,
+    tests: str,
+    pr_details: List[Dict[str, str]],
+    base_branch: str = "main",
+    staking_key: str = None,
+    pub_key: str = None,
+    staking_signature: str = None,
+    public_signature: str = None,
+    **kwargs,
+) -> ToolOutput:
+    """Create a pull request for a leader node.
+
+    Args:
+        repo_owner: Owner of the source repository
+        repo_name: Name of the source repository
+        title: PR title
+        head_branch: Head branch name (branch the PR is coming from)
+        description: High-level description of the changes
+        changes: Description of major changes made
+        tests: Description of testing and verification performed
+        pr_details: List of consolidated PRs, each containing:
+            - number: PR number
+            - title: PR title
+            - url: Original PR URL
+            - source_owner: Original PR repository owner
+            - source_repo: Original PR repository name
+            - description: Original PR description
+            - files_changed: List of files changed in the PR
+        base_branch: Base branch name (default: main)
+        staking_key: Leader's staking key
+        pub_key: Leader's public key
+        staking_signature: Leader's staking signature
+        public_signature: Leader's public signature
+
+    Returns:
+        ToolOutput: Standardized tool output with PR URL on success
+    """
+    log_key_value("create_leader_pull_request kwargs", str(kwargs))
+
+    # Format the consolidated PRs into a markdown list with proper links
+    consolidated_prs = "The following pull requests have been merged:\n\n"
+
+    for pr in pr_details:
+        # Add PR to the list with original URL and attribution
+        consolidated_prs += f"- [#{pr['number']}: {pr['title']}]({pr['url']}) from @{pr['source_owner']}\n"
+
+    return create_pull_request(
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        head_branch=head_branch,
+        base_branch=base_branch,
+        pr_template=TEMPLATES["leader_pr_template"],
+        data={
+            "title": title,
+            "description": description,
+            "changes": changes,
+            "tests": tests,
+            "consolidated_prs": consolidated_prs,
+            "staking_key": staking_key,
+            "pub_key": pub_key,
+            "staking_signature": staking_signature,
+            "public_signature": public_signature,
+        },
+        **kwargs,
+    )
+
+
+def sync_fork(repo_path: str, branch: str = "main", **kwargs) -> ToolOutput:
     """
     Sync a fork with its upstream repository.
 
@@ -261,7 +312,7 @@ def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
         }
 
 
-def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
+def check_fork_exists(owner: str, repo_name: str, **kwargs) -> ToolOutput:
     """
     Check if fork exists using GitHub API.
 
@@ -273,7 +324,7 @@ def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
         ToolOutput: Standardized tool output with fork existence status
     """
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(os.environ.get("GITHUB_TOKEN"))
 
         # First check if the source repo exists
         try:
@@ -285,10 +336,14 @@ def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
                 "data": None,
             }
 
-        # Then check if we have a fork
+        # Get our expected fork name
+        source_repo_url = f"https://github.com/{owner}/{repo_name}"
+        fork_name = get_fork_name(owner, source_repo_url, github=gh)
+
+        # Then check if we have a fork with that name
         user = gh.get_user()
         try:
-            fork = user.get_repo(repo_name)
+            fork = user.get_repo(fork_name)
             # Verify it's actually a fork of the target repo
             if fork.fork and fork.parent.full_name == f"{owner}/{repo_name}":
                 return {
@@ -317,36 +372,47 @@ def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
 
 
 def review_pull_request(
-    repo_full_name: str,
+    repo_owner: str,
+    repo_name: str,
     pr_number: int,
     title: str,
     description: str,
-    requirements: Dict[str, List[str]],
+    unmet_requirements: List[str],
     test_evaluation: Dict[str, List[str]],
     recommendation: str,
     recommendation_reason: List[str],
     action_items: List[str],
+    staking_key: str,
+    pub_key: str,
+    staking_signature: str,
+    public_signature: str,
+    **kwargs,
 ) -> ToolOutput:
     """
     Post a structured review comment on a pull request.
 
     Args:
-        repo_full_name (str): Full name of the repository (owner/repo)
+        repo_owner (str): Owner of the repository
+        repo_name (str): Name of the repository
         pr_number (int): Pull request number
         title (str): Title of the PR
         description (str): Description of the changes
-        requirements (Dict[str, List[str]]): Dictionary with 'met' and 'not_met' requirements
+        unmet_requirements (List[str]): List of unmet requirements
         test_evaluation (Dict[str, List[str]]): Dictionary with test evaluation details
         recommendation (str): APPROVE/REVISE/REJECT
         recommendation_reason (List[str]): List of reasons for the recommendation
         action_items (List[str]): List of required changes or improvements
+        staking_key (str): Reviewer's staking key
+        pub_key (str): Reviewer's public key
+        staking_signature (str): Reviewer's staking signature
+        public_signature (str): Reviewer's public signature
 
     Returns:
         ToolOutput: Standardized tool output with review status and details
     """
     try:
-        gh = _get_github_client()
-        repo = gh.get_repo(repo_full_name)
+        gh = _get_github_client(os.environ.get("GITHUB_TOKEN"))
+        repo = gh.get_repo(f"{repo_owner}/{repo_name}")
         pr = repo.get_pull(pr_number)
 
         # Format lists into markdown bullet points
@@ -359,15 +425,7 @@ def review_pull_request(
         review_body = TEMPLATES["review_template"].format(
             title=title,
             description=description,
-            met_requirements=format_list(
-                requirements.get("met", []), "No requirements met"
-            ),
-            unmet_requirements=format_list(
-                requirements.get("not_met", []), "All requirements met"
-            ),
-            passed_tests=format_list(
-                test_evaluation.get("passed", []), "No passing tests"
-            ),
+            unmet_requirements=format_list(unmet_requirements, "All requirements met"),
             failed_tests=format_list(
                 test_evaluation.get("failed", []), "No failing tests"
             ),
@@ -379,6 +437,10 @@ def review_pull_request(
                 recommendation_reason, "No specific reasons provided"
             ),
             action_items=format_list(action_items, "No action items required"),
+            staking_key=staking_key,
+            pub_key=pub_key,
+            staking_signature=staking_signature,
+            public_signature=public_signature,
         )
 
         # Post the review
@@ -410,6 +472,7 @@ def validate_implementation(
     directory_check: dict,
     issues: list,
     required_fixes: list,
+    **kwargs,
 ) -> ToolOutput:
     """Submit a validation result with formatted message.
 
@@ -485,6 +548,7 @@ def generate_analysis(
     code_quality_issues=None,
     file_name="bugs.csv",
     repo_url=None,
+    **kwargs,
 ) -> ToolOutput:
     """
     Generate analysis of bugs, security vulnerabilities, and code quality issues.
@@ -501,10 +565,9 @@ def generate_analysis(
         ToolOutput: Standardized tool output with success status and file path
     """
     try:
-        # Use the project's main data directory instead of a local one
-        data_dir = "/home/laura/git/github/builder-247/data"
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
+        data_dir = os.environ.get("DATA_DIR")
+        if not data_dir:
+            raise ValueError("DATA_DIR environment variable must be set")
 
         # Ensure the file has a .csv extension
         if not file_name.endswith(".csv"):
@@ -587,7 +650,7 @@ def generate_analysis(
 
 
 def merge_pull_request(
-    repo_full_name: str, pr_number: int, merge_method: str = "merge"
+    repo_full_name: str, pr_number: int, merge_method: str = "merge", **kwargs
 ) -> ToolOutput:
     """
     Merge a pull request using the GitHub API.
@@ -604,7 +667,7 @@ def merge_pull_request(
         log_key_value("Merging PR", f"{repo_full_name}#{pr_number}")
 
         # Get GitHub client
-        gh = _get_github_client()
+        gh = _get_github_client(os.environ.get("GITHUB_TOKEN"))
 
         # Get repository
         repo = gh.get_repo(repo_full_name)
@@ -662,6 +725,7 @@ def generate_tasks(
     tasks: List[Dict[str, Any]] = None,
     file_name: str = "tasks.csv",
     repo_url: str = None,
+    **kwargs,
 ) -> dict:
     """Generate a CSV file containing tasks.
 
@@ -684,9 +748,9 @@ def generate_tasks(
             - error: Error message if any
     """
     try:
-        # Ensure data directory exists
-        data_dir = "/home/laura/git/github/builder-247/data"
-        os.makedirs(data_dir, exist_ok=True)
+        data_dir = os.environ.get("DATA_DIR")
+        if not data_dir:
+            raise ValueError("DATA_DIR environment variable must be set")
 
         # Full path for the CSV file
         file_path = os.path.join(data_dir, file_name)
@@ -724,3 +788,34 @@ def generate_tasks(
             "data": None,
             "error": str(e),
         }
+
+
+def check_repository_exists(repo_owner: str, repo_name: str, github_token: str) -> bool:
+    """Check if a repository exists."""
+    try:
+        gh = _get_github_client(github_token)
+
+        # First check if the source repo exists
+        try:
+            gh.get_repo(f"{repo_owner}/{repo_name}")
+        except GithubException:
+            return False
+
+        return True
+    except Exception as e:
+        print(f"Failed to check repository existence: {str(e)}")
+        return False
+
+
+def get_pull_request(
+    repo_owner: str, repo_name: str, pr_number: int, github_token: str
+) -> PullRequest:
+    """Get a pull request by number."""
+    try:
+        gh = _get_github_client(github_token)
+        repo = gh.get_repo(f"{repo_owner}/{repo_name}")
+        pr = repo.get_pull(pr_number)
+        return pr
+    except Exception as e:
+        print(f"Failed to get pull request: {str(e)}")
+        return None

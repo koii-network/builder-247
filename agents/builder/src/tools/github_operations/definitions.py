@@ -1,6 +1,6 @@
 from src.tools.github_operations.implementations import (
-    fork_repository,
-    create_pull_request,
+    create_worker_pull_request,
+    create_leader_pull_request,
     review_pull_request,
     validate_implementation,
     generate_analysis,
@@ -9,71 +9,71 @@ from src.tools.github_operations.implementations import (
 )
 
 DEFINITIONS = {
-    "fork_repository": {
-        "name": "fork_repository",
-        "description": "Fork a repository and optionally clone it locally.",
+    "create_worker_pull_request": {
+        "name": "create_worker_pull_request",
+        "description": "Create a pull request for a worker node with task implementation details and signatures.",
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_full_name": {
+                "title": {
                     "type": "string",
-                    "description": "Full name of repository (owner/repo)",
-                },
-                "repo_path": {
-                    "type": "string",
-                    "description": "Local path to clone to",
-                },
-            },
-            "required": ["repo_full_name"],
-        },
-        "function": fork_repository,
-    },
-    "create_pull_request": {
-        "name": "create_pull_request",
-        "description": "Create a pull request with formatted description.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "repo_full_name": {
-                    "type": "string",
-                    "description": "Full name of repository (owner/repo)",
-                },
-                "title": {"type": "string", "description": "Title of the pull request"},
-                "head": {
-                    "type": "string",
-                    "description": "Name of the branch containing changes",
-                },
-                "base": {
-                    "type": "string",
-                    "description": "Name of the branch to merge into",
+                    "description": "Title of the pull request",
                 },
                 "description": {
                     "type": "string",
-                    "description": "A brief summary of the changes made",
+                    "description": "Brief 1-2 sentence overview of the work done",
+                },
+                "changes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Detailed list of specific changes made in the implementation",
                 },
                 "tests": {
                     "type": "array",
-                    "description": "A brief description of what each test does",
                     "items": {"type": "string"},
+                    "description": "List of test descriptions",
                 },
-                "todo": {"type": "string", "description": "Original task description"},
-                "acceptance_criteria": {
+                "todo": {
                     "type": "string",
-                    "description": "Acceptance criteria",
+                    "description": "Original task description",
                 },
             },
             "required": [
-                "repo_full_name",
                 "title",
-                "head",
                 "description",
+                "changes",
                 "tests",
                 "todo",
-                "acceptance_criteria",
             ],
         },
-        "final_tool": True,
-        "function": create_pull_request,
+        "function": create_worker_pull_request,
+    },
+    "create_leader_pull_request": {
+        "name": "create_leader_pull_request",
+        "description": "Create a pull request for a leader node consolidating multiple worker PRs.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Clear and descriptive title summarizing the main themes of the changes",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "High-level explanation of the overall purpose and benefits of the changes",
+                },
+                "changes": {
+                    "type": "string",
+                    "description": "Description of major functional and architectural changes made",
+                },
+                "tests": {
+                    "type": "string",
+                    "description": "Description of verification steps taken and test coverage",
+                },
+            },
+            "required": ["title", "description", "changes", "tests"],
+        },
+        "function": create_leader_pull_request,
     },
     "review_pull_request": {
         "name": "review_pull_request",
@@ -81,30 +81,24 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_full_name": {
+                "title": {
                     "type": "string",
-                    "description": "Full name of repository (owner/repo)",
+                    "description": "Title of the PR",
                 },
-                "pr_number": {"type": "integer", "description": "Pull request number"},
-                "title": {"type": "string", "description": "Title of the PR"},
                 "description": {
                     "type": "string",
                     "description": "Description of changes",
                 },
-                "requirements": {
-                    "type": "object",
-                    "description": "Dictionary with 'met' and 'not_met' requirements",
-                    "properties": {
-                        "met": {"type": "array", "items": {"type": "string"}},
-                        "not_met": {"type": "array", "items": {"type": "string"}},
-                    },
+                "unmet_requirements": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of unmet requirements",
                 },
                 "test_evaluation": {
                     "type": "object",
                     "description": "Dictionary with test evaluation details",
                     "properties": {
-                        "coverage": {"type": "array", "items": {"type": "string"}},
-                        "issues": {"type": "array", "items": {"type": "string"}},
+                        "failed": {"type": "array", "items": {"type": "string"}},
                         "missing": {"type": "array", "items": {"type": "string"}},
                     },
                 },
@@ -124,11 +118,9 @@ DEFINITIONS = {
                 },
             },
             "required": [
-                "repo_full_name",
-                "pr_number",
                 "title",
                 "description",
-                "requirements",
+                "unmet_requirements",
                 "test_evaluation",
                 "recommendation",
                 "recommendation_reason",
@@ -300,7 +292,7 @@ DEFINITIONS = {
             "properties": {
                 "tasks": {
                     "type": "array",
-                    "description": "List of tasks to write to CSV",
+                    "description": "List of subtasks from the feature breakdown",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -321,22 +313,10 @@ DEFINITIONS = {
                                 "minItems": 1,
                             },
                         },
-                        "required": ["title", "description", "acceptance_criteria"],
-                        "additionalProperties": False,
                     },
-                },
-                "file_name": {
-                    "type": "string",
-                    "description": "Name of the output CSV file",
-                    "default": "tasks.csv",
-                },
-                "repo_url": {
-                    "type": "string",
-                    "description": "URL of the repository (for reference)",
-                },
+                }
             },
             "required": ["tasks"],
-            "additionalProperties": False,
         },
         "final_tool": True,
         "function": generate_tasks,

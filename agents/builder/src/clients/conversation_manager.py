@@ -78,3 +78,16 @@ class ConversationManager:
             )
             session.add(message)
             session.commit()
+
+    def update_tools(
+        self, conversation_id: str, available_tools: Optional[List[str]] = None
+    ):
+        """Update available tools for an existing conversation."""
+        with get_session() as session:
+            conversation = session.get(Conversation, conversation_id)
+            if not conversation:
+                raise ValueError(f"Conversation {conversation_id} not found")
+            conversation.available_tools = (
+                json.dumps(available_tools) if available_tools else None
+            )
+            session.commit()

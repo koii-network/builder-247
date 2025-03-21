@@ -8,7 +8,7 @@ require("dotenv").config();
 const REPO_OWNER = "koii-network";
 const REPO_NAME = "prometheus-beta";
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/todos";
-const CSV_FILE_PATH = path.join(__dirname, "../../../data/todos2.csv");
+const CSV_FILE_PATH = "/home/laura/git/github/builder-247/data/todos2.csv";
 
 async function connectToDatabase() {
   try {
@@ -24,7 +24,7 @@ async function importTodos() {
   const todoSchema = new mongoose.Schema(
     {
       title: String,
-      acceptanceCriteria: String,
+      acceptanceCriteria: [String],
       repoOwner: String,
       repoName: String,
       status: String,
@@ -48,7 +48,7 @@ async function importTodos() {
   for await (const record of parser) {
     records.push({
       title: record.todo,
-      acceptanceCriteria: record.acceptance_criteria,
+      acceptanceCriteria: record.acceptance_criteria.split(";").map((c) => c.trim()),
     });
   }
 
