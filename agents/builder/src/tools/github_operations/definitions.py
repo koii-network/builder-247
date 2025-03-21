@@ -10,6 +10,7 @@ from src.tools.github_operations.implementations import (
     validate_tasks,
     regenerate_tasks,
     create_task_dependency,
+    create_github_issue,
 )
 
 DEFINITIONS = {
@@ -329,7 +330,6 @@ DEFINITIONS = {
                         "additionalProperties": False,
                     },
                 },
-
             },
             "required": ["tasks"],
             "additionalProperties": False,
@@ -370,7 +370,12 @@ DEFINITIONS = {
                                 "description": "UUID of the task",
                             },
                         },
-                        "required": ["title", "description", "acceptance_criteria", "uuid"],
+                        "required": [
+                            "title",
+                            "description",
+                            "acceptance_criteria",
+                            "uuid",
+                        ],
                         "additionalProperties": False,
                     },
                 },
@@ -473,12 +478,35 @@ DEFINITIONS = {
                         "additionalProperties": False,
                     },
                 },
-
             },
             "required": ["issues"],
             "additionalProperties": False,
         },
         "final_tool": True,
-        "function": generate_issues,    
+        "function": generate_issues,
+    },
+    "create_github_issue": {
+        "name": "create_github_issue",
+        "description": "Create a GitHub issue.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "repo_full_name": {
+                    "type": "string",
+                    "description": "Full name of repository (owner/repo)",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Issue title",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Issue description",
+                },
+            },
+            "required": ["repo_full_name", "title", "description"],
+        },
+        "final_tool": True,
+        "function": create_github_issue,
     },
 }

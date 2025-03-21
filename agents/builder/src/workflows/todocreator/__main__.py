@@ -1,7 +1,6 @@
 """Entry point for the todo creator workflow."""
 
 import sys
-import os
 import argparse
 from dotenv import load_dotenv
 from src.workflows.todocreator.workflow import TodoCreatorWorkflow
@@ -62,14 +61,10 @@ def main():
         issue_spec=args.issue_spec,
     )
 
-
     result = workflow.run()
     if not result or not result.get("success"):
         print("Todo creator workflow failed")
         sys.exit(1)
-    
-
-
 
 
 if __name__ == "__main__":

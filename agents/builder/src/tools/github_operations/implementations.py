@@ -699,7 +699,8 @@ def generate_tasks(
             "message": f"Failed to generate tasks: {str(e)}",
             "data": None,
             "error": str(e),
-        }    
+        }
+
 
 def regenerate_tasks(
     tasks: List[Dict[str, Any]] = None,
@@ -738,8 +739,9 @@ def regenerate_tasks(
             "message": f"Failed to regenerate tasks: {str(e)}",
             "data": None,
             "error": str(e),
-        }   
-    
+        }
+
+
 def validate_tasks(decisions: List[Dict[str, Any]]) -> dict:
     """Validate the tasks.
 
@@ -806,8 +808,14 @@ def create_task_dependency(task_uuid: str, dependency_tasks: List[str]) -> dict:
             "data": dependency_tasks_dict,
         }
     except Exception as e:
-        return {"success": False, "message": f"Failed to update dependency tasks: {str(e)}", "data": None, "error": str(e)}
-    
+        return {
+            "success": False,
+            "message": f"Failed to update dependency tasks: {str(e)}",
+            "data": None,
+            "error": str(e),
+        }
+
+
 def generate_issues(
     issues: List[Dict[str, Any]] = None,
 ) -> dict:
@@ -847,4 +855,42 @@ def generate_issues(
             "message": f"Failed to generate issues: {str(e)}",
             "data": None,
             "error": str(e),
-        }   
+        }
+
+
+def create_github_issue(
+    repo_full_name: str,
+    title: str,
+    description: str,
+) -> ToolOutput:
+    """Create a GitHub issue.
+
+    Args:
+        repo_full_name: Full name of repository (owner/repo)
+        title: Issue title
+        description: Issue description
+
+    Returns:
+        ToolOutput: Standardized tool output with success status and error message if any
+    """
+    try:
+        gh = _get_github_client()
+        repo = gh.get_repo(repo_full_name)
+        issue = repo.create_issue(title=title, body=description)
+        return {
+            "success": True,
+            "message": f"Successfully created issue: {title}",
+            "data": {"issue_url": issue.html_url, "issue_number": issue.number},
+        }
+    except GithubException as e:
+        return {
+            "success": False,
+            "message": f"Failed to create issue: {str(e)}",
+            "data": {"errors": e.data.get("errors", [])},
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to create issue: {str(e)}",
+            "data": None,
+        }

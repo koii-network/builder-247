@@ -13,6 +13,7 @@ class IssueGenerationPhase(WorkflowPhase):
             name="Issue Generation",
         )
 
+
 class TaskDecompositionPhase(WorkflowPhase):
     def __init__(self, workflow: Workflow, conversation_id: str = None):
         super().__init__(
@@ -41,6 +42,7 @@ class TaskValidationPhase(WorkflowPhase):
             name="Task Validation",
         )
 
+
 class TaskRegenerationPhase(WorkflowPhase):
     def __init__(self, workflow: Workflow, conversation_id: str = None):
         super().__init__(
@@ -54,9 +56,10 @@ class TaskRegenerationPhase(WorkflowPhase):
             name="Task Regeneration",
         )
 
+
 # TODO: Implement Task Dependency Phase
 class TaskDependencyPhase(WorkflowPhase):
-    def __init__(self, workflow: Workflow,  conversation_id: str = None):
+    def __init__(self, workflow: Workflow, conversation_id: str = None):
         super().__init__(
             workflow=workflow,
             prompt_name="dependency_tasks",
