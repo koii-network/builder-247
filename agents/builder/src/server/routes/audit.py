@@ -60,7 +60,7 @@ def audit_worker_submission(round_number: str):
         round_number=round_number,
         staking_key=submitter_staking_key,
         pub_key=submitter_pub_key,
-        signature=submitter_signature,
+        submitter_signature=submitter_signature,
     )
 
     if not is_valid:

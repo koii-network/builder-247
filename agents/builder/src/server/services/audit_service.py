@@ -25,7 +25,6 @@ def verify_pr_ownership(
     round_number: int,
     staking_key: str,
     pub_key: str,
-    signature: str,
     submitter_signature: str,
 ) -> bool:
     """Verify PR ownership and signature.
