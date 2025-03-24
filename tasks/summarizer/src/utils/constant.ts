@@ -10,3 +10,5 @@ export const status = {
   ROUND_LESS_THAN_OR_EQUAL_TO_1: "Round <= 1",
   NO_ORCA_CLIENT: "No orca client",
 }
+
+export const leaderReward =  1;

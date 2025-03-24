@@ -52,7 +52,7 @@ export async function task(roundNumber: number): Promise<void> {
     // All these issues need to be starred
     const existingIssues = await getExistingIssues();
     const githubUrls = existingIssues.map((issue) => issue.githubUrl);
-    await orcaClient.podCall(`star/${roundNumber + 1}`, {
+    await orcaClient.podCall(`star/${roundNumber}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -78,7 +78,7 @@ export async function task(roundNumber: number): Promise<void> {
       return;
     }
     const repoUrl = initializedDocumentSummarizeIssues[myPosition].githubUrl;
-    await orcaClient.podCall(`repo_summary/${roundNumber + 1}`, {
+    await orcaClient.podCall(`repo_summary/${roundNumber}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
