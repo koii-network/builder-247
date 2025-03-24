@@ -10,7 +10,7 @@ from src.workflows.repoSummerizerAudit.prompts import PROMPTS as REPO_SUMMARIZER
 logger = logging.getLogger(__name__)
 
 
-def review_pr(repo_urls, pr_url, github_username):
+def review_pr(repo_urls, pr_url, github_username, star_only=True):
     """Review PR and decide if it should be accepted, revised, or rejected."""
     try:
         # Set up client and workflow
@@ -22,15 +22,17 @@ def review_pr(repo_urls, pr_url, github_username):
             github_username=github_username,
         )
         star_repo_workflow.run()
+        if star_only:
+            return True
+        else:
+            repo_summerizer_audit_workflow = RepoSummerizerAuditWorkflow(
+                client=client,
+                prompts=REPO_SUMMARIZER_AUDIT_PROMPTS,
+                pr_url=pr_url,
+            )
 
-        repo_summerizer_audit_workflow = RepoSummerizerAuditWorkflow(
-            client=client,
-            prompts=REPO_SUMMARIZER_AUDIT_PROMPTS,
-            pr_url=pr_url,
-        )
-
-        # Run workflow and get result
-        repo_summerizer_audit_workflow.run()
+            # Run workflow and get result
+            repo_summerizer_audit_workflow.run()
         return True
     except Exception as e:
         logger.error(f"PR review failed: {str(e)}")
