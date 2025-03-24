@@ -2,7 +2,7 @@ import { storeFile } from "../utils/ipfs";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import { status } from "../utils/constant";
-export async function submission(roundNumber: number) {
+export async function submission(roundNumber: number) : Promise<string | void> {
   /**
    * Retrieve the task proofs from your container and submit for auditing
    * Must return a string of max 512 bytes to be submitted on chain
@@ -16,7 +16,7 @@ export async function submission(roundNumber: number) {
     const orcaClient = await getOrcaClient();
     const taskResult = await namespaceWrapper.storeGet(`result-${roundNumber}`);
     if (taskResult !== status.ISSUES_PENDING_TO_BE_SUMMARIZED) {
-      return taskResult;
+      return taskResult || void 0;
     }
     const result = await orcaClient.podCall(`submission/${roundNumber}`);
     let submission;
@@ -69,7 +69,7 @@ export async function submission(roundNumber: number) {
     // store the submission on IPFS
     const cid = await storeFile({ signature }, "submission.json");
     console.log("SUBMISSION CID:", cid);
-    return cid;
+    return cid || void 0;
   } catch (error) {
     console.error("FETCH SUBMISSION ERROR:", error);
   }

@@ -11,4 +11,4 @@ export const status = {
   NO_ORCA_CLIENT: "No orca client",
 }
 
-export const leaderReward =  1;
+export const customReward = 0.5;

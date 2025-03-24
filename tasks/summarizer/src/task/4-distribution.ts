@@ -1,6 +1,6 @@
 import { Submitter, DistributionList } from "@_koii/task-manager";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
-import { leaderReward, status } from "../utils/constant";
+import { customReward, status } from "../utils/constant";
 import { Submission } from "@_koii/namespace-wrapper/dist/types";
 import { SubmissionsPerRound } from "@_koii/namespace-wrapper/dist/types";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
@@ -91,7 +91,7 @@ export const distribution = async (
         }),
       });
       if (result.data === "true") {
-        distributionList[submitter.publicKey] = leaderReward;
+        distributionList[submitter.publicKey] = customReward;
       } else {
         distributionList[submitter.publicKey] = 0;
       }
