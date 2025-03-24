@@ -1,9 +1,11 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
-import { getLeaderNode } from "../utils/leader";
+import { getLeaderNode, getRandomNodes } from "../utils/leader";
 import { getDistributionList } from "../utils/distributionList";
 import { getExistingIssues, getInitializedDocumentSummarizeIssues } from "../utils/existingIssues";
+import { status } from "../utils/constant";
+
 interface PodCallBody {
   taskId: string;
   roundNumber: number;
@@ -30,9 +32,14 @@ export async function task(roundNumber: number): Promise<void> {
   console.log(`EXECUTE TASK FOR ROUND ${roundNumber}`);
   try {
     const orcaClient = await getOrcaClient();
-
-
-
+    if (!orcaClient) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ORCA_CLIENT);
+      return;
+    }
+    if (orcaClient && roundNumber <= 1) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ROUND_LESS_THAN_OR_EQUAL_TO_1);
+      return;
+    }
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
       throw new Error("No staking keypair found");
@@ -44,38 +51,44 @@ export async function task(roundNumber: number): Promise<void> {
     // }
     // All these issues need to be starred
     const existingIssues = await getExistingIssues();
+    const githubUrls = existingIssues.map((issue) => issue.githubUrl);
+    await orcaClient.podCall(`star/${roundNumber + 1}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ taskId: TASK_ID, round_number: roundNumber, github_urls: githubUrls }),
+    });
     // All these issues need to be generate a markdown file
     const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues();
-    // All these issues need to be forked
-
-    await orcaClient.podCall(`task/${roundNumber + 1}`, {
+    if (initializedDocumentSummarizeIssues.length == 0) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
+      return;
+    } else {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUES_PENDING_TO_BE_SUMMARIZED);
+    }
+ 
+    const randomNodes = await getRandomNodes(roundNumber, stakingKey, initializedDocumentSummarizeIssues.length);
+    if (randomNodes.length === 0) {
+      return;
+    }
+    // Check my position in the list
+    const myPosition = randomNodes.indexOf(stakingKey);
+    if (myPosition === -1) {
+      return;
+    }
+    const repoUrl = initializedDocumentSummarizeIssues[myPosition].githubUrl;
+    await orcaClient.podCall(`repo_summary/${roundNumber + 1}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       // TODO: Change to dynamic repo owner and name by checking the middle server
-      body: JSON.stringify({ taskId: TASK_ID, repoOwner: "koii-network", repoName: "builder-test" }),
+      body: JSON.stringify({ taskId: TASK_ID, round_number: roundNumber, repo_url: repoUrl }),
     });
-
-
-    if (existingIssues.length == 0) {
-      namespaceWrapper.storeSet(`result-${roundNumber}`, "False");
-      return;
-    } else {
-      namespaceWrapper.storeSet(`result-${roundNumber}`, "True");
-    }
-    const { isLeader, leaderNode } = await getLeaderNode({
-      roundNumber,
-      leaderNumber: existingIssues.length,
-      submitterPublicKey: stakingKey,
-    });
-    console.log({ isLeader, leaderNode });
-    if (leaderNode === null) {
-      return;
-    }
     // const payload = {
     //   taskId: TASK_ID,
-    //   roundNumber,
+    //   roundNumber,`
     //   githubUsername: process.env.GITHUB_USERNAME,
     //   repoOwner: leaderNode,
     //   repoName: "builder-test",

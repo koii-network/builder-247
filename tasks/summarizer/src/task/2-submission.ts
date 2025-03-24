@@ -1,7 +1,7 @@
 import { storeFile } from "../utils/ipfs";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
-
+import { status } from "../utils/constant";
 export async function submission(roundNumber: number) {
   /**
    * Retrieve the task proofs from your container and submit for auditing
@@ -10,8 +10,14 @@ export async function submission(roundNumber: number) {
    * and returning the CID
    */
   console.log(`FETCH SUBMISSION FOR ROUND ${roundNumber}`);
+
+
   try {
     const orcaClient = await getOrcaClient();
+    const taskResult = await namespaceWrapper.storeGet(`result-${roundNumber}`);
+    if (taskResult !== status.ISSUES_PENDING_TO_BE_SUMMARIZED) {
+      return taskResult;
+    }
     const result = await orcaClient.podCall(`submission/${roundNumber}`);
     let submission;
 

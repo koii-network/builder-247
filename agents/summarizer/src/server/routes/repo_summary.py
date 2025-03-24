@@ -1,12 +1,12 @@
 from flask import Blueprint, jsonify, request
-from src.server.services import task_service
+from src.server.services import repo_summary_service
 
-bp = Blueprint("task", __name__)
+bp = Blueprint("repo_summary", __name__)
 
 
-@bp.post("/task/<round_number>")
+@bp.post("/repo_summary/<round_number>")
 def start_task(round_number):
-    logger = task_service.logger
+    logger = repo_summary_service.logger
     logger.info(f"Task started for round: {round_number}")
 
     data = request.get_json()
@@ -14,17 +14,15 @@ def start_task(round_number):
     required_fields = [
         "taskId",
         "round_number",
-        "github_urls",
-        "starOnly"
+        "repo_url"
     ]
     if any(data.get(field) is None for field in required_fields):
         return jsonify({"error": "Missing data"}), 401
 
-    result = task_service.handle_task_creation(
+    result = repo_summary_service.handle_task_creation(
         task_id=data["taskId"],
         round_number=int(round_number),
-        github_urls=data["github_urls"],
-        starOnly=data["starOnly"] == "true",
+        repo_url=data["repo_url"],
     )
 
     return jsonify({"message": result})

@@ -130,6 +130,24 @@ async function selectLeaderKey(
     return await selectShortestDistance(keys, submitterPublicKey);
   }
 }
+export async function getRandomNodes(roundNumber: number, submitterPublicKey: string, numberOfNodes: number): Promise<string[]> {
+
+  const lastRoundSubmission = await getSubmissionInfo(roundNumber - 1);
+  if (!lastRoundSubmission) {
+    return [];
+  }
+
+
+  const lastRoundSubmissions = lastRoundSubmission.submissions;
+  const seed = TASK_ID || "default" + roundNumber;
+  const rng = seedrandom(seed);
+  const randomKeys = Object.keys(lastRoundSubmissions).sort(() => rng() - 0.5).slice(0, numberOfNodes);
+
+  if (randomKeys.length < numberOfNodes) {
+    return randomKeys;
+  }
+  return randomKeys.slice(0, numberOfNodes);
+}
 
 // Helper function that finds the leader for a specific round
 async function getLeaderForRound(
