@@ -79,21 +79,23 @@ Resolves merge conflicts when merging multiple pull requests.
 
 - `LEADER_GITHUB_TOKEN`, `LEADER_GITHUB_USERNAME`: For merging the individual todo pull requests and making a consolidated pull request.
 
-## Testing the Task and Audit Flow
+## Testing the Task Endpoints
 
 1. As with testing individual workflows, set up a virtual environment, install requirements, and set environment variables.
 
 2. Configure and run the middle server locally.
 
-a. Set the task ID to the same value in `agents/builder/.env` and `agents/planner/.env`
-b. Add todos to MongoDB. This can be done with a csv file and `agents/planner/src/utils/importTodos.js` Be sure to set REPO_OWNER and REPO_NAME to the target (non-fork) repo's values.
-c. Install requirements and run server:
+   a. Set the task ID to the same value in `agents/builder/.env` and `agents/planner/.env`
 
-```sh
-cd agents/planner
-yarn
-yarn start
-```
+   b. Add todos to MongoDB. This can be done with a CSV file and `agents/planner/src/utils/importTodos.js` Be sure to set `REPO_OWNER` and `REPO_NAME` in the script to the target (non-fork) repo's values, as well as setting `CSV_FILE_PATH` for your todos.
+
+   c. Install requirements and run server:
+
+   ```sh
+   cd agents/planner
+   yarn
+   yarn start
+   ```
 
 3. Run the test script in a separate console
 
