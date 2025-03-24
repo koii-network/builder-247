@@ -13,12 +13,9 @@ def start_task(round_number):
     logger.info(f"Task data: {data}")
     required_fields = [
         "taskId",
-        "roundNumber",
-        "stakingKey",
-        "stakingSignature",
-        "pubKey",
-        "publicSignature",
-        "repoOwner",
+        "round_number",
+        "github_urls",
+        "starOnly"
     ]
     if any(data.get(field) is None for field in required_fields):
         return jsonify({"error": "Missing data"}), 401
@@ -26,9 +23,8 @@ def start_task(round_number):
     result = task_service.handle_task_creation(
         task_id=data["taskId"],
         round_number=int(round_number),
-        signature=data["signature"],
-        staking_key=data["stakingKey"],
-        pub_key=data["pubKey"],
+        github_urls=data["github_urls"],
+        starOnly=data["starOnly"] == "true",
     )
 
     return jsonify({"message": result})

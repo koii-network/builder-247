@@ -10,23 +10,15 @@ from src.utils.logging import logger, log_error
 from src.workflows.starRepo.workflow import StarRepoWorkflow
 from dotenv import load_dotenv
 from src.workflows.repoSummerizer.prompts import PROMPTS
-import re
 load_dotenv()
 
 
-def handle_task_creation(task_id, round_number, signature, staking_key, pub_key, starOnly=True):
+def handle_task_creation(task_id, round_number, github_urls, starOnly=True):
     """Handle task creation request."""
     try:    
         db = get_db()
         client = setup_client("anthropic")
         # Convert GitHub web URL to raw content URL
-        readmeUrl = "https://raw.githubusercontent.com/koii-network/prometheus-swarm-bounties/master/README.md"
-        # read this readme
-        readme = requests.get(readmeUrl).text
-        
-        # Extract all GitHub URLs using regex
-        github_pattern = r'https://github\.com/[a-zA-Z0-9-]+/[a-zA-Z0-9-_]+/?'
-        github_urls = re.findall(github_pattern, readme)
         
         # Remove any duplicates
         github_urls = list(set(github_urls))
