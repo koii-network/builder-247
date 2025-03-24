@@ -3,7 +3,7 @@ import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 import { getLeaderNode } from "../utils/leader";
 import { getDistributionList } from "../utils/distributionList";
-import { getExistingIssues } from "../utils/existingIssues";
+import { getExistingIssues, getInitializedDocumentSummarizeIssues } from "../utils/existingIssues";
 interface PodCallBody {
   taskId: string;
   roundNumber: number;
@@ -31,14 +31,7 @@ export async function task(roundNumber: number): Promise<void> {
   try {
     const orcaClient = await getOrcaClient();
 
-    // await orcaClient.podCall(`create-aggregator-repo/${roundNumber + 1}`, {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //   },
-    //   // TODO: Change to dynamic repo owner and name by checking the middle server
-    //   body: JSON.stringify({ taskId: TASK_ID, repoOwner: "koii-network", repoName: "builder-test" }),
-    // });
+
 
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
@@ -49,8 +42,22 @@ export async function task(roundNumber: number): Promise<void> {
     // if (!pubKey) {
     //   throw new Error("No public key found");
     // }
-
+    // All these issues need to be starred
     const existingIssues = await getExistingIssues();
+    // All these issues need to be generate a markdown file
+    const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues();
+    // All these issues need to be forked
+
+    await orcaClient.podCall(`task/${roundNumber + 1}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      // TODO: Change to dynamic repo owner and name by checking the middle server
+      body: JSON.stringify({ taskId: TASK_ID, repoOwner: "koii-network", repoName: "builder-test" }),
+    });
+
+
     if (existingIssues.length == 0) {
       namespaceWrapper.storeSet(`result-${roundNumber}`, "False");
       return;
@@ -59,7 +66,7 @@ export async function task(roundNumber: number): Promise<void> {
     }
     const { isLeader, leaderNode } = await getLeaderNode({
       roundNumber,
-      leaderNumber: 1,
+      leaderNumber: existingIssues.length,
       submitterPublicKey: stakingKey,
     });
     console.log({ isLeader, leaderNode });
