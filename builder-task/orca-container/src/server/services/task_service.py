@@ -589,7 +589,7 @@ def consolidate_prs(
         return {"success": False, "status": 500, "error": str(e)}
 
 
-def create_aggregator_repo(round_number, task_id, repo_owner, repo_name):
+def create_aggregator_repo(issue_id, repo_owner, repo_name):
     """Create an aggregator repo for a given round and task.
 
     Args:
@@ -623,8 +623,7 @@ def create_aggregator_repo(round_number, task_id, repo_owner, repo_name):
             fork = github.get_user().create_fork(source_repo)
             log_key_value("Created new fork", fork.html_url)
 
-        # Create standard aggregator branch name
-        branch_name = f"task-{task_id}-round-{round_number}"
+        branch_name = issue_id
 
         try:
             # Check if branch already exists
@@ -682,3 +681,45 @@ def create_aggregator_repo(round_number, task_id, repo_owner, repo_name):
 #         if not hasattr(e, "response"):
 #             return {"status": 500, "error": "No response from middle server"}
 #         return {"status": e.response.status_code, "error": e.response.text}
+
+
+def assign_issue(task_id):
+    try:
+
+        response = requests.post(
+            os.environ["MIDDLE_SERVER_URL"] + "/api/assign-issue",
+            json={"taskId": task_id},
+            headers={"Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        if not result.get("success", False):
+            return {
+                "success": False,
+                "status": 400,
+                "error": result.get("message", "Unknown error from middle server"),
+            }
+
+        return {"success": True, "data": result.get("data", {})}
+
+    except requests.exceptions.RequestException as e:
+        if not hasattr(e, "response") or e.response is None:
+            return {
+                "success": False,
+                "status": 500,
+                "error": "No response from middle server",
+            }
+
+        # Parse the JSON error response
+        try:
+            error_data = e.response.json()
+            error_message = error_data.get("message", "Unknown error")
+        except ValueError:
+            error_message = e.response.text
+
+        return {
+            "success": False,
+            "status": e.response.status_code,
+            "error": error_message,  # Use parsed message instead of raw JSON
+        }

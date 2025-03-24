@@ -31,14 +31,14 @@ export async function task(roundNumber: number): Promise<void> {
   try {
     const orcaClient = await getOrcaClient();
 
-    await orcaClient.podCall(`create-aggregator-repo/${roundNumber + 1}`, {
+    const repoData = await orcaClient.podCall(`create-aggregator-repo/${TASK_ID}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      // TODO: Change to dynamic repo owner and name by checking the middle server
-      body: JSON.stringify({ taskId: TASK_ID, repoOwner: "koii-network", repoName: "builder-test" }),
     });
+
+    if (!repoData.success) {
+      console.error("Failed to create aggregator repo", repoData.error);
+      return;
+    }
 
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
@@ -49,6 +49,33 @@ export async function task(roundNumber: number): Promise<void> {
     if (!pubKey) {
       throw new Error("No public key found");
     }
+
+    const aggregatorPayload = {
+      taskId: TASK_ID,
+      roundNumber,
+      githubUsername: process.env.GITHUB_USERNAME,
+      stakingKey,
+      pubKey,
+      action: "create-repo",
+      issueUuid: repoData.data.branch_name,
+      aggregatorUrl: repoData.data.fork_url,
+    };
+    const aggregatorSignature = await namespaceWrapper.payloadSigning(aggregatorPayload, stakingKeypair.secretKey);
+
+    const aggregatorPodCallBody = {
+      stakingKey,
+      pubKey,
+      signature: aggregatorSignature,
+    };
+
+    await orcaClient.podCall("add-aggregator-info", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(aggregatorPodCallBody),
+    });
+
     const { isLeader, leaderNode } = await getLeaderNode({
       roundNumber,
       leaderNumber: 1,

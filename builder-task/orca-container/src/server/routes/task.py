@@ -15,21 +15,11 @@ def start_leader_task(round_number):
     return start_task(round_number, "leader", request)
 
 
-@bp.post("/create-aggregator-repo/<round_number>")
-def create_aggregator_repo(round_number):
-    request_data = request.get_json()
-    required_fields = [
-        "taskId",
-        "repoOwner",
-        "repoName",
-    ]
-    if any(request_data.get(field) is None for field in required_fields):
-        return jsonify({"error": "Missing data"}), 401
+@bp.post("/create-aggregator-repo/<task_id>")
+def create_aggregator_repo(task_id):
+    issue_data = task_service.assign_issue(task_id)
     return task_service.create_aggregator_repo(
-        round_number,
-        request_data["taskId"],
-        request_data["repoOwner"],
-        request_data["repoName"],
+        issue_data["issueId"], issue_data["repoOwner"], issue_data["repoName"]
     )
 
 
