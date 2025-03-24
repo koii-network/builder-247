@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from src.server.services.github_service import verify_pr_ownership
-from src.server.services.audit_service import review_pr
+from src.server.services.audit_service import audit_repo
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,8 +57,8 @@ def audit_submission(round_number: int):
         return jsonify(False)
 
     try:
-        is_approved = review_pr(pr_url)
+        is_approved = audit_repo(pr_url)
         return jsonify(is_approved)
     except Exception as e:
-        logger.error(f"Error reviewing PR: {str(e)}")
+        logger.error(f"Error auditing PR: {str(e)}")
         return jsonify(True)
