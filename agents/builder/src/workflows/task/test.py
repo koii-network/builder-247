@@ -4,7 +4,7 @@ import os
 import csv
 from pathlib import Path
 from github import Github, GithubException
-from src.workflows.base import WorkflowExecution
+from src.workflows.base import WorkflowTest
 from src.workflows.task.workflow import TaskWorkflow
 from src.workflows.task.prompts import PROMPTS
 from src.workflows.utils import create_remote_branch
@@ -12,7 +12,7 @@ from src.utils.logging import log_key_value, log_section
 from typing import List, Optional
 
 
-class TaskExecution(WorkflowExecution):
+class TaskTest(WorkflowTest):
     def __init__(self):
         super().__init__(
             description="Run task workflow on GitHub repository",
@@ -25,7 +25,7 @@ class TaskExecution(WorkflowExecution):
                 "input": {
                     "type": str,
                     "help": "Path to CSV file containing todos and acceptance criteria",
-                    "default": "test_todos_small.csv",
+                    "default": "test_todos.csv",
                 },
             },
             prompts=PROMPTS,
@@ -42,8 +42,8 @@ class TaskExecution(WorkflowExecution):
         required_env_vars: Optional[List[str]] = None,
         leader_token_env_var: str = "LEADER_GITHUB_TOKEN",
         leader_username_env_var: str = "LEADER_GITHUB_USERNAME",
-        worker_token_env_var: str = "WORKER_GITHUB_TOKEN",
-        worker_username_env_var: str = "WORKER_GITHUB_USERNAME",
+        worker_token_env_var: str = "WORKER1_GITHUB_TOKEN",
+        worker_username_env_var: str = "WORKER1_GITHUB_USERNAME",
         **kwargs,
     ):
         """Set up task workflow context.
@@ -158,7 +158,8 @@ class TaskExecution(WorkflowExecution):
                             raise Exception(f"Task workflow failed for todo {i}")
                     else:
                         log_key_value("Skipping invalid row", row)
-
+            print("Workflow completed successfully")
+            print(f"Pull requests made to branch {self.base_branch}")
             return True
 
         except Exception:

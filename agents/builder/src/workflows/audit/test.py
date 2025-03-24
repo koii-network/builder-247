@@ -1,12 +1,12 @@
 """Audit workflow execution."""
 
-from src.workflows.base import WorkflowExecution
+from src.workflows.base import WorkflowTest
 from src.workflows.audit.workflow import AuditWorkflow
 from src.workflows.audit.prompts import PROMPTS
 from typing import List
 
 
-class AuditExecution(WorkflowExecution):
+class AuditTest(WorkflowTest):
     def __init__(self):
         super().__init__(
             description="Run audit workflow on a pull request",
@@ -22,8 +22,8 @@ class AuditExecution(WorkflowExecution):
 
     def _setup(
         self,
-        github_token_env_var: str = "GITHUB_TOKEN",
-        github_username_env_var: str = "GITHUB_USERNAME",
+        github_token_env_var: str = "WORKER2_GITHUB_TOKEN",
+        github_username_env_var: str = "WORKER2_GITHUB_USERNAME",
         required_env_vars: List[str] = None,
         **kwargs,
     ):

@@ -258,8 +258,8 @@ class Workflow(ABC):
         pass
 
 
-class WorkflowExecution(ABC):
-    """Base class for workflow execution."""
+class WorkflowTest(ABC):
+    """Base class for workflow testing."""
 
     def __init__(
         self,
@@ -267,7 +267,7 @@ class WorkflowExecution(ABC):
         prompts: Dict[str, str],
         additional_arguments: Optional[Dict[str, Dict[str, Any]]] = None,
     ):
-        """Initialize the workflow execution.
+        """Initialize the workflow test.
 
         Args:
             description: Description of the workflow for help text

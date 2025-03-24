@@ -1,14 +1,14 @@
 """Merge conflict workflow execution."""
 
 from github import Github
-from src.workflows.base import WorkflowExecution
+from src.workflows.base import WorkflowTest
 from src.workflows.mergeconflict.workflow import MergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS
 from typing import List
 import os
 
 
-class MergeConflictExecution(WorkflowExecution):
+class MergeConflictTest(WorkflowTest):
     def __init__(self):
         super().__init__(
             description="Run merge conflict workflow on a source fork",
@@ -30,8 +30,8 @@ class MergeConflictExecution(WorkflowExecution):
 
     def _setup(
         self,
-        github_token_env_var: str = "GITHUB_TOKEN",
-        github_username_env_var: str = "GITHUB_USERNAME",
+        github_token_env_var: str = "LEADER_GITHUB_TOKEN",
+        github_username_env_var: str = "LEADER_GITHUB_USERNAME",
         required_env_vars: List[str] = None,
         **kwargs,
     ):

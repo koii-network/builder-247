@@ -8,7 +8,7 @@ require("dotenv").config();
 const REPO_OWNER = "koii-network";
 const REPO_NAME = "prometheus-beta";
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/todos";
-const CSV_FILE_PATH = "/home/laura/git/github/builder-247/data/todos2.csv";
+const CSV_FILE_PATH = "/home/laura/git/github/builder-247/data/test_todos.csv";
 
 async function connectToDatabase() {
   try {

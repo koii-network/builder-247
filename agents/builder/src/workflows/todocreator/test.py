@@ -1,13 +1,13 @@
 """Todo creator workflow execution."""
 
 import os
-from src.workflows.base import WorkflowExecution
+from src.workflows.base import WorkflowTest
 from src.workflows.todocreator.workflow import TodoCreatorWorkflow
 from src.workflows.todocreator.prompts import PROMPTS
 from typing import List
 
 
-class TodoCreatorExecution(WorkflowExecution):
+class TodoCreatorTest(WorkflowTest):
     def __init__(self):
         super().__init__(
             description="Create tasks from a feature specification for a GitHub repository",

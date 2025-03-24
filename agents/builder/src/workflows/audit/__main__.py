@@ -1,6 +1,6 @@
 """Entry point for audit workflow."""
 
-from src.workflows.audit.execution import AuditExecution
+from agents.builder.src.workflows.audit.test import AuditExecution
 
 
 def main():

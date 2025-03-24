@@ -1,6 +1,6 @@
 """Entry point for merge conflict workflow."""
 
-from src.workflows.mergeconflict.execution import MergeConflictExecution
+from agents.builder.src.workflows.mergeconflict.test import MergeConflictExecution
 
 
 def main():
