@@ -25,7 +25,7 @@ pip install -r requirements.txt
 3. Run your desired workflow test on the command line:
 
 ```sh
-python3 -m src.workflows.workflow_name arguments
+python3 -m src.workflows.workflow_name <arguments>
 ```
 
 There are four arguments set by default on all workflows. These usually do not need to be modified:
