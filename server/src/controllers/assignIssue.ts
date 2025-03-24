@@ -1,61 +1,19 @@
 import { Request, Response } from "express";
 import { IssueModel, IssueStatus } from "../models/Issue";
-import { verifySignature } from "../utils/sign";
-import { taskID } from "../constant";
-export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
-  console.log("verifyRequestBody", req.body);
-  try {
-    const signature = req.body.signature as string;
-    const stakingKey = req.body.stakingKey as string;
-    const pubKey = req.body.pubKey as string;
-    if (!signature || !stakingKey || !pubKey) {
-      return null;
-    }
-    return { signature, stakingKey, pubKey };
-  } catch {
-    return null;
-  }
-}
+import { taskIDs } from "../constant";
 
-async function verifySignatureData /*  */(
-  signature: string,
-  stakingKey: string,
-  pubKey: string,
-  action: string,
-): Promise<{ roundNumber: number; githubUsername: string; issueUuid: string } | null> {
-  try {
-    const { data, error } = await verifySignature(signature, stakingKey);
-    if (error || !data) {
-      console.log("bad signature");
-      return null;
-    }
-    const body = JSON.parse(data);
-    console.log({ signature_payload: body });
-    if (
-      !body.taskId ||
-      typeof body.roundNumber !== "number" ||
-      body.taskId !== taskID ||
-      body.action !== action ||
-      !body.githubUsername ||
-      !body.issueUuid ||
-      !body.pubKey ||
-      body.pubKey !== pubKey ||
-      !body.stakingKey ||
-      body.stakingKey !== stakingKey
-    ) {
-      console.log("bad signature data");
-      return null;
-    }
-    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername, issueUuid: body.issueUuid };
-  } catch (error) {
-    console.log("unexpected signature error", error);
+export function verifyRequestBody(req: Request): string | null {
+  console.log("verifyRequestBody", req.body);
+  const taskId = req.body.taskId as string;
+  if (!taskId || !taskIDs.includes(taskId)) {
     return null;
   }
+  return taskId;
 }
 
 export const assignIssue = async (req: Request, res: Response) => {
-  const requestBody = verifyRequestBody(req);
-  if (!requestBody) {
+  const taskId = verifyRequestBody(req);
+  if (!taskId) {
     res.status(401).json({
       success: false,
       message: "Invalid request body",
@@ -63,35 +21,22 @@ export const assignIssue = async (req: Request, res: Response) => {
     return;
   }
 
-  const signatureData = await verifySignatureData(
-    requestBody.signature,
-    requestBody.stakingKey,
-    requestBody.pubKey,
-    "assignIssue",
-  );
-  if (!signatureData) {
-    res.status(401).json({
-      success: false,
-      message: "Failed to verify signature",
-    });
-    return;
-  }
-
-  const response = await assignIssueLogic(signatureData);
+  const response = await assignIssueLogic(taskId);
   res.status(response.statuscode).json(response.data);
 };
 
-export const assignIssueLogic = async (signatureData: {
-  roundNumber: number;
-  githubUsername: string;
-  issueUuid: string;
-}) => {
+export const assignIssueLogic = async (taskId: string) => {
   const fiveMinutesAgo = new Date(Date.now() - 300000); // 5 minutes in milliseconds
 
   const [result] = await IssueModel.aggregate([
     {
       $facet: {
         activeCheck: [
+          {
+            $match: {
+              taskId,
+            },
+          },
           {
             $match: {
               $or: [
@@ -150,7 +95,7 @@ export const assignIssueLogic = async (signatureData: {
   await IssueModel.findByIdAndUpdate(
     result.nextIssue._id,
     {
-      $set: { status: IssueStatus.IN_PROCESS },
+      $set: { status: IssueStatus.AGGREGATOR_PENDING },
     },
     { new: true },
   );
@@ -160,6 +105,9 @@ export const assignIssueLogic = async (signatureData: {
     data: {
       success: true,
       message: "Issue assigned",
+      issueId: result.nextIssue.issueUuid,
+      repoOwner: result.nextIssue.repoOwner,
+      repoName: result.nextIssue.repoName,
     },
   };
 };
