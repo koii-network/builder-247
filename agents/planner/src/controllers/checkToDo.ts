@@ -33,15 +33,33 @@ async function verifySignatureData(
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
+      console.log("Signature verification failed:", error);
       return null;
     }
     const body = JSON.parse(data);
+    console.log("Signature payload:", body);
+
+    // Log all validation checks
+    console.log({
+      taskIDFromEnv: taskID,
+      taskIdFromPayload: body.taskId,
+      roundNumberValue: body.roundNumber,
+      githubUsername: body.githubUsername,
+      pubKey: body.pubKey,
+      stakingKey: body.stakingKey,
+      prUrl: body.prUrl,
+      taskIDMatch: body.taskId === taskID,
+      roundNumberTypeMatch: typeof body.roundNumber === "number",
+      actionMatch: body.action === "audit",
+      pubKeyMatch: body.pubKey === pubKey,
+      stakingKeyMatch: body.stakingKey === stakingKey,
+    });
 
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
       body.taskId !== taskID ||
-      body.action !== "check" ||
+      body.action !== "audit" ||
       !body.prUrl ||
       !body.githubUsername ||
       !body.pubKey ||
@@ -49,6 +67,7 @@ async function verifySignatureData(
       !body.stakingKey ||
       body.stakingKey !== stakingKey
     ) {
+      console.log("Signature payload validation failed");
       return null;
     }
     return { roundNumber: body.roundNumber, githubUsername: body.githubUsername, prUrl: body.prUrl };
@@ -75,16 +94,11 @@ async function checkToDoAssignment(
     };
     console.log("Data:", data);
 
-    const result = await TodoModel.findOneAndUpdate(
-      {
-        assignedTo: {
-          $elemMatch: data,
-        },
+    const result = await TodoModel.find({
+      assignedTo: {
+        $elemMatch: data,
       },
-      {
-        $set: { "assignedTo.$.prSignature": prSignature },
-      },
-    )
+    })
       .select("_id")
       .lean();
 
@@ -97,8 +111,10 @@ async function checkToDoAssignment(
 }
 
 export const checkToDo = async (req: Request, res: Response) => {
+  console.log("\nProcessing check-to-do request");
   const requestBody = verifyRequestBody(req);
   if (!requestBody) {
+    console.log("Invalid request body");
     res.status(401).json({
       success: false,
       message: "Invalid request body",
@@ -108,6 +124,7 @@ export const checkToDo = async (req: Request, res: Response) => {
 
   const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey, requestBody.pubKey);
   if (!signatureData) {
+    console.log("Failed to verify signature data");
     res.status(401).json({
       success: false,
       message: "Failed to verify signature",
@@ -116,6 +133,7 @@ export const checkToDo = async (req: Request, res: Response) => {
   }
 
   if (!(await isValidStakingKey(requestBody.stakingKey))) {
+    console.log("Invalid staking key:", requestBody.stakingKey);
     res.status(401).json({
       success: false,
       message: "Invalid staking key",
@@ -132,6 +150,7 @@ export const checkToDo = async (req: Request, res: Response) => {
   );
 
   if (!isValid) {
+    console.log("No matching todo assignment found");
     res.status(404).json({
       success: false,
       message: "No matching todo assignment found",
@@ -139,6 +158,7 @@ export const checkToDo = async (req: Request, res: Response) => {
     return;
   }
 
+  console.log("Todo assignment verified successfully");
   res.status(200).json({
     success: true,
     message: "Todo assignment verified successfully",

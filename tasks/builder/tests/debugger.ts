@@ -17,8 +17,7 @@ class Debugger {
   static async getConfig() {
     Debugger.nodeDir = await this.getNodeDirectory();
 
-    let destinationPath =
-      "executables/" + (await this.getAuditProgram()) + ".js";
+    let destinationPath = "executables/" + (await this.getAuditProgram()) + ".js";
     let logPath = "namespace/" + TASK_ID + "/task.log";
 
     console.log("Debugger.nodeDir", Debugger.nodeDir);
@@ -42,28 +41,14 @@ class Debugger {
 
     switch (os.platform()) {
       case "linux":
-        nodeDirectory = path.join(
-          homeDirectory,
-          ".config",
-          "KOII-Desktop-Node",
-        );
+        nodeDirectory = path.join(homeDirectory, ".config", "KOII-Desktop-Node");
         break;
       case "darwin":
-        nodeDirectory = path.join(
-          homeDirectory,
-          "Library",
-          "Application Support",
-          "KOII-Desktop-Node",
-        );
+        nodeDirectory = path.join(homeDirectory, "Library", "Application Support", "KOII-Desktop-Node");
         break;
       default:
         // Windows is the default
-        nodeDirectory = path.join(
-          homeDirectory,
-          "AppData",
-          "Roaming",
-          "KOII-Desktop-Node",
-        );
+        nodeDirectory = path.join(homeDirectory, "AppData", "Roaming", "KOII-Desktop-Node");
     }
 
     return nodeDirectory;
@@ -95,32 +80,19 @@ class Debugger {
   }
 }
 
-
-function parseTaskState(taskState) {
+function parseTaskState(taskState: any) {
   taskState.stake_list = objectify(taskState.stake_list, true);
   taskState.ip_address_list = objectify(taskState.ip_address_list, true);
-  taskState.distributions_audit_record = objectify(
-    taskState.distributions_audit_record,
-    true,
-  );
-  taskState.distributions_audit_trigger = objectify(
-    taskState.distributions_audit_trigger,
-    true,
-  );
+  taskState.distributions_audit_record = objectify(taskState.distributions_audit_record, true);
+  taskState.distributions_audit_trigger = objectify(taskState.distributions_audit_trigger, true);
   taskState.submissions = objectify(taskState.submissions, true);
-  taskState.submissions_audit_trigger = objectify(
-    taskState.submissions_audit_trigger,
-    true,
-  );
-  taskState.distribution_rewards_submission = objectify(
-    taskState.distribution_rewards_submission,
-    true,
-  );
+  taskState.submissions_audit_trigger = objectify(taskState.submissions_audit_trigger, true);
+  taskState.distribution_rewards_submission = objectify(taskState.distribution_rewards_submission, true);
   taskState.available_balances = objectify(taskState.available_balances, true);
   return taskState;
 }
 
-function objectify(data, recursive = false) {
+function objectify(data: any, recursive = false) {
   if (data instanceof Map) {
     const obj = Object.fromEntries(data);
     if (recursive) {

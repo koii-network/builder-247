@@ -10,9 +10,6 @@ from ..types import (
     ToolCallContent,
     ToolChoice,
 )
-from src.utils.retry import is_retryable_error
-from src.utils.logging import log_error
-from src.utils.errors import ClientAPIError
 import json
 
 
@@ -24,6 +21,7 @@ class OpenAIClient(Client):
         api_key: str,
         model: Optional[str] = None,
         base_url: Optional[str] = None,
+        default_headers: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
         super().__init__(model=model, **kwargs)
@@ -31,6 +29,7 @@ class OpenAIClient(Client):
             api_key=api_key,
             base_url=base_url,  # Use default OpenAI URL if not specified
         )
+        self.default_headers = default_headers
 
     def _get_api_name(self) -> str:
         """Get API name for logging."""
@@ -162,39 +161,35 @@ class OpenAIClient(Client):
         max_tokens: Optional[int] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Make API call to OpenAI."""
-        try:
+        # Add system message if provided
+        if system_prompt:
+            messages.insert(0, {"role": "system", "content": system_prompt})
 
-            # Add system message if provided
-            if system_prompt:
-                messages.insert(0, {"role": "system", "content": system_prompt})
+        # Create API request parameters
+        params = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": max_tokens or 2000,
+        }
 
-            # Create API request parameters
-            params = {
-                "model": self.model,
-                "messages": messages,
-                "max_tokens": max_tokens or 2000,
-            }
+        # Add tools if available
+        if tools:
+            params["tools"] = tools
+            if tool_choice:
+                params["tool_choice"] = tool_choice
 
-            # Add tools if available
-            if tools:
-                params["tools"] = tools
-                if tool_choice:
-                    params["tool_choice"] = tool_choice
+        # Add extra headers if we have them
+        if extra_headers:
+            params["extra_headers"] = extra_headers
+        elif self.default_headers:
+            params["extra_headers"] = self.default_headers
 
-            # Make API call
-            response = self.client.chat.completions.create(**params)
-            return response.choices[0].message
-
-        except Exception as e:
-            # Only wrap actual API errors
-            log_error(
-                e,
-                context=f"Error making API call to {self.api_name}",
-                include_traceback=not is_retryable_error(e),
-            )
-            raise ClientAPIError(e)
+        # Make API call
+        response = self.client.chat.completions.create(**params)
+        return response.choices[0].message
 
     def _format_tool_response(self, response: str) -> MessageContent:
         """Format a tool response into a message.
