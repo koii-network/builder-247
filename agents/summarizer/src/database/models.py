@@ -38,7 +38,7 @@ class Submission(SQLModel, table=True):
     pr_url: Optional[str] = None
     username: Optional[str] = None
     repo_urls: Optional[dict] = Field(default=None, sa_column=Column(JSON))  # Store as JSON type
-
+    repo_url: Optional[str] = None
 
 class Log(SQLModel, table=True):
     """Log entry model."""

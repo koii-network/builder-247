@@ -63,12 +63,13 @@ def handle_task_creation(task_id, round_number, signature, staking_key, pub_key,
             workflow = RepoSummerizerWorkflow(
                 client=client,
                 prompts=PROMPTS,
-                repo_url="https://github.com/koii-network/namespace-wrapper",
+                repo_url=github_urls[0],
             )
     
             result = workflow.run()
             if result.get("success"):
                 submission.status = "summarized"
+                submission.repo_url = github_urls[0]
                 submission.pr_url = result.data.get("pr_url")
                 db.commit()
                 return jsonify({"success": True, "result": result})
