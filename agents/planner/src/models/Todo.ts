@@ -18,11 +18,20 @@ class AssignedInfo {
 
   @prop({ required: false })
   public prUrl?: string;
+
+  @prop({ required: false })
+  public auditResult?: boolean;
 }
 
 enum TodoStatus {
+  // Means not assigned to any node
+  // This  can also be used when a node is audited as false, so we can reassign it to another node
   INITIALIZED = "initialized",
-  DONE = "done",
+  // Means is assigned to a node, not completed
+  // This can be used when the node does not complete a task, so we can reassign it to another node
+  IN_PROGRESS = "in_progress",
+  AUDITED = "audited", // Means a PR is audited and waiting for merge
+  MERGED = "merged", // Means a PR is merged
 }
 
 @modelOptions({
@@ -37,6 +46,18 @@ class Todo {
   @prop({ required: true })
   public title!: string;
 
+  @prop({ required: true })
+  public uuid!: string;
+
+
+  @prop({ required: true })
+  public issueUuid!: string;
+
+  @prop({ required: true })
+  public description!: string;
+
+
+
   @prop({ required: true, type: () => [String] })
   public acceptanceCriteria!: string[];
 
@@ -48,6 +69,9 @@ class Todo {
 
   @prop({ type: () => [AssignedInfo], default: [] })
   public assignedTo!: AssignedInfo[];
+
+  @prop({ type: () => [String], default: [] })
+  public dependencyTasks!: string[];
 
   @prop({
     enum: TodoStatus,

@@ -5,20 +5,17 @@ import { verifySignature } from "../utils/sign";
 import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 
-function verifyRequestBody(
-  req: Request,
-): { signature: string; pubKey: string; stakingKey: string; prUrl: string } | null {
+function verifyRequestBody(req: Request): { signature: string; pubKey: string; stakingKey: string } | null {
   try {
     console.log("req.body", req.body);
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
     const stakingKey = req.body.stakingKey as string;
-    const prUrl = req.body.prUrl as string;
-    if (!signature || !pubKey || !stakingKey || !prUrl) {
+    if (!signature || !pubKey || !stakingKey) {
       return null;
     }
 
-    return { signature, pubKey, stakingKey, prUrl };
+    return { signature, pubKey, stakingKey };
   } catch {
     return null;
   }
@@ -42,7 +39,8 @@ async function verifySignatureData(
       !body.taskId ||
       body.taskId !== taskID ||
       typeof body.roundNumber !== "number" ||
-      body.action !== "task" ||
+      body.action !== "add" ||
+      !body.prUrl ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
       !body.stakingKey ||
@@ -55,8 +53,13 @@ async function verifySignatureData(
     return null;
   }
 }
-async function updateAssignedInfoWithPRUrl(stakingKey: string, roundNumber: number, prUrl: string): Promise<boolean> {
-  console.log("updateAssignedInfoWithPRUrl", { stakingKey, roundNumber, prUrl });
+async function updateAssignedInfoWithPRUrl(
+  stakingKey: string,
+  roundNumber: number,
+  prUrl: string,
+  prSignature: string,
+): Promise<boolean> {
+  console.log("updateAssignedInfoWithPRUrl", { stakingKey, roundNumber, prUrl, prSignature });
   const result = await TodoModel.findOneAndUpdate(
     {
       assignedTo: {
@@ -68,7 +71,7 @@ async function updateAssignedInfoWithPRUrl(stakingKey: string, roundNumber: numb
       },
     },
     {
-      $set: { "assignedTo.$.prUrl": prUrl },
+      $set: { "assignedTo.$.prUrl": prUrl, "assignedTo.$.prSignature": prSignature },
     },
   )
     .select("_id")
@@ -106,22 +109,27 @@ export const addPR = async (req: Request, res: Response) => {
     return;
   }
 
-  console.log("prUrl", requestBody.prUrl);
+  const response = await addPRLogic(requestBody, signatureData);
+  res.status(response.statuscode).json(response.data);
+};
+
+export const addPRLogic = async (requestBody: {signature: string, pubKey: string, stakingKey: string}, signatureData: {roundNumber: number, prUrl: string}) => {
+  console.log("prUrl", signatureData.prUrl);
   const result = await updateAssignedInfoWithPRUrl(
     requestBody.stakingKey,
     signatureData.roundNumber,
-    requestBody.prUrl,
+    signatureData.prUrl,
+    requestBody.signature,
   );
   if (!result) {
-    res.status(401).json({
+    return {statuscode: 401, data:{
       success: false,
       message: "Failed to update pull request URL",
-    });
-    return;
+    }};
   }
 
-  res.status(200).json({
+  return {statuscode: 200, data:{
     success: true,
     message: "Pull request URL updated",
-  });
+  }};
 };
