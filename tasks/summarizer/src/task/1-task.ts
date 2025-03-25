@@ -51,6 +51,7 @@ export async function task(roundNumber: number): Promise<void> {
     // }
     /****************** All issues need to be starred ******************/
     const existingIssues = await getExistingIssues();
+    console.log("Existing issues:", existingIssues);
     const githubUrls = existingIssues.map((issue) => issue.githubUrl);
     await orcaClient.podCall(`star/${roundNumber}`, {
       method: "POST",
@@ -61,6 +62,7 @@ export async function task(roundNumber: number): Promise<void> {
     });
     /****************** All these issues need to be generate a markdown file ******************/
     const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues();
+    console.log("Initialized document summarize issues:", initializedDocumentSummarizeIssues);
     if (initializedDocumentSummarizeIssues.length == 0) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
       return;
