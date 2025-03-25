@@ -4,8 +4,8 @@ import sys
 import os
 import argparse
 from dotenv import load_dotenv
-from src.workflows.repoSummerizerAudit.workflow import RepoSummerizerAuditWorkflow
-from src.workflows.repoSummerizerAudit.prompts import PROMPTS
+from src.workflows.repoSummarizerAudit.workflow import repoSummarizerAuditWorkflow
+from src.workflows.repoSummarizerAudit.prompts import PROMPTS
 from src.clients import setup_client
 
 # Load environment variables
@@ -23,7 +23,7 @@ def main():
         required=True,
         help="GitHub pull request URL (e.g., https://github.com/owner/repo/pull/1)",
     )
-    
+
     parser.add_argument(
         "--model",
         type=str,
@@ -37,20 +37,16 @@ def main():
     client = setup_client(args.model)
 
     # Run the todo creator workflow
-    workflow = RepoSummerizerAuditWorkflow(
+    workflow = repoSummarizerAuditWorkflow(
         client=client,
         prompts=PROMPTS,
         pr_url=args.pr_url,
     )
 
-
     result = workflow.run()
     if not result or not result.get("success"):
         print("Todo creator workflow failed")
         sys.exit(1)
-    
-
-
 
 
 if __name__ == "__main__":

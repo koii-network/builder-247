@@ -19,24 +19,6 @@ PROMPTS = {
         "- FRAMEWORK: Foundational structure for building applications\n"
         "- DATA_SCIENCE: Machine learning or data analysis project\n"
         "- OTHER: If it doesn't fit into any of the above categories\n\n"
-        "Examine the file structure, dependencies, configuration files, and code patterns to determine the type.\n"
-        "Please also identify any sub-types or specialized features of the repository.\n\n"
-        "First, determine the repository type by analyzing code files and project structure.\n\n"
-        "After analyzing the repository and determining its type, you MUST call the get_readme_prompt tool with "
-        "the repository type as an argument (using the lowercase version of the type, e.g., 'library' not "
-        "'LIBRARY').\n\n"
-        "The tool will return a prompt template that will be used for README generation. You must include this "
-        "template exactly as returned in your response.\n\n"
-        "Return a structured response in the following format:\n"
-        "{\n"
-        '  "success": true,\n'
-        '  "data": {\n'
-        '    "repo_type": "CHOSEN_TYPE_IN_LOWERCASE",\n'
-        '    "sub_types": ["sub-type1", "sub-type2"],\n'
-        '    "description": "Brief description of the repository\'s purpose and why it was classified this way",\n'
-        '    "prompt": "The prompt template returned by the get_readme_prompt tool"\n'
-        "  }\n"
-        "}"
     ),
     "generate_readme_file": (
         "Generate a comprehensive README file for the following repository:\n"
@@ -55,6 +37,16 @@ PROMPTS = {
         "   - Specific description of each significant file\n\n"
         "Format the output in markdown, ensuring clear section headers and proper formatting."
         "Please commit and push the changes to the repository after generating the README file."
+    ),
+    "create_pr": (
+        "You are creating a pull request for the documentation you have generated:\n"
+        "IMPORTANT: Always use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
+        "Steps to create the pull request:\n"
+        "1. First examine the available files to understand the implementation\n"
+        "2. Create a clear and descriptive PR title\n"
+        "3. Write a comprehensive PR description that includes:\n"
+        "   - Description of all changes made\n"
+        "   - The main features and value of the documentation\n"
     ),
     "library": (
         "Generate a comprehensive README file for the following repository:\n"

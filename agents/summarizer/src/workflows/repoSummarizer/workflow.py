@@ -3,12 +3,9 @@
 import os
 from github import Github
 from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import (
-    fork_repository,
-    create_pull_request,
-)
+from src.tools.github_operations.implementations import fork_repository
 from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.repoSummerizer import phases
+from src.workflows.repoSummarizer import phases
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
@@ -119,21 +116,7 @@ class RepoSummarizerWorkflow(Workflow):
         repo_classification_result = self.classify_repository()
         prompt_name = repo_classification_result["data"].get("prompt_name")
         self.generate_readme_file(prompt_name)
-
-        # Create pull request with detailed parameters
-        create_pull_request_result = create_pull_request(
-            repo_full_name=f"{self.context['repo_owner']}/{self.context['repo_name']}",
-            title="Update README.md",
-            head=self.context["base_branch"],
-            description="Automated update of README.md file with repository summary",
-            tests=["README.md file has been updated", "Content is properly formatted"],
-            todo="Review and merge the README changes",
-            acceptance_criteria="README.md contains accurate repository summary",
-            base=self.context["base_branch"],
-        )
-        log_key_value("Create pull request result", create_pull_request_result)
-
-        return create_pull_request_result
+        self.create_pull_request()
 
     def classify_repository(self):
         try:
@@ -174,5 +157,19 @@ class RepoSummarizerWorkflow(Workflow):
             return {
                 "success": False,
                 "message": f"Readme file generation workflow failed: {str(e)}",
+                "data": None,
+            }
+
+    def create_pull_request(self):
+        """Create a pull request for the README file."""
+        try:
+            log_section("CREATING PULL REQUEST")
+            create_pull_request_phase = phases.CreatePullRequestPhase(workflow=self)
+            return create_pull_request_phase.execute()
+        except Exception as e:
+            log_error(e, "Pull request creation workflow failed")
+            return {
+                "success": False,
+                "message": f"Pull request creation workflow failed: {str(e)}",
                 "data": None,
             }

@@ -1,11 +1,10 @@
 """Entry point for the todo creator workflow."""
 
 import sys
-import os
 import argparse
 from dotenv import load_dotenv
-from src.workflows.repoSummerizer.workflow import RepoSummarizerWorkflow
-from src.workflows.repoSummerizer.prompts import PROMPTS
+from src.workflows.repoSummarizer.workflow import RepoSummarizerWorkflow
+from src.workflows.repoSummarizer.prompts import PROMPTS
 from src.clients import setup_client
 
 # Load environment variables

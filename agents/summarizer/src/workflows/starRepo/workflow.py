@@ -5,7 +5,7 @@ from github import Github
 from src.workflows.base import Workflow
 from src.tools.github_operations.implementations import fork_repository, star_repository
 from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.repoSummerizer import phases
+from src.workflows.repoSummarizer import phases
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
@@ -51,19 +51,16 @@ class StarRepoWorkflow(Workflow):
         parts = repo_url.strip("/").split("/")
         repo_owner = parts[-2]
         repo_name = parts[-1]
-        
+
         super().__init__(
             client=client,
             prompts=prompts,
             repo_url=repo_url,
             repo_owner=repo_owner,
             repo_name=repo_name,
-            
         )
         self.context["repo_owner"] = repo_owner
         self.context["repo_name"] = repo_name
-
-
 
     def setup(self):
         """Set up repository and workspace."""
@@ -115,15 +112,19 @@ class StarRepoWorkflow(Workflow):
         # Clean up the repository directory
         cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
         # Clean up the MongoDB
+
     def run(self):
         star_repo_result = self.start_star_repo()
         return star_repo_result
+
     def start_star_repo(self):
         """Execute the issue generation workflow."""
         try:
             self.setup()
             # ==================== Generate issues ====================
-            star_repo_result = star_repository(self.context["repo_owner"], self.context["repo_name"])  
+            star_repo_result = star_repository(
+                self.context["repo_owner"], self.context["repo_name"]
+            )
             if not star_repo_result or not star_repo_result.get("success"):
                 log_error(
                     Exception(star_repo_result.get("error", "No result")),

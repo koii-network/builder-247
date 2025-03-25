@@ -4,7 +4,7 @@ import os
 from github import Github
 from src.workflows.base import Workflow
 from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.repoSummerizerAudit import phases
+from src.workflows.repoSummarizerAudit import phases
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
@@ -13,6 +13,7 @@ from src.workflows.utils import (
     get_current_files,
 )
 from git import Repo
+
 
 class Task:
     def __init__(self, title: str, description: str, acceptance_criteria: list[str]):
@@ -38,7 +39,7 @@ class Task:
         )
 
 
-class RepoSummerizerAuditWorkflow(Workflow):
+class repoSummarizerAuditWorkflow(Workflow):
     def __init__(
         self,
         client,
@@ -63,7 +64,6 @@ class RepoSummerizerAuditWorkflow(Workflow):
         self.context["repo_owner"] = repo_owner
         self.context["repo_name"] = repo_name
 
-
     def setup(self):
         """Set up repository and workspace."""
         # Check required environment variables and validate GitHub auth
@@ -78,7 +78,10 @@ class RepoSummerizerAuditWorkflow(Workflow):
         # Clone repository
         log_section("CLONING REPOSITORY")
         gh = Github(os.environ["GITHUB_TOKEN"])
-        log_key_value("Getting repository", f"{self.context['repo_owner']}/{self.context['repo_name']}")
+        log_key_value(
+            "Getting repository",
+            f"{self.context['repo_owner']}/{self.context['repo_name']}",
+        )
         repo = gh.get_repo(f"{self.context['repo_owner']}/{self.context['repo_name']}")
 
         log_key_value("Cloning repository to", self.context["repo_path"])
@@ -98,7 +101,6 @@ class RepoSummerizerAuditWorkflow(Workflow):
         os.chdir(self.context["repo_path"])
         self.context["current_files"] = get_current_files()
 
-
     def cleanup(self):
         """Cleanup workspace."""
         # Make sure we're not in the repo directory before cleaning up
@@ -108,10 +110,12 @@ class RepoSummerizerAuditWorkflow(Workflow):
         # Clean up the repository directory
         cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
         # Clean up the MongoDB
+
     def run(self):
         check_readme_file_result = self.check_readme_file()
-        
+
         return check_readme_file_result
+
     def check_readme_file(self):
         """Execute the issue generation workflow."""
         try:
@@ -120,7 +124,9 @@ class RepoSummerizerAuditWorkflow(Workflow):
             check_readme_file_phase = phases.CheckReadmeFilePhase(workflow=self)
             check_readme_file_result = check_readme_file_phase.execute()
             # Check Issue Generation Result
-            if not check_readme_file_result or not check_readme_file_result.get("success"):
+            if not check_readme_file_result or not check_readme_file_result.get(
+                "success"
+            ):
                 log_error(
                     Exception(check_readme_file_result.get("error", "No result")),
                     "Readme file check failed",
@@ -129,7 +135,9 @@ class RepoSummerizerAuditWorkflow(Workflow):
             log_section("Readme file check completed")
             print(check_readme_file_result)
             recommendation = check_readme_file_result["data"]["recommendation"]
-            log_key_value("Readme file check completed", f"Recommendation: {recommendation}")
+            log_key_value(
+                "Readme file check completed", f"Recommendation: {recommendation}"
+            )
             # Star the repository
             return check_readme_file_result
         except Exception as e:
@@ -140,4 +148,3 @@ class RepoSummerizerAuditWorkflow(Workflow):
                 "message": f"Readme file check workflow failed: {str(e)}",
                 "data": None,
             }
-    

@@ -3,9 +3,12 @@
 import os
 from github import Github
 from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository, get_user_starred_repos
+from src.tools.github_operations.implementations import (
+    fork_repository,
+    get_user_starred_repos,
+)
 from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.repoSummerizer import phases
+from src.workflows.repoSummarizer import phases
 from src.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
@@ -52,7 +55,7 @@ class StarRepoAuditWorkflow(Workflow):
         parts = repo_url.strip("/").split("/")
         repo_owner = parts[-2]
         repo_name = parts[-1]
-        
+
         super().__init__(
             client=client,
             prompts=prompts,
@@ -60,12 +63,10 @@ class StarRepoAuditWorkflow(Workflow):
             repo_owner=repo_owner,
             repo_name=repo_name,
             github_username=github_username,
-            
         )
         self.context["repo_owner"] = repo_owner
         self.context["repo_name"] = repo_name
         self.context["github_username"] = github_username
-
 
     def setup(self):
         """Set up repository and workspace."""
@@ -117,17 +118,21 @@ class StarRepoAuditWorkflow(Workflow):
         # Clean up the repository directory
         cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
         # Clean up the MongoDB
+
     def run(self):
         star_repo_result = self.check_star_repo()
         if not star_repo_result:
-            log_error(Exception("Repository is not starred"), "Repository is not starred")
+            log_error(
+                Exception("Repository is not starred"), "Repository is not starred"
+            )
             return False
         return star_repo_result
+
     def check_star_repo(self):
         """Check if the repository is starred."""
         try:
             print(self.context["github_username"])
-            
+
             starred_repos = get_user_starred_repos(self.context["github_username"])
             print(starred_repos)
             if not starred_repos or not starred_repos.get("success"):
@@ -137,7 +142,9 @@ class StarRepoAuditWorkflow(Workflow):
                 )
                 return False
             # check if the repository is in the starred_repos
-            if f"{self.context['repo_owner']}/{self.context['repo_name']}" in [repo["full_name"] for repo in starred_repos["data"]["starred_repos"]]:
+            if f"{self.context['repo_owner']}/{self.context['repo_name']}" in [
+                repo["full_name"] for repo in starred_repos["data"]["starred_repos"]
+            ]:
                 print("Repository is starred")
                 return {"success": True, "result": "Repository is starred"}
             else:

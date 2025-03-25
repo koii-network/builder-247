@@ -39,3 +39,14 @@ class ReadmeGenerationPhase(WorkflowPhase):
             conversation_id=conversation_id,
             name="Readme Generation",
         )
+
+
+class CreatePullRequestPhase(WorkflowPhase):
+    def __init__(self, workflow: Workflow, conversation_id: str = None):
+        super().__init__(
+            workflow=workflow,
+            prompt_name="create_pr",
+            required_tool="create_pull_request",
+            conversation_id=conversation_id,
+            name="Create Pull Request",
+        )

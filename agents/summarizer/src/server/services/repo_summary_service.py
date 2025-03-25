@@ -5,11 +5,11 @@ import os
 from flask import jsonify
 from src.database import get_db, Submission
 from src.clients import setup_client
-from src.workflows.repoSummerizer.workflow import RepoSummarizerWorkflow
+from src.workflows.repoSummarizer.workflow import RepoSummarizerWorkflow
 from src.utils.logging import logger, log_error
 from src.workflows.starRepo.workflow import StarRepoWorkflow
 from dotenv import load_dotenv
-from src.workflows.repoSummerizer.prompts import PROMPTS
+from src.workflows.repoSummarizer.prompts import PROMPTS
 
 load_dotenv()
 
