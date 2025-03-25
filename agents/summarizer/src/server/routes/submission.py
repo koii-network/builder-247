@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
 from src.database import get_db, Submission
 import logging
-
+import os
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("submission", __name__)
@@ -22,13 +22,16 @@ def fetch_submission(roundNumber):
     )
 
     if submission:
+
+        github_username = os.getenv("GITHUB_USERNAME")
         return jsonify(
             {
+                "taskId": submission.task_id,
                 "roundNumber": submission.round_number,
+                "status": submission.status,
+                "repoUrl": submission.repo_url,
                 "prUrl": submission.pr_url,
-                "githubUsername": submission.username,
-                "repoOwner": submission.repo_owner,
-                "repoName": submission.repo_name,
+                "username": github_username,
             }
         )
     else:

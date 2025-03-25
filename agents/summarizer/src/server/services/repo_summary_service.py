@@ -32,7 +32,7 @@ def handle_task_creation(task_id, round_number, repo_url):
                 round_number=round_number,
                 status="summarized",
                 repo_url=repo_url,
-                pr_url=result["data"]["pr_url"]
+                pr_url=result["data"]["pr_url"],
             )
             db.add(submission)
             db.commit()

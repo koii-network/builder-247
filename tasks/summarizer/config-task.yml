@@ -5,7 +5,7 @@
 
 ## Task Name ##
 # Maximum 24 characters.
-task_name: "Prometheus Builder Beta"
+task_name: "Pro Summarizer Beta"
 
 ## Task Author ##
 author: "Koii"
@@ -46,19 +46,19 @@ task_audit_program: "dist/main.js"
 ## Round Time ##
 # Duration of task, measured in slots (with each slot approximately equal to 408ms). Should be at least 800 slots.
 # See https://www.koii.network/docs/concepts/what-are-tasks/what-are-tasks/gradual-consensus for more information on how round time, audit window, and submission window work.
-round_time: 9000
+round_time: 3000
 
 ## Audit Window ##
 # The audit window should be at least 1/3 of the round time.
-audit_window: 3000
+audit_window: 1000
 
 ## Submission Window ##
 # The submission window should be at least 1/3 of the round time.
-submission_window: 3000
+submission_window: 1000
 
 ## Minimum Stake Amount ##
 # The minimum amount of KOII or KPL that a user must stake in order to participate in the task.
-minimum_stake_amount: 1.9
+minimum_stake_amount: 0.01
 
 ## Task Bounty Type ##
 # KOII or KPL
@@ -88,7 +88,7 @@ allowed_failed_distributions: 3
 # Expected Task Data Size in MBs for the account size.
 # Minimums: 2 for whitelisted tasks, 1 for production, 0.1 for testing.
 # See https://www.koii.network/docs/develop/command-line-tool/create-task-cli/create-task#space for calculation details.
-space: 2
+space: 0.1
 
 ## Requirement Tags (Optional) ##
 # To add more global variables and task variables, please refer to the type, value, description format shown below.
@@ -119,7 +119,7 @@ tags: ["AI"]
 # Environment ##
 # TEST or PRODUCTION
 # Production mode will expose your task to all the task runners, even if not whitelisted.
-environment: "PRODUCTION"
+environment: "TEST"
 
 #################################### FOR UPDATING TASKS ONLY ####################################
 

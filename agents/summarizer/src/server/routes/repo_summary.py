@@ -26,3 +26,29 @@ def start_task(round_number):
     )
 
     return jsonify({"message": result})
+
+if __name__ == "__main__":
+    from flask import Flask
+    
+    # Create a Flask app instance
+    app = Flask(__name__)
+    app.register_blueprint(bp)
+    
+    # Test data
+    test_data = {
+        "taskId": "fake",
+        "round_number": "1",
+        "repo_url": "https://github.com/koii-network/docs"
+    }
+    
+    # Set up test context
+    with app.test_client() as client:
+        # Make a POST request to the endpoint
+        response = client.post(
+            "/repo_summary/1",
+            json=test_data
+        )
+        
+        # Print the response
+        print(f"Status Code: {response.status_code}")
+        print(f"Response: {response.get_json()}")
