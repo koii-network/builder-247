@@ -6,8 +6,12 @@ import { namespaceWrapper } from "@_koii/namespace-wrapper";
 export async function submissionJSONSignatureDecode({submitterSubmission, submitter, roundNumber}: {submitterSubmission: Submission, submitter: Submitter, roundNumber: number}) {
     let submissionString;
     try {
+        console.log("Getting file from IPFS", submitterSubmission.submission_value);
       submissionString = await getFile(submitterSubmission.submission_value);
+      console.log("submissionString", submissionString);
     } catch (error) {
+
+        console.log("error", error);
       console.error("INVALID SIGNATURE DATA");
       return null;
     }
