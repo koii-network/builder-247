@@ -18,6 +18,7 @@ class WorkflowPhase:
         required_tool: Optional[str] = None,
         conversation_id: Optional[str] = None,
         name: Optional[str] = None,
+        max_tokens: Optional[int] = 2000,
     ):
         """Initialize a workflow phase.
 
@@ -29,7 +30,7 @@ class WorkflowPhase:
         self.prompt_name = prompt_name
         self.name = name or self.__class__.__name__
         self.workflow = workflow
-
+        self.max_tokens = max_tokens
         # Format the prompt if workflow is provided
         self.prompt = None
 
@@ -84,6 +85,7 @@ class WorkflowPhase:
             prompt=self.prompt,
             conversation_id=self.conversation_id,
             tool_choice=tool_choice,
+            max_tokens=self.max_tokens,
         )
 
         results = workflow.client.handle_tool_response(

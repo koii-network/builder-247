@@ -134,10 +134,46 @@ class RepoSummarizerWorkflow(Workflow):
         # Store branch name in context
         self.context["head"] = branch_result["data"]["branch_name"]
         log_key_value("Branch created", self.context["head"])
-        repo_classification_result = self.classify_repository()
-        prompt_name = repo_classification_result["data"].get("prompt_name")
-        self.generate_readme_file(prompt_name)
 
+        # Classify repository
+        repo_classification_result = self.classify_repository()
+        if not repo_classification_result or not repo_classification_result.get(
+            "success"
+        ):
+            log_error(
+                Exception("Repository classification failed"),
+                "Repository classification failed",
+            )
+            return {
+                "success": False,
+                "message": "Repository classification failed",
+                "data": None,
+            }
+
+        # Get prompt name for README generation
+        prompt_name = repo_classification_result["data"].get("prompt_name")
+        if not prompt_name:
+            log_error(
+                Exception("No prompt name returned from repository classification"),
+                "Repository classification failed to provide prompt name",
+            )
+            return {
+                "success": False,
+                "message": "Repository classification failed to provide prompt name",
+                "data": None,
+            }
+
+        # Generate README file
+        readme_result = self.generate_readme_file(prompt_name)
+        if not readme_result or not readme_result.get("success"):
+            log_error(Exception("README generation failed"), "README generation failed")
+            return {
+                "success": False,
+                "message": "README generation failed",
+                "data": None,
+            }
+
+        # Create pull request
         print("CONTEXT", self.context)
         result = self.create_pull_request()
         return result

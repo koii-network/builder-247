@@ -53,6 +53,7 @@ class ReadmeGenerationPhase(WorkflowPhase):
             ],
             conversation_id=conversation_id,
             name="Readme Generation",
+            max_tokens=8192,
         )
 
 
