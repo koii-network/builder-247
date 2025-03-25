@@ -25,4 +25,5 @@ export async function submissionJSONSignatureDecode({submitterSubmission, submit
       console.error("INVALID SIGNATURE DATA");
       return null;
     }
+    return data;
 }
