@@ -124,6 +124,7 @@ class StarRepoWorkflow(Workflow):
             self.setup()
             # ==================== Generate issues ====================
             star_repo_result = star_repository(self.context["repo_owner"], self.context["repo_name"])  
+            log_key_value("Star repo result", star_repo_result)
             if not star_repo_result or not star_repo_result.get("success"):
                 log_error(
                     Exception(star_repo_result.get("error", "No result")),
