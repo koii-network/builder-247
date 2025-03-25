@@ -33,7 +33,6 @@ todos-example.csv
 
 
 # Ignore auto-generated repository directories
-repo_*/
 repos/
 
 
