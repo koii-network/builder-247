@@ -22,11 +22,18 @@ def audit_submission(round_number: int):
     task_id = submission.get("taskId")
     pr_url = submission.get("prUrl")
     github_username = submission.get("githubUsername")
-    repo_owner = submission.get("repoOwner")
-    repo_name = submission.get("repoName")
-
-    if int(round_number) != submission_round_number:
-        return jsonify({"error": "Round number mismatch"}), 400
+    
+    # Extract repo owner and name from PR URL
+    try:
+        pr_url_parts = pr_url.split('github.com/')[1].split('/')
+        repo_owner = pr_url_parts[0]
+        repo_name = pr_url_parts[1]
+    except (IndexError, AttributeError):
+        return jsonify({"error": "Invalid PR URL format"}), 400
+    print(f"Repo owner: {repo_owner}, Repo name: {repo_name}")
+    # This is commented out because the round number might be different due to we put the audit logic in the distribution part
+    # if int(round_number) != submission_round_number:
+    #     return jsonify({"error": "Round number mismatch"}), 400
 
     if (
         not task_id
