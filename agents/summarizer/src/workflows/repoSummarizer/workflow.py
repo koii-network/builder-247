@@ -75,11 +75,11 @@ class RepoSummarizerWorkflow(Workflow):
             repo = gh.get_repo(
                 f"{self.context['repo_owner']}/{self.context['repo_name']}"
             )
-            self.context["base_branch"] = repo.default_branch
-            log_key_value("Default branch", self.context["base_branch"])
+            self.context["base"] = repo.default_branch
+            log_key_value("Default branch", self.context["base"])
         except Exception as e:
             log_error(e, "Failed to get default branch, using 'main'")
-            self.context["base_branch"] = "main"
+            self.context["base"] = "main"
 
         # Set up repository directory
         repo_path, original_dir = setup_repo_directory()
@@ -233,7 +233,7 @@ class RepoSummarizerWorkflow(Workflow):
 
             log_key_value(
                 "Creating PR",
-                f"from {self.context['head']} to {self.context['base_branch']}",
+                f"from {self.context['head']} to {self.context['base']}",
             )
 
             print("CONTEXT", self.context)
