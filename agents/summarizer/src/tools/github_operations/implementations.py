@@ -1,7 +1,7 @@
 """Module for GitHub operations."""
 
 import os
-from typing import Dict, List, Any
+from typing import Dict, List
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
 from src.tools.git_operations.implementations import (
@@ -16,8 +16,6 @@ from git import Repo, GitCommandError
 from src.tools.github_operations.templates import TEMPLATES
 
 import csv
-import uuid
-import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -39,7 +37,7 @@ def _get_github_client() -> Github:
     return Github(auth=Auth.Token(token))
 
 
-def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
+def fork_repository(repo_full_name: str, repo_path: str = None, **kwargs) -> ToolOutput:
     """
     Fork a repository and clone it locally.
 
@@ -133,10 +131,8 @@ def create_pull_request(
     title: str,
     head: str,
     description: str,
-    tests: List[str],
-    todo: str,
-    acceptance_criteria: str,
     base: str = "main",
+    **kwargs,
 ) -> ToolOutput:
     """Create PR with formatted description.
 
@@ -163,15 +159,9 @@ def create_pull_request(
         # Ensure base branch is just the name without owner
         base = base.split(":")[-1]  # Remove owner prefix if present
 
-        # Format tests into markdown bullets
-        tests_bullets = " - " + "\n - ".join(tests)
-
         body = TEMPLATES["pr_template"].format(
-            todo=todo,
             title=title,
-            acceptance_criteria=acceptance_criteria,
             description=description,
-            tests=tests_bullets,
         )
 
         repo = gh.get_repo(repo_full_name)
@@ -195,7 +185,7 @@ def create_pull_request(
         }
 
 
-def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
+def sync_fork(repo_path: str, branch: str = "main", **kwargs) -> ToolOutput:
     """
     Sync a fork with its upstream repository.
 
@@ -263,7 +253,7 @@ def sync_fork(repo_path: str, branch: str = "main") -> ToolOutput:
         }
 
 
-def check_fork_exists(owner: str, repo_name: str) -> ToolOutput:
+def check_fork_exists(owner: str, repo_name: str, **kwargs) -> ToolOutput:
     """
     Check if fork exists using GitHub API.
 
@@ -328,6 +318,7 @@ def review_pull_request(
     recommendation: str,
     recommendation_reason: List[str],
     action_items: List[str],
+    **kwargs,
 ) -> ToolOutput:
     """
     Post a structured review comment on a pull request.
@@ -352,7 +343,7 @@ def review_pull_request(
         pr = repo.get_pull(pr_number)
 
         # Format lists into markdown bullet points
-        def format_list(items: List[str], empty_message: str = "None") -> str:
+        def format_list(items: List[str], empty_message: str = "None", **kwargs) -> str:
             if not items:
                 return f"*{empty_message}*"
             return "- " + "\n- ".join(items)
@@ -412,6 +403,7 @@ def validate_implementation(
     directory_check: dict,
     issues: list,
     required_fixes: list,
+    **kwargs,
 ) -> ToolOutput:
     """Submit a validation result with formatted message.
 
@@ -487,6 +479,7 @@ def generate_analysis(
     code_quality_issues=None,
     file_name="bugs.csv",
     repo_url=None,
+    **kwargs,
 ) -> ToolOutput:
     """
     Generate analysis of bugs, security vulnerabilities, and code quality issues.
@@ -589,7 +582,12 @@ def generate_analysis(
 
 
 def merge_pull_request(
-    repo_full_name: str, pr_number: int, merge_method: str = "merge"
+    repo_full_name: str,
+    pr_number: int,
+    commit_title: str = None,
+    commit_message: str = None,
+    merge_method: str = "squash",
+    **kwargs,
 ) -> ToolOutput:
     """
     Merge a pull request using the GitHub API.
@@ -597,6 +595,8 @@ def merge_pull_request(
     Args:
         repo_full_name: Full name of repository (owner/repo)
         pr_number: Pull request number to merge
+        commit_title: Title of the commit message
+        commit_message: Message of the commit
         merge_method: Merge method to use (merge, squash, rebase)
 
     Returns:
@@ -660,7 +660,7 @@ def merge_pull_request(
         }
 
 
-def star_repository(owner: str, repo_name: str) -> ToolOutput:
+def star_repository(owner: str, repo_name: str, **kwargs) -> ToolOutput:
     """
     Star a repository using the GitHub API.
 
@@ -674,16 +674,16 @@ def star_repository(owner: str, repo_name: str) -> ToolOutput:
     try:
         repo_full_name = f"{owner}/{repo_name}"
         log_key_value("Starring repository", repo_full_name)
-        
+
         gh = _get_github_client()
         repo = gh.get_repo(repo_full_name)
-        
+
         # Star the repository
         user = gh.get_user()
         user.add_to_starred(repo)
-        
+
         log_key_value("Successfully starred", repo_full_name)
-        
+
         return {
             "success": True,
             "message": f"Successfully starred repository {repo_full_name}",
@@ -705,7 +705,7 @@ def star_repository(owner: str, repo_name: str) -> ToolOutput:
         }
 
 
-def get_user_starred_repos(username: str = None) -> ToolOutput:
+def get_user_starred_repos(username: str = None, **kwargs) -> ToolOutput:
     """
     Get list of repositories starred by a user.
     If username is None, gets starred repos for authenticated user.
@@ -718,13 +718,13 @@ def get_user_starred_repos(username: str = None) -> ToolOutput:
     """
     try:
         gh = _get_github_client()
-        
+
         # Get user object
         user = gh.get_user(username) if username else gh.get_user()
-        
+
         # Get starred repos
         starred_repos = list(user.get_starred())
-        
+
         return {
             "success": True,
             "message": f"Found {len(starred_repos)} starred repositories",
@@ -733,14 +733,15 @@ def get_user_starred_repos(username: str = None) -> ToolOutput:
                     {
                         "full_name": repo.full_name,
                         "url": repo.html_url,
-                        "description": repo.description
-                    } for repo in starred_repos
+                        "description": repo.description,
+                    }
+                    for repo in starred_repos
                 ]
-            }
+            },
         }
     except Exception as e:
         return {
             "success": False,
             "message": f"Failed to get starred repositories: {str(e)}",
-            "data": None
-        } 
+            "data": None,
+        }

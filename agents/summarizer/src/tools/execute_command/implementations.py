@@ -3,7 +3,7 @@ import os
 from src.types import ToolOutput
 
 
-def execute_command(command: str) -> ToolOutput:
+def execute_command(command: str, **kwargs) -> ToolOutput:
     """Execute a shell command in the current working directory."""
     try:
         cwd = os.getcwd()
@@ -58,8 +58,7 @@ def execute_command(command: str) -> ToolOutput:
 
 
 def run_tests(
-    path: str,
-    framework: str,  # Default but can be overridden
+    path: str, framework: str, **kwargs  # Default but can be overridden
 ) -> ToolOutput:
     """Run tests using the specified framework and command.
 
@@ -83,7 +82,7 @@ def run_tests(
             "data": None,
         }
 
-    result = execute_command(command)
+    result = execute_command(command, **kwargs)
 
     # Check if the command execution failed (not the tests)
     if not result["success"]:
@@ -145,6 +144,7 @@ def install_dependency(
     package_manager: str,
     is_dev_dependency: bool = False,
     version: str = None,
+    **kwargs,
 ) -> ToolOutput:
     """Install a dependency using the specified package manager.
 
@@ -196,7 +196,7 @@ def install_dependency(
     dep_type = "dev" if is_dev_dependency else "prod"
     command = commands[package_manager][dep_type]
 
-    result = execute_command(command)
+    result = execute_command(command, **kwargs)
 
     # Check if the command execution failed
     if not result["success"]:

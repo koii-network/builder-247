@@ -1,15 +1,5 @@
 TEMPLATES = {
-    "pr_template": (
-        "# {title}\n\n"
-        "## Original Task\n"
-        "{todo}\n\n"
-        "## Summary of Changes\n"
-        "{description}\n\n"
-        "## Acceptance Criteria\n"
-        "{acceptance_criteria}\n\n"
-        "## Tests\n"
-        "{tests}\n\n"
-    ),
+    "pr_template": ("# {title}\n\n" "## Summary of Changes\n" "{description}\n\n"),
     "review_template": (
         "# PR Review: {title}\n\n"
         "## Recommendation: {recommendation}\n\n"

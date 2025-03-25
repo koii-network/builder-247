@@ -86,7 +86,9 @@ class WorkflowPhase:
             tool_choice=tool_choice,
         )
 
-        results = workflow.client.handle_tool_response(response)
+        results = workflow.client.handle_tool_response(
+            response, context=workflow.context
+        )
         if not results:
             log_error(
                 Exception("No results returned from phase"),

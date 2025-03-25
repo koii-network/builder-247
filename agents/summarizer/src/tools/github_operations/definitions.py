@@ -1,6 +1,6 @@
 from src.tools.github_operations.implementations import (
     fork_repository,
-    create_pull_request,  
+    create_pull_request,
     review_pull_request,
     validate_implementation,
     generate_analysis,
@@ -34,43 +34,13 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_full_name": {
-                    "type": "string",
-                    "description": "Full name of repository (owner/repo)",
-                },
                 "title": {"type": "string", "description": "Title of the pull request"},
-                "head": {
-                    "type": "string",
-                    "description": "Name of the branch containing changes",
-                },
-                "base": {
-                    "type": "string",
-                    "description": "Name of the branch to merge into",
-                },
                 "description": {
                     "type": "string",
                     "description": "A brief summary of the changes made",
                 },
-                "tests": {
-                    "type": "array",
-                    "description": "A brief description of what each test does",
-                    "items": {"type": "string"},
-                },
-                "todo": {"type": "string", "description": "Original task description"},
-                "acceptance_criteria": {
-                    "type": "string",
-                    "description": "Acceptance criteria",
-                },
             },
-            "required": [
-                "repo_full_name",
-                "title",
-                "head",
-                "description",
-                "tests",
-                "todo",
-                "acceptance_criteria",
-            ],
+            "required": ["title", "description"],
         },
         "final_tool": True,
         "function": create_pull_request,
@@ -297,9 +267,12 @@ DEFINITIONS = {
         "description": "Star a repository using the GitHub API.",
         "parameters": {
             "type": "object",
-            "properties": { 
+            "properties": {
                 "owner": {"type": "string", "description": "Owner of the repository"},
-                "repo_name": {"type": "string", "description": "Name of the repository"},
+                "repo_name": {
+                    "type": "string",
+                    "description": "Name of the repository",
+                },
             },
             "required": ["owner", "repo_name"],
         },
