@@ -1,5 +1,5 @@
 import { namespaceWrapper, app } from "@_koii/task-manager/namespace-wrapper";
-import { getLeaderNode } from "../utils/leader";
+import { getLeaderNode, getRandomNodes } from "../utils/leader";
 import { task } from "./1-task";
 import { submission } from "./2-submission";
 import { audit } from "./3-audit";
@@ -58,4 +58,10 @@ export async function routes() {
     res.status(200).json({ result: submissionResult });
   });
 
+  app.get("/randomNodes/:roundNumber/:number", async (req, res) => {
+    const roundNumber = req.params.roundNumber;
+    const number = req.params.number;
+    const randomNodes = await getRandomNodes(Number(roundNumber), Number(number));
+    res.status(200).json({ result: randomNodes });
+  });
 }

@@ -58,9 +58,9 @@ export const distribution = async (
         distributionList[submitter.publicKey] = 0;
         continue;
       }
-  
-  
-      // Send the submission to the ORCA container for auditing
+      console.log("Sending audit request for submitter:", submitter.publicKey);
+      console.log("Submission data being sent to audit:", decodeResult);
+      
       const result = await orcaClient.podCall(`audit/${roundNumber}`, {
         method: "POST",
         headers: {
@@ -70,12 +70,22 @@ export const distribution = async (
           submission: decodeResult,
         }),
       });
-      if (result.data === "true") {
+
+      console.log("Raw audit result:", result);
+      console.log("Audit result data type:", typeof result.data);
+      console.log("Audit result data value:", result.data);
+      
+      if (result.data === true) {
+        console.log(`✅ Audit passed for ${submitter.publicKey}`);
+        console.log(`Setting reward to customReward value:`, customReward);
         distributionList[submitter.publicKey] = customReward;
       } else {
+        console.log(`❌ Audit failed for ${submitter.publicKey}`);
+        console.log("Failed audit result data:", result.data);
         distributionList[submitter.publicKey] = 0;
       }
-
+      
+      console.log("Current distribution list:", distributionList);
     }
 
     return distributionList;

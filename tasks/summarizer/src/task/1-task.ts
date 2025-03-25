@@ -60,9 +60,11 @@ export async function task(roundNumber: number): Promise<void> {
     if (randomNodes.length === 0) {
       return;
     }
+    console.log("Returned random nodes:", randomNodes);
     // Check my position in the list
     const myPosition = randomNodes.indexOf(stakingKey);
     if (myPosition === -1) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_CHOSEN_AS_ISSUE_SUMMARIZER);
       return;
     }
     const repoUrl = initializedDocumentSummarizeIssues[myPosition].githubUrl;

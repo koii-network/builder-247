@@ -133,19 +133,22 @@ async function selectLeaderKey(
 export async function getRandomNodes(roundNumber: number, numberOfNodes: number): Promise<string[]> {
 
   const lastRoundSubmission = await getSubmissionInfo(roundNumber - 1);
+  console.log("Last round submission:", lastRoundSubmission);
   if (!lastRoundSubmission) {
     return [];
   }
-
+  
 
   const lastRoundSubmissions = lastRoundSubmission.submissions;
+  console.log("Last round submissions:", lastRoundSubmissions);
   const seed = TASK_ID || "default" + roundNumber;
   const rng = seedrandom(seed);
   const randomKeys = Object.keys(lastRoundSubmissions).sort(() => rng() - 0.5).slice(0, numberOfNodes);
-
+  console.log("Random keys:", randomKeys);
   if (randomKeys.length < numberOfNodes) {
     return randomKeys;
   }
+  console.log("Random keys sliced:", randomKeys.slice(0, numberOfNodes));
   return randomKeys.slice(0, numberOfNodes);
 }
 
