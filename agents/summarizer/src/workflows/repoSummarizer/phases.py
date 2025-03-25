@@ -33,7 +33,7 @@ class RepoClassificationPhase(WorkflowPhase):
         super().__init__(
             workflow=workflow,
             prompt_name="classify_repository",
-            available_tools=["read_file", "list_files", "get_readme_prompt"],
+            available_tools=["read_file", "list_files", "classify_repository"],
             conversation_id=conversation_id,
             name="Repository Classification",
         )
