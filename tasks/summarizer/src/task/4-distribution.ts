@@ -30,7 +30,7 @@ export const distribution = async (
    */
   try {
     const taskResult = await namespaceWrapper.storeGet(`result-${roundNumber}`);
-    if (taskResult && taskResult !== status.ISSUES_PENDING_TO_BE_SUMMARIZED) {
+    if (taskResult && taskResult !== status.ISSUE_SUCCESSFULLY_SUMMARIZED) {
       return await getEmptyDistributionList(submitters);
     }
     const orcaClient = await getOrcaClient();

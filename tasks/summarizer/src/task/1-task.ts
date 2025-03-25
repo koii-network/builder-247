@@ -72,9 +72,7 @@ export async function task(roundNumber: number): Promise<void> {
     if (initializedDocumentSummarizeIssues.length == 0) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
       return;
-    } else {
-      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUES_PENDING_TO_BE_SUMMARIZED);
-    }
+    } 
     const randomNodes = [stakingKey];
     if (randomNodes.length === 0) {
       return;
@@ -94,13 +92,19 @@ export async function task(roundNumber: number): Promise<void> {
       repo_url: repoUrl,
     };
     console.log("jsonBody: ", jsonBody);
-    await orcaClient.podCall(`repo_summary/${roundNumber}`, {
+    const response = await orcaClient.podCall(`repo_summary/${roundNumber}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(jsonBody),
     });
+    console.log("response: ", response);
+    if (response.status === 200) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_SUCCESSFULLY_SUMMARIZED);
+    } else {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
+    }
   } catch (error) {
     console.error("EXECUTE TASK ERROR:", error);
   }

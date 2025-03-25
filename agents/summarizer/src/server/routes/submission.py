@@ -10,17 +10,16 @@ bp = Blueprint("submission", __name__)
 @bp.get("/submission/<roundNumber>")
 def fetch_submission(roundNumber):
     logger.info(f"Fetching submission for round: {roundNumber}")
-
     db = get_db()
     submission = (
         db.query(Submission)
         .filter(
             Submission.round_number == int(roundNumber),
-            Submission.status == "completed",
         )
         .first()
     )
-
+    logger.info(f"Submission: {submission}")
+    logger.info(f"Submission: {submission}")
     if submission:
 
         github_username = os.getenv("GITHUB_USERNAME")

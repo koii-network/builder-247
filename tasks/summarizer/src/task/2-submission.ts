@@ -14,9 +14,15 @@ export async function submission(roundNumber: number) : Promise<string | void> {
 
   try {
     const orcaClient = await getOrcaClient();
+    if (!orcaClient) {
+      return;
+    }
     const taskResult = await namespaceWrapper.storeGet(`result-${roundNumber}`);
-    if (taskResult !== status.ISSUES_PENDING_TO_BE_SUMMARIZED) {
-      return taskResult || void 0;
+    if (!taskResult) {
+      return "Hello World!";
+    }
+    if (taskResult !== status.ISSUE_SUCCESSFULLY_SUMMARIZED) {
+      return taskResult;
     }
     const result = await orcaClient.podCall(`submission/${roundNumber}`);
     let submission;
