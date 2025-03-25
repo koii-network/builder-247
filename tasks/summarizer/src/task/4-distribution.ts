@@ -52,6 +52,7 @@ export const distribution = async (
         continue;
       }
       const decodeResult = await submissionJSONSignatureDecode({submitterSubmission, submitter, roundNumber});
+      console.log("decodeResult", decodeResult);
       if (!decodeResult) {
         console.error("INVALID SIGNATURE DATA");
         distributionList[submitter.publicKey] = 0;
