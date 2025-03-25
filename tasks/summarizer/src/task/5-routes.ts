@@ -50,7 +50,10 @@ export async function routes() {
       return;
     }
     const submitterPublicKey = submitter.publicKey.toBase58();
+    // console.log({submissionValue, submitterPublicKey, roundNumber});
     const submission:Submission = {submission_value: submissionValue, slot: 0, round: Number(roundNumber)};
+
+    console.log({submitterSubmission: submission, submitter: { publicKey: submitterPublicKey, votes: 1, stake: 0}, roundNumber: Number(roundNumber)});
     const submissionResult = await submissionJSONSignatureDecode({submitterSubmission: submission, submitter: { publicKey: submitterPublicKey, votes: 1, stake: 0}, roundNumber: Number(roundNumber)});
     res.status(200).json({ result: submissionResult });
   });

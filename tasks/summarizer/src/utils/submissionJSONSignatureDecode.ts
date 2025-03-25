@@ -13,6 +13,7 @@ export async function submissionJSONSignatureDecode({submitterSubmission, submit
     }
     // verify the signature of the submission
     const submission = JSON.parse(submissionString);
+    console.log("submission", submission);
     const signaturePayload = await namespaceWrapper.verifySignature(submission.signature, submitter.publicKey);
     if (!signaturePayload.data) {
       console.error("INVALID SIGNATURE");
