@@ -130,7 +130,7 @@ async function selectLeaderKey(
     return await selectShortestDistance(keys, submitterPublicKey);
   }
 }
-export async function getRandomNodes(roundNumber: number, submitterPublicKey: string, numberOfNodes: number): Promise<string[]> {
+export async function getRandomNodes(roundNumber: number, numberOfNodes: number): Promise<string[]> {
 
   const lastRoundSubmission = await getSubmissionInfo(roundNumber - 1);
   if (!lastRoundSubmission) {

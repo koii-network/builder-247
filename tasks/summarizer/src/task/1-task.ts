@@ -1,30 +1,13 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
-import { getLeaderNode, getRandomNodes } from "../utils/leader";
-import { getDistributionList } from "../utils/distributionList";
+import { getRandomNodes } from "../utils/leader";
 import { getExistingIssues, getInitializedDocumentSummarizeIssues } from "../utils/existingIssues";
 import { status } from "../utils/constant";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-interface PodCallBody {
-  taskId: string;
-  roundNumber: number;
-  stakingKey: string;
-  pubKey: string;
-  stakingSignature: string;
-  publicSignature: string;
-  repoOwner: string;
-  repoName: string;
-  distributionList: Record<string, any>;
-}
-
-interface Submission {
-  stakingKey: string;
-  prUrl?: string;
-}
 
 export async function task(roundNumber: number): Promise<void> {
   /**
@@ -40,7 +23,7 @@ export async function task(roundNumber: number): Promise<void> {
       return;
     }
 
-    if (orcaClient && roundNumber <= 1) {
+    if (orcaClient && roundNumber == 0) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ROUND_LESS_THAN_OR_EQUAL_TO_1);
       return;
     }
@@ -73,7 +56,7 @@ export async function task(roundNumber: number): Promise<void> {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
       return;
     } 
-    const randomNodes = [stakingKey];
+    const randomNodes = await getRandomNodes(roundNumber, initializedDocumentSummarizeIssues.length);
     if (randomNodes.length === 0) {
       return;
     }
