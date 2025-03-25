@@ -195,12 +195,9 @@ class RepoSummarizerWorkflow(Workflow):
                 f"This PR adds a README file for the {self.context['repo_name']} repository."
             )
 
-            # Update head to use the feature branch instead of main
-            self.context["head"] = self.context["branch_name"]
-
             log_key_value(
                 "Creating PR",
-                f"from {self.context['branch_name']} to {self.context['base_branch']}",
+                f"from {self.context['head']} to {self.context['base_branch']}",
             )
 
             print("CONTEXT", self.context)

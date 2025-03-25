@@ -51,58 +51,27 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "repo_full_name": {
-                    "type": "string",
-                    "description": "Full name of repository (owner/repo)",
-                },
-                "pr_number": {"type": "integer", "description": "Pull request number"},
                 "title": {"type": "string", "description": "Title of the PR"},
                 "description": {
                     "type": "string",
                     "description": "Description of changes",
                 },
-                "requirements": {
-                    "type": "object",
-                    "description": "Dictionary with 'met' and 'not_met' requirements",
-                    "properties": {
-                        "met": {"type": "array", "items": {"type": "string"}},
-                        "not_met": {"type": "array", "items": {"type": "string"}},
-                    },
-                },
-                "test_evaluation": {
-                    "type": "object",
-                    "description": "Dictionary with test evaluation details",
-                    "properties": {
-                        "coverage": {"type": "array", "items": {"type": "string"}},
-                        "issues": {"type": "array", "items": {"type": "string"}},
-                        "missing": {"type": "array", "items": {"type": "string"}},
-                    },
-                },
                 "recommendation": {
                     "type": "string",
-                    "description": "APPROVE/REVISE/REJECT",
+                    "description": "Decision to approve, revise, or reject the PR",
+                    "enum": ["APPROVE", "REVISE", "REJECT"],
                 },
                 "recommendation_reason": {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "Reasons for recommendation",
                 },
-                "action_items": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Required changes or improvements",
-                },
             },
             "required": [
-                "repo_full_name",
-                "pr_number",
                 "title",
                 "description",
-                "requirements",
-                "test_evaluation",
                 "recommendation",
                 "recommendation_reason",
-                "action_items",
             ],
         },
         "final_tool": True,

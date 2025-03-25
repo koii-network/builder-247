@@ -1,7 +1,7 @@
 """Module for GitHub operations."""
 
 import os
-from typing import Dict, List
+from typing import List
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
 from src.tools.git_operations.implementations import (
@@ -164,24 +164,49 @@ def create_pull_request(
             description=description,
         )
 
+        log_key_value(
+            "Creating PR", f"repo: {repo_full_name}, head: {head}, base: {base}"
+        )
+
         repo = gh.get_repo(repo_full_name)
         pr = repo.create_pull(title=title, body=body, head=head, base=base)
+
+        log_key_value("PR Created", f"PR #{pr.number}: {pr.html_url}")
+
         return {
             "success": True,
             "message": f"Successfully created PR: {title}",
             "data": {"pr_url": pr.html_url},
         }
     except GithubException as e:
+        error_msg = f"GitHub API Error creating PR: {str(e)}"
+        log_error(e, error_msg)
         return {
             "success": False,
-            "message": f"Failed to create pull request: {str(e)}",
-            "data": {"errors": e.data.get("errors", [])},
+            "message": f"Failed to create pull request: {error_msg}",
+            "data": {
+                "error_code": e.status,
+                "error_data": e.data,
+                "params": {
+                    "repo_full_name": repo_full_name,
+                    "head": head,
+                    "base": base,
+                },
+            },
         }
     except Exception as e:
+        error_msg = f"Error creating PR: {str(e)}"
+        log_error(e, error_msg)
         return {
             "success": False,
-            "message": f"Failed to create pull request: {str(e)}",
-            "data": None,
+            "message": f"Failed to create pull request: {error_msg}",
+            "data": {
+                "params": {
+                    "repo_full_name": repo_full_name,
+                    "head": head,
+                    "base": base,
+                },
+            },
         }
 
 
@@ -313,11 +338,8 @@ def review_pull_request(
     pr_number: int,
     title: str,
     description: str,
-    requirements: Dict[str, List[str]],
-    test_evaluation: Dict[str, List[str]],
     recommendation: str,
     recommendation_reason: List[str],
-    action_items: List[str],
     **kwargs,
 ) -> ToolOutput:
     """
@@ -340,7 +362,8 @@ def review_pull_request(
     try:
         gh = _get_github_client()
         repo = gh.get_repo(repo_full_name)
-        pr = repo.get_pull(pr_number)
+        # Convert pr_number to integer
+        pr = repo.get_pull(int(pr_number))
 
         # Format lists into markdown bullet points
         def format_list(items: List[str], empty_message: str = "None", **kwargs) -> str:
@@ -352,26 +375,10 @@ def review_pull_request(
         review_body = TEMPLATES["review_template"].format(
             title=title,
             description=description,
-            met_requirements=format_list(
-                requirements.get("met", []), "No requirements met"
-            ),
-            unmet_requirements=format_list(
-                requirements.get("not_met", []), "All requirements met"
-            ),
-            passed_tests=format_list(
-                test_evaluation.get("passed", []), "No passing tests"
-            ),
-            failed_tests=format_list(
-                test_evaluation.get("failed", []), "No failing tests"
-            ),
-            missing_tests=format_list(
-                test_evaluation.get("missing", []), "No missing test cases identified"
-            ),
             recommendation=recommendation,
             recommendation_reasons=format_list(
                 recommendation_reason, "No specific reasons provided"
             ),
-            action_items=format_list(action_items, "No action items required"),
         )
 
         # Post the review
@@ -386,13 +393,24 @@ def review_pull_request(
                 "recommendation": recommendation,
             },
         }
-    except Exception as e:
-        error_msg = f"Error posting review on PR #{pr_number}: {str(e)}"
-        print(error_msg)
+    except GithubException as e:
+        error_msg = f"GitHub API Error posting review on PR #{pr_number}: {str(e)}"
+        log_error(e, error_msg)
         return {
             "success": False,
             "message": f"Failed to post review: {error_msg}",
-            "data": None,
+            "data": {"error_code": e.status, "error_data": e.data},
+        }
+    except Exception as e:
+        import traceback
+
+        error_msg = f"Error posting review on PR #{pr_number}: {str(e)}"
+        tb = traceback.format_exc()
+        log_error(e, f"{error_msg}\n{tb}")
+        return {
+            "success": False,
+            "message": f"Failed to post review: {error_msg}",
+            "data": {"traceback": tb},
         }
 
 

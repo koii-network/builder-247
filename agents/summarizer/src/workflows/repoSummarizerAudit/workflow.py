@@ -63,6 +63,7 @@ class repoSummarizerAuditWorkflow(Workflow):
         self.context["pr_url"] = pr_url
         self.context["repo_owner"] = repo_owner
         self.context["repo_name"] = repo_name
+        self.context["repo_full_name"] = f"{repo_owner}/{repo_name}"
 
     def setup(self):
         """Set up repository and workspace."""

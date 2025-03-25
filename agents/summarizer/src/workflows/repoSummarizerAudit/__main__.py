@@ -1,7 +1,6 @@
 """Entry point for the todo creator workflow."""
 
 import sys
-import os
 import argparse
 from dotenv import load_dotenv
 from src.workflows.repoSummarizerAudit.workflow import repoSummarizerAuditWorkflow
@@ -18,7 +17,7 @@ def main():
         description="Create tasks from a feature specification for a GitHub repository"
     )
     parser.add_argument(
-        "--pr_url",
+        "--pr-url",
         type=str,
         required=True,
         help="GitHub pull request URL (e.g., https://github.com/owner/repo/pull/1)",
