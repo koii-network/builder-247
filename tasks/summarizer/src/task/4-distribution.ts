@@ -2,9 +2,9 @@ import { Submitter, DistributionList } from "@_koii/task-manager";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import { customReward, status } from "../utils/constant";
 import { Submission } from "@_koii/namespace-wrapper/dist/types";
-import { SubmissionsPerRound } from "@_koii/namespace-wrapper/dist/types";
+
 import { getOrcaClient } from "@_koii/task-manager/extensions";
-import { getFile } from "../utils/ipfs";
+import { submissionJSONSignatureDecode } from "../utils/submissionJSONSignatureDecode";
 const getSubmissionList = async (roundNumber: number): Promise<Record<string, Submission>> => {
   const submissionInfo = await namespaceWrapper.getTaskSubmissionInfo(roundNumber);
   return submissionInfo?.submissions[roundNumber] || {};
@@ -51,26 +51,8 @@ export const distribution = async (
         distributionList[submitter.publicKey] = 0;
         continue;
       }
-      const submissionString = await getFile(submitterSubmission.submission_value);
-      const submission = JSON.parse(submissionString);
-      console.log({ submission });
-  
-      // verify the signature of the submission
-      const signaturePayload = await namespaceWrapper.verifySignature(submission.signature, submitter.publicKey);
-      if (!signaturePayload.data) {
-        console.error("INVALID SIGNATURE");
-        distributionList[submitter.publicKey] = 0;
-        continue;
-      }
-      const data = JSON.parse(signaturePayload.data);
-
-      if (
-        data.taskId !== TASK_ID ||
-        data.roundNumber !== roundNumber ||
-        data.stakingKey !== submitter.publicKey ||
-        !data.pubKey ||
-        !data.prUrl
-      ) {
+      const decodeResult = await submissionJSONSignatureDecode({submitterSubmission, submitter, roundNumber});
+      if (!decodeResult) {
         console.error("INVALID SIGNATURE DATA");
         distributionList[submitter.publicKey] = 0;
         continue;
@@ -84,7 +66,7 @@ export const distribution = async (
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          submission: data,
+          submission: decodeResult,
         }),
       });
       if (result.data === "true") {

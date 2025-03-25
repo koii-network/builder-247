@@ -4,6 +4,8 @@ import { task } from "./1-task";
 import { submission } from "./2-submission";
 import { audit } from "./3-audit";
 import { distribution } from "./4-distribution";
+import { submissionJSONSignatureDecode } from "../utils/submissionJSONSignatureDecode";
+import { Submission } from "@_koii/namespace-wrapper/dist/types";
 /**
  *
  * Define all your custom routes here
@@ -38,11 +40,19 @@ export async function routes() {
     res.status(200).json({ result: submissionResult });
   });
 
-  app.get("/audit/:roundNumber/:cid", async (req, res) => {
+  app.get("/submissionJSONSignatureDecode/:roundNumber/:submissionValue", async (req, res) => {
     const roundNumber = req.params.roundNumber;
-    const cid = req.params.cid;
-    const auditResult = await audit(cid, Number(roundNumber), "submitter");
-    res.status(200).json({ result: auditResult });
+    const submissionValue = req.params.submissionValue;
+
+    const submitter = await namespaceWrapper.getSubmitterAccount();
+    if (!submitter) {
+      res.status(400).json({ result: "No submitter found" });
+      return;
+    }
+    const submitterPublicKey = submitter.publicKey.toBase58();
+    const submission:Submission = {submission_value: submissionValue, slot: 0, round: Number(roundNumber)};
+    const submissionResult = await submissionJSONSignatureDecode({submitterSubmission: submission, submitter: { publicKey: submitterPublicKey, votes: 1, stake: 0}, roundNumber: Number(roundNumber)});
+    res.status(200).json({ result: submissionResult });
   });
 
 }
