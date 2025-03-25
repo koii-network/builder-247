@@ -18,7 +18,6 @@ from github.PullRequest import PullRequest
 
 import csv
 import uuid
-import json
 
 # Load environment variables from .env file
 load_dotenv()
