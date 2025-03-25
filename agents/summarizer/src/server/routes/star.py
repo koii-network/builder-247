@@ -1,3 +1,4 @@
+from src.utils.logging import log_key_value
 from flask import Blueprint, jsonify, request
 from src.server.services import star_service
 
@@ -19,10 +20,20 @@ def start_task(round_number):
     if any(data.get(field) is None for field in required_fields):
         return jsonify({"error": "Missing data"}), 401
 
-    result = star_service.handle_star_task(
-        task_id=data["taskId"],
-        round_number=int(round_number),
-        github_urls=data["github_urls"],
-    )
-
-    return jsonify({"message": result})
+    try:
+        # Log incoming data
+        print("Received data:", data)
+        print("Round number:", round_number)
+        
+        result = star_service.handle_star_task(
+            task_id=data["taskId"],
+            round_number=int(round_number),
+            github_urls=data["github_urls"],
+        )
+        return result
+    except Exception as e:
+        print(f"Error in star endpoint: {str(e)}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500

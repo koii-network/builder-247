@@ -25,7 +25,7 @@ def start_task(round_number):
         repo_url=data["repo_url"],
     )
 
-    return jsonify({"message": result})
+    return result
 
 if __name__ == "__main__":
     from flask import Flask

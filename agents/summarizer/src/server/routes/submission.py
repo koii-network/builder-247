@@ -29,9 +29,8 @@ def fetch_submission(roundNumber):
                 "taskId": submission.task_id,
                 "roundNumber": submission.round_number,
                 "status": submission.status,
-                "repoUrl": submission.repo_url,
                 "prUrl": submission.pr_url,
-                "username": github_username,
+                "githubUsername": github_username,
             }
         )
     else:

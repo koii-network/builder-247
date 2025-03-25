@@ -85,9 +85,6 @@ export const distribution = async (
         },
         body: JSON.stringify({
           submission: data,
-          signature: submission.signature,
-          stakingKey: submitter.publicKey,
-          pubKey: data.pubKey,
         }),
       });
       if (result.data === "true") {

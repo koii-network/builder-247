@@ -49,25 +49,26 @@ export async function task(roundNumber: number): Promise<void> {
     // if (!pubKey) {
     //   throw new Error("No public key found");
     // }
-    // All these issues need to be starred
+    /****************** All issues need to be starred ******************/
     const existingIssues = await getExistingIssues();
+    console.log("Existing issues:", existingIssues);
     const githubUrls = existingIssues.map((issue) => issue.githubUrl);
     await orcaClient.podCall(`star/${roundNumber}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ taskId: TASK_ID, round_number: roundNumber, github_urls: githubUrls }),
+      body: JSON.stringify({ taskId: TASK_ID, round_number: String(roundNumber), github_urls: githubUrls }),
     });
-    // All these issues need to be generate a markdown file
+    /****************** All these issues need to be generate a markdown file ******************/
     const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues();
+    console.log("Initialized document summarize issues:", initializedDocumentSummarizeIssues);
     if (initializedDocumentSummarizeIssues.length == 0) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
       return;
     } else {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUES_PENDING_TO_BE_SUMMARIZED);
     }
- 
     const randomNodes = await getRandomNodes(roundNumber, stakingKey, initializedDocumentSummarizeIssues.length);
     if (randomNodes.length === 0) {
       return;
@@ -84,70 +85,8 @@ export async function task(roundNumber: number): Promise<void> {
         "Content-Type": "application/json",
       },
       // TODO: Change to dynamic repo owner and name by checking the middle server
-      body: JSON.stringify({ taskId: TASK_ID, round_number: roundNumber, repo_url: repoUrl }),
+      body: JSON.stringify({ taskId: TASK_ID, round_number: String(roundNumber), repo_url: repoUrl }),
     });
-    // const payload = {
-    //   taskId: TASK_ID,
-    //   roundNumber,`
-    //   githubUsername: process.env.GITHUB_USERNAME,
-    //   repoOwner: leaderNode,
-    //   repoName: "builder-test",
-    //   stakingKey,
-    //   pubKey,
-    //   action: "task",
-    // };
-    // const stakingSignature = await namespaceWrapper.payloadSigning(payload, stakingKeypair.secretKey);
-    // const publicSignature = await namespaceWrapper.payloadSigning(payload);
-    // if (!stakingSignature || !publicSignature) {
-    //   throw new Error("Signature generation failed");
-    // }
-
-    // const podCallBody: PodCallBody = {
-    //   taskId: TASK_ID!,
-    //   roundNumber,
-    //   stakingKey,
-    //   pubKey,
-    //   stakingSignature,
-    //   publicSignature,
-    //   repoOwner: leaderNode,
-    //   repoName: "builder-test",
-    //   distributionList: {},
-    // };
-    // let podCallUrl;
-    // if (isLeader) {
-    //   podCallUrl = `leader-task/${roundNumber}`;
-
-    //   try {
-    //     const distributionList = await getDistributionList(roundNumber - 3);
-    //     if (!distributionList || Object.keys(distributionList).length === 0) {
-    //       console.log("No distribution list available for this round, skipping leader task");
-    //       return;
-    //     }
-
-    //     try {
-    //       podCallBody.distributionList = distributionList;
-    //     } catch (parseError) {
-    //       console.error("Failed to parse distribution list:", parseError);
-    //       console.log("Raw distribution list:", distributionList);
-    //       console.log("Skipping leader task due to invalid distribution list");
-    //       return;
-    //     }
-    //   } catch (distError) {
-    //     console.error("Error fetching distribution list:", distError);
-    //     console.log("Skipping leader task due to distribution list fetch error");
-    //     return;
-    //   }
-    // } else {
-    //   podCallUrl = `worker-task/${roundNumber}`;
-    // }
-
-    // await orcaClient.podCall(podCallUrl, {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify(podCallBody),
-    // });
   } catch (error) {
     console.error("EXECUTE TASK ERROR:", error);
   }

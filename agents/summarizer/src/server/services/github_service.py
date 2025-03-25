@@ -12,9 +12,6 @@ def verify_pr_ownership(
     expected_username,
     expected_owner,
     expected_repo,
-    signature,
-    staking_key,
-    pub_key,
 ):
     try:
         gh = Github(os.environ.get("GITHUB_TOKEN"))
@@ -40,19 +37,7 @@ def verify_pr_ownership(
                 f"PR username mismatch: {pr.user.login} != {expected_username}"
             )
             return False
-
-        response = requests.post(
-            os.environ.get("MIDDLE_SERVER_URL") + "/api/check-to-do",
-            json={
-                "stakingKey": staking_key,
-                "pubKey": pub_key,
-                "signature": signature,
-            },
-            headers={"Content-Type": "application/json"},
-        )
-
-        response_data = response.json()
-        return response_data.get("success", True)
+        return True
 
     except Exception as e:
         logger.error(f"Error verifying PR ownership: {str(e)}")
