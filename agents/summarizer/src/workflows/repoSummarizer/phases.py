@@ -46,7 +46,11 @@ class ReadmeGenerationPhase(WorkflowPhase):
         super().__init__(
             workflow=workflow,
             prompt_name=prompt_name,
-            available_tools=["read_file", "write_file", "list_files"],
+            available_tools=[
+                "read_file",
+                "list_files",
+                "write_file",
+            ],
             conversation_id=conversation_id,
             name="Readme Generation",
         )
@@ -57,7 +61,7 @@ class CreatePullRequestPhase(WorkflowPhase):
         super().__init__(
             workflow=workflow,
             prompt_name="create_pr",
-            required_tool="create_pull_request",
+            available_tools=["read_file", "list_files", "create_pull_request"],
             conversation_id=conversation_id,
             name="Create Pull Request",
         )
