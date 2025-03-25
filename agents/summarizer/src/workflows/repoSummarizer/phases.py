@@ -17,22 +17,6 @@ class RepoType(Enum):
     OTHER = "other"
 
 
-class ReadmeGenerationPhase(WorkflowPhase):
-    def __init__(self, workflow: Workflow, conversation_id: str = None):
-        super().__init__(
-            workflow=workflow,
-            prompt_name="generate_readme_file",
-            available_tools=[
-                "read_file",
-                "write_file",
-                "list_files",
-                "commit_and_push",
-            ],
-            conversation_id=conversation_id,
-            name="Readme Generation",
-        )
-
-
 class RepoClassificationPhase(WorkflowPhase):
     def __init__(self, workflow: Workflow, conversation_id: str = None):
         super().__init__(
@@ -44,12 +28,14 @@ class RepoClassificationPhase(WorkflowPhase):
         )
 
 
-class CreatePullRequestPhase(WorkflowPhase):
-    def __init__(self, workflow: Workflow, conversation_id: str = None):
+class ReadmeGenerationPhase(WorkflowPhase):
+    def __init__(
+        self, workflow: Workflow, conversation_id: str = None, prompt_name: str = None
+    ):
         super().__init__(
             workflow=workflow,
-            prompt_name="create_pull_request",
-            required_tool="create_pull_request",
+            prompt_name=prompt_name,
+            available_tools=["read_file", "write_file", "list_files"],
             conversation_id=conversation_id,
-            name="Create Pull Request",
+            name="Readme Generation",
         )

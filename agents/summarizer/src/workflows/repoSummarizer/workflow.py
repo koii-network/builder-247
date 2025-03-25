@@ -3,7 +3,10 @@
 import os
 from github import Github
 from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository, create_pull_request
+from src.tools.github_operations.implementations import (
+    fork_repository,
+    create_pull_request,
+)
 from src.utils.logging import log_section, log_key_value, log_error
 from src.workflows.repoSummerizer import phases
 from src.workflows.utils import (
@@ -39,7 +42,7 @@ class Task:
         )
 
 
-class RepoSummerizerWorkflow(Workflow):
+class RepoSummarizerWorkflow(Workflow):
     def __init__(
         self,
         client,
@@ -51,17 +54,14 @@ class RepoSummerizerWorkflow(Workflow):
         parts = repo_url.strip("/").split("/")
         repo_owner = parts[-2]
         repo_name = parts[-1]
-        
+
         super().__init__(
             client=client,
             prompts=prompts,
             repo_url=repo_url,
             repo_owner=repo_owner,
             repo_name=repo_name,
-            
         )
-
-
 
     def setup(self):
         """Set up repository and workspace."""
@@ -113,45 +113,66 @@ class RepoSummerizerWorkflow(Workflow):
         # Clean up the repository directory
         cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
         # Clean up the MongoDB
+
     def run(self):
-        generate_readme_file_result = self.generate_readme_file()
-        
+        self.setup()
+        repo_classification_result = self.classify_repository()
+        prompt_name = repo_classification_result["data"].get("prompt_name")
+        self.generate_readme_file(prompt_name)
+
         # Create pull request with detailed parameters
         create_pull_request_result = create_pull_request(
-            repo_full_name=f"{self.context['repo_owner']}/{self.context['repo_name']}", 
+            repo_full_name=f"{self.context['repo_owner']}/{self.context['repo_name']}",
             title="Update README.md",
-            head=self.context["base_branch"],  # or a specific branch name
+            head=self.context["base_branch"],
             description="Automated update of README.md file with repository summary",
             tests=["README.md file has been updated", "Content is properly formatted"],
             todo="Review and merge the README changes",
             acceptance_criteria="README.md contains accurate repository summary",
-            base=self.context["base_branch"]
+            base=self.context["base_branch"],
         )
         log_key_value("Create pull request result", create_pull_request_result)
-        
+
         return create_pull_request_result
-    def generate_readme_file(self):
+
+    def classify_repository(self):
+        try:
+            log_section("CLASSIFYING REPOSITORY TYPE")
+            repo_classification_phase = phases.RepoClassificationPhase(workflow=self)
+            return repo_classification_phase.execute()
+        except Exception as e:
+            log_error(e, "Repository classification workflow failed")
+            return {
+                "success": False,
+                "message": f"Repository classification workflow failed: {str(e)}",
+                "data": None,
+            }
+
+    def generate_readme_file(self, prompt_name):
         """Execute the issue generation workflow."""
         try:
-            self.setup()
-            # ==================== Generate issues ====================
-            generate_readme_file_phase = phases.ReadmeGenerationPhase(workflow=self)
-            generate_readme_file_result = generate_readme_file_phase.execute()
-            # Check Issue Generation Result
-            if not generate_readme_file_result or not generate_readme_file_result.get("success"):
+
+            # ==================== Generate README file ====================
+            log_section("GENERATING README FILE")
+            generate_readme_file_phase = phases.ReadmeGenerationPhase(
+                workflow=self, prompt_name=prompt_name
+            )
+            readme_result = generate_readme_file_phase.execute()
+
+            # Check README Generation Result
+            if not readme_result or not readme_result.get("success"):
                 log_error(
-                    Exception(generate_readme_file_result.get("error", "No result")),
+                    Exception(readme_result.get("error", "No result")),
                     "Readme file generation failed",
                 )
                 return None
-            # Star the repository
-            return generate_readme_file_result
+
+            return readme_result
+
         except Exception as e:
             log_error(e, "Readme file generation workflow failed")
-            print(e)
             return {
                 "success": False,
                 "message": f"Readme file generation workflow failed: {str(e)}",
                 "data": None,
             }
-    
