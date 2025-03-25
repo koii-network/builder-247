@@ -39,3 +39,6 @@ repos/
 
 # Ignore Data
 data/*
+
+
+venv
