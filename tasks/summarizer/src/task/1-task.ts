@@ -54,7 +54,8 @@ export async function task(roundNumber: number): Promise<void> {
       throw new Error("No public key found");
     }
     /****************** All issues need to be starred ******************/
-    const existingIssues = [{githubUrl: "https://github.com/koii-network/koii-docs"}];
+        // TODO THIS NEEDS TO BE CHANGED BACK TO THE FUNCTION
+    const existingIssues = [{githubUrl: "https://github.com/koii-network/k2-release"}];
     console.log("Existing issues:", existingIssues);
     const githubUrls = existingIssues.map((issue) => issue.githubUrl);
     await orcaClient.podCall(`star/${roundNumber}`, {
@@ -65,7 +66,8 @@ export async function task(roundNumber: number): Promise<void> {
       body: JSON.stringify({ taskId: TASK_ID, round_number: String(roundNumber), github_urls: githubUrls }),
     });
     /****************** All these issues need to be generate a markdown file ******************/
-    const initializedDocumentSummarizeIssues = [{githubUrl: "https://github.com/koii-network/koii-docs"}];
+    // TODO THIS NEEDS TO BE CHANGED BACK TO THE FUNCTION
+    const initializedDocumentSummarizeIssues = [{githubUrl: "https://github.com/koii-network/k2-release"}];
     console.log("Initialized document summarize issues:", initializedDocumentSummarizeIssues);
     if (initializedDocumentSummarizeIssues.length == 0) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
@@ -83,13 +85,21 @@ export async function task(roundNumber: number): Promise<void> {
       return;
     }
     const repoUrl = initializedDocumentSummarizeIssues[myPosition].githubUrl;
+
+    console.log("repoUrl: ", repoUrl);
+    console.log("calling podcall with repoUrl: ", repoUrl);
+    const jsonBody = {
+      taskId: TASK_ID,
+      round_number: String(roundNumber),
+      repo_url: repoUrl,
+    };
+    console.log("jsonBody: ", jsonBody);
     await orcaClient.podCall(`repo_summary/${roundNumber}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      // TODO: Change to dynamic repo owner and name by checking the middle server
-      body: JSON.stringify({ taskId: TASK_ID, round_number: String(roundNumber), repo_url: repoUrl }),
+      body: JSON.stringify(jsonBody),
     });
   } catch (error) {
     console.error("EXECUTE TASK ERROR:", error);

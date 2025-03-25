@@ -26,6 +26,7 @@ export async function routes() {
   });
 
   app.get("/task/:roundNumber", async (req, res) => {
+    console.log("task endpoint called with round number: ", req.params.roundNumber);
     const roundNumber = req.params.roundNumber;
     const taskResult = await task(Number(roundNumber));
     res.status(200).json({ result: taskResult });
