@@ -39,11 +39,11 @@ export async function task(roundNumber: number): Promise<void> {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ORCA_CLIENT);
       return;
     }
-    // TODO BEFORE PRODUCTION: REMOVE THIS COMMENTS
-    // if (orcaClient && roundNumber <= 1) {
-    //   await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ROUND_LESS_THAN_OR_EQUAL_TO_1);
-    //   return;
-    // }
+
+    if (orcaClient && roundNumber <= 1) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ROUND_LESS_THAN_OR_EQUAL_TO_1);
+      return;
+    }
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
       throw new Error("No staking keypair found");
@@ -54,8 +54,8 @@ export async function task(roundNumber: number): Promise<void> {
       throw new Error("No public key found");
     }
     /****************** All issues need to be starred ******************/
-        // TODO THIS NEEDS TO BE CHANGED BACK TO THE FUNCTION
-    const existingIssues = [{githubUrl: "https://github.com/koii-network/k2-release"}];
+
+    const existingIssues = await getExistingIssues();
     console.log("Existing issues:", existingIssues);
     const githubUrls = existingIssues.map((issue) => issue.githubUrl);
     await orcaClient.podCall(`star/${roundNumber}`, {
@@ -66,8 +66,8 @@ export async function task(roundNumber: number): Promise<void> {
       body: JSON.stringify({ taskId: TASK_ID, round_number: String(roundNumber), github_urls: githubUrls }),
     });
     /****************** All these issues need to be generate a markdown file ******************/
-    // TODO THIS NEEDS TO BE CHANGED BACK TO THE FUNCTION
-    const initializedDocumentSummarizeIssues = [{githubUrl: "https://github.com/koii-network/k2-release"}];
+
+    const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues();
     console.log("Initialized document summarize issues:", initializedDocumentSummarizeIssues);
     if (initializedDocumentSummarizeIssues.length == 0) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
