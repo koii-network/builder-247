@@ -5,6 +5,9 @@ import { getLeaderNode, getRandomNodes } from "../utils/leader";
 import { getDistributionList } from "../utils/distributionList";
 import { getExistingIssues, getInitializedDocumentSummarizeIssues } from "../utils/existingIssues";
 import { status } from "../utils/constant";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 interface PodCallBody {
   taskId: string;
@@ -36,21 +39,22 @@ export async function task(roundNumber: number): Promise<void> {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ORCA_CLIENT);
       return;
     }
-    if (orcaClient && roundNumber <= 1) {
-      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ROUND_LESS_THAN_OR_EQUAL_TO_1);
-      return;
-    }
+    // TODO BEFORE PRODUCTION: REMOVE THIS COMMENTS
+    // if (orcaClient && roundNumber <= 1) {
+    //   await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ROUND_LESS_THAN_OR_EQUAL_TO_1);
+    //   return;
+    // }
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
       throw new Error("No staking keypair found");
     }
     const stakingKey = stakingKeypair.publicKey.toBase58();
-    // const pubKey = await namespaceWrapper.getMainAccountPubkey();
-    // if (!pubKey) {
-    //   throw new Error("No public key found");
-    // }
+    const pubKey = await namespaceWrapper.getMainAccountPubkey();
+    if (!pubKey) {
+      throw new Error("No public key found");
+    }
     /****************** All issues need to be starred ******************/
-    const existingIssues = await getExistingIssues();
+    const existingIssues = [{githubUrl: "https://github.com/koii-network/koii-docs"}];
     console.log("Existing issues:", existingIssues);
     const githubUrls = existingIssues.map((issue) => issue.githubUrl);
     await orcaClient.podCall(`star/${roundNumber}`, {
@@ -61,7 +65,7 @@ export async function task(roundNumber: number): Promise<void> {
       body: JSON.stringify({ taskId: TASK_ID, round_number: String(roundNumber), github_urls: githubUrls }),
     });
     /****************** All these issues need to be generate a markdown file ******************/
-    const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues();
+    const initializedDocumentSummarizeIssues = [{githubUrl: "https://github.com/koii-network/koii-docs"}];
     console.log("Initialized document summarize issues:", initializedDocumentSummarizeIssues);
     if (initializedDocumentSummarizeIssues.length == 0) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
@@ -69,7 +73,7 @@ export async function task(roundNumber: number): Promise<void> {
     } else {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUES_PENDING_TO_BE_SUMMARIZED);
     }
-    const randomNodes = await getRandomNodes(roundNumber, stakingKey, initializedDocumentSummarizeIssues.length);
+    const randomNodes = [stakingKey];
     if (randomNodes.length === 0) {
       return;
     }
