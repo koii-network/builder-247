@@ -264,4 +264,25 @@ PROMPTS = {
         "Customize the content based on the repository's purpose.\n\n"
         "Please commit and push the changes to the repository after generating the README file."
     ),
+    "create_branch": (
+        "You need to create a feature branch for the README generation.\n"
+        "Create a new branch with a descriptive name related to creating a README file.\n"
+        "Use the create_branch tool to create the branch and check it out.\n"
+        "The branch name should follow the format: readme-generation-YYYYMMDD\n"
+        "For example: readme-generation-20240325\n"
+        "Make sure the branch is based on {base_branch}.\n"
+    ),
 }
+
+REPO_TYPES = [
+    "library",
+    "web_app",
+    "api_service",
+    "mobile_app",
+    "tutorial",
+    "template",
+    "cli_tool",
+    "framework",
+    "data_science",
+    "other",
+]

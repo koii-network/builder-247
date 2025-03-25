@@ -17,6 +17,17 @@ class RepoType(Enum):
     OTHER = "other"
 
 
+class BranchCreationPhase(WorkflowPhase):
+    def __init__(self, workflow: Workflow, conversation_id: str = None):
+        super().__init__(
+            workflow=workflow,
+            prompt_name="create_branch",
+            available_tools=["create_branch"],
+            conversation_id=conversation_id,
+            name="Branch Creation",
+        )
+
+
 class RepoClassificationPhase(WorkflowPhase):
     def __init__(self, workflow: Workflow, conversation_id: str = None):
         super().__init__(

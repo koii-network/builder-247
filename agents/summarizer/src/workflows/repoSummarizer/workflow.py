@@ -68,6 +68,10 @@ class RepoSummarizerWorkflow(Workflow):
         # Get the default branch from GitHub
         try:
             gh = Github(os.getenv("GITHUB_TOKEN"))
+            self.context["repo_full_name"] = (
+                f"{self.context['repo_owner']}/{self.context['repo_name']}"
+            )
+
             repo = gh.get_repo(
                 f"{self.context['repo_owner']}/{self.context['repo_name']}"
             )
@@ -113,10 +117,30 @@ class RepoSummarizerWorkflow(Workflow):
 
     def run(self):
         self.setup()
+
+        # Create a feature branch
+        log_section("CREATING FEATURE BRANCH")
+        branch_phase = phases.BranchCreationPhase(workflow=self)
+        branch_result = branch_phase.execute()
+
+        if not branch_result or not branch_result.get("success"):
+            log_error(Exception("Branch creation failed"), "Branch creation failed")
+            return {
+                "success": False,
+                "message": "Branch creation failed",
+                "data": None,
+            }
+
+        # Store branch name in context
+        self.context["head"] = branch_result["data"]["branch_name"]
+        log_key_value("Branch created", self.context["head"])
         repo_classification_result = self.classify_repository()
         prompt_name = repo_classification_result["data"].get("prompt_name")
         self.generate_readme_file(prompt_name)
-        self.create_pull_request()
+
+        print("CONTEXT", self.context)
+        result = self.create_pull_request()
+        return result
 
     def classify_repository(self):
         try:
@@ -164,6 +188,22 @@ class RepoSummarizerWorkflow(Workflow):
         """Create a pull request for the README file."""
         try:
             log_section("CREATING PULL REQUEST")
+
+            # Add required PR title and description parameters to context
+            self.context["title"] = f"Add README for {self.context['repo_name']}"
+            self.context["description"] = (
+                f"This PR adds a README file for the {self.context['repo_name']} repository."
+            )
+
+            # Update head to use the feature branch instead of main
+            self.context["head"] = self.context["branch_name"]
+
+            log_key_value(
+                "Creating PR",
+                f"from {self.context['branch_name']} to {self.context['base_branch']}",
+            )
+
+            print("CONTEXT", self.context)
             create_pull_request_phase = phases.CreatePullRequestPhase(workflow=self)
             return create_pull_request_phase.execute()
         except Exception as e:
