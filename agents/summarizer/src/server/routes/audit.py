@@ -14,8 +14,6 @@ def audit_submission(round_number: int):
 
     data = request.get_json()
     submission = data.get("submission")
-    signature = data.get("signature")
-    staking_key = data.get("stakingKey")
 
     if not submission:
         return jsonify({"error": "Missing submission"}), 400
@@ -26,8 +24,6 @@ def audit_submission(round_number: int):
     github_username = submission.get("githubUsername")
     repo_owner = submission.get("repoOwner")
     repo_name = submission.get("repoName")
-    staking_key = submission.get("stakingKey")
-    pub_key = submission.get("pubKey")
 
     if int(round_number) != submission_round_number:
         return jsonify({"error": "Round number mismatch"}), 400
@@ -38,8 +34,6 @@ def audit_submission(round_number: int):
         or not github_username
         or not repo_owner
         or not repo_name
-        or not staking_key
-        or not pub_key
     ):
         return jsonify({"error": "Missing submission data"}), 400
 
@@ -48,9 +42,6 @@ def audit_submission(round_number: int):
         expected_username=github_username,
         expected_owner=repo_owner,
         expected_repo=repo_name,
-        signature=signature,
-        staking_key=staking_key,
-        pub_key=pub_key,
     )
 
     if not is_valid:
