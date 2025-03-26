@@ -5,7 +5,7 @@
 
 ## Task Name ##
 # Maximum 24 characters.
-task_name: "Prometheus Doc 0.1"
+task_name: "Prometheus Doc Bot"
 
 ## Task Author ##
 author: "Koii"
@@ -25,7 +25,7 @@ repositoryUrl: "https://github.com/koii-network/builder-247"
 
 ## Image URL ##
 # 230x86 pixels.
-imageUrl: "https://raw.githubusercontent.com/koii-network/builder-247/refs/heads/main/prometheus.png"
+imageUrl: "https://upload.wikimedia.org/wikipedia/en/thumb/a/a3/Prometheusposterfixed.jpg/220px-Prometheusposterfixed.jpg"
 
 ## Info URL ##
 infoUrl: "https://www.koii.network/blog/Earn-Crypto-With-AI-Agent"

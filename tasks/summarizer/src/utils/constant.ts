@@ -13,4 +13,4 @@ export const status = {
   NO_CHOSEN_AS_ISSUE_SUMMARIZER: "No chosen as issue summarizer",
 }
 
-export const customReward = 0.5;
+export const customReward = 0.01; // This should be in ROE! 
