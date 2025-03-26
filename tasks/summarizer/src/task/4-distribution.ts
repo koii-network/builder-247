@@ -44,6 +44,11 @@ export const distribution = async (
     // Slash the stake of submitters who submitted incorrect values
     // and make a list of submitters who submitted correct values
     for (const submitter of submitters) {
+      // TODO: Check if this guy is the one that should make submission
+      // TODO: If not, then skip
+
+
+      // TODO: Check if this guy is making the submission that is supposed to be made()
       const submitterSubmissions = await getSubmissionList(roundNumber);
       // get the submitter's submission
       const submitterSubmission = submitterSubmissions[submitter.publicKey];

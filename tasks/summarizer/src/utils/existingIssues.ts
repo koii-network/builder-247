@@ -90,8 +90,8 @@ export async function getExistingIssues(): Promise<BountyIssue[]> {
 }
 
 
-export async function getInitializedDocumentSummarizeIssues() {
-  const issues = await getExistingIssues();
+export async function getInitializedDocumentSummarizeIssues(issues: BountyIssue[]) {
+  
   return issues.filter(issue => issue.status === "Initialized" && issue.bountyTask === "Document & Summarize");
 }
 

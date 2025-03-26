@@ -50,7 +50,8 @@ export async function task(roundNumber: number): Promise<void> {
     });
     /****************** All these issues need to be generate a markdown file ******************/
 
-    const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues();
+    
+    const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues(existingIssues);
     console.log("Initialized document summarize issues:", initializedDocumentSummarizeIssues);
     if (initializedDocumentSummarizeIssues.length == 0) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
@@ -90,6 +91,10 @@ export async function task(roundNumber: number): Promise<void> {
     } else {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
     }
+
+    // TODO: TRIGGER CHANGE THE ISSUE STATUS HERE
+    // WHY HERE? Because the distribution list happening the same time, so to avoid the issue is closed before the distribution list is generated
+    
   } catch (error) {
     console.error("EXECUTE TASK ERROR:", error);
   }

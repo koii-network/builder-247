@@ -82,7 +82,7 @@ bounty_amount_per_round: 1
 # Number of retries allowed for the distribution list if it is fails audit.
 # If all retries fail, the task will not distribute anything for the round.
 # This is also the number of rounds of submissions it will keep.
-allowed_failed_distributions: 3
+allowed_failed_distributions: 8
 
 ## Space ##
 # Expected Task Data Size in MBs for the account size.
