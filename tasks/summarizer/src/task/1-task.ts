@@ -55,7 +55,7 @@ export async function task(roundNumber: number): Promise<void> {
     // console.log("Initialized document summarize issues:", initializedDocumentSummarizeIssues);
 
 
-    const transactionHashsResponse = await fetch(`${middleServerUrl}/summarizer/trigger-save-swarms-for-round`, {
+    const transactionHashsResponse = await fetch(`${middleServerUrl}/api/summarizer/trigger-save-swarms-for-round`, {
       method: "POST",
       body: JSON.stringify({ taskId: TASK_ID, round: roundNumber }),
     });

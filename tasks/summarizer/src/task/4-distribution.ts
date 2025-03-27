@@ -2,7 +2,7 @@ import { Submitter, DistributionList } from "@_koii/task-manager";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import { customReward, status } from "../utils/constant";
 import { Submission } from "@_koii/namespace-wrapper/dist/types";
-
+import { middleServerUrl } from "../utils/constant";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { submissionJSONSignatureDecode } from "../utils/submissionJSONSignatureDecode";
 import { getRandomNodes } from "../utils/leader";
@@ -44,8 +44,8 @@ export const distribution = async (
 
     // Slash the stake of submitters who submitted incorrect values
     // and make a list of submitters who submitted correct values
-    const middleServerUrl = process.env.MIDDLE_SERVER_URL || "http://localhost:3000";
-    const response = await fetch(`${middleServerUrl}/summarizer/trigger-update-swarms-status`, {
+
+    const response = await fetch(`${middleServerUrl}/api/summarizer/trigger-update-swarms-status`, {
       method: "POST",
       body: JSON.stringify({
         taskId: TASK_ID,
