@@ -10,7 +10,11 @@ const cache: Record<string, Record<number, { data: any, promise?: Promise<any> }
 
 export async function triggerSaveSwarmsForRound(req: Request, res: Response): Promise<void> {
     const { taskId, round } = req.body;
-
+    // Check if both taskId and round are provided
+    if (!taskId || !round) {
+        res.status(400).send('Task ID and round are required');
+        return;
+    }
     // Initialize task cache if it doesn't exist
     if (!cache[taskId]) {
         cache[taskId] = {};
