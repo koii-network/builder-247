@@ -7,33 +7,33 @@ import { Octokit } from '@octokit/rest';
 import { SummarizerRecordModel } from '../../models/Summarizer';
 
 // A simple in-memory cache to store processed task IDs and rounds
-const cache: Record<string, { data: any, round: number, promise?: Promise<any> }> = {};
+const cache: Record<string, Record<number, { data: any, promise?: Promise<any> }>> = {};
 
 export async function triggerSaveSwarmsForRound(req: Request, res: Response): Promise<void> {
     const { taskId, round } = req.body;
 
-    // Check if there's cached data for this taskId
-    if (cache[taskId]) {
-        if (cache[taskId].round === round) {
-            if (cache[taskId].data) {
-                // If we have resolved data, return it immediately
-                res.status(200).send(cache[taskId].data);
-                return;
-            } else if (cache[taskId].promise) {
-                // If we have an ongoing promise, wait for it
-                try {
-                    const result = await cache[taskId].promise;
-                    cache[taskId].data = result;
-                    delete cache[taskId].promise;
-                    res.status(200).send(result);
-                } catch (error) {
-                    res.status(500).send('Error processing request');
-                }
-                return;
+    // Initialize task cache if it doesn't exist
+    if (!cache[taskId]) {
+        cache[taskId] = {};
+    }
+
+    // Check if there's cached data for this taskId and round
+    if (cache[taskId][round]) {
+        if (cache[taskId][round].data) {
+            // If we have resolved data, return it immediately
+            res.status(200).send(cache[taskId][round].data);
+            return;
+        } else if (cache[taskId][round].promise) {
+            // If we have an ongoing promise, wait for it
+            try {
+                const result = await cache[taskId][round].promise;
+                cache[taskId][round].data = result;
+                delete cache[taskId][round].promise;
+                res.status(200).send(result);
+            } catch (error) {
+                res.status(500).send('Error processing request');
             }
-        } else {
-            // If round doesn't match, clear the cache and process new request
-            delete cache[taskId];
+            return;
         }
     }
 
@@ -66,16 +66,15 @@ export async function triggerSaveSwarmsForRound(req: Request, res: Response): Pr
     })();
 
     // Store the promise in cache
-    cache[taskId] = {
+    cache[taskId][round] = {
         promise: processPromise,
-        round: round,
         data: null
     };
 
     try {
         const result = await processPromise;
-        cache[taskId].data = result;
-        delete cache[taskId].promise;
+        cache[taskId][round].data = result;
+        delete cache[taskId][round].promise;
         res.status(200).send(result);
     } catch (error) {
         res.status(500).send('Error processing request');
