@@ -1,11 +1,16 @@
 import mongoose, { Schema } from 'mongoose';
-
+export enum SwarmBountyStatus {
+  INITIALIZED = "initialized",
+  COMPLETED = "completed",
+  FAILED = "failed",
+  LOADING = "loading"
+}
 const SwarmBountySchema = new Schema(
   {
     status: {
       type: String,
-      enum: ['Initialized', 'Completed', 'Failed'],
-      default: 'Initialized',
+      enum: Object.values(SwarmBountyStatus),
+      default: SwarmBountyStatus.LOADING,
     },
     email: {
       type: String,

@@ -1,5 +1,4 @@
-import SwarmBounty from "../models/SwarmBounties";
-import { swarmBountyStatus } from "../constant";
+import SwarmBountyModel from "../models/SwarmBounties";
 import { connectToDatabase } from "../app";
 import dotenv from "dotenv";
 
@@ -9,7 +8,7 @@ export async function updateStatus(githubUrl: string, status: string) {
     console.log("Updating status for", githubUrl, status);
     try {
         await connectToDatabase();
-        const issue = await SwarmBounty.findOne({ githubUrl });
+        const issue = await SwarmBountyModel.findOne({ githubUrl });
         if (!issue) {
             throw new Error("Issue not found");
         }

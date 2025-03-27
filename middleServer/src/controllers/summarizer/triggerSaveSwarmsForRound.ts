@@ -2,10 +2,10 @@ import { Request, Response } from 'express';
 
 import { getMaxSubmissionRound } from '../../taskOperations/getSubmissionRound';
 
-import { getExistingIssues, getInitializedDocumentSummarizeIssues } from '../../swarmBountyOperations/existingIssues';
+import { getExistingIssues, getInitializedDocumentSummarizeIssues, getInitializedDocumentSummarizeIssuesThroughMongoDB } from '../../swarmBountyOperations/existingIssues';
 import { SummarizerRecordModel } from '../../models/Summarizer';
 import { updateStatus } from '../../swarmBountyOperations/updateStatus';
-import { swarmBountyStatus } from '../../constant';
+import { SwarmBountyStatus } from '../../models/SwarmBounties';
 
 // A simple in-memory cache to store processed task IDs and rounds
 const cache: Record<string, Record<number, { data: any, promise?: Promise<any> }>> = {};
@@ -59,8 +59,8 @@ export async function triggerSaveSwarmsForRound(req: Request, res: Response): Pr
             throw new Error('Not the correct time to get the rounds');
         }
 
-        const existingIssues = await getExistingIssues();
-        const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues(existingIssues);
+  
+        const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssuesThroughMongoDB();
         const issuesToSave = [];
         for (const issue of initializedDocumentSummarizeIssues) {
             const isRequiredToAssignAgainResult = await isRequiredToAssignAgain(issue.githubUrl);
@@ -116,14 +116,14 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
         
         if (repoInfo.data.archived) {
             console.log(`${githubUrl} is archived, skipping`);
-            await updateStatus(githubUrl, swarmBountyStatus.FAILED);
+            await updateStatus(githubUrl, SwarmBountyStatus.FAILED);
             return false;
         }
 
         // Check if repository is a fork
         if (repoInfo.data.fork) {
             console.log(`${githubUrl} is a fork, skipping`);
-            await updateStatus(githubUrl, swarmBountyStatus.FAILED);
+            await updateStatus(githubUrl, SwarmBountyStatus.FAILED);
             return false;
         }
 
@@ -136,7 +136,7 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
 
         if (commits.data.length === 0) {
             console.log(`${githubUrl} has no Git content, skipping`);
-            await updateStatus(githubUrl, swarmBountyStatus.FAILED);
+            await updateStatus(githubUrl, SwarmBountyStatus.FAILED);
             return false;
         }
     } catch (error: any) {
@@ -145,7 +145,7 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
         } else {
             console.error(`Error checking repository status for ${githubUrl}:`, error);
         }
-        await updateStatus(githubUrl, swarmBountyStatus.FAILED);
+        await updateStatus(githubUrl, SwarmBountyStatus.FAILED);
         return false;
     }
     
@@ -180,7 +180,7 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
              
         if (hasApproval) {
             console.log(`${githubUrl} has been approved`);
-            await updateStatus(githubUrl, swarmBountyStatus.COMPLETED);
+            await updateStatus(githubUrl, SwarmBountyStatus.COMPLETED);
             return false
         }
 
