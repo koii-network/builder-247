@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export async function updateStatus(githubUrl: string, status: string) {
-
+    console.log("Updating status for", githubUrl, status);
     try {
         await connectToDatabase();
         const issue = await SwarmBounty.findOne({ githubUrl });

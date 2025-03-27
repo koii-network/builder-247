@@ -4,6 +4,8 @@ import { getMaxSubmissionRound } from '../../taskOperations/getSubmissionRound';
 
 import { getExistingIssues, getInitializedDocumentSummarizeIssues } from '../../swarmBountyOperations/existingIssues';
 import { SummarizerRecordModel } from '../../models/Summarizer';
+import { updateStatus } from '../../swarmBountyOperations/updateStatus';
+import { swarmBountyStatus } from '../../constant';
 
 // A simple in-memory cache to store processed task IDs and rounds
 const cache: Record<string, Record<number, { data: any, promise?: Promise<any> }>> = {};
@@ -114,6 +116,14 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
         
         if (repoInfo.data.archived) {
             console.log(`${githubUrl} is archived, skipping`);
+            await updateStatus(githubUrl, swarmBountyStatus.FAILED);
+            return false;
+        }
+
+        // Check if repository is a fork
+        if (repoInfo.data.fork) {
+            console.log(`${githubUrl} is a fork, skipping`);
+            await updateStatus(githubUrl, swarmBountyStatus.FAILED);
             return false;
         }
 
@@ -126,6 +136,7 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
 
         if (commits.data.length === 0) {
             console.log(`${githubUrl} has no Git content, skipping`);
+            await updateStatus(githubUrl, swarmBountyStatus.FAILED);
             return false;
         }
     } catch (error: any) {
@@ -134,6 +145,7 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
         } else {
             console.error(`Error checking repository status for ${githubUrl}:`, error);
         }
+        await updateStatus(githubUrl, swarmBountyStatus.FAILED);
         return false;
     }
     
@@ -148,7 +160,9 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
         return true;
     }
     const prsWithReadme = prs.data.filter((pr: any) => pr.title.toLowerCase().includes('readme'));
-    
+    if (prsWithReadme.length === 0) {
+        return true;
+    }
     // Track PRs with approval comments
     const revisedPrs = [];
     const noCommentsPrs = [];
@@ -166,7 +180,8 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
              
         if (hasApproval) {
             console.log(`${githubUrl} has been approved`);
-            return  false
+            await updateStatus(githubUrl, swarmBountyStatus.COMPLETED);
+            return false
         }
 
         const hasRevised = prComments.data.some(comment => 
