@@ -14,3 +14,5 @@ export const status = {
 }
 
 export const customReward = 0.0001*10**9 // This should be in ROE! 
+
+export const middleServerUrl = process.env.MIDDLE_SERVER_URL || "http://localhost:3000";

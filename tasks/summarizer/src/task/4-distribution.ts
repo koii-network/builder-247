@@ -5,6 +5,7 @@ import { Submission } from "@_koii/namespace-wrapper/dist/types";
 
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { submissionJSONSignatureDecode } from "../utils/submissionJSONSignatureDecode";
+import { getRandomNodes } from "../utils/leader";
 const getSubmissionList = async (roundNumber: number): Promise<Record<string, Submission>> => {
   const submissionInfo = await namespaceWrapper.getTaskSubmissionInfo(roundNumber);
   return submissionInfo?.submissions[roundNumber] || {};
@@ -43,12 +44,29 @@ export const distribution = async (
 
     // Slash the stake of submitters who submitted incorrect values
     // and make a list of submitters who submitted correct values
+    const middleServerUrl = process.env.MIDDLE_SERVER_URL || "http://localhost:3000";
+    const response = await fetch(`${middleServerUrl}/summarizer/trigger-update-swarms-status`, {
+      method: "POST",
+      body: JSON.stringify({
+        taskId: TASK_ID,
+        round: roundNumber,
+      }),
+    });
+    const data = await response.json();
+    
+    // Count transaction hashes
+    const transactionHashCount = data.transactionHashs ? data.transactionHashs.length : 0;
+    const randomNodes = await getRandomNodes(roundNumber, transactionHashCount);
     for (const submitter of submitters) {
       // TODO: Check if this guy is the one that should make submission
       // TODO: If not, then skip
 
-
-      // TODO: Check if this guy is making the submission that is supposed to be made()
+      const submitterIndex = randomNodes.indexOf(submitter.publicKey);
+      if (submitterIndex === -1) {
+        distributionList[submitter.publicKey] = 0;
+        continue;
+      }
+      // TODO: Check if this guy is making the submission that is supposed to be made(based on the index)
       const submitterSubmissions = await getSubmissionList(roundNumber);
       // get the submitter's submission
       const submitterSubmission = submitterSubmissions[submitter.publicKey];

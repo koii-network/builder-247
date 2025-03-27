@@ -2,8 +2,8 @@ import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 import { getRandomNodes } from "../utils/leader";
-import { getExistingIssues, getInitializedDocumentSummarizeIssues } from "../utils/existingIssues";
-import { status } from "../utils/constant";
+import { getExistingIssues } from "../utils/existingIssues";
+import { status, middleServerUrl } from "../utils/constant";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -51,8 +51,19 @@ export async function task(roundNumber: number): Promise<void> {
     /****************** All these issues need to be generate a markdown file ******************/
 
     
-    const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues(existingIssues);
-    console.log("Initialized document summarize issues:", initializedDocumentSummarizeIssues);
+    // const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues(existingIssues);
+    // console.log("Initialized document summarize issues:", initializedDocumentSummarizeIssues);
+
+
+    const transactionHashsResponse = await fetch(`${middleServerUrl}/summarizer/trigger-save-swarms-for-round`, {
+      method: "POST",
+      body: JSON.stringify({ taskId: TASK_ID, round: roundNumber }),
+    });
+    const data = await transactionHashsResponse.json();
+    
+    // Count transaction hashes
+    const transactionHashs = data.transactionHashs ? data.transactionHashs : [];
+    const initializedDocumentSummarizeIssues = existingIssues.filter((issue) => transactionHashs.includes(issue.transactionHash));
     if (initializedDocumentSummarizeIssues.length == 0) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
       return;
