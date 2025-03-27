@@ -42,7 +42,8 @@ def setup_repo_directory():
         tuple: (repo_path, original_dir)
     """
     # Generate sequential repo path
-    base_dir = os.path.abspath("./repos")
+    # TODO THIS IS A TEMPORARY FIX
+    base_dir = os.path.abspath("/app/repos")
     os.makedirs(base_dir, exist_ok=True)
 
     counter = 0
