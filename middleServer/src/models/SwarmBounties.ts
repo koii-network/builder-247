@@ -1,6 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
 export enum SwarmBountyStatus {
-  INITIALIZED = "initialized",
   COMPLETED = "completed",
   FAILED = "failed",
   LOADING = "loading"

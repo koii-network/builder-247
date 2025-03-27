@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
-
+import mongoose from 'mongoose';
+import SwarmBountyModel, { SwarmBountyStatus } from '../../models/SwarmBounties';
 dotenv.config();
 
 interface BountyData {
@@ -18,7 +19,9 @@ interface Repository {
     html_url: string;
     name: string;
 }
-
+async function connectToDatabase() {
+    await mongoose.connect(process.env.MONGODB_URI!);
+}
 export async function generateHermanL02Bounties(): Promise<string> {
     const { Octokit } = await import('@octokit/rest');
     const octokit = new Octokit({
@@ -38,13 +41,25 @@ export async function generateHermanL02Bounties(): Promise<string> {
         markdown += `|------------|------------|--------------|-------------|---------------|-------------|------------------|-------|\n`;
 
         // Generate markdown rows
-        repos.forEach((repo: Repository) => {
+        const markdownRows = await Promise.all(repos.map(async (repo: Repository) => {
             const transactionHash = uuidv4().replace(/-/g, '');
             const bountyAmount = Math.floor(Math.random() * 50) + 1;
-            
-            markdown += `|[${repo.name}](${repo.html_url})|Document & Summarize|${repo.name}|Document and summarize the ${repo.name} repository|${bountyAmount}|usdc|${transactionHash}|Initialized|\n`;
-        });
+            const bounty = new SwarmBountyModel({
+                githubUrl: repo.html_url,
+                swarmType: "document-summarizer",
+                projectName: repo.name,
+                description: `Document and summarize the ${repo.name} repository`,
+                bountyAmount: bountyAmount,
+                bountyType: "usdc",
+                status: SwarmBountyStatus.LOADING,
+                txHash: transactionHash,
+                walletAddress: "0x0000000000000000000000000000000000000000",
+            });
+            await bounty.save();
+            return `|[${repo.name}](${repo.html_url})|Document & Summarize|${repo.name}|Document and summarize the ${repo.name} repository|${bountyAmount}|usdc|${transactionHash}|In Progress|\n`;
+        }));
 
+        markdown += markdownRows.join('');
         return markdown;
     } catch (error) {
         console.error('Error generating bounties:', error);
@@ -54,6 +69,7 @@ export async function generateHermanL02Bounties(): Promise<string> {
 
 // Example usage:
 async function main() { 
+    await connectToDatabase();
     const markdown = await generateHermanL02Bounties();
     console.log(markdown);
 }
