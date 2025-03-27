@@ -129,6 +129,7 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
         );
              
         if (hasApproval) {
+            console.log(`${githubUrl} has been approved`);
             return  false
         }
 
