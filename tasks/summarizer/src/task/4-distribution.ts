@@ -47,10 +47,10 @@ export const distribution = async (
     console.log(`Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
     const response = await fetch(`${middleServerUrl}/api/summarizer/trigger-save-swarms-for-round`, {
       method: "POST",
-      body: JSON.stringify({
-        taskId: TASK_ID,
-        round: String(roundNumber),
-      }),
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ taskId: TASK_ID, round: roundNumber }),
     });
     const data = await response.json();
     
