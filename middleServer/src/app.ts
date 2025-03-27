@@ -5,7 +5,7 @@ import http from "http";
 import morgan from "morgan";
 
 export const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Define custom morgan token for colored status
 morgan.token("status-colored", (req, res) => {
