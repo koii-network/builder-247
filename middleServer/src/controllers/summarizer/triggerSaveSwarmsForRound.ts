@@ -30,6 +30,7 @@ export async function triggerSaveSwarmsForRound(req: Request, res: Response): Pr
                 delete cache[taskId][round].promise;
                 res.status(200).send(result);
             } catch (error) {
+                console.error(error);
                 res.status(500).send('Error processing request');
             }
             return;
@@ -76,6 +77,7 @@ export async function triggerSaveSwarmsForRound(req: Request, res: Response): Pr
         delete cache[taskId][round].promise;
         res.status(200).send(result);
     } catch (error) {
+        console.error(error);
         res.status(500).send('Error processing request');
     }
 }
