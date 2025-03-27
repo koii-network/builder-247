@@ -9,7 +9,7 @@ import { SummarizerRecordModel } from '../../models/Summarizer';
 // A simple in-memory cache to store processed task IDs and rounds
 const cache: Record<string, { data: any, round: number, promise?: Promise<any> }> = {};
 
-export async function triggerUpdateIssueStatus(req: Request, res: Response): Promise<void> {
+export async function triggerSaveSwarmsForRound(req: Request, res: Response): Promise<void> {
     const { taskId, round } = req.body;
 
     // Check if there's cached data for this taskId

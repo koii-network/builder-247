@@ -6,7 +6,7 @@ import { Octokit } from '@octokit/rest';
 // A simple in-memory cache to store processed task IDs and rounds
 const cache: Record<string, Set<number>> = {};
 
-export async function triggerUpdateIssueStatus(req: Request, res: Response): Promise<void> {
+export async function triggerUpdateSwarmsStatus(req: Request, res: Response): Promise<void> {
     const { taskId, round } = req.body;
 
     // Check if the taskId and round have already been processed
