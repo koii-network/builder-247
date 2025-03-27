@@ -101,6 +101,22 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
     
     const [owner, repo] = githubUrl.split('/').slice(3, 5);
     
+    // Check if repository is archived
+    try {
+        const repoInfo = await octokit.rest.repos.get({
+            owner,
+            repo
+        });
+        
+        if (repoInfo.data.archived) {
+            console.log(`${githubUrl} is archived, skipping`);
+            return false;
+        }
+    } catch (error) {
+        console.error(`Error checking repository status for ${githubUrl}:`, error);
+        return false;
+    }
+    
     // Get all PRs that contain README in title
     const prs = await octokit.rest.pulls.list({
         owner,
