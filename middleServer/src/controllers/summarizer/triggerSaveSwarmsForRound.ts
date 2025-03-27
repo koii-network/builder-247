@@ -105,7 +105,7 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
     
     const [owner, repo] = githubUrl.split('/').slice(3, 5);
     
-    // Check if repository is archived
+    // Check if repository is archived and has Git content
     try {
         const repoInfo = await octokit.rest.repos.get({
             owner,
@@ -116,8 +116,24 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
             console.log(`${githubUrl} is archived, skipping`);
             return false;
         }
-    } catch (error) {
-        console.error(`Error checking repository status for ${githubUrl}:`, error);
+
+        // Check if repository has any commits
+        const commits = await octokit.rest.repos.listCommits({
+            owner,
+            repo,
+            per_page: 1
+        });
+
+        if (commits.data.length === 0) {
+            console.log(`${githubUrl} has no Git content, skipping`);
+            return false;
+        }
+    } catch (error: any) {
+        if (error.status === 403 && error.message?.includes('contains no Git content')) {
+            console.log(`${githubUrl} has no Git content, skipping`);
+        } else {
+            console.error(`Error checking repository status for ${githubUrl}:`, error);
+        }
         return false;
     }
     
