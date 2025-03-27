@@ -21,6 +21,7 @@
     "@_koii/create-task-cli": "^1.1.7",
     "@_koii/namespace-wrapper": "^1.0.23",
     "@_koii/web3.js": "^0.1.11",
+    "@octokit/rest": "^21.1.1",
     "@typegoose/typegoose": "^12.10.1",
     "@types/morgan": "^1.9.9",
     "bs58": "^6.0.0",
@@ -31,6 +32,7 @@
     "morgan": "^1.10.0",
     "node-cache": "^5.1.2",
     "supertest": "^7.0.0",
-    "ts-jest": "^29.2.5"
+    "ts-jest": "^29.2.5",
+    "tsx": "^4.19.3"
   }
 }
