@@ -3,7 +3,6 @@ import { Request, Response } from 'express';
 import { getMaxSubmissionRound } from '../../taskOperations/getSubmissionRound';
 
 import { getExistingIssues, getInitializedDocumentSummarizeIssues } from '../../swarmBountyOperations/existingIssues';
-import { Octokit } from '@octokit/rest';
 import { SummarizerRecordModel } from '../../models/Summarizer';
 
 // A simple in-memory cache to store processed task IDs and rounds
@@ -93,6 +92,7 @@ export async function saveSwarmsForRound(taskID:string, roundNumber:number, issu
 }
 
 export const isRequiredToAssignAgain = async (githubUrl: string) => {
+    const { Octokit } = await import('@octokit/rest');
     const octokit = new Octokit({
         auth: process.env.GITHUB_TOKEN
     });
@@ -148,5 +148,4 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
         return true;
     }
     return false;
-
 }
