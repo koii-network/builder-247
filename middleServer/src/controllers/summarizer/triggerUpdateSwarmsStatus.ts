@@ -1,3 +1,4 @@
+// @NOT USED, because write to MARKDOWN IS SO STUPID!
 import { Request, Response } from 'express';
 
 import { getInitializedDocumentSummarizeIssues } from '../../swarmBountyOperations/existingIssues';
@@ -22,9 +23,12 @@ export async function triggerUpdateIssueStatus(req: Request, res: Response): Pro
 
     const issues = await getInitializedDocumentSummarizeIssues(taskId);
     for (const issue of issues) {
-        const repoStatus = await fetchGitRepoStatus(issue.githubUrl);
-        console.log(repoStatus);
+        const approvalResult = await isGitReadmePRApproved(issue.githubUrl);
+        if (approvalResult) {
+            issue.status = "approved";
+        }
     }
+    
 
     
 
@@ -32,7 +36,7 @@ export async function triggerUpdateIssueStatus(req: Request, res: Response): Pro
 
 }
 
-export const fetchGitRepoStatus = async (githubUrl: string) => {
+export const isGitReadmePRApproved = async (githubUrl: string) => {
     const octokit = new Octokit({
         auth: process.env.GITHUB_TOKEN
     });
@@ -77,7 +81,7 @@ export const fetchGitRepoStatus = async (githubUrl: string) => {
 }
 
 export const main = async () => {
-    const hasApprovedReadmePr = await fetchGitRepoStatus("https://github.com/alexander-morris/koii-dumper-reveal");
+    const hasApprovedReadmePr = await isGitReadmePRApproved("https://github.com/alexander-morris/koii-dumper-reveal");
     console.log(hasApprovedReadmePr);
 }
 
