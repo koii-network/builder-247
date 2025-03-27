@@ -159,7 +159,7 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
     if (prs.data.length === 0) {
         return true;
     }
-    const prsWithReadme = prs.data.filter((pr: any) => pr.title.toLowerCase().includes('readme'));
+    const prsWithReadme = prs.data.filter((pr: any) => pr.title.toLowerCase().includes('prometheus: add readme for'));
     if (prsWithReadme.length === 0) {
         return true;
     }

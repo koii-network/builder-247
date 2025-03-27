@@ -226,7 +226,7 @@ class RepoSummarizerWorkflow(Workflow):
             log_section("CREATING PULL REQUEST")
 
             # Add required PR title and description parameters to context
-            self.context["title"] = f"Add README for {self.context['repo_name']}"
+            self.context["title"] = f"Prometheus: Add README for {self.context['repo_name']}"
             self.context["description"] = (
                 f"This PR adds a README file for the {self.context['repo_name']} repository."
             )
