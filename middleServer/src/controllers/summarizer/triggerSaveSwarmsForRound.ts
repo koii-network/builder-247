@@ -39,6 +39,11 @@ export async function triggerUpdateIssueStatus(req: Request, res: Response): Pro
 
     // Create a new promise for this request
     const processPromise = (async () => {
+        // Check if this round already exists
+        const existingSwarms = await SummarizerRecordModel.findOne({ taskID: taskId, roundNumber: round });
+        if (existingSwarms) {
+            return existingSwarms;
+        }
         // Check if this is the correct time to get the rounds
         const maxSubmissionRound = await getMaxSubmissionRound(taskId);
         if (!maxSubmissionRound) {
