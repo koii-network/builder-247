@@ -57,7 +57,7 @@ export async function task(roundNumber: number): Promise<void> {
     console.log(`Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
     const transactionHashsResponse = await fetch(`${middleServerUrl}/api/summarizer/trigger-save-swarms-for-round`, {
       method: "POST",
-      body: JSON.stringify({ taskId: TASK_ID, round: roundNumber }),
+      body: JSON.stringify({ taskId: TASK_ID, round: String(roundNumber) }),
     });
     const data = await transactionHashsResponse.json();
     

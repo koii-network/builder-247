@@ -44,12 +44,12 @@ export const distribution = async (
 
     // Slash the stake of submitters who submitted incorrect values
     // and make a list of submitters who submitted correct values
-
+    console.log(`Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
     const response = await fetch(`${middleServerUrl}/api/summarizer/trigger-save-swarms-for-round`, {
       method: "POST",
       body: JSON.stringify({
         taskId: TASK_ID,
-        round: roundNumber,
+        round: String(roundNumber),
       }),
     });
     const data = await response.json();
