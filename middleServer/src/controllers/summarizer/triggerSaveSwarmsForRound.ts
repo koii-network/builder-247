@@ -89,7 +89,7 @@ export async function triggerSaveSwarmsForRound(req: Request, res: Response): Pr
 }
 
 export async function saveSwarmsForRound(taskID:string, roundNumber:number, issues:any[]) {
-   const issueTransactionHashs = issues.map((issue) => issue.transactionHash);
+   const issueTransactionHashs = issues.map((issue) => issue.txHash);
    const summarizerRecord = new SummarizerRecordModel({
     taskID: taskID,
     roundNumber: roundNumber,
