@@ -45,7 +45,7 @@ export const distribution = async (
     // Slash the stake of submitters who submitted incorrect values
     // and make a list of submitters who submitted correct values
 
-    const response = await fetch(`${middleServerUrl}/api/summarizer/trigger-update-swarms-status`, {
+    const response = await fetch(`${middleServerUrl}/api/summarizer/trigger-save-swarms-for-round`, {
       method: "POST",
       body: JSON.stringify({
         taskId: TASK_ID,

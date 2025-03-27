@@ -28,7 +28,7 @@ export async function generateHermanL02Bounties(): Promise<string> {
     try {
         // Get all repositories for HermanL02
         const { data: repos } = await octokit.repos.listForUser({
-            username: 'HermanL02',
+            username: 'koii-network',
             per_page: 100
         });
 

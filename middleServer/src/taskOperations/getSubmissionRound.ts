@@ -13,7 +13,7 @@ export async function getMaxSubmissionRound(taskId: string): Promise<number | nu
         return largestRound;
     } catch (error) {
         console.error('Error in getSubmissionRound', error);
-        return null;
+        return 0;
     }
 }
 
