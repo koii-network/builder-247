@@ -46,7 +46,7 @@ export async function triggerSaveSwarmsForRound(req: Request, res: Response): Pr
         }
         // Check if this is the correct time to get the rounds
         const maxSubmissionRound = await getMaxSubmissionRound(taskId);
-        if (!maxSubmissionRound) {
+        if (maxSubmissionRound === null) {
             throw new Error('No max submission round found');
         }
         if (round > maxSubmissionRound + 1) {
