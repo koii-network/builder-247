@@ -55,9 +55,9 @@ export async function triggerSaveSwarmsForRound(req: Request, res: Response): Pr
         if (maxSubmissionRound === null) {
             throw new Error('No max submission round found');
         }
-        if (round > maxSubmissionRound + 1) {
-            throw new Error('Not the correct time to get the rounds');
-        }
+        // if (round > maxSubmissionRound + 1) {
+        //     throw new Error('Not the correct time to get the rounds');
+        // }
 
   
         const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssuesThroughMongoDB();
