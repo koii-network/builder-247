@@ -120,6 +120,13 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
             return false;
         }
 
+        // Check if repository is private
+        if (repoInfo.data.private) {
+            console.log(`${githubUrl} is private, skipping`);
+            await updateStatus(githubUrl, SwarmBountyStatus.FAILED);
+            return false;
+        }
+
         // Check if repository is a fork
         if (repoInfo.data.fork) {
             console.log(`${githubUrl} is a fork, skipping`);
