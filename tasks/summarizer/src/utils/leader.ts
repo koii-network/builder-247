@@ -157,7 +157,7 @@ export async function getRandomNodes(roundNumber: number, numberOfNodes: number)
     return availableKeys;
   }
   
-  const seed = TASK_ID || "default" + roundNumber;
+  const seed = TASK_ID + roundNumber.toString() || "default" + roundNumber;
   const rng = seedrandom(seed);
   // Use the keys from the submissions object
   const randomKeys = availableKeys.sort(() => rng() - 0.5).slice(0, numberOfNodes);
