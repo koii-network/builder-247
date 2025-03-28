@@ -192,7 +192,7 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
         }
 
         const hasRevised = prComments.data.some(comment => 
-            comment.body?.toLowerCase().includes('revised')
+            comment.body?.toLowerCase().includes('revise')
         );
 
         if (hasRevised) {
