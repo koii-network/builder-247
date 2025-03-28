@@ -131,6 +131,7 @@ async function selectLeaderKey(
   }
 }
 export async function getRandomNodes(roundNumber: number, numberOfNodes: number): Promise<string[]> {
+  console.log("Getting random nodes for round:", roundNumber, "with number of nodes:", numberOfNodes);
   const lastRoundSubmission = await getSubmissionInfo(roundNumber - 1);
   console.log("Last round submission:", lastRoundSubmission);
   if (!lastRoundSubmission) {
@@ -140,7 +141,7 @@ export async function getRandomNodes(roundNumber: number, numberOfNodes: number)
   const lastRoundSubmissions = lastRoundSubmission.submissions;
   console.log("Last round submissions:", lastRoundSubmissions);
   
-  // Get the last round number (in this case '1')
+  // Get the last round number
   const lastRound = Object.keys(lastRoundSubmissions).pop();
   if (!lastRound) {
     return [];
@@ -148,18 +149,21 @@ export async function getRandomNodes(roundNumber: number, numberOfNodes: number)
   
   // Get the submissions for that round
   const submissions = lastRoundSubmissions[lastRound];
+  console.log("Submissions:", submissions);
+  const availableKeys = Object.keys(submissions);
+  console.log("Available keys:", availableKeys);
+  // If we have fewer submissions than requested nodes, return all available submissions
+  if (availableKeys.length <= numberOfNodes) {
+    return availableKeys;
+  }
   
   const seed = TASK_ID || "default" + roundNumber;
   const rng = seedrandom(seed);
   // Use the keys from the submissions object
-  const randomKeys = Object.keys(submissions).sort(() => rng() - 0.5).slice(0, numberOfNodes);
+  const randomKeys = availableKeys.sort(() => rng() - 0.5).slice(0, numberOfNodes);
   
   console.log("Random keys:", randomKeys);
-  if (randomKeys.length < numberOfNodes) {
-    return randomKeys;
-  }
-  console.log("Random keys sliced:", randomKeys.slice(0, numberOfNodes));
-  return randomKeys.slice(0, numberOfNodes);
+  return randomKeys;
 }
 
 // Helper function that finds the leader for a specific round
