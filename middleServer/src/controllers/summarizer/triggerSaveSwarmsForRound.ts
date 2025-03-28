@@ -191,7 +191,12 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
         if (hasRevised) {
             revisedPrs.push(pr);
         } else {
-            noCommentsPrs.push(pr);
+            // if this pr is within 3 hours
+            const prCreatedAt = new Date(pr.created_at);
+            const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+            if (prCreatedAt > threeHoursAgo) {
+                noCommentsPrs.push(pr);
+            }
         }
     }
     if (noCommentsPrs.length > 0) {
@@ -201,5 +206,5 @@ export const isRequiredToAssignAgain = async (githubUrl: string) => {
     if (revisedPrs.length > 0) {
         return true;
     }
-    return false;
+    return true;
 }
