@@ -38,11 +38,21 @@ export async function getMaxSubmissionRound(taskId: string): Promise<number | nu
 }
 
 
-
+export async function getCurrentRound(taskId: string): Promise<number | null> {
+    const connection = new Connection("https://mainnet.koii.network", "confirmed");
+    const taskStateInfo = await getTaskStateInfo(connection, taskId);
+    const currentSlot = await connection.getSlot();
+    console.log("currentSlot", currentSlot);
+    console.log("taskStateInfo.starting_slot", taskStateInfo.starting_slot);
+    const currentRound = Math.floor(
+        (currentSlot - taskStateInfo.starting_slot) / taskStateInfo.round_time,
+      );
+    return currentRound;
+}
 
 // async function main() {
-//     const submissionRound = await getSubmissionRound("2xSoUfcPE9eTxmSvwjXA4myNK3T3HYpnUCgAV8szzeNn");
-//     console.log(submissionRound);
+//         const submissionRound = await getCurrentRound("2xSoUfcPE9eTxmSvwjXA4myNK3T3HYpnUCgAV8szzeNn");
+//         console.log(submissionRound);
 // }
 
 // main();

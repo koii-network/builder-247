@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 
-import { getMaxSubmissionRound } from '../../taskOperations/getSubmissionRound';
+import { getCurrentRound } from '../../taskOperations/getSubmissionRound';
 
 import { getExistingIssues, getInitializedDocumentSummarizeIssues, getInitializedDocumentSummarizeIssuesThroughMongoDB } from '../../swarmBountyOperations/existingIssues';
 import { SummarizerRecordModel } from '../../models/Summarizer';
@@ -51,15 +51,12 @@ export async function triggerSaveSwarmsForRound(req: Request, res: Response): Pr
             return existingSwarms;
         }
         // Check if this is the correct time to get the rounds
-        const maxSubmissionRound = await getMaxSubmissionRound(taskId);
-        if (maxSubmissionRound === null) {
-            throw new Error('No max submission round found');
+        const currentRound = await getCurrentRound(taskId);
+        if (round !== currentRound) {
+            res.status(400).send('Not the correct time to get the rounds');
+            return;
         }
-        // if (round > maxSubmissionRound + 1) {
-        //     throw new Error('Not the correct time to get the rounds');
-        // }
-
-  
+        
         const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssuesThroughMongoDB();
         const issuesToSave = [];
         for (const issue of initializedDocumentSummarizeIssues) {
