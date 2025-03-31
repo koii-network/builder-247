@@ -2,18 +2,19 @@ import { Request, Response } from "express";
 import { IssueModel, IssueStatus } from "../models/Issue";
 import { taskIDs } from "../constant";
 
-export function verifyRequestBody(req: Request): string | null {
+export function verifyRequestBody(req: Request): { taskId: string; githubUsername: string } | null {
   console.log("verifyRequestBody", req.body);
   const taskId = req.body.taskId as string;
-  if (!taskId || !taskIDs.includes(taskId)) {
+  const githubUsername = req.body.githubUsername as string;
+  if (!taskId || !taskIDs.includes(taskId) || !githubUsername) {
     return null;
   }
-  return taskId;
+  return { taskId, githubUsername };
 }
 
 export const assignIssue = async (req: Request, res: Response) => {
-  const taskId = verifyRequestBody(req);
-  if (!taskId) {
+  const body = verifyRequestBody(req);
+  if (!body) {
     res.status(401).json({
       success: false,
       message: "Invalid request body",
@@ -21,12 +22,14 @@ export const assignIssue = async (req: Request, res: Response) => {
     return;
   }
 
-  const response = await assignIssueLogic(taskId);
+  const { taskId, githubUsername } = body;
+
+  const response = await assignIssueLogic(taskId, githubUsername);
   res.status(response.statuscode).json(response.data);
 };
 
-export const assignIssueLogic = async (taskId: string) => {
-  const fiveMinutesAgo = new Date(Date.now() - 300000); // 5 minutes in milliseconds
+export const assignIssueLogic = async (taskId: string, githubUsername: string) => {
+  const fiveMinutesAgo = new Date(Date.now() - 300000);
 
   const [result] = await IssueModel.aggregate([
     {
@@ -92,6 +95,15 @@ export const assignIssueLogic = async (taskId: string) => {
     };
   }
 
+  if (githubUsername === result.nextIssue.repoOwner) {
+    return {
+      statuscode: 400,
+      data: {
+        success: false,
+        message: "Aggregator cannot be the same as the repo owner",
+      },
+    };
+  }
   await IssueModel.findByIdAndUpdate(
     result.nextIssue._id,
     {

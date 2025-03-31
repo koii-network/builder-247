@@ -607,12 +607,7 @@ def create_aggregator_repo(issue_id, repo_owner, repo_name):
         github = Github(os.environ["GITHUB_TOKEN"])
         username = os.environ["GITHUB_USERNAME"]
 
-        # Get original source repo
         source_repo = github.get_repo(f"{repo_owner}/{repo_name}")
-        if source_repo.fork:
-            source_repo = source_repo.parent
-            repo_owner = source_repo.owner.login
-            repo_name = source_repo.name
 
         # Check if fork already exists
         try:
@@ -688,7 +683,7 @@ def assign_issue(task_id):
 
         response = requests.post(
             os.environ["MIDDLE_SERVER_URL"] + "/api/assign-issue",
-            json={"taskId": task_id},
+            json={"taskId": task_id, "githubUsername": os.environ["GITHUB_USERNAME"]},
             headers={"Content-Type": "application/json"},
         )
         response.raise_for_status()
@@ -711,7 +706,6 @@ def assign_issue(task_id):
                 "error": "No response from middle server",
             }
 
-        # Parse the JSON error response
         try:
             error_data = e.response.json()
             error_message = error_data.get("message", "Unknown error")
@@ -721,5 +715,5 @@ def assign_issue(task_id):
         return {
             "success": False,
             "status": e.response.status_code,
-            "error": error_message,  # Use parsed message instead of raw JSON
+            "error": error_message,
         }
