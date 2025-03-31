@@ -218,7 +218,22 @@ class Client(ABC):
                         log_key_value("Details:", "")
                         for key, value in result["data"].items():
                             if isinstance(value, (str, int, float, bool)):
-                                log_key_value(key, value)
+                                # For file content, truncate to 10 lines in logs
+                                if (
+                                    key == "content"
+                                    and isinstance(value, str)
+                                    and "\n" in value
+                                ):
+                                    lines = value.split("\n")
+                                    num_lines = len(lines)
+                                    if num_lines > 10:
+                                        truncated = "\n".join(lines[:10])
+                                        truncated += f"\n\n... (truncated {num_lines-10} more lines) ..."
+                                        log_key_value(key, truncated)
+                                    else:
+                                        log_key_value(key, value)
+                                else:
+                                    log_key_value(key, value)
                             elif isinstance(value, dict):
                                 # Format nested dicts more nicely
                                 log_key_value(key, json.dumps(value, indent=2))

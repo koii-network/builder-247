@@ -11,7 +11,7 @@ PROMPTS = {
         "Your task is to break down the following feature request into small, discrete subtasks:\n\n"
         "Feature: {feature_description}\n"
         "Repository: {repo_url}\n\n"
-        "Output CSV: {output_csv_path}\n\n"
+        "Output JSON: {output_json_path}\n\n"
         "For each subtask, you must provide:\n"
         "1. A clear, specific title\n"
         "2. A detailed description of the work required\n"
@@ -24,7 +24,8 @@ PROMPTS = {
         "- Consider separation of concerns (e.g., separate backend/frontend/database tasks)\n"
         "- Include necessary setup/infrastructure tasks\n"
         "- Consider testing requirements\n"
-        "- Account for documentation needs\n\n"
+        "- Account for documentation needs\n"
+        "- Work must be quantitative and measurable\n"
         "Current repository structure:\n{current_files}\n\n"
     ),
     "validate_subtasks": (
