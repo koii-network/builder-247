@@ -285,7 +285,7 @@ export const fetchTodoLogic = async (
         success: true,
         data: {
           title: updatedTodo.title,
-          issueUuid: updatedTodo.issueUuid,
+          issue_uuid: updatedTodo.issueUuid,
           acceptance_criteria: updatedTodo.acceptanceCriteria,
           repo_owner: updatedTodo.repoOwner,
           repo_name: updatedTodo.repoName,

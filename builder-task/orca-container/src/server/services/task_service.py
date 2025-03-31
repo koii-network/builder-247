@@ -30,10 +30,21 @@ def complete_todo(
 ):
     """Handle task creation request."""
     try:
+
+        # Proceed with todo request
+        todo_result = get_todo(staking_signature, staking_key, pub_key)
+        if not todo_result.get("success", False):
+            return {
+                "success": False,
+                "status": todo_result.get("status", 500),
+                "error": todo_result.get("error", "Unknown error fetching todo"),
+            }
+        todo = todo_result["data"]
+
         # Check if base branch exists in target repo
         github = Github(os.environ["GITHUB_TOKEN"])
         target_repo = github.get_repo(f"{repo_owner}/{repo_name}")
-        base_branch = f"task-{task_id}-round-{round_number}"
+        base_branch = todo["issue_uuid"]
 
         try:
             target_repo.get_branch(base_branch)
@@ -46,16 +57,6 @@ def complete_todo(
                 ),
             }
 
-        # Proceed with todo request
-        todo_result = get_todo(staking_signature, staking_key, pub_key)
-        if not todo_result.get("success", False):
-            return {
-                "success": False,
-                "status": todo_result.get("status", 500),
-                "error": todo_result.get("error", "Unknown error fetching todo"),
-            }
-        todo = todo_result["data"]
-
         try:
             result = run_todo_task(
                 task_id=task_id,
@@ -67,6 +68,7 @@ def complete_todo(
                 public_signature=public_signature,
                 repo_owner=repo_owner,
                 repo_name=repo_name,
+                base_branch=base_branch,
             )
 
             if not result.get("success", False):
@@ -148,6 +150,7 @@ def run_todo_task(
     public_signature,
     repo_owner,
     repo_name,
+    base_branch,
 ):
     """Run todo task and create PR."""
     try:
@@ -208,7 +211,7 @@ def run_todo_task(
             pub_key=pub_key,
             staking_signature=staking_signature,
             public_signature=public_signature,
-            base_branch=f"task-{task_id}-round-{round_number}",
+            base_branch=base_branch,
         )
 
         # Run workflow and get PR URL
