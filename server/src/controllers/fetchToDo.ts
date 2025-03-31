@@ -6,6 +6,7 @@ import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 import { IssueModel, IssueStatus } from "../models/Issue";
 import { verifySignature } from "../utils/sign";
+import { SystemPromptModel } from "../models/SystemPrompt";
 
 // Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
@@ -175,10 +176,19 @@ export const fetchTodoLogic = async (
       {
         $match: {
           issueUuid: currentIssue.issueUuid,
-          status: TodoStatus.INITIALIZED,
           $nor: [
             { "assignedTo.stakingKey": requestBody.stakingKey },
             { "assignedTo.githubUsername": signatureData.githubUsername },
+          ],
+          $or: [
+            { status: TodoStatus.INITIALIZED },
+            // Add back reassignment logic
+            {
+              $and: [
+                { status: TodoStatus.IN_PROGRESS },
+                { "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 4 } },
+              ],
+            },
           ],
         },
       },
@@ -257,6 +267,18 @@ export const fetchTodoLogic = async (
       };
     }
 
+    // Get task-specific system prompt
+    const systemPrompt = await SystemPromptModel.findOne({ taskId: taskID });
+    if (!systemPrompt) {
+      return {
+        statuscode: 500,
+        data: {
+          success: false,
+          message: "System prompt not found for task",
+        },
+      };
+    }
+
     return {
       statuscode: 200,
       data: {
@@ -267,6 +289,7 @@ export const fetchTodoLogic = async (
           acceptance_criteria: updatedTodo.acceptanceCriteria,
           repo_owner: updatedTodo.repoOwner,
           repo_name: updatedTodo.repoName,
+          system_prompt: systemPrompt.prompt,
         },
       },
     };
