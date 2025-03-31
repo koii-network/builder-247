@@ -1,7 +1,7 @@
 {
   "scripts": {
     "start": "ts-node src/index.ts",
-    "build": "tsc",
+    "build": "tsc && cpx './src/webasm_bincode_deserializer/**/*' './dist/webasm_bincode_deserializer'",
     "test": "jest --runInBand",
     "test:watch": "jest --watch"
   },
@@ -11,6 +11,7 @@
     "@types/node": "^22.13.2",
     "@types/supertest": "^6.0.2",
     "add": "^2.0.6",
+    "cpx": "^1.5.0",
     "jest": "^29.7.0",
     "prettier": "^3.4.2",
     "ts-node": "^10.9.2",
