@@ -46,17 +46,18 @@ export async function triggerSaveSwarmsForRound(req: Request, res: Response): Pr
     // Create a new promise for this request
     const processPromise = (async () => {
         // Check if this round already exists
-        const existingSwarms = await SummarizerRecordModel.findOne({ taskID: taskId, roundNumber: round });
-        if (existingSwarms) {
-            return existingSwarms;
-        }
+
         // Check if this is the correct time to get the rounds
         const currentRound = await getCurrentRound(taskId);
-        if (round !== currentRound) {
+        if (Number(round) !== currentRound){
             res.status(400).send('Not the correct time to get the rounds');
             return;
         }
         
+        const existingSwarms = await SummarizerRecordModel.findOne({ taskID: taskId, roundNumber: round });
+        if (existingSwarms) {
+            return existingSwarms;
+        }
         const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssuesThroughMongoDB();
         const issuesToSave = [];
         for (const issue of initializedDocumentSummarizeIssues) {
