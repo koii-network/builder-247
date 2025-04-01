@@ -81,7 +81,7 @@ export async function getExistingIssues(): Promise<BountyIssue[]> {
        }
      }
      // Filter all issues with status "Initialized" && Bounty Task is Document & Summarize
-    //  console.log('Final parsed issues number:', issues.length);
+     console.log('Final parsed issues number:', issues.length);
      return issues
    } catch (error) {
     //  console.error('Error processing markdown:', error);
