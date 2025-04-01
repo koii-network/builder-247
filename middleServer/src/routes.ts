@@ -20,4 +20,7 @@ router.post("/trigger-fetch-audit-result", triggerFetchAuditResult as RequestHan
 router.get("/get-issue-pr-urls/:issueUuid", getIssuePrUrls as RequestHandler);
 // router.post("/summarizer/trigger-update-swarms-status", triggerUpdateSwarmsStatus as RequestHandler);
 router.post("/summarizer/trigger-save-swarms-for-round", triggerSaveSwarmsForRound as RequestHandler);
+router.get("/hello", (req, res) => {
+  res.json({ message: "Hello World!" });
+});
 export default router;
