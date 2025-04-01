@@ -1,9 +1,12 @@
-import mongoose, { Schema } from 'mongoose';
+import { Schema } from 'mongoose';
+import { prometheusDB } from '../utils/database';
+
 export enum SwarmBountyStatus {
   COMPLETED = "completed",
   FAILED = "failed",
   LOADING = "loading"
 }
+
 const SwarmBountySchema = new Schema(
   {
     status: {
@@ -64,6 +67,6 @@ const SwarmBountySchema = new Schema(
 );
 
 // Check if the model is already defined to prevent overwriting during hot reloads
-const SwarmBounty = mongoose.models.SwarmBounty || mongoose.model('SwarmBounty', SwarmBountySchema);
+const SwarmBounty = prometheusDB.models.SwarmBounty || prometheusDB.model('SwarmBounty', SwarmBountySchema);
 
 export default SwarmBounty; 

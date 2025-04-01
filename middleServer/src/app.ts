@@ -3,6 +3,7 @@ import router from "./routes";
 import mongoose from "mongoose";
 import http from "http";
 import morgan from "morgan";
+import { checkConnections } from './utils/database';
 
 export const app = express();
 const port = process.env.PORT || 3000;
@@ -78,7 +79,7 @@ app.use("/api", router);
 
 export async function connectToDatabase() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI as string);
+    await checkConnections();
     console.log("\x1b[32m%s\x1b[0m", "Connected to MongoDB");
   } catch (error) {
     console.error("\x1b[31m%s\x1b[0m", "Error connecting to MongoDB:", error);

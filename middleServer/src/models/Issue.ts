@@ -1,4 +1,5 @@
 import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typegoose";
+import { builder247DB } from "../utils/database";
 
 modelOptions({
   schemaOptions: {
@@ -7,6 +8,7 @@ modelOptions({
   options: {
     allowMixed: Severity.ALLOW,
   },
+  existingConnection: builder247DB
 })
 class AssignedInfo {
   @prop({ required: true })

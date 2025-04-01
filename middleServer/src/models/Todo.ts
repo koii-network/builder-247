@@ -1,5 +1,5 @@
 import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typegoose";
-
+import { builder247DB } from "../utils/database";
 class AssignedInfo {
   @prop({ required: true })
   public stakingKey!: string;
@@ -50,6 +50,7 @@ enum TodoStatus {
   options: {
     allowMixed: Severity.ALLOW,
   },
+  existingConnection: builder247DB
 })
 class Todo {
   @prop({ required: true })
