@@ -7,61 +7,96 @@ import {
 } from "../taskOperations/getDistributionList";
 import { IssueStatus } from "../models/Issue";
 import { TodoModel, TodoStatus } from "../models/Todo";
-// A simple in-memory cache to store processed task IDs and rounds
-const cache: Record<string, Set<number>> = {};
+import { AuditModel, AuditStatus } from "../models/Audit";
+
+const PROCESS_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
 export async function triggerFetchAuditResult(req: Request, res: Response): Promise<void> {
   const { taskId, round } = req.body;
 
-  // Check if the taskId and round have already been processed
-  if (cache[taskId] && cache[taskId].has(round)) {
-    res.status(200).send("Task already processed.");
+  // Check for existing audit
+  const existingAudit = await AuditModel.findOne({
+    taskId: taskId,
+    roundNumber: round,
+    $or: [
+      { status: AuditStatus.COMPLETED },
+      {
+        status: AuditStatus.IN_PROGRESS,
+        updatedAt: { $gt: new Date(Date.now() - PROCESS_TIMEOUT) },
+      },
+    ],
+  });
+
+  if (existingAudit) {
+    const message =
+      existingAudit.status === AuditStatus.COMPLETED ? "Task already processed." : "Task is being processed.";
+    res.status(200).send(message);
     return;
   }
 
-  // If not processed, add to cache
-  if (!cache[taskId]) {
-    cache[taskId] = new Set();
-  }
-  cache[taskId].add(round);
+  // Case 3: Stale or failed - retry processing
+  const audit = await AuditModel.findOneAndUpdate(
+    {
+      taskId: taskId,
+      roundNumber: round,
+    },
+    {
+      status: AuditStatus.IN_PROGRESS,
+      error: null,
+    },
+    { upsert: true, new: true },
+  );
 
-  const submitter = await getDistributionListSubmitter(taskId, round);
-  if (!submitter) {
-    cache[taskId].delete(round);
-    res.status(200).send("No Distribution List Submitter found.");
-    return;
-  }
+  try {
+    const submitter = await getDistributionListSubmitter(taskId, round);
+    if (!submitter) {
+      throw new Error("No Distribution List Submitter found");
+    }
 
-  const distributionList = await getDistributionListWrapper("FttDHvbX3nM13TUrSvvS614Sgtr9418TC8NpvR7hkMcE", "361");
+    const distributionList = await getDistributionListWrapper(submitter, round.toString());
+    if (!distributionList) {
+      throw new Error("No Distribution List found");
+    }
 
-  let positiveKeys: string[] = [];
-  let negativeKeys: string[] = [];
-  if (distributionList) {
     const { positive, negative } = await getKeysByValueSign(distributionList);
-    positiveKeys = positive;
-    negativeKeys = negative;
-  } else {
-    cache[taskId].delete(round);
-    res.status(200).send("No Distribution List found.");
-    return;
-  }
+    await triggerFetchAuditResultLogic(positive, negative, round);
 
-  const response = await triggerFetchAuditResultLogic(positiveKeys, negativeKeys, round);
-  res.status(response.statuscode).json(response.data);
+    await AuditModel.findByIdAndUpdate(audit._id, {
+      status: AuditStatus.COMPLETED,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Task processed successfully.",
+    });
+  } catch (error) {
+    await AuditModel.findByIdAndUpdate(audit._id, {
+      status: AuditStatus.FAILED,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    res.status(500).json({
+      success: false,
+      message: "Audit processing failed",
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 }
 
 export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
+  const allKeys = [...positiveKeys, ...negativeKeys];
+
   // Update the subtask status
-  const todos = await TodoModel.find({
-    assignedStakingKey: { $in: [...positiveKeys, ...negativeKeys] },
+  const auditableTodos = await TodoModel.find({
+    assignedStakingKey: { $in: allKeys },
     assignedRoundNumber: round,
+    prUrl: { $exists: true },
   });
 
-  for (const todo of todos) {
+  for (const todo of auditableTodos) {
     if (positiveKeys.includes(todo.assignedStakingKey!)) {
       todo.status = TodoStatus.APPROVED;
     } else if (negativeKeys.includes(todo.assignedStakingKey!)) {
-      todo.status = TodoStatus.INITIALIZED; // Reset status for negative audit
+      todo.status = TodoStatus.INITIALIZED;
       todo.prUrl = undefined;
       todo.assignedStakingKey = undefined;
       todo.assignedGithubUsername = undefined;
@@ -71,7 +106,7 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
   }
 
   // Get all the issue's for this round changed todos
-  const issueUuids = todos.map((todo) => todo.issueUuid);
+  const issueUuids = auditableTodos.map((todo) => todo.issueUuid);
 
   // Check if all subtasks of an issue are completed
   const issues = await IssueModel.find({ issueUuid: { $in: issueUuids } });
@@ -84,25 +119,17 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
   }
 
   // Now update the has PR issues
-  const hasPRIssues = await IssueModel.find({
-    assignedStakingKey: { $in: [...positiveKeys, ...negativeKeys] },
+  const auditableIssues = await IssueModel.find({
+    assignedStakingKey: { $in: allKeys },
+    assignedRoundNumber: round,
     prUrl: { $exists: true },
   });
 
-  /// TODO: pretty sure this has a problem - we need to make sure the round number also matches
-  for (const issue of hasPRIssues) {
+  for (const issue of auditableIssues) {
     if (positiveKeys.includes(issue.assignedStakingKey!)) {
       issue.status = IssueStatus.IN_REVIEW;
       await TodoModel.updateMany({ issueUuid: issue.issueUuid }, { $set: { status: TodoStatus.MERGED } });
     }
     await issue.save();
   }
-
-  return {
-    statuscode: 200,
-    data: {
-      success: true,
-      message: "Task processed successfully.",
-    },
-  };
 };
