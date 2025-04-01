@@ -10,8 +10,6 @@ from src.workflows.mergeconflict.workflow import MergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 from src.utils.logging import logger, log_error, log_key_value
-from src.workflows.utils import verify_pr_signatures
-from src.utils.distribution import validate_distribution_list
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,15 +22,15 @@ def complete_todo(
     staking_signature,
     pub_key,
     public_signature,
-    repo_owner,
-    repo_name,
     **kwargs,
 ):
     """Handle task creation request."""
     try:
 
         # Proceed with todo request
-        todo_result = get_todo(staking_signature, staking_key, pub_key)
+        todo_result = get_task_details(
+            staking_signature, staking_key, pub_key, "worker"
+        )
         if not todo_result.get("success", False):
             return {
                 "success": False,
@@ -40,11 +38,13 @@ def complete_todo(
                 "error": todo_result.get("error", "Unknown error fetching todo"),
             }
         todo = todo_result["data"]
+        repo_owner = todo["repo_owner"]
+        repo_name = todo["repo_name"]
+        base_branch = todo["issue_uuid"]
 
         # Check if base branch exists in target repo
         github = Github(os.environ["GITHUB_TOKEN"])
         target_repo = github.get_repo(f"{repo_owner}/{repo_name}")
-        base_branch = todo["issue_uuid"]
 
         try:
             target_repo.get_branch(base_branch)
@@ -91,13 +91,18 @@ def complete_todo(
         }
 
 
-def get_todo(signature, staking_key, pub_key):
-    """Get todo from middle server."""
+def get_task_details(signature, staking_key, pub_key, task_type):
+    """Get task details from middle server."""
+
+    tasks_urls = {
+        "worker": "/api/fetch-to-do",
+        "leader": "/api/fetch-issue",
+    }
     try:
-        logger.info("Fetching todo")
+        logger.info(f"Fetching {task_type} task")
 
         response = requests.post(
-            os.environ["MIDDLE_SERVER_URL"] + "/api/fetch-to-do",
+            os.environ["MIDDLE_SERVER_URL"] + tasks_urls[task_type],
             json={
                 "signature": signature,
                 "stakingKey": staking_key,
@@ -397,13 +402,10 @@ def record_pr(
 def consolidate_prs(
     task_id,
     round_number,
-    distribution_list,
     staking_key,
     pub_key,
     staking_signature,
     public_signature,
-    repo_owner,
-    repo_name,
 ):
     """Consolidate PRs from workers."""
     try:
@@ -438,6 +440,24 @@ def consolidate_prs(
                 f"Deleted existing incomplete submission for task {task_id}, round {round_number}"
             )
 
+        issue_result = get_task_details(
+            staking_signature, staking_key, pub_key, "leader"
+        )
+
+        if not issue_result.get("success", False):
+            return {
+                "success": False,
+                "status": issue_result.get("status", 500),
+                "error": issue_result.get("error", "Unknown error fetching todo"),
+            }
+
+        issue = issue_result["data"]
+        repo_owner = issue["repo_owner"]
+        repo_name = issue["repo_name"]
+        source_branch = issue["issue_uuid"]
+
+        pr_list = issue_result["pr_list"]
+
         # Create new submission
         submission = Submission(
             task_id=task_id,
@@ -451,7 +471,7 @@ def consolidate_prs(
 
         # Get source fork
         github = Github(os.environ["GITHUB_TOKEN"])
-        source_fork = github.get_repo(f"{os.environ['GITHUB_USERNAME']}/{repo_name}")
+        source_fork = github.get_repo(f"{repo_owner}/{repo_name}")
 
         # Verify this is a fork
         if not source_fork.fork:
@@ -463,67 +483,11 @@ def consolidate_prs(
                 "error": "Source repository is not a fork",
             }
 
-        upstream_repo = source_fork.parent
-        print(f"Found upstream repository: {upstream_repo.html_url}")
-
-        # Validate and filter distribution list
-        filtered_distribution_list, error = validate_distribution_list(
-            distribution_list, repo_owner, repo_name
-        )
-        if error:
-            submission.status = "failed"
-            db.commit()
-            return {
-                "success": False,
-                "status": 400,
-                "error": error,
-            }
-
-        # Get list of open PRs
-        branch = f"task-{task_id}-round-{round_number - 3}"
-        open_prs = list(source_fork.get_pulls(state="open", base=branch))
-        print(f"\nFound {len(open_prs)} open PRs")
-        print("Open PRs:")
-        for pr in open_prs:
-            print(f"  #{pr.number}: {pr.title} by {pr.user.login}")
-
-        # Filter PRs based on signature validation
-        valid_prs = []
-        for pr in open_prs:
-            # For each PR, try to find a valid signature from a rewarded staking key
-            print(f"\nChecking PR #{pr.number} against staking keys:")
-            for submitter_key in filtered_distribution_list:
-                print(f"  Checking staking key: {submitter_key}")
-                is_valid = verify_pr_signatures(
-                    pr.body,
-                    task_id,
-                    round_number - 3,
-                    expected_staking_key=submitter_key,
-                )
-                if is_valid:
-                    valid_prs.append(pr)
-                    print(f"  ✓ Found valid signature for {submitter_key}")
-                    break
-                else:
-                    print(f"  ✗ No valid signature for {submitter_key}")
-
-        print(f"\nFound {len(valid_prs)} PRs with valid signatures")
-
-        if not valid_prs:
-            print("No valid PRs to consolidate")
-            submission.status = "failed"
-            db.commit()
-            return {
-                "success": False,
-                "status": 400,
-                "error": "No PRs with valid signatures found",
-            }
+        # TODO:leader should create a fork of the source repo
 
         # Create workflow instance with validated PRs
         print("\nCreating workflow with:")
         print(f"  task_id: {task_id}")
-        print(f"  round_number: {round_number}")
-        print(f"  staking_keys: {list(filtered_distribution_list.keys())}")
 
         # Initialize Claude client
         client = setup_client("anthropic")
@@ -532,15 +496,14 @@ def consolidate_prs(
             client=client,
             prompts=CONFLICT_PROMPTS,
             source_fork_url=source_fork.html_url,
-            source_branch=branch,
-            is_source_fork_owner=False,  # We're consolidating PRs from another fork
+            source_branch=source_branch,
             staking_key=staking_key,
             pub_key=pub_key,
             staking_signature=staking_signature,
             public_signature=public_signature,
             task_id=task_id,  # Add task_id for signature validation
-            round_number=round_number - 3,  # Add round_number for signature validation
-            staking_keys=filtered_distribution_list.keys(),  # Use filtered distribution list
+            pr_list=pr_list,
+            expected_branch=source_branch,
         )
 
         # Run workflow

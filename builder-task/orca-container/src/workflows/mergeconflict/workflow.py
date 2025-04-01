@@ -26,16 +26,15 @@ class MergeConflictWorkflow(Workflow):
         prompts,
         source_fork_url,  # URL of fork containing PRs (first level fork)
         source_branch,  # Branch on source fork containing PRs to merge (e.g. round-123-task-456)
-        is_source_fork_owner=False,  # True if we own the source fork, False if we need to fork it
         staking_key=None,  # Leader's staking key
         pub_key=None,  # Leader's public key
         staking_signature=None,  # Leader's staking signature
         public_signature=None,  # Leader's public signature
         task_id=None,  # Task ID for signature validation
-        round_number=None,  # Round number for signature validation
-        staking_keys=None,  # Distribution list for signature validation
+        pr_list=None,  # dict of {staking_key: pr_url}
         github_token="GITHUB_TOKEN",
         github_username="GITHUB_USERNAME",
+        expected_branch=None,  # Branch where PRs are located
     ):
         # Extract source repo info from source fork URL
         parts = source_fork_url.strip("/").split("/")
@@ -59,11 +58,9 @@ class MergeConflictWorkflow(Workflow):
         # We own the source fork if our consolidation username matches the source fork owner
         self.is_source_fork_owner = consolidation_username == source_fork_owner
         self.task_id = task_id
-        self.round_number = round_number
-        self.staking_keys = staking_keys or []
+        self.pr_list = pr_list
 
-        # Verify source branch format matches task_id and round_number
-        expected_branch = f"task-{task_id}-round-{round_number}"
+        # Verify source branch format matches expected_branch
         if source_branch != expected_branch:
             raise ValueError(
                 f"Source branch {source_branch} does not match expected format {expected_branch}"
@@ -101,47 +98,50 @@ class MergeConflictWorkflow(Workflow):
             "default_branch": upstream.default_branch,
         }
 
-    def validate_pr_signatures(self, pr):
-        """Validate signatures in a PR against the distribution list.
+    def validate_pr_for_merge(self, pr):
+        """Validate a PR's signatures and check if it should be merged.
 
         Args:
             pr: GitHub PR object to validate
 
         Returns:
-            bool: True if all required signatures are valid, False otherwise
-        """
-        # Skip validation if we don't have task_id or round_number
-        if not self.task_id or not self.round_number:
-            return True
+            tuple: (should_merge: bool, staking_key: str)
+            should_merge is False if PR should be skipped, True if it should be merged
+            staking_key is returned if validation passes to avoid extracting it twice
 
+        Raises:
+            ValueError: If validation fails with details about the failure
+        """
         # Extract signatures using parser
         staking_signature_section = extract_section(pr.body, "STAKING_KEY")
 
         if not staking_signature_section:
-            print(f"Missing staking key signature in PR #{pr.number}")
-            return False
+            raise ValueError(f"PR #{pr.number} is missing staking key signature")
 
         # Parse the signature sections to get the staking key
         staking_parts = staking_signature_section.strip().split(":")
 
         if len(staking_parts) != 2:
-            print(f"Invalid signature format in PR #{pr.number}")
-            return False
+            raise ValueError(f"PR #{pr.number} has invalid signature format")
 
         submitter_staking_key = staking_parts[0].strip()
         staking_signature = staking_parts[1].strip()
 
-        # Verify this staking key is in our distribution list
-        if submitter_staking_key not in self.staking_keys:
-            print(
-                f"PR #{pr.number} has staking key {submitter_staking_key} not in distribution list"
-            )
+        # Check if this staking key is in our pr_list
+        if submitter_staking_key not in self.pr_list:
+            return False
+
+        # Check if this PR's URL is in the list for this staking key
+        pr_urls = self.pr_list[submitter_staking_key]
+        if not isinstance(pr_urls, list):
+            pr_urls = [pr_urls]  # Handle single URL case
+
+        if pr.html_url not in pr_urls:
             return False
 
         # Verify signature and validate payload
         expected_values = {
             "taskId": self.task_id,
-            "roundNumber": self.round_number,
             "stakingKey": submitter_staking_key,
         }
 
@@ -150,10 +150,8 @@ class MergeConflictWorkflow(Workflow):
         )
 
         if result.get("error"):
-            print(f"Invalid signature in PR #{pr.number}: {result['error']}")
-            return False
+            raise ValueError(f"Invalid signature in PR #{pr.number}: {result['error']}")
 
-        print(f"✓ Valid signature found for {submitter_staking_key}")
         return True
 
     def setup(self):
@@ -375,47 +373,31 @@ class MergeConflictWorkflow(Workflow):
                 log_error(Exception("No open PRs found"), "No PRs to process")
                 return None
 
-            # Filter PRs based on signature validation
-            valid_prs = []
+            # Process each PR in chronological order
             for pr in open_prs:
-                print(f"\nValidating signatures for PR #{pr.number}")
-                if self.validate_pr_signatures(pr):
-                    valid_prs.append(pr)
-                    print(f"PR #{pr.number} has valid signatures")
-                else:
-                    print(f"PR #{pr.number} failed signature validation")
-
-            log_key_value("PRs with valid signatures", len(valid_prs))
-
-            if not valid_prs:
-                log_error(
-                    Exception("No valid PRs found"),
-                    "No PRs passed signature validation",
-                )
-                return None
-
-            # Process each valid PR
-            all_merged = True
-            merged_count = 0
-
-            for pr in valid_prs:
                 log_section(f"Processing PR #{pr.number}")
-                result = self.merge_pr(pr_url=pr.html_url, pr_title=pr.title)
-                if not result["success"]:
-                    all_merged = False
-                    log_error(
-                        Exception(result.get("message", "Unknown error")),
-                        f"Failed to merge PR #{pr.number}",
-                    )
-                    break
-                merged_count += 1
 
-            if not all_merged:
-                log_error(
-                    Exception("Not all PRs were merged successfully"),
-                    f"Merged {merged_count}/{len(valid_prs)} PRs before failure",
-                )
-                return None
+                try:
+                    # Validate PR and check if we should merge it
+                    should_merge = self.validate_pr_for_merge(pr)
+                    if not should_merge:
+                        print(
+                            f"Skipping PR #{pr.number} - not in PR list or wrong staking key"
+                        )
+                        continue
+
+                    # If we get here, validation passed and we should merge
+                    result = self.merge_pr(pr_url=pr.html_url, pr_title=pr.title)
+                    if not result["success"]:
+                        log_error(
+                            Exception(result.get("message", "Unknown error")),
+                            f"Failed to merge PR #{pr.number}",
+                        )
+                        return None
+
+                except ValueError as e:
+                    log_error(e, f"Validation failed for PR #{pr.number}")
+                    return None
 
             if not self.context["merged_prs"]:
                 log_error(

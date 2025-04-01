@@ -42,9 +42,6 @@ def start_task(round_number, node_type, request):
         "stakingSignature",
         "pubKey",
         "publicSignature",
-        "distributionList",
-        "repoOwner",
-        "repoName",
     ]
     if any(request_data.get(field) is None for field in required_fields):
         return jsonify({"success": False, "error": "Missing data"}), 401
@@ -56,9 +53,6 @@ def start_task(round_number, node_type, request):
         staking_key=request_data["stakingKey"],
         public_signature=request_data["publicSignature"],
         pub_key=request_data["pubKey"],
-        repo_owner=request_data["repoOwner"],
-        repo_name=request_data["repoName"],
-        distribution_list=request_data["distributionList"],
     )
     response_data = response.get("data", {})
     if not response.get("success", False):

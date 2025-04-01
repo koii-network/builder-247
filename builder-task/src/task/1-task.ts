@@ -11,9 +11,6 @@ interface PodCallBody {
   pubKey: string;
   stakingSignature: string;
   publicSignature: string;
-  repoOwner: string;
-  repoName: string;
-  distributionList: Record<string, any>;
 }
 
 interface Submission {
@@ -89,8 +86,6 @@ export async function task(roundNumber: number): Promise<void> {
       taskId: TASK_ID,
       roundNumber,
       githubUsername: process.env.GITHUB_USERNAME,
-      repoOwner: leaderNode,
-      repoName: "builder-test",
       stakingKey,
       pubKey,
       action: "task",
@@ -108,34 +103,10 @@ export async function task(roundNumber: number): Promise<void> {
       pubKey,
       stakingSignature,
       publicSignature,
-      repoOwner: leaderNode,
-      repoName: "builder-test",
-      distributionList: {},
     };
     let podCallUrl;
     if (isLeader) {
       podCallUrl = `leader-task/${roundNumber}`;
-
-      try {
-        const distributionList = await getDistributionList(roundNumber - 3);
-        if (!distributionList || Object.keys(distributionList).length === 0) {
-          console.log("No distribution list available for this round, skipping leader task");
-          return;
-        }
-
-        try {
-          podCallBody.distributionList = distributionList;
-        } catch (parseError) {
-          console.error("Failed to parse distribution list:", parseError);
-          console.log("Raw distribution list:", distributionList);
-          console.log("Skipping leader task due to invalid distribution list");
-          return;
-        }
-      } catch (distError) {
-        console.error("Error fetching distribution list:", distError);
-        console.log("Skipping leader task due to distribution list fetch error");
-        return;
-      }
     } else {
       podCallUrl = `worker-task/${roundNumber}`;
     }
