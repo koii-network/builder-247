@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-export const defaultBountyMarkdownFile = process.env.DEFAULT_BOUNTY_MARKDOWN_FILE || "https://raw.githubusercontent.com/HermanL02/prometheus-swarm-bounties/master/README.md"
+export const defaultBountyMarkdownFile = "https://raw.githubusercontent.com/koii-network/prometheus-swarm-bounties/master/README.md"
 
 export const status = {
   ISSUE_FAILED_TO_BE_SUMMARIZED: "Issue failed to be summarized",
@@ -15,4 +15,4 @@ export const status = {
 
 export const customReward = 0.0001*10**9 // This should be in ROE! 
 
-export const middleServerUrl = process.env.MIDDLE_SERVER_URL || "http://155.138.159.140:3008";
+export const middleServerUrl = "https://prometheus-docs.api.koii.network"

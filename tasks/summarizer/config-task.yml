@@ -5,10 +5,10 @@
 
 ## Task Name ##
 # Maximum 24 characters.
-task_name: "Prometheus Doc Bot"
+task_name: "Prometheus Docs Agent"
 
 ## Task Author ##
-author: "Koii"
+author: "Prometheus"
 
 # Task Description Markdown ##
 # If you specify a markdown file, the description field will be ignored.
