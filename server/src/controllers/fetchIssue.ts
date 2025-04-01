@@ -6,6 +6,7 @@ import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 import { IssueModel, IssueStatus } from "../models/Issue";
 import { verifySignature } from "../utils/sign";
+import { getPRDict } from "../utils/issueUtils";
 
 // Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
@@ -14,7 +15,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
       assignedStakingKey: stakingKey,
       assignedRoundNumber: roundNumber,
     })
-      .select("title acceptanceCriteria repoOwner repoName")
+      .select("title acceptanceCriteria repoOwner repoName issueUuid")
       .lean();
 
     if (!result) return null;
@@ -130,87 +131,74 @@ export const fetchIssue = async (req: Request, res: Response) => {
     };
   }
 
-  const response = await fetchIssueLogic(requestBody, signatureData);
-  res.status(response.statuscode).json(response.data);
-};
-
-export const fetchIssueLogic = async (
-  requestBody: { signature: string; stakingKey: string; pubKey: string },
-  signatureData: { roundNumber: number; githubUsername: string },
-) => {
-  try {
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-    const eligibleIssue = await IssueModel.findOneAndUpdate(
-      {
-        $or: [
-          { status: IssueStatus.ASSIGN_PENDING },
-          {
-            status: IssueStatus.IN_REVIEW,
-            updatedAt: { $lt: fifteenMinutesAgo },
-          },
-        ],
-      },
-      {
-        $set: {
-          status: IssueStatus.IN_REVIEW,
-          assignedStakingKey: requestBody.stakingKey,
-          assignedGithubUsername: signatureData.githubUsername,
-          assignedRoundNumber: signatureData.roundNumber,
-          updatedAt: new Date(),
+  const fetchIssueLogic = async (
+    requestBody: { signature: string; stakingKey: string; pubKey: string },
+    signatureData: { roundNumber: number; githubUsername: string },
+  ) => {
+    try {
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+      const eligibleIssue = await IssueModel.findOneAndUpdate(
+        {
+          $or: [
+            { status: IssueStatus.ASSIGN_PENDING },
+            {
+              status: IssueStatus.IN_REVIEW,
+              updatedAt: { $lt: fifteenMinutesAgo },
+            },
+          ],
         },
-      },
-      { new: true, sort: { createdAt: 1 } },
-    );
+        {
+          $set: {
+            status: IssueStatus.IN_REVIEW,
+            assignedStakingKey: requestBody.stakingKey,
+            assignedGithubUsername: signatureData.githubUsername,
+            assignedRoundNumber: signatureData.roundNumber,
+            updatedAt: new Date(),
+          },
+        },
+        { new: true, sort: { createdAt: 1 } },
+      );
 
-    if (!eligibleIssue) {
+      if (!eligibleIssue) {
+        return {
+          statuscode: 404,
+          data: {
+            success: false,
+            message: "No eligible issues found",
+          },
+        };
+      }
+
+      const prDict = await getPRDict(eligibleIssue.issueUuid);
+      if (!prDict) {
+        res.status(404).json({
+          success: false,
+          message: "Issue not found",
+        });
+        return;
+      }
+
       return {
-        statuscode: 404,
+        statuscode: 200,
+        data: {
+          success: true,
+          data: {
+            repo_owner: eligibleIssue.repoOwner,
+            repo_name: eligibleIssue.repoName,
+            issue_uuid: eligibleIssue.issueUuid,
+            pr_list: prDict,
+          },
+        },
+      };
+    } catch (error) {
+      console.error("Error fetching issue:", error);
+      return {
+        statuscode: 500,
         data: {
           success: false,
-          message: "No eligible issues found",
+          message: "Failed to fetch issue",
         },
       };
     }
-
-    // Get all todos for this issue and create PR dictionary
-    const todos = await TodoModel.find({
-      issueUuid: eligibleIssue.issueUuid,
-      prUrl: { $exists: true, $ne: null },
-    })
-      .select("assignedStakingKey prUrl")
-      .lean();
-
-    // Create PR dictionary
-    const prDict: { [key: string]: string[] } = {};
-    todos.forEach((todo) => {
-      if (todo.assignedStakingKey && todo.prUrl) {
-        if (!prDict[todo.assignedStakingKey]) {
-          prDict[todo.assignedStakingKey] = [];
-        }
-        prDict[todo.assignedStakingKey].push(todo.prUrl);
-      }
-    });
-
-    return {
-      statuscode: 200,
-      data: {
-        success: true,
-        data: {
-          repo_owner: eligibleIssue.repoOwner,
-          repo_name: eligibleIssue.repoName,
-          issue_uuid: eligibleIssue.issueUuid,
-          pr_list: prDict,
-        },
-      },
-    };
-  } catch (error) {
-    console.error("Error fetching issue:", error);
-    return {
-      statuscode: 500,
-      data: {
-        success: false,
-        message: "Failed to fetch issue",
-      },
-    };
-  }
+  };
 };
