@@ -92,24 +92,30 @@ export async function task(roundNumber: number): Promise<void> {
       repo_url: repoUrl,
     };
     console.log("jsonBody: ", jsonBody);
-    const response = await orcaClient.podCall(`repo_summary/${roundNumber}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(jsonBody),
-    });
-    console.log("response: ", response);
-    if (response.status === 200) {
-      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_SUCCESSFULLY_SUMMARIZED);
-    } else {
+    try {
+      const response = await orcaClient.podCall(`repo_summary/${roundNumber}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(jsonBody),
+      });
+      console.log("response: ", response);
+      if (response.status === 200) {
+        await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_SUCCESSFULLY_SUMMARIZED);
+      } else {
+        await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
+      }
+    } catch (error) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
+      console.error("EXECUTE TASK ERROR:", error);
     }
 
     // TODO: TRIGGER CHANGE THE ISSUE STATUS HERE
     // WHY HERE? Because the distribution list happening the same time, so to avoid the issue is closed before the distribution list is generated
     
   } catch (error) {
+    await namespaceWrapper.storeSet(`result-${roundNumber}`, status.UNKNOWN_ERROR);
     console.error("EXECUTE TASK ERROR:", error);
   }
 }
