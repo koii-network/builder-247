@@ -25,7 +25,7 @@ repositoryUrl: "https://github.com/koii-network/builder-247"
 
 ## Image URL ##
 # 230x86 pixels.
-imageUrl: "https://upload.wikimedia.org/wikipedia/en/thumb/a/a3/Prometheusposterfixed.jpg/220px-Prometheusposterfixed.jpg"
+imageUrl: "https://koii-k2-task-metadata.s3.us-east-2.amazonaws.com/Docs.png"
 
 ## Info URL ##
 infoUrl: "https://www.koii.network/blog/Earn-Crypto-With-AI-Agent"
@@ -71,12 +71,12 @@ token_type: "4qayyw53kWz6GzypcejjT1cvwMXS1qYLSMQRE8se3gTv"
 ## Total Bounty Amount ##
 # The total bounty amount that will be available for distribution over all rounds.
 # Does nothing when updating a task.
-total_bounty_amount: 12
+total_bounty_amount: 12000
 
 ## Bounty Amount per Round ##
 # The maximum amount that can be distributed per round.
 # If the actual distribution per round exceeds this amount, the distribution list will fail.
-bounty_amount_per_round: 1
+bounty_amount_per_round: 2000
 
 ## Allowed Failed Distributions ##
 # Number of retries allowed for the distribution list if it is fails audit.
