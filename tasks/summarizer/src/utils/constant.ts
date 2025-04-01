@@ -11,6 +11,7 @@ export const status = {
   NO_ORCA_CLIENT: "No orca client",
   NO_CHOSEN_AS_ISSUE_SUMMARIZER: "No chosen as issue summarizer",
   UNKNOWN_ERROR: "Unknown error",
+  STAR_ISSUE_FAILED: "Star issue failed",
 }
 
 export const customReward = 400*10**9 // This should be in ROE! 

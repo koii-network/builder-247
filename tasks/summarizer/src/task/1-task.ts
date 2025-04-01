@@ -41,13 +41,18 @@ export async function task(roundNumber: number): Promise<void> {
     const existingIssues = await getExistingIssues();
     console.log("Existing issues:", existingIssues);
     const githubUrls = existingIssues.map((issue) => issue.githubUrl);
-    await orcaClient.podCall(`star/${roundNumber}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ taskId: TASK_ID, round_number: String(roundNumber), github_urls: githubUrls }),
-    });
+    try {
+      await orcaClient.podCall(`star/${roundNumber}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ taskId: TASK_ID, round_number: String(roundNumber), github_urls: githubUrls }),
+      });
+    } catch (error) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.STAR_ISSUE_FAILED);
+      console.error("Error starring issues:", error);
+    }
     /****************** All these issues need to be generate a markdown file ******************/
 
     
