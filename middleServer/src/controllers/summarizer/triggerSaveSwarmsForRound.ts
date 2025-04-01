@@ -6,13 +6,21 @@ import { getExistingIssues, getInitializedDocumentSummarizeIssues, getInitialize
 import { SummarizerRecordModel } from '../../models/Summarizer';
 import { updateStatus } from '../../swarmBountyOperations/updateStatus';
 import { SwarmBountyStatus } from '../../models/SwarmBounties';
+import dotenv from 'dotenv';
 
+dotenv.config();
 // A simple in-memory cache to store processed task IDs and rounds
 const cache: Record<string, Record<number, { data: any, promise?: Promise<any> }>> = {};
 
 export async function triggerSaveSwarmsForRound(req: Request, res: Response): Promise<void> {
     const { taskId, round } = req.body;
     // Check if both taskId and round are provided
+    if (process.env.TASK_ID_SUMMARIZER) {
+        if (taskId !== process.env.TASK_ID_SUMMARIZER) {
+            res.status(400).send('Task ID is not correct');
+            return;
+        }
+    }
     if (!taskId || !round) {
         res.status(400).send('Task ID and round are required');
         return;
