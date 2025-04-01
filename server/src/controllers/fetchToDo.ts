@@ -12,27 +12,18 @@ import { SystemPromptModel } from "../models/SystemPrompt";
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
   try {
     const result = await TodoModel.findOne({
-      assignedTo: {
-        $elemMatch: {
-          taskId: taskID,
-          stakingKey: stakingKey,
-          roundNumber: roundNumber,
-        },
-      },
+      assignedStakingKey: stakingKey,
+      assignedRoundNumber: roundNumber,
+      taskId: taskID,
     })
-      .select("assignedTo title acceptanceCriteria repoOwner repoName")
+      .select("title acceptanceCriteria repoOwner repoName issueUuid prUrl")
       .lean();
 
     if (!result) return null;
 
-    // Find the specific assignment entry
-    const assignment = result.assignedTo.find(
-      (a: any) => a.stakingKey === stakingKey && a.roundNumber === roundNumber && a.taskId === taskID,
-    );
-
     return {
       todo: result,
-      hasPR: Boolean(assignment?.prUrl),
+      hasPR: Boolean(result.prUrl),
     };
   } catch (error) {
     console.error("Error checking assigned info:", error);
@@ -128,7 +119,7 @@ export const fetchTodoLogic = async (
   signatureData: { roundNumber: number; githubUsername: string },
 ) => {
   // 1. Check if user already has an assignment
-  const existingAssignment = await checkExistingAssignment(requestBody.pubKey, signatureData.roundNumber);
+  const existingAssignment = await checkExistingAssignment(requestBody.stakingKey, signatureData.roundNumber);
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
       return {
@@ -177,16 +168,15 @@ export const fetchTodoLogic = async (
         $match: {
           issueUuid: currentIssue.issueUuid,
           $nor: [
-            { "assignedTo.stakingKey": requestBody.stakingKey },
-            { "assignedTo.githubUsername": signatureData.githubUsername },
+            { assignedStakingKey: requestBody.stakingKey },
+            { assignedGithubUsername: signatureData.githubUsername },
           ],
           $or: [
             { status: TodoStatus.INITIALIZED },
-            // Add back reassignment logic
             {
               $and: [
                 { status: TodoStatus.IN_PROGRESS },
-                { "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 4 } },
+                { assignedRoundNumber: { $lt: signatureData.roundNumber - 4 } },
               ],
             },
           ],
@@ -201,7 +191,7 @@ export const fetchTodoLogic = async (
             {
               $match: {
                 $expr: {
-                  $and: [{ $in: ["$uuid", "$$dependencyTasks"] }, { $ne: ["$status", TodoStatus.AUDITED] }],
+                  $and: [{ $in: ["$uuid", "$$dependencyTasks"] }, { $ne: ["$status", TodoStatus.APPROVED] }],
                 },
               },
             },
@@ -242,16 +232,9 @@ export const fetchTodoLogic = async (
     const updatedTodo = await TodoModel.findOneAndUpdate(
       { _id: eligibleTodos[0]._id, status: TodoStatus.INITIALIZED },
       {
-        $push: {
-          assignedTo: {
-            stakingKey: requestBody.stakingKey,
-            pubkey: requestBody.pubKey,
-            taskId: taskID,
-            roundNumber: signatureData.roundNumber,
-            githubUsername: signatureData.githubUsername,
-            todoSignature: requestBody.signature,
-          },
-        },
+        assignedStakingKey: requestBody.stakingKey,
+        assignedGithubUsername: signatureData.githubUsername,
+        assignedRoundNumber: signatureData.roundNumber,
         status: TodoStatus.IN_PROGRESS,
       },
       { new: true },

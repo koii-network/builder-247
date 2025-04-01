@@ -4,6 +4,7 @@ import { Request, Response } from "express";
 import { verifySignature } from "../utils/sign";
 import { taskID } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
+import { TodoStatus } from "../models/Todo";
 
 function verifyRequestBody(req: Request): { signature: string; pubKey: string; stakingKey: string } | null {
   try {
@@ -62,16 +63,14 @@ async function updateAssignedInfoWithPRUrl(
   console.log("updateAssignedInfoWithPRUrl", { stakingKey, roundNumber, prUrl, prSignature });
   const result = await TodoModel.findOneAndUpdate(
     {
-      assignedTo: {
-        $elemMatch: {
-          taskId: taskID,
-          stakingKey: stakingKey,
-          roundNumber: roundNumber,
-        },
-      },
+      assignedStakingKey: stakingKey,
+      assignedRoundNumber: roundNumber,
     },
     {
-      $set: { "assignedTo.$.prUrl": prUrl, "assignedTo.$.prSignature": prSignature },
+      $set: {
+        prUrl: prUrl,
+        status: TodoStatus.IN_REVIEW,
+      },
     },
   )
     .select("_id")
@@ -113,7 +112,10 @@ export const addPR = async (req: Request, res: Response) => {
   res.status(response.statuscode).json(response.data);
 };
 
-export const addPRLogic = async (requestBody: {signature: string, pubKey: string, stakingKey: string}, signatureData: {roundNumber: number, prUrl: string}) => {
+export const addPRLogic = async (
+  requestBody: { signature: string; pubKey: string; stakingKey: string },
+  signatureData: { roundNumber: number; prUrl: string },
+) => {
   console.log("prUrl", signatureData.prUrl);
   const result = await updateAssignedInfoWithPRUrl(
     requestBody.stakingKey,
@@ -122,14 +124,44 @@ export const addPRLogic = async (requestBody: {signature: string, pubKey: string
     requestBody.signature,
   );
   if (!result) {
-    return {statuscode: 401, data:{
-      success: false,
-      message: "Failed to update pull request URL",
-    }};
+    return {
+      statuscode: 401,
+      data: {
+        success: false,
+        message: "Failed to update pull request URL",
+      },
+    };
   }
 
-  return {statuscode: 200, data:{
-    success: true,
-    message: "Pull request URL updated",
-  }};
+  const updatedTodo = await TodoModel.findOneAndUpdate(
+    {
+      assignedStakingKey: requestBody.stakingKey,
+      assignedRoundNumber: signatureData.roundNumber,
+    },
+    {
+      $set: {
+        prUrl: signatureData.prUrl,
+        status: TodoStatus.IN_REVIEW,
+      },
+    },
+    { new: true },
+  );
+
+  if (!updatedTodo) {
+    return {
+      statuscode: 401,
+      data: {
+        success: false,
+        message: "Failed to update todo status",
+      },
+    };
+  }
+
+  return {
+    statuscode: 200,
+    data: {
+      success: true,
+      message: "Pull request URL updated",
+    },
+  };
 };

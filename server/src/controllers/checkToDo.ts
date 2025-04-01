@@ -85,19 +85,10 @@ async function checkToDoAssignment(
   prSignature: string,
 ): Promise<boolean> {
   try {
-    const data = {
-      stakingKey,
-      roundNumber,
-      githubUsername,
-      prUrl,
-      taskId: taskID,
-    };
-    console.log("Data:", data);
-
-    const result = await TodoModel.find({
-      assignedTo: {
-        $elemMatch: data,
-      },
+    const result = await TodoModel.findOne({
+      assignedStakingKey: stakingKey,
+      assignedGithubUsername: githubUsername,
+      prUrl: prUrl,
     })
       .select("_id")
       .lean();
