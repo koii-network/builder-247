@@ -1,5 +1,5 @@
-  import { defaultBountyMarkdownFile } from "../../config/constant";
-import  SwarmBountyModel  from "../../models/SwarmBounties";
+import { defaultBountyMarkdownFile } from "../../config/constant";
+import  SwarmBountyModel, { SwarmBountyType, SwarmBountyStatus }  from "../../models/SwarmBounties";
 interface BountyIssue {
   githubUrl: string;
   projectName: string;
@@ -94,8 +94,8 @@ export async function getInitializedDocumentSummarizeIssues(issues: BountyIssue[
   return issues.filter(issue => issue.status === "Initialized" && issue.bountyTask === "Document & Summarize");
 }
 
-export async function getInitializedDocumentSummarizeIssuesThroughMongoDB() {
-  const issues = await SwarmBountyModel.find({ status: "loading", swarmType: "document-summarizer" });
+export async function getInitializedIssuesMongoDB(swarmType: SwarmBountyType) {
+  const issues = await SwarmBountyModel.find({ status: SwarmBountyStatus.LOADING, swarmType: swarmType });
   return issues;
 }
 

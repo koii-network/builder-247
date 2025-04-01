@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 
 import { getCurrentRound } from '../../utils/taskState/getSubmissionRound';
-
-import { getExistingIssues, getInitializedDocumentSummarizeIssues, getInitializedDocumentSummarizeIssuesThroughMongoDB } from '../../services/swarmBounty/existingIssues';
+import { SwarmBountyType } from '../../models/SwarmBounties';
+import { getInitializedIssuesMongoDB } from '../../services/swarmBounty/existingIssues';
 import { SummarizerRecordModel } from '../../models/Summarizer';
 import { updateStatus } from '../../services/swarmBounty/updateStatus';
 import { SwarmBountyStatus } from '../../models/SwarmBounties';
@@ -66,7 +66,7 @@ export async function triggerSaveSwarmsForRound(req: Request, res: Response): Pr
         if (existingSwarms) {
             return existingSwarms;
         }
-        const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssuesThroughMongoDB();
+        const initializedDocumentSummarizeIssues = await getInitializedIssuesMongoDB(SwarmBountyType.DOCUMENT_SUMMARIZER);
         const issuesToSave = [];
         for (const issue of initializedDocumentSummarizeIssues) {
             const isRequiredToAssignAgainResult = await isRequiredToAssignAgain(issue.githubUrl);

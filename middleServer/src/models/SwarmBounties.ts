@@ -6,7 +6,11 @@ export enum SwarmBountyStatus {
   FAILED = "failed",
   LOADING = "loading"
 }
-
+export enum SwarmBountyType {
+  DOCUMENT_SUMMARIZER = "document-summarizer",
+  FIND_BUGS = "find-bugs",
+  BUILD_FEATURE = "build-feature"
+}
 const SwarmBountySchema = new Schema(
   {
     status: {
@@ -44,7 +48,7 @@ const SwarmBountySchema = new Schema(
     swarmType: {
       type: String,
       required: [true, 'Swarm type is required'],
-      enum: ['document-summarizer', 'find-bugs', 'build-feature'],
+      enum: Object.values(SwarmBountyType),
     },
     bountyType: {
       type: String,
