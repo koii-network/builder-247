@@ -13,6 +13,6 @@ export const status = {
   UNKNOWN_ERROR: "Unknown error",
 }
 
-export const customReward = 0.0001*10**9 // This should be in ROE! 
+export const customReward = 400*10**9 // This should be in ROE! 
 
 export const middleServerUrl = "https://prometheus-docs.api.koii.network"
