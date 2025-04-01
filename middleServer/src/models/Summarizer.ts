@@ -1,5 +1,5 @@
 import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typegoose";
-import { builder247DB } from "../utils/database";
+import { builder247DB } from "../services/database/database";
 
 @modelOptions({ 
   schemaOptions: { collection: 'summarizer_records' },

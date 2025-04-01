@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import "dotenv/config";
 
 import { TodoModel, TodoStatus } from "../models/Todo";
-import { taskID } from "../constant";
+import { taskID } from "../config/constant";
 import { isValidStakingKey } from "../utils/taskState";
 import { IssueModel, IssueStatus } from "../models/Issue";
 import { verifySignature } from "../utils/sign";

@@ -1,7 +1,8 @@
 import nacl from "tweetnacl";
 import { Keypair } from "@_koii/web3.js";
+// @ts-ignore
 import bs58 from "bs58";
-import { taskID } from "../constant";
+import { taskID } from "../config/constant";
 
 export async function signData(keypair: Keypair, body: Record<string, unknown>): Promise<string> {
   const msg = new TextEncoder().encode(JSON.stringify(body));

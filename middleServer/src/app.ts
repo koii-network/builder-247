@@ -1,9 +1,9 @@
 import express from "express";
-import router from "./routes";
+import router from "./routes/routes";
 import mongoose from "mongoose";
 import http from "http";
 import morgan from "morgan";
-import { checkConnections } from './utils/database';
+import { checkConnections } from './services/database/database';
 
 export const app = express();
 const port = process.env.PORT || 3000;

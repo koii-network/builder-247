@@ -1,5 +1,5 @@
-  import { defaultBountyMarkdownFile } from "../constant";
-import  SwarmBountyModel  from "../models/SwarmBounties";
+  import { defaultBountyMarkdownFile } from "../../config/constant";
+import  SwarmBountyModel  from "../../models/SwarmBounties";
 interface BountyIssue {
   githubUrl: string;
   projectName: string;

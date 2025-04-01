@@ -1,6 +1,6 @@
 import { getTaskStateInfo } from "@_koii/create-task-cli";
 import { Connection } from "@_koii/web3.js";
-import { RPCURL, taskID } from "../constant";
+import { RPCURL, taskID } from "../config/constant";
 import NodeCache from "node-cache";
 
 const taskCache = new NodeCache({ stdTTL: 30, checkperiod: 120 });

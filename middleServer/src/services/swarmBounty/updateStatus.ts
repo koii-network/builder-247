@@ -1,5 +1,5 @@
-import SwarmBountyModel from "../models/SwarmBounties";
-import { connectToDatabase } from "../app";
+import SwarmBountyModel from "../../models/SwarmBounties";
+import { connectToDatabase } from "../../app";
 import dotenv from "dotenv";
 
 dotenv.config();

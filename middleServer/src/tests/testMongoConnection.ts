@@ -1,4 +1,4 @@
-import { checkConnections } from "../utils/database";
+import { checkConnections } from "../services/database/database";
 import { SummarizerRecordModel } from "../models/Summarizer";
 import { IssueModel } from "../models/Issue";
 import SwarmBounty from "../models/SwarmBounties";

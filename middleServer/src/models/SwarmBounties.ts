@@ -1,5 +1,5 @@
 import { Schema } from 'mongoose';
-import { prometheusDB } from '../utils/database';
+import { prometheusDB } from '../services/database/database';
 
 export enum SwarmBountyStatus {
   COMPLETED = "completed",

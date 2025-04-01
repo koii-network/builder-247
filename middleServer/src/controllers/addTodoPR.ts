@@ -2,7 +2,7 @@ import { TodoModel } from "../models/Todo";
 
 import { Request, Response } from "express";
 import { verifySignature } from "../utils/sign";
-import { taskID } from "../constant";
+import { taskID } from "../config/constant";
 import { isValidStakingKey } from "../utils/taskState";
 
 function verifyRequestBody(req: Request): { signature: string; pubKey: string; stakingKey: string } | null {

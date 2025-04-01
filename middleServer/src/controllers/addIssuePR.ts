@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { IssueModel, IssueStatus } from "../models/Issue";
 import { verifySignature } from "../utils/sign";
-import { taskID } from "../constant";
+import { taskID } from "../config/constant";
 export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
     console.log("verifyRequestBody", req.body);
     try {

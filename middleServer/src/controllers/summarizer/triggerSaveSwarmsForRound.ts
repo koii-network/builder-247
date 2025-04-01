@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 
-import { getCurrentRound } from '../../taskOperations/getSubmissionRound';
+import { getCurrentRound } from '../../utils/taskState/getSubmissionRound';
 
-import { getExistingIssues, getInitializedDocumentSummarizeIssues, getInitializedDocumentSummarizeIssuesThroughMongoDB } from '../../swarmBountyOperations/existingIssues';
+import { getExistingIssues, getInitializedDocumentSummarizeIssues, getInitializedDocumentSummarizeIssuesThroughMongoDB } from '../../services/swarmBounty/existingIssues';
 import { SummarizerRecordModel } from '../../models/Summarizer';
-import { updateStatus } from '../../swarmBountyOperations/updateStatus';
+import { updateStatus } from '../../services/swarmBounty/updateStatus';
 import { SwarmBountyStatus } from '../../models/SwarmBounties';
 import dotenv from 'dotenv';
 

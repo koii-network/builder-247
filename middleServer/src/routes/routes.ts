@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { fetchTodo } from "./controllers/fetchToDo";
-import { addPR } from "./controllers/addTodoPR";
-import { checkToDo } from "./controllers/checkToDo";
-import { triggerFetchAuditResult } from "./controllers/triggerFetchAuditResult";
+import { fetchTodo } from "../controllers/fetchToDo";
+import { addPR } from "../controllers/addTodoPR";
+import { checkToDo } from "../controllers/checkToDo";
+import { triggerFetchAuditResult } from "../controllers/triggerFetchAuditResult";
 import type { RequestHandler } from "express";
-import { addAggregatorInfo } from "./controllers/addAggregatorInfo";
-import { addIssuePR } from "./controllers/addIssuePR";
-import { getIssuePrUrls } from "./controllers/getIssuePrUrls";
+import { addAggregatorInfo } from "../controllers/addAggregatorInfo";
+import { addIssuePR } from "../controllers/addIssuePR";
+import { getIssuePrUrls } from "../controllers/getIssuePrUrls";
 // import { triggerUpdateSwarmsStatus } from "./controllers/summarizer/triggerUpdateSwarmsStatus";
-import { triggerSaveSwarmsForRound } from "./controllers/summarizer/triggerSaveSwarmsForRound";
+import { triggerSaveSwarmsForRound } from "../controllers/summarizer/triggerSaveSwarmsForRound";
 const router = Router();
 
 router.post("/fetch-to-do", fetchTodo as RequestHandler);

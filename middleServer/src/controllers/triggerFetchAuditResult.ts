@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { IssueModel } from '../models/Issue';
-import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../taskOperations/getDistributionList';
+import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../utils/taskState/getDistributionList';
 import { IssueStatus } from '../models/Issue';
 import { TodoModel, TodoStatus } from "../models/Todo";
 // A simple in-memory cache to store processed task IDs and rounds
