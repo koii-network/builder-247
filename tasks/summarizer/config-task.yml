@@ -46,15 +46,15 @@ task_audit_program: "dist/main.js"
 ## Round Time ##
 # Duration of task, measured in slots (with each slot approximately equal to 408ms). Should be at least 800 slots.
 # See https://www.koii.network/docs/concepts/what-are-tasks/what-are-tasks/gradual-consensus for more information on how round time, audit window, and submission window work.
-round_time: 1400
+round_time: 5000
 
 ## Audit Window ##
 # The audit window should be at least 1/3 of the round time.
-audit_window: 600
+audit_window: 2200
 
 ## Submission Window ##
 # The submission window should be at least 1/3 of the round time.
-submission_window: 600
+submission_window: 2200
 
 ## Minimum Stake Amount ##
 # The minimum amount of KOII or KPL that a user must stake in order to participate in the task.
@@ -124,7 +124,7 @@ environment: "TEST"
 #################################### FOR UPDATING TASKS ONLY ####################################
 
 ## Old Task ID ##
-task_id: "hF7G6BR59L6F3dDfJFrL3N8AtvKpS4GJjrAJL5cQA5V"
+task_id: "48h3f4r3AR7MdgCMkET4v3yh7PpPHuqGDWzqgH52rny1"
 
 ## Migration Description ##
 migrationDescription: "Fix audit bug"

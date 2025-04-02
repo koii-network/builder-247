@@ -15,6 +15,8 @@ export async function task(roundNumber: number): Promise<void> {
    * It is expected you will store the proofs in your container
    * The submission of the proofs is done in the submission function
    */
+  // FORCE TO PAUSE 30 SECONDS
+  await new Promise((resolve) => setTimeout(resolve, 30000));
   console.log(`EXECUTE TASK FOR ROUND ${roundNumber}`);
   try {
     const orcaClient = await getOrcaClient();
