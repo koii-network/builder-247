@@ -1,6 +1,6 @@
 """Audit workflow execution."""
 
-from src.workflows.base import WorkflowExecution
+from agent_framework.workflows.base import WorkflowExecution
 from src.workflows.audit.workflow import AuditWorkflow
 from src.workflows.audit.prompts import PROMPTS
 from typing import List

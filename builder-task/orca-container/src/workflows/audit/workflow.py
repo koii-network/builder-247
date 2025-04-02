@@ -2,16 +2,17 @@
 
 import os
 from github import Github
-from src.workflows.base import Workflow
-from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.audit import phases
-from src.workflows.utils import (
+from agent_framework.workflows.base import Workflow
+from agent_framework.utils.logging import log_section, log_key_value, log_error
+from agent_framework.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
     setup_repository,
     cleanup_repository,
     get_current_files,
 )
+
+from src.workflows.audit import phases
 
 
 class AuditWorkflow(Workflow):
