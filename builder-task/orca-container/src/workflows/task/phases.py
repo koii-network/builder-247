@@ -1,7 +1,7 @@
 """Task workflow phases."""
 
 from typing import List
-from src.workflows.base import WorkflowPhase, Workflow, requires_context
+from agent_framework.workflows.base import WorkflowPhase, Workflow, requires_context
 
 
 @requires_context(
