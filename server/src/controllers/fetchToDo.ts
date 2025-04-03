@@ -165,17 +165,6 @@ export const fetchTodoLogic = async (
       };
     }
 
-    // Make sure we have aggregator info
-    if (!currentIssue.aggregatorOwner || !currentIssue.aggregatorUrl) {
-      return {
-        statuscode: 400,
-        data: {
-          success: false,
-          message: "No aggregator info found for the active issue",
-        },
-      };
-    }
-
     // 2. Use aggregation to find eligible todos
     const eligibleTodos = await TodoModel.aggregate([
       // Match initial criteria
@@ -285,9 +274,8 @@ export const fetchTodoLogic = async (
           title: updatedTodo.title,
           issue_uuid: updatedTodo.issueUuid,
           acceptance_criteria: updatedTodo.acceptanceCriteria,
-          repo_owner: currentIssue.aggregatorOwner,
+          repo_owner: updatedTodo.repoOwner,
           repo_name: updatedTodo.repoName,
-          aggregator_url: currentIssue.aggregatorUrl,
           system_prompt: systemPrompt.prompt,
         },
       },

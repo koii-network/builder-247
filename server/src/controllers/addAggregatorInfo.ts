@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { IssueModel, IssueStatus } from "../models/Issue";
 import { verifySignature } from "../utils/sign";
 import { taskIDs } from "../constant";
+import { TodoModel } from "../models/Todo";
+
 export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
   console.log("verifyRequestBody", req.body);
   try {
@@ -101,6 +103,7 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
   const response = await addAggregatorInfoLogic(requestBody, signatureData);
   res.status(response.statuscode).json(response.data);
 };
+
 export const addAggregatorInfoLogic = async (
   requestBody: { signature: string; stakingKey: string; pubKey: string },
   signatureData: { roundNumber: number; githubUsername: string; issueUuid: string; aggregatorUrl: string },
@@ -131,6 +134,19 @@ export const addAggregatorInfoLogic = async (
     };
   }
 
+  // Update all todos associated with this issue to use the aggregator owner
+  // This ensures workers fork from the aggregator repo, not the original
+  const todoUpdateResult = await TodoModel.updateMany(
+    { issueUuid: signatureData.issueUuid },
+    { $set: { repoOwner: signatureData.githubUsername } },
+  );
+
+  console.log("Updated todos for issue:", {
+    issueUuid: signatureData.issueUuid,
+    todosUpdated: todoUpdateResult.modifiedCount,
+    aggregatorOwner: signatureData.githubUsername,
+  });
+
   issue.status = IssueStatus.IN_PROCESS;
 
   await issue.save();
@@ -139,7 +155,8 @@ export const addAggregatorInfoLogic = async (
     statuscode: 200,
     data: {
       success: true,
-      message: "Aggregator info added",
+      message: "Aggregator info added and todos updated",
+      todosUpdated: todoUpdateResult.modifiedCount,
     },
   };
 };

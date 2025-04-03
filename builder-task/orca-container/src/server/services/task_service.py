@@ -46,20 +46,31 @@ def complete_todo(
 
         # Log what we received from the server
         logger.info(f"Received todo data: {todo}")
+        logger.info(
+            f"Repository info from todo: owner={repo_owner}, name={repo_name}, branch={base_branch}"
+        )
 
         # Check required fields
         if not repo_owner or not repo_name or not base_branch:
+            error_msg = (
+                f"Missing required fields in todo data. "
+                f"repo_owner={repo_owner}, repo_name={repo_name}, branch={base_branch}"
+            )
             return {
                 "success": False,
                 "status": 400,
-                "error": "Missing required fields in todo data",
+                "error": error_msg,
             }
 
         # Check if base branch exists in target repo
         github = Github(os.environ["GITHUB_TOKEN"])
         try:
-            target_repo = github.get_repo(f"{repo_owner}/{repo_name}")
+            repo_url = f"{repo_owner}/{repo_name}"
+            logger.info(f"Attempting to find repository: {repo_url}")
+            target_repo = github.get_repo(repo_url)
+            logger.info(f"Found target repo: {target_repo.html_url}")
         except Exception as e:
+            logger.error(f"Failed to find repository {repo_url}: {str(e)}")
             return {
                 "success": False,
                 "status": 404,
@@ -67,14 +78,24 @@ def complete_todo(
             }
 
         try:
+            logger.info(
+                f"Checking if branch '{base_branch}' exists in {target_repo.html_url}"
+            )
+            # Get branch but don't store it since we only need to check if it exists
             target_repo.get_branch(base_branch)
+            logger.info(f"Found branch: {base_branch} in {target_repo.html_url}")
         except Exception as e:
+            logger.error(
+                f"Failed to find branch '{base_branch}' in {target_repo.html_url}: {str(e)}"
+            )
+            error_msg = (
+                f"Base branch '{base_branch}' does not exist in repository "
+                f"{repo_owner}/{repo_name} ({target_repo.html_url}): {str(e)}"
+            )
             return {
                 "success": False,
                 "status": 400,
-                "error": (
-                    f"Base branch '{base_branch}' does not exist in target repository: {str(e)}"
-                ),
+                "error": error_msg,
             }
 
         try:

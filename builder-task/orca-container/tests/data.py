@@ -10,12 +10,11 @@ from agent_framework.tools.github_operations.parser import extract_section
 class DataManager:
     def __init__(self):
         self.task_id = os.getenv("TASK_ID")
-        # Remove hardcoded source_owner and source_repo - we'll get this from responses
         self.fork_url = None
         self.branch_name = None
         self.issue_uuid = None
-        self.repo_owner = None  # Will be populated after getting data from server
-        self.repo_name = None  # Will be populated after getting data from server
+        self.repo_owner = None
+        self.repo_name = None
 
         # Store keypair paths for each role
         self.keypairs = {
