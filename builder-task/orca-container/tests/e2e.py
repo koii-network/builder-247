@@ -49,6 +49,63 @@ def reset_databases():
             os.remove(db_path)
 
 
+def save_state(data_manager, pr_urls, step_completed):
+    """Save the current state to a JSON file after completing a step"""
+    state_file = Path(__file__).parent / "e2e_state.json"
+
+    # Prepare the state dictionary
+    state = {
+        "step_completed": step_completed,
+        "fork_url": data_manager.fork_url,
+        "branch_name": data_manager.branch_name,
+        "issue_uuid": data_manager.issue_uuid,
+        "repo_owner": data_manager.repo_owner,
+        "repo_name": data_manager.repo_name,
+        "pr_urls": pr_urls,
+    }
+
+    # Save to file
+    with open(state_file, "w") as f:
+        json.dump(state, f, indent=2)
+
+    print(f"\nState saved to {state_file} after completing step {step_completed}")
+
+
+def load_state(data_manager, pr_urls, starting_step):
+    """Load state from JSON file when skipping steps"""
+    state_file = Path(__file__).parent / "e2e_state.json"
+
+    if not state_file.exists():
+        raise Exception(
+            f"Cannot start from step {starting_step}: State file {state_file} does not exist"
+        )
+
+    with open(state_file, "r") as f:
+        state = json.load(f)
+
+    # Check if we have completed the previous step
+    if state["step_completed"] < starting_step - 1:
+        raise Exception(
+            f"Cannot start from step {starting_step}: Previous step {starting_step - 1} has not been completed"
+        )
+
+    # Load state into data_manager
+    data_manager.fork_url = state["fork_url"]
+    data_manager.branch_name = state["branch_name"]
+    data_manager.issue_uuid = state["issue_uuid"]
+    data_manager.repo_owner = state["repo_owner"]
+    data_manager.repo_name = state["repo_name"]
+
+    # Load PR URLs
+    pr_urls.update(state["pr_urls"])
+
+    print(f"\nLoaded state from {state_file}")
+    print(f"Starting from step {starting_step} with:")
+    print(f"Fork URL: {data_manager.fork_url}")
+    print(f"Branch name: {data_manager.branch_name}")
+    print(f"PR URLs: {pr_urls}")
+
+
 def reset_mongodb():
     """Reset the MongoDB database by clearing collections and importing fresh test data"""
     print("\nResetting MongoDB database...")
@@ -165,6 +222,14 @@ def run_test_sequence(
         data_manager = DataManager()
         pr_urls = {}  # Store PR URLs for later use
 
+        # Load state if starting from a later step
+        if start_step > 1:
+            try:
+                load_state(data_manager, pr_urls, start_step)
+            except Exception as e:
+                print(f"Error loading state: {e}")
+                return
+
         try:
             # 1. Create aggregator repo
             if start_step <= 1 <= stop_step:
@@ -187,20 +252,25 @@ def run_test_sequence(
                 print("=" * 40)
                 fork_url = result.get("data", {}).get("fork_url")
                 branch_name = result.get("data", {}).get("branch_name")
+                issue_uuid = result.get("data", {}).get("issue_uuid")
                 if not fork_url or not branch_name:
                     raise Exception("Missing fork_url or branch_name in response")
                 print(f"✓ Fork URL: {fork_url}")
                 print(f"✓ Branch name: {branch_name}")
+                print(f"✓ Issue UUID: {issue_uuid}")
 
                 # Store the fork URL and branch name for use in subsequent steps
                 data_manager.fork_url = fork_url
                 data_manager.branch_name = branch_name
+                data_manager.issue_uuid = issue_uuid
 
                 # Extract repository name from fork URL
                 repo_parts = fork_url.strip("/").split("/")
                 if len(repo_parts) >= 2:
                     aggregator_owner = repo_parts[-2]
                     repo_name = repo_parts[-1]
+                    data_manager.repo_owner = aggregator_owner
+                    data_manager.repo_name = repo_name
                     print(
                         f"✓ Using repository information from fork: {aggregator_owner}/{repo_name}"
                     )
@@ -226,6 +296,9 @@ def run_test_sequence(
                         f"Failed to add aggregator info: {result.get('message')}"
                     )
                 print("✓ Aggregator info updated successfully")
+
+                # Save state after completing step 1
+                save_state(data_manager, pr_urls, 1)
 
             # 2. Worker tasks (Worker 1 and Worker 2)
             if start_step <= 2 <= stop_step:
@@ -260,6 +333,9 @@ def run_test_sequence(
                     raise Exception(f"Worker 2 task failed: {result.get('message')}")
                 pr_urls["worker2"] = result.get("pr_url")
                 print(f"✓ Worker 2 PR created: {pr_urls['worker2']}")
+
+                # Save state after completing step 2
+                save_state(data_manager, pr_urls, 2)
 
             # 3. Cross audits
             if start_step <= 3 <= stop_step:
@@ -296,6 +372,9 @@ def run_test_sequence(
                     raise Exception(f"Worker 1 audit failed: {result.get('message')}")
                 print("✓ Worker 1 audit complete")
 
+                # Save state after completing step 3
+                save_state(data_manager, pr_urls, 3)
+
             # 4. Leader task
             if start_step <= 4 <= stop_step:
                 log_step(4, "Running leader task")
@@ -314,6 +393,9 @@ def run_test_sequence(
                     raise Exception(f"Leader task failed: {result.get('message')}")
                 pr_urls["leader"] = result.get("pr_url")
                 print(f"✓ Leader PR created: {pr_urls['leader']}")
+
+                # Save state after completing step 4
+                save_state(data_manager, pr_urls, 4)
 
             # 5. Leader audits
             if start_step <= 5 <= stop_step:
@@ -335,6 +417,9 @@ def run_test_sequence(
                         f"First leader audit failed: {result.get('message')}"
                     )
                 print("✓ First leader audit complete")
+
+                # Save state after completing step 5
+                save_state(data_manager, pr_urls, 5)
 
             print("\n" + "=" * 80)
             print("TEST SEQUENCE COMPLETED SUCCESSFULLY")

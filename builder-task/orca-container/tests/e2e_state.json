@@ -1,0 +1,12 @@
+{
+  "step_completed": 3,
+  "fork_url": "https://github.com/momstrosity/builder-test",
+  "branch_name": "test-issue-001",
+  "issue_uuid": null,
+  "repo_owner": "momstrosity",
+  "repo_name": "builder-test",
+  "pr_urls": {
+    "worker1": "https://github.com/momstrosity/builder-test/pull/5",
+    "worker2": "https://github.com/momstrosity/builder-test/pull/6"
+  }
+}
