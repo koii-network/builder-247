@@ -6,9 +6,9 @@ import { updateAuditResult } from "./controllers/updateAuditResult";
 import type { RequestHandler } from "express";
 import { addAggregatorInfo } from "./controllers/addAggregatorInfo";
 import { addIssuePR } from "./controllers/addIssuePR";
-// import { getIssuePrUrls } from "./controllers/getIssuePrUrls";
 import { assignIssue } from "./controllers/assignIssue";
 import { fetchIssue } from "./controllers/fetchIssue";
+import { checkIssue } from "./controllers/checkIssue";
 
 const router = Router();
 
@@ -21,5 +21,5 @@ router.post("/assign-issue", assignIssue as RequestHandler);
 router.post("/update-audit-result", updateAuditResult as RequestHandler);
 // router.get("/get-issue-pr-urls/:issueUuid", getIssuePrUrls as RequestHandler);
 router.post("/fetch-issue", fetchIssue as RequestHandler);
-
+router.post("/check-issue", checkIssue as RequestHandler);
 export default router;
