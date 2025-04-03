@@ -82,13 +82,7 @@ async function verifySignatureData(
   }
 }
 
-async function checkToDoAssignment(
-  stakingKey: string,
-  roundNumber: string,
-  githubUsername: string,
-  prUrl: string,
-  prSignature: string,
-): Promise<boolean> {
+async function checkToDoAssignment(stakingKey: string, githubUsername: string, prUrl: string): Promise<boolean> {
   try {
     const result = await TodoModel.findOne({
       assignedStakingKey: stakingKey,
@@ -137,13 +131,7 @@ export const checkToDo = async (req: Request, res: Response) => {
     return;
   }
 
-  const isValid = await checkToDoAssignment(
-    requestBody.stakingKey,
-    signatureData.roundNumber,
-    signatureData.githubUsername,
-    signatureData.prUrl,
-    requestBody.signature,
-  );
+  const isValid = await checkToDoAssignment(requestBody.stakingKey, signatureData.githubUsername, signatureData.prUrl);
 
   if (!isValid) {
     console.log("No matching todo assignment found");
