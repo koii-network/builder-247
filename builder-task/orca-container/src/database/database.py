@@ -35,21 +35,26 @@ def get_db():
 
 
 def initialize_database():
-    """Initialize database tables if they don't exist."""
+    """Initialize the database tables."""
+    SQLModel.metadata.create_all(engine)
+
+    # Add migration for new columns if they don't exist
     inspector = inspect(engine)
-    existing_tables = inspector.get_table_names()
+    submission_columns = [column["name"] for column in inspector.get_columns("submission")]
 
-    # Get all model classes from SQLModel metadata
-    model_tables = SQLModel.metadata.tables
-
-    # Only create tables that don't exist
-    tables_to_create = []
-    for table_name, table in model_tables.items():
-        if table_name not in existing_tables:
-            tables_to_create.append(table)
-
-    if tables_to_create:
-        SQLModel.metadata.create_all(engine, tables=tables_to_create)
+    if "issue_uuid" not in submission_columns or "node_type" not in submission_columns:
+        with engine.connect() as conn:
+            if "issue_uuid" not in submission_columns:
+                conn.execute("""
+                    ALTER TABLE submission
+                    ADD COLUMN issue_uuid VARCHAR;
+                """)
+            if "node_type" not in submission_columns:
+                conn.execute("""
+                    ALTER TABLE submission
+                    ADD COLUMN node_type VARCHAR DEFAULT 'worker';
+                """)
+            conn.commit()
 
 
 def get_submission(
@@ -71,6 +76,8 @@ def get_submission(
         "username": submission.username,
         "repo_owner": submission.repo_owner,
         "repo_name": submission.repo_name,
+        "issue_uuid": submission.issue_uuid,
+        "node_type": submission.node_type,
     }
 
 

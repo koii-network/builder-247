@@ -231,13 +231,15 @@ def run_todo_task(
                 f"Deleted existing incomplete submission for task {task_id}, round {round_number}"
             )
 
-        # Create new submission
+        # Create new submission with issue_uuid and node_type
         submission = Submission(
             task_id=task_id,
             round_number=round_number,
             status="running",
             repo_owner=repo_owner,
             repo_name=repo_name,
+            issue_uuid=base_branch,  # Store issue_uuid (base_branch contains it)
+            node_type="worker",  # Set node_type to worker
         )
         db.add(submission)
         db.commit()
@@ -339,6 +341,8 @@ def _store_pr_remotely(
     pr_url: str,
     node_type: str = "worker",
     issue_uuid: str = None,
+    task_id: str = None,
+    round_number: int = None,
 ) -> dict:
     """Store PR URL in middle server.
 
@@ -347,6 +351,7 @@ def _store_pr_remotely(
     - leader: /api/add-issue-pr
 
     For leader tasks, the issue_uuid must be included in the request body.
+    If issue_uuid is not provided, will attempt to get it from the database using task_id and round_number.
     """
     try:
         # Determine the endpoint based on node type
@@ -363,8 +368,29 @@ def _store_pr_remotely(
         }
 
         # Add issue_uuid to the payload for leader tasks
-        if node_type == "leader" and issue_uuid:
-            payload["issueUuid"] = issue_uuid
+        if node_type == "leader":
+            # If issue_uuid not provided directly, try to get it from the database
+            if not issue_uuid and task_id and round_number is not None:
+                try:
+                    db = get_db()
+                    submission = (
+                        db.query(Submission)
+                        .filter(
+                            Submission.task_id == task_id,
+                            Submission.round_number == round_number,
+                        )
+                        .first()
+                    )
+                    if submission and submission.issue_uuid:
+                        issue_uuid = submission.issue_uuid
+                        logger.info(f"Retrieved issue_uuid={issue_uuid} from database")
+                except Exception as e:
+                    logger.warning(f"Failed to get issue_uuid from database: {str(e)}")
+
+            if issue_uuid:
+                payload["issueUuid"] = issue_uuid
+            else:
+                logger.warning("No issue_uuid available for leader PR recording")
 
         response = requests.post(
             os.environ["MIDDLE_SERVER_URL"] + endpoint,
@@ -390,7 +416,13 @@ def _store_pr_remotely(
         }
 
 
-def _store_pr_locally(round_number: int, pr_url: str, task_id: str) -> dict:
+def _store_pr_locally(
+    round_number: int,
+    pr_url: str,
+    task_id: str,
+    issue_uuid: str = None,
+    node_type: str = "worker",
+) -> dict:
     """Store PR URL in local database."""
     try:
         db = get_db()
@@ -410,6 +442,12 @@ def _store_pr_locally(round_number: int, pr_url: str, task_id: str) -> dict:
             if not submission.pr_url:  # Only update PR URL if not already set
                 submission.pr_url = pr_url
             submission.username = username
+
+            # Update issue_uuid and node_type if provided
+            if issue_uuid:
+                submission.issue_uuid = issue_uuid
+            submission.node_type = node_type
+
             db.commit()
             logger.info("Local database updated successfully")
             return {
@@ -450,11 +488,15 @@ def record_pr(
     """
     # First check if we already have a record locally
     existing = _check_existing_pr(round_number, task_id)
+    existing_pr_url = None
     if existing["success"]:
         # Even if we have a local record, still attempt to record remotely
         # but use the existing PR URL from the local record
-        pr_url = existing["data"]["pr_url"]
-        logger.info(f"Using existing PR URL: {pr_url} for remote recording attempt")
+        existing_pr_url = existing["data"]["pr_url"]
+        logger.info(
+            f"Using existing PR URL: {existing_pr_url} for remote recording attempt"
+        )
+        pr_url = existing_pr_url
 
     # For leader tasks, we need to get the issue UUID
     issue_uuid = None
@@ -470,10 +512,17 @@ def record_pr(
 
     # Step 1: Always attempt to record with middle server, even for existing PRs
     remote_result = _store_pr_remotely(
-        staking_key, staking_signature, pub_key, pr_url, node_type, issue_uuid
+        staking_key,
+        staking_signature,
+        pub_key,
+        pr_url,
+        node_type,
+        issue_uuid,
+        task_id,
+        round_number,
     )
     if not remote_result["success"]:
-        # If the error is because the PR is already recorded, treat as success
+        # If the error is because the PR is already recorded, treat it as a success
         if "already" in str(remote_result.get("error", "")).lower():
             logger.info("PR already recorded remotely, continuing")
         else:
@@ -483,8 +532,34 @@ def record_pr(
     # Step 2: Record locally if not already recorded
     if existing["success"] and existing.get("skip_local_recording"):
         logger.info("Skipping local recording as PR already exists locally")
+
+        # But we should update the issue_uuid and node_type if we have new information
+        if existing_pr_url and (issue_uuid or node_type):
+            try:
+                db = get_db()
+                submission = (
+                    db.query(Submission)
+                    .filter(
+                        Submission.round_number == round_number,
+                        Submission.task_id == task_id,
+                    )
+                    .first()
+                )
+                if submission:
+                    if issue_uuid and not submission.issue_uuid:
+                        submission.issue_uuid = issue_uuid
+                    if node_type:
+                        submission.node_type = node_type
+                    db.commit()
+                    logger.info(
+                        f"Updated submission with issue_uuid={issue_uuid}, node_type={node_type}"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to update existing submission: {str(e)}")
     else:
-        local_result = _store_pr_locally(round_number, pr_url, task_id)
+        local_result = _store_pr_locally(
+            round_number, pr_url, task_id, issue_uuid, node_type
+        )
         if not local_result["success"]:
             return local_result
 
@@ -540,6 +615,7 @@ def consolidate_prs(
             repo_owner = issue["repo_owner"]
             repo_name = issue["repo_name"]
             source_branch = issue["issue_uuid"]
+            issue_uuid = issue["issue_uuid"]  # Store issue_uuid for later use
             pr_list = issue["pr_list"]
 
             # If no existing submission with PR URL, delete any incomplete submission
@@ -557,6 +633,8 @@ def consolidate_prs(
                 status="running",
                 repo_owner=repo_owner,
                 repo_name=repo_name,
+                issue_uuid=issue_uuid,  # Store issue_uuid
+                node_type="leader",  # Set node_type to leader
             )
             db.add(submission)
             db.commit()
