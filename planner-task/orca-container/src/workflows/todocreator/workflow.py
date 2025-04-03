@@ -6,7 +6,7 @@ from src.workflows.base import Workflow
 from src.tools.github_operations.implementations import (
     create_github_issue,
 )
-from src.utils.logging import log_section, log_key_value, log_error
+from agent_framework.utils.logging import log_section, log_key_value, log_error
 from src.workflows.todocreator import phases
 from src.workflows.utils import (
     check_required_env_vars,

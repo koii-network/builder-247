@@ -4,7 +4,7 @@ import os
 import shutil
 from pathlib import Path
 from git import Repo, GitCommandError
-from src.utils.logging import log_key_value, log_error
+from agent_framework.utils.logging import log_key_value, log_error
 from src.types import ToolOutput
 
 import time

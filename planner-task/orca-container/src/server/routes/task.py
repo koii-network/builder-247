@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from src.server.services import task_service
-from src.utils.logging import logger
+from agent_framework.utils.logging import logger
 
 bp = Blueprint("task", __name__)
 

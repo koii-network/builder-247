@@ -4,12 +4,13 @@ import requests
 import os
 from github import Github
 from src.database import get_db, Submission
-from src.clients import setup_client
+from agent_framework.clients import setup_client
+from agent_framework.utils.logging import logger, log_error
 from src.workflows.task.workflow import TaskWorkflow
 from src.workflows.mergeconflict.workflow import MergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
-from src.utils.logging import logger, log_error, log_key_value
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -26,7 +27,6 @@ def complete_todo(
 ):
     """Handle task creation request."""
     try:
-
         # Proceed with todo request
         todo_result = get_task_details(
             staking_signature, staking_key, pub_key, "worker"
@@ -38,22 +38,56 @@ def complete_todo(
                 "error": todo_result.get("error", "Unknown error fetching todo"),
             }
         todo = todo_result["data"]
-        repo_owner = todo["repo_owner"]
-        repo_name = todo["repo_name"]
-        base_branch = todo["issue_uuid"]
+
+        # Get repository info from kwargs (the request parameters) if provided,
+        # otherwise fall back to todo data
+        repo_owner = kwargs.get("repoOwner", todo.get("repo_owner"))
+        repo_name = kwargs.get("repoName", todo.get("repo_name"))
+        fork_url = kwargs.get("forkUrl")
+        branch_name = kwargs.get("branchName", todo.get("issue_uuid"))
+
+        # Use branch_name as base_branch to check
+        base_branch = branch_name
+
+        # Log what we received from the server and request
+        logger.info(f"Received todo data: {todo}")
+        logger.info(
+            f"Using repository: {repo_owner}/{repo_name}, branch: {base_branch}"
+        )
+        if fork_url:
+            logger.info(f"Using fork URL: {fork_url}")
+
+        # Check required fields
+        if not repo_owner or not repo_name or not base_branch:
+            return {
+                "success": False,
+                "status": 400,
+                "error": "Missing required fields (repoOwner, repoName, or branchName)",
+            }
 
         # Check if base branch exists in target repo
         github = Github(os.environ["GITHUB_TOKEN"])
-        target_repo = github.get_repo(f"{repo_owner}/{repo_name}")
+        try:
+            target_repo = github.get_repo(f"{repo_owner}/{repo_name}")
+            logger.info(f"Found target repo: {target_repo.html_url}")
+        except Exception as e:
+            return {
+                "success": False,
+                "status": 404,
+                "error": f"Repository {repo_owner}/{repo_name} not found: {str(e)}",
+            }
 
         try:
-            target_repo.get_branch(base_branch)
-        except Exception:
+            branch = target_repo.get_branch(base_branch)
+            logger.info(
+                f"Found branch {base_branch} in {repo_owner}/{repo_name}: SHA {branch.commit.sha}"
+            )
+        except Exception as e:
             return {
                 "success": False,
                 "status": 400,
                 "error": (
-                    f"Base branch '{base_branch}' does not exist in target repository."
+                    f"Base branch '{base_branch}' does not exist in repository {repo_owner}/{repo_name}: {str(e)}"
                 ),
             }
 
@@ -69,6 +103,7 @@ def complete_todo(
                 repo_owner=repo_owner,
                 repo_name=repo_name,
                 base_branch=base_branch,
+                **kwargs,
             )
 
             if not result.get("success", False):
@@ -156,6 +191,7 @@ def run_todo_task(
     repo_owner,
     repo_name,
     base_branch,
+    **kwargs,
 ):
     """Run todo task and create PR."""
     try:
@@ -203,6 +239,10 @@ def run_todo_task(
 
         # Set up client and workflow
         client = setup_client("anthropic")
+
+        # Get additional parameters that might be useful
+        fork_url = kwargs.get("forkUrl")
+
         workflow = TaskWorkflow(
             client=client,
             prompts=TASK_PROMPTS,
@@ -217,6 +257,7 @@ def run_todo_task(
             staking_signature=staking_signature,
             public_signature=public_signature,
             base_branch=base_branch,
+            fork_url=fork_url,  # Pass fork_url if available
         )
 
         # Run workflow and get PR URL
@@ -486,8 +527,8 @@ def consolidate_prs(
         # TODO:leader should create a fork of the source repo
 
         # Create workflow instance with validated PRs
-        print("\nCreating workflow with:")
-        print(f"  task_id: {task_id}")
+        logger.info("\nCreating workflow with:")
+        logger.info(f"  task_id: {task_id}")
 
         # Initialize Claude client
         client = setup_client("anthropic")
@@ -555,11 +596,10 @@ def consolidate_prs(
         return {"success": False, "status": 500, "error": str(e)}
 
 
-def create_aggregator_repo(issue_id, repo_owner, repo_name):
+def create_aggregator_repo(task_id):
     """Create an aggregator repo for a given round and task.
 
     Args:
-        round_number (int): The round number
         task_id (str): The task ID
 
     Returns:
@@ -573,35 +613,77 @@ def create_aggregator_repo(issue_id, repo_owner, repo_name):
         github = Github(os.environ["GITHUB_TOKEN"])
         username = os.environ["GITHUB_USERNAME"]
 
-        source_repo = github.get_repo(f"{repo_owner}/{repo_name}")
+        # Get issue UUID and repo info from assign_issue response
+        logger.info(f"Calling assign_issue with username: {username}")
+        issue_data = assign_issue(task_id)
+        logger.info(f"assign_issue response: {issue_data}")
+
+        if not issue_data.get("success"):
+            logger.error(f"assign_issue failed: {issue_data.get('error')}")
+            return {
+                "success": False,
+                "message": f"Failed to assign issue: {issue_data.get('error')}",
+                "data": None,
+            }
+
+        logger.info(f"assign_issue data: {issue_data.get('data')}")
+        issue_uuid = issue_data["data"].get("issueId")
+        # Get repo info from the issue data instead of parameters
+        repo_owner = issue_data["data"].get("repoOwner")
+        repo_name = issue_data["data"].get("repoName")
+
+        logger.info(f"Using repo from issue: {repo_owner}/{repo_name}")
+        logger.info(f"Extracted issue_uuid: {issue_uuid}")
+
+        if not issue_uuid or not repo_owner or not repo_name:
+            logger.error("Missing required data in assign_issue response")
+            return {
+                "success": False,
+                "message": "Missing required data (issueId, repoOwner, or repoName) from assign_issue",
+                "data": None,
+            }
+
+        # Get source repo from the repo information obtained from the middle server
+        try:
+            source_repo = github.get_repo(f"{repo_owner}/{repo_name}")
+            logger.info(f"Found source repo: {source_repo.html_url}")
+        except Exception as e:
+            logger.error(
+                f"Error finding source repo {repo_owner}/{repo_name}: {str(e)}"
+            )
+            return {
+                "success": False,
+                "message": f"Failed to find source repo {repo_owner}/{repo_name}: {str(e)}",
+                "data": None,
+            }
 
         # Check if fork already exists
         try:
             fork = github.get_repo(f"{username}/{repo_name}")
-            log_key_value("Using existing fork", fork.html_url)
+            logger.info(f"Using existing fork: {fork.html_url}")
         except Exception:
             # Create new fork if it doesn't exist
             fork = github.get_user().create_fork(source_repo)
-            log_key_value("Created new fork", fork.html_url)
+            logger.info(f"Created new fork: {fork.html_url}")
 
-        branch_name = issue_id
+        branch_name = issue_uuid
+        logger.info(f"Using branch_name: {branch_name}")
 
         try:
             # Check if branch already exists
             try:
                 fork.get_branch(branch_name)
-                log_key_value("Using existing branch", branch_name)
-                return {
-                    "success": True,
-                    "message": "Using existing aggregator repository and branch",
-                    "data": {"fork_url": fork.html_url, "branch_name": branch_name},
-                }
+                logger.info(f"Using existing branch: {branch_name}")
             except Exception:
+                # Create a branch with the issue UUID name
                 # Branch doesn't exist, create it
                 default_branch = fork.default_branch
                 default_branch_sha = fork.get_branch(default_branch).commit.sha
                 fork.create_git_ref(f"refs/heads/{branch_name}", default_branch_sha)
-                log_key_value("Created new branch", branch_name)
+                logger.info(f"Created new branch: {branch_name}")
+
+            # The create-aggregator-repo endpoint should only create the fork and branch
+            # It should not call the middle server directly
 
             return {
                 "success": True,
@@ -610,15 +692,17 @@ def create_aggregator_repo(issue_id, repo_owner, repo_name):
             }
 
         except Exception as e:
-            log_error(e, "Failed to create branch")
+            logger.error(
+                f"Error in branch creation or aggregator info recording: {str(e)}"
+            )
             return {
                 "success": False,
-                "message": f"Failed to create branch: {str(e)}",
+                "message": f"Failed to create branch or record aggregator info: {str(e)}",
                 "data": None,
             }
 
     except Exception as e:
-        log_error(e, "Failed to create aggregator repository")
+        logger.error(f"Error in create_aggregator_repo: {str(e)}")
         return {
             "success": False,
             "message": f"Failed to create aggregator repository: {str(e)}",
@@ -646,25 +730,41 @@ def create_aggregator_repo(issue_id, repo_owner, repo_name):
 
 def assign_issue(task_id):
     try:
+        logger.info(
+            f"Making assign_issue request to {os.environ['MIDDLE_SERVER_URL']}/api/assign-issue"
+        )
+        logger.info(
+            f"Request payload: {{'taskId': {task_id}, 'githubUsername': {os.environ['GITHUB_USERNAME']}}}"
+        )
 
         response = requests.post(
             os.environ["MIDDLE_SERVER_URL"] + "/api/assign-issue",
             json={"taskId": task_id, "githubUsername": os.environ["GITHUB_USERNAME"]},
             headers={"Content-Type": "application/json"},
         )
+        logger.info(f"Response status code: {response.status_code}")
+        logger.info(f"Response headers: {response.headers}")
+        logger.info(f"Response body: {response.text}")
+
         response.raise_for_status()
         result = response.json()
 
+        logger.info(f"assign_issue result: {result}")
+
         if not result.get("success", False):
+            logger.error(f"assign_issue failed: {result.get('message')}")
             return {
                 "success": False,
                 "status": 400,
                 "error": result.get("message", "Unknown error from middle server"),
             }
 
-        return {"success": True, "data": result.get("data", {})}
+        logger.info(f"assign_issue succeeded: {result}")
+        # Return the entire result as data since it contains the issueId
+        return {"success": True, "data": result}
 
     except requests.exceptions.RequestException as e:
+        logger.error(f"Request exception in assign_issue: {str(e)}")
         if not hasattr(e, "response") or e.response is None:
             return {
                 "success": False,
@@ -675,11 +775,64 @@ def assign_issue(task_id):
         try:
             error_data = e.response.json()
             error_message = error_data.get("message", "Unknown error")
+            logger.error(f"Error response: {error_message}")
         except ValueError:
             error_message = e.response.text
+            logger.error(f"Raw error response: {error_message}")
 
         return {
             "success": False,
             "status": e.response.status_code,
             "error": error_message,
+        }
+
+
+def add_aggregator_info(task_id, staking_key, pub_key, signature):
+    """Add aggregator info to the middle server.
+
+    Args:
+        task_id (str): The task ID
+        staking_key (str): The staking key
+        pub_key (str): The public key
+        signature (str): The signature
+
+    Returns:
+        dict: The result of the operation
+    """
+    logger.info(f"Adding aggregator info for task {task_id}")
+    try:
+        payload = {
+            "stakingKey": staking_key,
+            "pubKey": pub_key,
+            "signature": signature,
+        }
+
+        # Send the request to the middle server
+        response = requests.post(
+            os.environ["MIDDLE_SERVER_URL"] + "/api/add-aggregator-info",
+            json=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        if not result.get("success", False):
+            logger.error(f"Failed to add aggregator info: {result.get('message')}")
+            return {
+                "success": False,
+                "message": f"Failed to add aggregator info: {result.get('message')}",
+            }
+
+        logger.info("Successfully added aggregator info")
+        return {
+            "success": True,
+            "message": "Successfully added aggregator info",
+            "data": result.get("data", {}),
+        }
+
+    except Exception as e:
+        logger.error(f"Error in add_aggregator_info: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Failed to add aggregator info: {str(e)}",
         }

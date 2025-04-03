@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from src.server.services.audit_service import verify_pr_ownership
 from src.server.services.audit_service import review_pr, audit_leader_submission
-from src.utils.logging import logger, log_error
+from agent_framework.utils.logging import logger, log_error
 
 bp = Blueprint("audit", __name__)
 

@@ -8,7 +8,7 @@ from src.tools.git_operations.implementations import (
     fetch_remote,
     pull_remote,
 )
-from src.utils.logging import log_key_value, log_error
+from agent_framework.utils.logging import log_key_value, log_error
 from src.types import ToolOutput
 from src.workflows.utils import get_fork_name
 

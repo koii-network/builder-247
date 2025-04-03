@@ -2,19 +2,19 @@ import { Request, Response } from "express";
 import "dotenv/config";
 
 import { TodoModel, TodoStatus } from "../models/Todo";
-import { taskID } from "../constant";
+import { taskIDs } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 import { IssueModel, IssueStatus } from "../models/Issue";
 import { verifySignature } from "../utils/sign";
 import { SystemPromptModel } from "../models/SystemPrompt";
 
 // Check if the user has already completed the task
-async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
+async function checkExistingAssignment(stakingKey: string, roundNumber: number, taskId: string) {
   try {
     const result = await TodoModel.findOne({
       assignedStakingKey: stakingKey,
       assignedRoundNumber: roundNumber,
-      taskId: taskID,
+      taskId: taskId,
     })
       .select("title acceptanceCriteria repoOwner repoName issueUuid prUrl")
       .lean();
@@ -49,7 +49,7 @@ async function verifySignatureData(
   stakingKey: string,
   pubKey: string,
   action: string,
-): Promise<{ roundNumber: number; githubUsername: string } | null> {
+): Promise<{ roundNumber: number; githubUsername: string; taskId: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -61,7 +61,7 @@ async function verifySignatureData(
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
-      body.taskId !== taskID ||
+      !taskIDs.includes(body.taskId) ||
       body.action !== action ||
       !body.githubUsername ||
       !body.pubKey ||
@@ -72,7 +72,7 @@ async function verifySignatureData(
       console.log("bad signature data");
       return null;
     }
-    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername };
+    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername, taskId: body.taskId };
   } catch (error) {
     console.log("unexpected signature error", error);
     return null;
@@ -93,7 +93,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
     requestBody.signature,
     requestBody.stakingKey,
     requestBody.pubKey,
-    "fetch",
+    "fetch-todo",
   );
   if (!signatureData) {
     res.status(401).json({
@@ -103,7 +103,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(requestBody.stakingKey))) {
+  if (!(await isValidStakingKey(requestBody.stakingKey, signatureData.taskId))) {
     res.status(401).json({
       success: false,
       message: "Invalid staking key",
@@ -116,10 +116,14 @@ export const fetchTodo = async (req: Request, res: Response) => {
 
 export const fetchTodoLogic = async (
   requestBody: { signature: string; stakingKey: string; pubKey: string },
-  signatureData: { roundNumber: number; githubUsername: string },
+  signatureData: { roundNumber: number; githubUsername: string; taskId: string },
 ) => {
   // 1. Check if user already has an assignment
-  const existingAssignment = await checkExistingAssignment(requestBody.stakingKey, signatureData.roundNumber);
+  const existingAssignment = await checkExistingAssignment(
+    requestBody.stakingKey,
+    signatureData.roundNumber,
+    signatureData.taskId,
+  );
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
       return {
@@ -161,6 +165,17 @@ export const fetchTodoLogic = async (
       };
     }
 
+    // Make sure we have aggregator info
+    if (!currentIssue.aggregatorOwner || !currentIssue.aggregatorUrl) {
+      return {
+        statuscode: 400,
+        data: {
+          success: false,
+          message: "No aggregator info found for the active issue",
+        },
+      };
+    }
+
     // 2. Use aggregation to find eligible todos
     const eligibleTodos = await TodoModel.aggregate([
       // Match initial criteria
@@ -186,7 +201,7 @@ export const fetchTodoLogic = async (
       {
         $lookup: {
           from: "todos", // assuming collection name is "todos"
-          let: { dependencyTasks: "$dependencyTasks" },
+          let: { dependencyTasks: { $ifNull: ["$dependencyTasks", []] } },
           pipeline: [
             {
               $match: {
@@ -251,7 +266,7 @@ export const fetchTodoLogic = async (
     }
 
     // Get task-specific system prompt
-    const systemPrompt = await SystemPromptModel.findOne({ taskId: taskID });
+    const systemPrompt = await SystemPromptModel.findOne({ taskId: signatureData.taskId });
     if (!systemPrompt) {
       return {
         statuscode: 500,
@@ -270,8 +285,9 @@ export const fetchTodoLogic = async (
           title: updatedTodo.title,
           issue_uuid: updatedTodo.issueUuid,
           acceptance_criteria: updatedTodo.acceptanceCriteria,
-          repo_owner: updatedTodo.repoOwner,
+          repo_owner: currentIssue.aggregatorOwner,
           repo_name: updatedTodo.repoName,
+          aggregator_url: currentIssue.aggregatorUrl,
           system_prompt: systemPrompt.prompt,
         },
       },

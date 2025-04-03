@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { IssueModel } from "../models/Issue";
 import { verifySignature } from "../utils/sign";
-import { taskID } from "../constant";
+import { taskIDs } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 import { getPRDict } from "../utils/issueUtils";
 
@@ -30,7 +30,7 @@ async function verifySignatureData(
   signature: string,
   stakingKey: string,
   pubKey: string,
-): Promise<{ roundNumber: number; issueUuid: string } | null> {
+): Promise<{ roundNumber: number; issueUuid: string; taskId: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -43,7 +43,7 @@ async function verifySignatureData(
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
-      body.taskId !== taskID ||
+      !taskIDs.includes(body.taskId) ||
       body.action !== "checkIssue" ||
       !body.issueUuid ||
       !body.pubKey ||
@@ -54,7 +54,7 @@ async function verifySignatureData(
       console.log("Signature payload validation failed");
       return null;
     }
-    return { roundNumber: body.roundNumber, issueUuid: body.issueUuid };
+    return { roundNumber: body.roundNumber, issueUuid: body.issueUuid, taskId: body.taskId };
   } catch (error) {
     console.error("Error in verifySignatureData:", error);
     return null;
@@ -101,7 +101,7 @@ export const checkIssue = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(requestBody.stakingKey))) {
+  if (!(await isValidStakingKey(requestBody.stakingKey, signatureData.taskId))) {
     console.log("Invalid staking key:", requestBody.stakingKey);
     res.status(401).json({
       success: false,

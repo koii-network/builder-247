@@ -1,7 +1,7 @@
 import { request, Request, Response } from "express";
 import { TodoModel } from "../models/Todo";
 import { verifySignature } from "../utils/sign";
-import { taskID } from "../constant";
+import { taskIDs } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 
 // Helper function to verify request body
@@ -29,7 +29,7 @@ async function verifySignatureData(
   signature: string,
   stakingKey: string,
   pubKey: string,
-): Promise<{ roundNumber: string; githubUsername: string; prUrl: string } | null> {
+): Promise<{ roundNumber: string; githubUsername: string; prUrl: string; taskId: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -41,14 +41,14 @@ async function verifySignatureData(
 
     // Log all validation checks
     console.log({
-      taskIDFromEnv: taskID,
+      taskIDFromEnv: taskIDs,
       taskIdFromPayload: body.taskId,
       roundNumberValue: body.roundNumber,
       githubUsername: body.githubUsername,
       pubKey: body.pubKey,
       stakingKey: body.stakingKey,
       prUrl: body.prUrl,
-      taskIDMatch: body.taskId === taskID,
+      taskIDMatch: taskIDs.includes(body.taskId),
       roundNumberTypeMatch: typeof body.roundNumber === "number",
       actionMatch: body.action === "audit",
       pubKeyMatch: body.pubKey === pubKey,
@@ -58,7 +58,7 @@ async function verifySignatureData(
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
-      body.taskId !== taskID ||
+      !taskIDs.includes(body.taskId) ||
       body.action !== "audit" ||
       !body.prUrl ||
       !body.githubUsername ||
@@ -70,7 +70,12 @@ async function verifySignatureData(
       console.log("Signature payload validation failed");
       return null;
     }
-    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername, prUrl: body.prUrl };
+    return {
+      roundNumber: body.roundNumber,
+      githubUsername: body.githubUsername,
+      prUrl: body.prUrl,
+      taskId: body.taskId,
+    };
   } catch (error) {
     console.error("Error in verifySignatureData:", error);
     return null;
@@ -123,7 +128,7 @@ export const checkToDo = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(requestBody.stakingKey))) {
+  if (!(await isValidStakingKey(requestBody.stakingKey, signatureData.taskId))) {
     console.log("Invalid staking key:", requestBody.stakingKey);
     res.status(401).json({
       success: false,

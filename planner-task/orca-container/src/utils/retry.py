@@ -7,7 +7,7 @@ from tenacity import (
     wait_fixed,
     wait_chain,
 )
-from src.utils.logging import log_key_value
+from agent_framework.utils.logging import log_key_value
 from src.utils.errors import ClientAPIError
 
 

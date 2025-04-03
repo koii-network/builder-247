@@ -1,28 +1,16 @@
 """Database service module."""
 
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import inspect
 from sqlmodel import SQLModel
-import os
-from pathlib import Path
 from contextlib import contextmanager
 from typing import Optional, Dict, Any
-from .models import Conversation, Message, Log
-import json
+from .models import Submission
 
-# Create engine
-db_path = os.getenv("DATABASE_PATH", "sqlite:///database.db")
-# If the path doesn't start with sqlite://, assume it's a file path and convert it
-if not db_path.startswith("sqlite:"):
-    path = Path(db_path).resolve()
-    # Ensure the parent directory exists
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Convert to SQLite URL format with absolute path
-    db_path = f"sqlite:///{path}"
+# Import engine from agent framework's shared config
+from agent_framework.database.config import engine
 
-engine = create_engine(db_path)
-
-# Create session factory
+# Create session factory using shared engine
 Session = sessionmaker(bind=engine)
 
 
@@ -64,89 +52,55 @@ def initialize_database():
         SQLModel.metadata.create_all(engine, tables=tables_to_create)
 
 
-def get_conversation(session, conversation_id: str) -> Optional[Dict[str, Any]]:
-    """Get conversation details."""
-    conversation = (
-        session.query(Conversation).filter(Conversation.id == conversation_id).first()
+def get_submission(
+    session, task_id: str, round_number: int
+) -> Optional[Dict[str, Any]]:
+    """Get submission details."""
+    submission = (
+        session.query(Submission)
+        .filter(Submission.task_id == task_id, Submission.round_number == round_number)
+        .first()
     )
-    if not conversation:
+    if not submission:
         return None
     return {
-        "model": conversation.model,
-        "system_prompt": conversation.system_prompt,
+        "task_id": submission.task_id,
+        "round_number": submission.round_number,
+        "status": submission.status,
+        "pr_url": submission.pr_url,
+        "username": submission.username,
+        "repo_owner": submission.repo_owner,
+        "repo_name": submission.repo_name,
     }
 
 
-def save_log(
+def save_submission(
     session,
-    level: str,
-    message: str,
-    module: str = None,
-    function: str = None,
-    path: str = None,
-    line_no: int = None,
-    exception: str = None,
-    stack_trace: str = None,
-    request_id: str = None,
-    additional_data: str = None,
+    task_id: str,
+    round_number: int,
+    status: str = "pending",
+    pr_url: Optional[str] = None,
+    username: Optional[str] = None,
+    repo_owner: str = None,
+    repo_name: str = None,
 ) -> bool:
-    """Save a log entry to the database."""
+    """Save a submission to the database."""
     try:
-        log = Log(
-            level=level,
-            message=message,
-            module=module,
-            function=function,
-            path=path,
-            line_no=line_no,
-            exception=exception,
-            stack_trace=stack_trace,
-            request_id=request_id,
-            additional_data=additional_data,
+        submission = Submission(
+            task_id=task_id,
+            round_number=round_number,
+            status=status,
+            pr_url=pr_url,
+            username=username,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
         )
-        session.add(log)
+        session.add(submission)
         session.commit()
         return True
     except Exception as e:
-        print(f"Failed to save log to database: {e}")  # Fallback logging
+        print(f"Failed to save submission to database: {e}")  # Fallback logging
         return False
-
-
-def get_messages(session, conversation_id: str):
-    """Get all messages for a conversation."""
-    conversation = (
-        session.query(Conversation).filter(Conversation.id == conversation_id).first()
-    )
-    if not conversation:
-        return []
-    return [
-        {"role": msg.role, "content": json.loads(msg.content)}
-        for msg in conversation.messages
-    ]
-
-
-def save_message(session, conversation_id: str, role: str, content: Any):
-    """Save a message to the database."""
-    message = Message(
-        conversation_id=conversation_id,
-        role=role,
-        content=json.dumps(content),
-    )
-    session.add(message)
-    session.commit()
-
-
-def create_conversation(
-    session, model: str, system_prompt: Optional[str] = None
-) -> str:
-    """Create a new conversation."""
-    conversation = Conversation(
-        model=model,
-        system_prompt=system_prompt,
-    )
-    session.add(conversation)
-    session.commit()
-    return conversation.id
 
 
 @contextmanager

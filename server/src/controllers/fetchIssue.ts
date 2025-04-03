@@ -1,8 +1,7 @@
 import { Request, response, Response } from "express";
 import "dotenv/config";
 
-import { TodoModel, TodoStatus } from "../models/Todo";
-import { taskID } from "../constant";
+import { taskIDs } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 import { IssueModel, IssueStatus } from "../models/Issue";
 import { verifySignature } from "../utils/sign";
@@ -48,7 +47,7 @@ async function verifySignatureData(
   stakingKey: string,
   pubKey: string,
   action: string,
-): Promise<{ roundNumber: number; githubUsername: string } | null> {
+): Promise<{ roundNumber: number; githubUsername: string; taskId: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -60,7 +59,7 @@ async function verifySignatureData(
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
-      body.taskId !== taskID ||
+      !taskIDs.includes(body.taskId) ||
       body.action !== action ||
       !body.githubUsername ||
       !body.pubKey ||
@@ -71,7 +70,7 @@ async function verifySignatureData(
       console.log("bad signature data");
       return null;
     }
-    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername };
+    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername, taskId: body.taskId };
   } catch (error) {
     console.log("unexpected signature error", error);
     return null;
@@ -102,7 +101,7 @@ export const fetchIssue = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(requestBody.stakingKey))) {
+  if (!(await isValidStakingKey(requestBody.stakingKey, signatureData.taskId))) {
     res.status(401).json({
       success: false,
       message: "Invalid staking key",

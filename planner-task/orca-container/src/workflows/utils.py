@@ -4,7 +4,7 @@ import os
 import shutil
 from github import Github
 from git import Repo
-from src.utils.logging import log_key_value, log_error
+from agent_framework.utils.logging import log_key_value, log_error
 from src.tools.file_operations.implementations import list_files
 from src.tools.github_operations.parser import extract_section
 from src.utils.signatures import verify_and_parse_signature

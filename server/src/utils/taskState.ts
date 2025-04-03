@@ -1,9 +1,11 @@
 import { getTaskStateInfo } from "@_koii/create-task-cli";
 import { Connection } from "@_koii/web3.js";
-import { RPCURL, taskID } from "../constant";
+import { RPCURL } from "../constant";
 import NodeCache from "node-cache";
+import "dotenv/config";
 
 const taskCache = new NodeCache({ stdTTL: 30, checkperiod: 120 });
+const BYPASS_TASK_STATE_CHECK = process.env.BYPASS_TASK_STATE_CHECK === "true";
 
 export async function getTaskState(taskId: string): Promise<string[]> {
   const cachedTaskState = taskCache.get(taskId);
@@ -20,10 +22,16 @@ export async function getTaskState(taskId: string): Promise<string[]> {
   return stakeListKeys;
 }
 
-export async function isValidStakingKey(pubKey: string): Promise<boolean> {
+export async function isValidStakingKey(pubKey: string, taskId: string): Promise<boolean> {
+  // Skip blockchain checks during testing
+  if (BYPASS_TASK_STATE_CHECK) {
+    console.log(`[TEST MODE] Bypassing task state check for stakingKey: ${pubKey}`);
+    return true;
+  }
+
   let stakeListKeys: string[];
   try {
-    stakeListKeys = await getTaskState(taskID);
+    stakeListKeys = await getTaskState(taskId);
   } catch (error) {
     console.log("Error fetching task state", error);
     return true;

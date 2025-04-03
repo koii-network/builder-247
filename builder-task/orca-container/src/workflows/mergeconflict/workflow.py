@@ -2,9 +2,11 @@
 
 import os
 from github import Github
-from src.workflows.base import Workflow
-from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.utils import (
+from agent_framework.workflows.base import Workflow
+from agent_framework.utils.logging import log_section, log_key_value, log_error
+from agent_framework.tools.github_operations.parser import extract_section
+from agent_framework.utils.signatures import verify_and_parse_signature
+from agent_framework.workflows.utils import (
     check_required_env_vars,
     setup_repository,
     cleanup_repository,
@@ -15,8 +17,6 @@ from src.workflows.mergeconflict.phases import (
     CreatePullRequestPhase,
     TestVerificationPhase,
 )
-from src.tools.github_operations.parser import extract_section
-from src.utils.signatures import verify_and_parse_signature
 
 
 class MergeConflictWorkflow(Workflow):

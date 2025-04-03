@@ -1,28 +1,15 @@
-import { Request, Response } from "express";
-import { IssueModel, IssueStatus } from "../models/Issue";
-import { verifySignature } from "../utils/sign";
-import { taskIDs } from "../constant";
-export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
-  console.log("verifyRequestBody", req.body);
-  try {
-    const signature = req.body.signature as string;
-    const stakingKey = req.body.stakingKey as string;
-    const pubKey = req.body.pubKey as string;
-    if (!signature || !stakingKey || !pubKey) {
-      return null;
-    }
-    return { signature, stakingKey, pubKey };
-  } catch {
-    return null;
-  }
-}
-
 async function verifySignatureData(
   signature: string,
   stakingKey: string,
   pubKey: string,
   action: string,
-): Promise<{ roundNumber: number; prUrl: string; issueUuid: string; taskId: string } | null> {
+): Promise<{
+  roundNumber: number;
+  githubUsername: string;
+  issueUuid: string;
+  aggregatorUrl: string;
+  taskId: string;
+} | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -31,25 +18,35 @@ async function verifySignatureData(
     }
     const body = JSON.parse(data);
     console.log({ signature_payload: body });
+    console.log("task id matches", taskIDs.includes(body.taskId));
+    console.log("round number is number", typeof body.roundNumber === "number");
+    console.log("pub key matches", body.pubKey === pubKey);
+    console.log("staking key matches", body.stakingKey === stakingKey);
+    console.log("action matches", body.action === action);
+    console.log("github username exists", body.githubUsername);
+    console.log("issue uuid exists", body.issueUuid);
+    console.log("aggregator url exists", body.aggregatorUrl);
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
       !taskIDs.includes(body.taskId) ||
       body.action !== action ||
-      !body.prUrl ||
-      !body.issueUuid ||
+      !body.githubUsername ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
       !body.stakingKey ||
-      body.stakingKey !== stakingKey
+      body.stakingKey !== stakingKey ||
+      !body.issueUuid ||
+      !body.aggregatorUrl
     ) {
       console.log("bad signature data");
       return null;
     }
     return {
       roundNumber: body.roundNumber,
-      prUrl: body.prUrl,
+      githubUsername: body.githubUsername,
       issueUuid: body.issueUuid,
+      aggregatorUrl: body.aggregatorUrl,
       taskId: body.taskId,
     };
   } catch (error) {
@@ -58,7 +55,7 @@ async function verifySignatureData(
   }
 }
 
-export const addIssuePR = async (req: Request, res: Response) => {
+export const addAggregatorInfo = async (req: Request, res: Response) => {
   const requestBody = verifyRequestBody(req);
   if (!requestBody) {
     res.status(401).json({
@@ -72,7 +69,7 @@ export const addIssuePR = async (req: Request, res: Response) => {
     requestBody.signature,
     requestBody.stakingKey,
     requestBody.pubKey,
-    "addIssuePR",
+    "create-repo",
   );
   if (!signatureData) {
     res.status(401).json({
@@ -82,28 +79,30 @@ export const addIssuePR = async (req: Request, res: Response) => {
     return;
   }
 
-  const response = await addIssuePRLogic(requestBody, signatureData);
+  const response = await addAggregatorInfoLogic(requestBody, signatureData);
   res.status(response.statuscode).json(response.data);
 };
-export const addIssuePRLogic = async (
-  requestBody: { signature: string; stakingKey: string; pubKey: string },
-  signatureData: { roundNumber: number; prUrl: string; issueUuid: string },
+
+export const addAggregatorInfoLogic = async (
+  requestBody: { signature: string; stakingKey: string; pubKey: string; issueUuid: string; aggregatorUrl: string },
+  signatureData: { roundNumber: number; githubUsername: string; issueUuid: string; aggregatorUrl: string },
 ) => {
+  console.log("Searching for issue with:", {
+    issueUuid: signatureData.issueUuid,
+  });
   const issue = await IssueModel.findOneAndUpdate(
     {
       issueUuid: signatureData.issueUuid,
-      leaderDecidedRound: signatureData.roundNumber,
     },
     {
-      assignedStakingKey: requestBody.stakingKey,
-      assignedPubKey: requestBody.pubKey,
-      assignedRoundNumber: signatureData.roundNumber,
-      prUrl: signatureData.prUrl,
-      status: IssueStatus.IN_REVIEW,
+      $set: {
+        status: IssueStatus.IN_PROCESS,
+        aggregatorName: signatureData.githubUsername,
+        aggregatorUrl: signatureData.aggregatorUrl,
+      },
     },
     { new: true },
   );
-
   if (!issue) {
     return {
       statuscode: 404,
@@ -114,11 +113,15 @@ export const addIssuePRLogic = async (
     };
   }
 
+  issue.status = IssueStatus.IN_PROCESS;
+
+  await issue.save();
+
   return {
     statuscode: 200,
     data: {
       success: true,
-      message: "Issue PR added",
+      message: "Aggregator info added",
     },
   };
 };

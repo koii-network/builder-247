@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from src.server.services import task_service
-from src.utils.logging import logger
+from agent_framework.utils.logging import logger
 
 bp = Blueprint("task", __name__)
 
@@ -17,10 +17,37 @@ def start_leader_task(round_number):
 
 @bp.post("/create-aggregator-repo/<task_id>")
 def create_aggregator_repo(task_id):
-    issue_data = task_service.assign_issue(task_id)
-    return task_service.create_aggregator_repo(
-        issue_data["issueId"], issue_data["repoOwner"], issue_data["repoName"]
+    print("\n=== ROUTE HANDLER CALLED ===")
+    print(f"task_id: {task_id}")
+    request_data = request.get_json()
+    print(f"request_data: {request_data}")
+    if not request_data:
+        return jsonify({"error": "Invalid request body"}), 401
+
+    # Create the aggregator repo (which now handles assign_issue internally)
+    result = task_service.create_aggregator_repo(task_id)
+    print(f"result: {result}")
+    return result
+
+
+@bp.post("/add-aggregator-info/<task_id>")
+def add_aggregator_info(task_id):
+    print("\n=== ADD AGGREGATOR INFO ROUTE HANDLER CALLED ===")
+    print(f"task_id: {task_id}")
+    request_data = request.get_json()
+    print(f"request_data: {request_data}")
+    if not request_data:
+        return jsonify({"error": "Invalid request body"}), 401
+
+    # Call the task service to update aggregator info with the middle server
+    result = task_service.add_aggregator_info(
+        task_id,
+        request_data.get("stakingKey"),
+        request_data.get("pubKey"),
+        request_data.get("signature"),
     )
+    print(f"result: {result}")
+    return result
 
 
 def start_task(round_number, node_type, request):

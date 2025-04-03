@@ -36,7 +36,10 @@ class Issue {
   public repoName!: string;
 
   @prop({ required: false })
-  public aggregatorName?: string;
+  public aggregatorOwner?: string;
+
+  @prop({ required: false })
+  public aggregatorUrl?: string;
 
   @prop({ required: false })
   public assignedStakingKey?: string;

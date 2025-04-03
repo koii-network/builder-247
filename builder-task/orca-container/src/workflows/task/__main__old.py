@@ -6,7 +6,7 @@ import os
 import uuid
 from github import Github, GithubException
 from src.workflows.task.workflow import TaskWorkflow
-from src.utils.logging import (
+from agent_framework.utils.logging import (
     log_section,
     log_key_value,
     configure_logging,

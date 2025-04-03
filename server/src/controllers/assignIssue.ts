@@ -112,14 +112,18 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
     { new: true },
   );
 
+  const data = {
+    success: true,
+    message: "Issue assigned",
+    issueId: result.nextIssue.issueUuid,
+    repoOwner: result.nextIssue.repoOwner,
+    repoName: result.nextIssue.repoName,
+  };
+
+  console.log("data", data);
+
   return {
     statuscode: 200,
-    data: {
-      success: true,
-      message: "Issue assigned",
-      issueId: result.nextIssue.issueUuid,
-      repoOwner: result.nextIssue.repoOwner,
-      repoName: result.nextIssue.repoName,
-    },
+    data,
   };
 };

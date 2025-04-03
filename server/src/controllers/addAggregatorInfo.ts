@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { IssueModel, IssueStatus } from "../models/Issue";
 import { verifySignature } from "../utils/sign";
-import { taskID } from "../constant";
+import { taskIDs } from "../constant";
 export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
   console.log("verifyRequestBody", req.body);
   try {
@@ -22,7 +22,13 @@ async function verifySignatureData(
   stakingKey: string,
   pubKey: string,
   action: string,
-): Promise<{ roundNumber: number; githubUsername: string; issueUuid: string } | null> {
+): Promise<{
+  roundNumber: number;
+  githubUsername: string;
+  issueUuid: string;
+  taskId: string;
+  aggregatorUrl: string;
+} | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -31,23 +37,37 @@ async function verifySignatureData(
     }
     const body = JSON.parse(data);
     console.log({ signature_payload: body });
+    console.log("task id matches", taskIDs.includes(body.taskId));
+    console.log("round number is number", typeof body.roundNumber === "number");
+    console.log("pub key matches", body.pubKey === pubKey);
+    console.log("staking key matches", body.stakingKey === stakingKey);
+    console.log("action matches", body.action === action);
+    console.log("github username exists", body.githubUsername);
+    console.log("aggregator url exists", body.aggregatorUrl);
+    console.log("issue uuid exists", body.issueUuid);
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
-      body.taskId !== taskID ||
+      !taskIDs.includes(body.taskId) ||
       body.action !== action ||
       !body.githubUsername ||
-      !body.issueUuid ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
       !body.stakingKey ||
       body.stakingKey !== stakingKey ||
-      !body.aggregatorUrl
+      !body.aggregatorUrl ||
+      !body.issueUuid
     ) {
       console.log("bad signature data");
       return null;
     }
-    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername, issueUuid: body.issueUuid };
+    return {
+      roundNumber: body.roundNumber,
+      githubUsername: body.githubUsername,
+      issueUuid: body.issueUuid,
+      taskId: body.taskId,
+      aggregatorUrl: body.aggregatorUrl,
+    };
   } catch (error) {
     console.log("unexpected signature error", error);
     return null;
@@ -68,7 +88,7 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
     requestBody.signature,
     requestBody.stakingKey,
     requestBody.pubKey,
-    "addAggregatorInfo",
+    "create-repo",
   );
   if (!signatureData) {
     res.status(401).json({
@@ -83,25 +103,20 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
 };
 export const addAggregatorInfoLogic = async (
   requestBody: { signature: string; stakingKey: string; pubKey: string },
-  signatureData: { roundNumber: number; githubUsername: string; issueUuid: string },
+  signatureData: { roundNumber: number; githubUsername: string; issueUuid: string; aggregatorUrl: string },
 ) => {
   console.log("Searching for issue with:", {
     issueUuid: signatureData.issueUuid,
-    aggregator: {
-      stakingKey: requestBody.stakingKey,
-      githubUsername: signatureData.githubUsername,
-      roundNumber: signatureData.roundNumber,
-    },
   });
   const issue = await IssueModel.findOneAndUpdate(
     {
       issueUuid: signatureData.issueUuid,
-      "aggregator.stakingKey": requestBody.stakingKey,
-      "aggregator.githubUsername": signatureData.githubUsername,
     },
     {
       $set: {
         status: IssueStatus.IN_PROCESS,
+        aggregatorOwner: signatureData.githubUsername,
+        aggregatorUrl: signatureData.aggregatorUrl,
       },
     },
     { new: true },

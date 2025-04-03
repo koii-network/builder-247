@@ -2,7 +2,6 @@ import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 import { getLeaderNode } from "../utils/leader";
-import { getDistributionList } from "../utils/distributionList";
 
 interface PodCallBody {
   taskId: string;
@@ -11,11 +10,6 @@ interface PodCallBody {
   pubKey: string;
   stakingSignature: string;
   publicSignature: string;
-}
-
-interface Submission {
-  stakingKey: string;
-  prUrl?: string;
 }
 
 export async function task(roundNumber: number): Promise<void> {
@@ -65,7 +59,7 @@ export async function task(roundNumber: number): Promise<void> {
       signature: aggregatorSignature,
     };
 
-    await orcaClient.podCall("add-aggregator-info", {
+    await orcaClient.podCall(`add-aggregator-info/${TASK_ID}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -88,7 +82,7 @@ export async function task(roundNumber: number): Promise<void> {
       githubUsername: process.env.GITHUB_USERNAME,
       stakingKey,
       pubKey,
-      action: "task",
+      action: "fetch-todo",
     };
     const stakingSignature = await namespaceWrapper.payloadSigning(payload, stakingKeypair.secretKey);
     const publicSignature = await namespaceWrapper.payloadSigning(payload);

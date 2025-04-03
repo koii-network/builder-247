@@ -2,7 +2,12 @@
 
 from flask import Flask, request
 from .routes import task, submission, audit, healthz
-from src.utils.logging import configure_logging, log_section, log_key_value, log_value
+from agent_framework.utils.logging import (
+    configure_logging,
+    log_section,
+    log_key_value,
+    log_value,
+)
 from src.database import initialize_database
 from colorama import Fore, Style
 import uuid

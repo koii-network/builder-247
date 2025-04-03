@@ -1,19 +1,19 @@
 """Audit service module."""
 
-from src.clients import setup_client
+from agent_framework.clients import setup_client
 from src.workflows.audit.workflow import AuditWorkflow
 from src.workflows.audit.prompts import PROMPTS as AUDIT_PROMPTS
-from src.utils.logging import log_error
+from agent_framework.utils.logging import log_error
 import re
 import requests
 from github import Github
 import os
 from typing import Dict, Tuple
 from git import Repo
-from src.workflows.utils import verify_pr_signatures
-from src.utils.distribution import validate_distribution_list
+from agent_framework.utils.signatures import verify_signature
+from agent_framework.utils.distribution import validate_distribution_list
 import json
-from src.tools.github_operations.parser import extract_section
+from agent_framework.tools.github_operations.parser import extract_section
 
 
 def verify_pr_ownership(
@@ -75,7 +75,7 @@ def verify_pr_ownership(
             return False
 
         # Verify PR signature
-        is_valid = verify_pr_signatures(
+        is_valid = verify_signature(
             pr.body,
             task_id,
             round_number,

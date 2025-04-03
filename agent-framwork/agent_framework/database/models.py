@@ -27,18 +27,6 @@ class Message(SQLModel, table=True):
     conversation: Conversation = Relationship(back_populates="messages")
 
 
-class Submission(SQLModel, table=True):
-    """Task submission model."""
-
-    task_id: str = Field(primary_key=True)
-    round_number: int = Field(primary_key=True)
-    status: str = "pending"
-    pr_url: Optional[str] = None
-    username: Optional[str] = None
-    repo_owner: str
-    repo_name: str
-
-
 class Log(SQLModel, table=True):
     """Log entry model."""
 

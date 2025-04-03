@@ -2,7 +2,7 @@ import { TodoModel } from "../models/Todo";
 
 import { Request, Response } from "express";
 import { verifySignature } from "../utils/sign";
-import { taskID } from "../constant";
+import { taskIDs } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 import { TodoStatus } from "../models/Todo";
 
@@ -27,7 +27,7 @@ async function verifySignatureData(
   signature: string,
   pubKey: string,
   stakingKey: string,
-): Promise<{ roundNumber: number; prUrl: string } | null> {
+): Promise<{ roundNumber: number; prUrl: string; taskId: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -38,7 +38,7 @@ async function verifySignatureData(
     console.log("signature payload", { body, pubKey, stakingKey });
     if (
       !body.taskId ||
-      body.taskId !== taskID ||
+      !taskIDs.includes(body.taskId) ||
       typeof body.roundNumber !== "number" ||
       body.action !== "add" ||
       !body.prUrl ||
@@ -49,7 +49,7 @@ async function verifySignatureData(
     ) {
       return null;
     }
-    return { roundNumber: body.roundNumber, prUrl: body.prUrl };
+    return { roundNumber: body.roundNumber, prUrl: body.prUrl, taskId: body.taskId };
   } catch {
     return null;
   }
@@ -100,7 +100,7 @@ export const addPR = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(requestBody.stakingKey))) {
+  if (!(await isValidStakingKey(requestBody.stakingKey, signatureData.taskId))) {
     res.status(401).json({
       success: false,
       message: "Invalid staking key",

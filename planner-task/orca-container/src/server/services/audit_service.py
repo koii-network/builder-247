@@ -3,7 +3,7 @@
 from src.clients import setup_client
 from src.workflows.audit.workflow import AuditWorkflow
 from src.workflows.audit.prompts import PROMPTS as AUDIT_PROMPTS
-from src.utils.logging import log_error
+from agent_framework.utils.logging import log_error
 import re
 import requests
 from github import Github

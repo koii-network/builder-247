@@ -1,7 +1,6 @@
 import nacl from "tweetnacl";
 import { Keypair } from "@_koii/web3.js";
 import bs58 from "bs58";
-import { taskID } from "../constant";
 
 export async function signData(keypair: Keypair, body: Record<string, unknown>): Promise<string> {
   const msg = new TextEncoder().encode(JSON.stringify(body));
@@ -31,4 +30,3 @@ export async function verifySignature(
     return { error: `Verification failed: ${e}` };
   }
 }
-

@@ -1,7 +1,7 @@
 """Merge conflict workflow execution."""
 
 from github import Github
-from src.workflows.base import WorkflowExecution
+from agent_framework.workflows.base import WorkflowExecution
 from src.workflows.mergeconflict.workflow import MergeConflictWorkflow
 from src.workflows.mergeconflict.prompts import PROMPTS
 from typing import List
