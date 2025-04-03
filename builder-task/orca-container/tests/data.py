@@ -189,6 +189,25 @@ class DataManager:
             "branchName": self.branch_name,
         }
 
+    def create_submitter_signature(
+        self, submitter_role: str, payload: Dict[str, Any]
+    ) -> str:
+        """Create signature using the submitter's staking key."""
+        try:
+            staking_keypair_path = self.keypairs[submitter_role]["staking"]
+            if staking_keypair_path:
+                staking_signing_key, _ = self._load_keypair(staking_keypair_path)
+                payload_str = json.dumps(payload, sort_keys=True).encode()
+                staking_signed = staking_signing_key.sign(payload_str)
+                staking_combined = staking_signed.signature + payload_str
+                return base58.b58encode(staking_combined).decode()
+            else:
+                print(f"Warning: No staking keypair path for {submitter_role}")
+                return "dummy_submitter_signature"
+        except Exception as e:
+            print(f"Error creating submitter signature: {e}")
+            return "dummy_submitter_signature"
+
     def prepare_worker_audit(
         self, auditor: str, pr_url: str, round_number: int
     ) -> Dict[str, Any]:
@@ -231,24 +250,43 @@ class DataManager:
             "repoName": pr_repo_name,
         }
 
-        # Create submitter signature by simulating what would happen in 2-submission.ts
-        # This is what would be stored on IPFS and retrieved by the auditor
-        try:
-            # Load submitter's staking keypair from environment
-            submitter_role = (
-                "worker1"  # Assuming worker1 is being audited - adjust if needed
+        # Determine submitter role from GitHub username
+        if pr.user.login == os.getenv("WORKER1_GITHUB_USERNAME"):
+            submitter_role = "worker1"
+        elif pr.user.login == os.getenv("WORKER2_GITHUB_USERNAME"):
+            submitter_role = "worker2"
+        elif pr.user.login == os.getenv("LEADER_GITHUB_USERNAME"):
+            submitter_role = "leader"
+        else:
+            print(
+                f"Warning: Could not determine submitter role from username {pr.user.login}"
             )
-            staking_keypair_path = self.keypairs[submitter_role]["staking"]
-            if staking_keypair_path:
-                staking_signing_key, _ = self._load_keypair(staking_keypair_path)
-                payload_str = json.dumps(submission_payload, sort_keys=True).encode()
-                staking_signed = staking_signing_key.sign(payload_str)
-                staking_combined = staking_signed.signature + payload_str
-                submitter_signature = base58.b58encode(staking_combined).decode()
+            # Extract the role from the staking key environment variables
+            for role in ["worker1", "worker2", "leader"]:
+                role_keypair = self.keypairs[role]["staking"]
+                if role_keypair:
+                    try:
+                        _, pub_key = self._load_keypair(role_keypair)
+                        if pub_key == submitter_key:
+                            submitter_role = role
+                            break
+                    except Exception:
+                        pass
             else:
-                submitter_signature = "dummy_submitter_signature"
-        except Exception as e:
-            print(f"Error creating submitter signature: {e}")
+                print(
+                    f"Warning: Could not match staking key {submitter_key} to any role"
+                )
+                submitter_role = None
+
+        print(f"Using {submitter_role} as submitter for PR: {pr_url}")
+
+        # Create submitter signature using the determined role
+        if submitter_role:
+            submitter_signature = self.create_submitter_signature(
+                submitter_role, submission_payload
+            )
+        else:
+            print("Warning: No submitter role determined, using dummy signature")
             submitter_signature = "dummy_submitter_signature"
 
         # Create auditor payload which is used to generate the signature
