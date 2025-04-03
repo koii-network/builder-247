@@ -3,14 +3,10 @@ import fs from "fs";
 import Debugger from "./debugger";
 import { Tail } from "tail";
 import path from "path";
-import { fileURLToPath } from "url";
 import chalk from "chalk";
 import dotenv from "dotenv";
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 function startWatching(): void {
   console.log("Watching for file changes...");
@@ -42,10 +38,7 @@ async function copyWebpackedFile(): Promise<void> {
   console.log("debugConfig", debugConfig);
   const nodeDIR = debugConfig.nodeDir;
   const sourcePath = path.join(__dirname, debugConfig.webpackedFilePath);
-  const desktopNodeExecutablePath = path.join(
-    nodeDIR,
-    debugConfig.destinationPath,
-  );
+  const desktopNodeExecutablePath = path.join(nodeDIR, debugConfig.destinationPath);
   const desktopNodeLogPath = path.join(nodeDIR, debugConfig.logPath);
   const keywords = debugConfig.keywords;
   const taskID = debugConfig.taskID;
@@ -55,9 +48,7 @@ async function copyWebpackedFile(): Promise<void> {
     return;
   }
 
-  console.log(
-    `Copying webpacked file from ${sourcePath} to ${desktopNodeExecutablePath}...`,
-  );
+  console.log(`Copying webpacked file from ${sourcePath} to ${desktopNodeExecutablePath}...`);
 
   fs.copyFile(sourcePath, desktopNodeExecutablePath, async (err) => {
     if (err) {
@@ -70,11 +61,7 @@ async function copyWebpackedFile(): Promise<void> {
 }
 
 /* tail logs */
-async function tailLogs(
-  desktopNodeLogPath: string,
-  keywords: string[],
-  taskID: string,
-): Promise<void> {
+async function tailLogs(desktopNodeLogPath: string, keywords: string[], taskID: string): Promise<void> {
   console.log("Watching logs for messages containing ", keywords);
 
   // Extract the directory path from the full log file path

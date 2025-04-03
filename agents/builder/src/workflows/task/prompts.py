@@ -23,13 +23,13 @@ PROMPTS = {
         "4. Not include special characters\n"
         "STOP after creating the branch name, do not begin implementing the task."
     ),
-    "execute_todo": (
+    "implement_todo": (
         "You are working on implementing the following task:\n"
         "{todo}\n\n"
-        "Available files: {current_files}\n\n"
+        "All available files: {current_files}\n\n"
         "IMPORTANT: ALWAYS use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
         "Use the available tools to:\n"
-        "Create/edit necessary files using relative paths\n"
+        "Create necessary files using relative paths\n"
         "Run tests to verify your implementation\n"
         "Fix any issues until all tests pass\n\n"
         "Please implement the task following these guidelines:\n"
@@ -95,14 +95,9 @@ PROMPTS = {
     ),
     "create_pr": (
         "You are creating a pull request for the following task:\n"
-        "Repository: {repo_owner}/{repo_name}\n"
-        "IMPORTANT - Use this EXACT branch name: {branch_name}\n"
-        "Base: {base_branch}\n\n"
         "Task Description:\n"
         "{todo}\n\n"
         "Available files: {current_files}\n\n"
-        "Acceptance Criteria:\n"
-        "{acceptance_criteria}\n\n"
         "IMPORTANT: Always use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
         "Steps to create the pull request:\n"
         "1. First examine the available files to understand the implementation\n"

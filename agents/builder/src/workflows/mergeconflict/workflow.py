@@ -1,23 +1,22 @@
 """Merge conflict resolver workflow implementation."""
 
 import os
-import time
 from github import Github
 from src.workflows.base import Workflow
 from src.utils.logging import log_section, log_key_value, log_error
-from src.workflows.mergeconflict import phases
 from src.workflows.utils import (
     check_required_env_vars,
-    validate_github_auth,
-    setup_repo_directory,
-    setup_git_user_config,
-    cleanup_repo_directory,
+    setup_repository,
+    cleanup_repository,
     get_current_files,
-    clone_repository,
 )
-from src.tools.git_operations.implementations import (
-    get_conflict_info,
+from src.workflows.mergeconflict.phases import (
+    ConflictResolutionPhase,
+    CreatePullRequestPhase,
+    TestVerificationPhase,
 )
+from src.tools.github_operations.parser import extract_section
+from src.utils.signatures import verify_and_parse_signature
 
 
 class MergeConflictWorkflow(Workflow):
@@ -25,671 +24,464 @@ class MergeConflictWorkflow(Workflow):
         self,
         client,
         prompts,
-        repo_url,
-        target_branch,
-        pr_limit=0,
+        source_fork_url,  # URL of fork containing PRs (first level fork)
+        source_branch,  # Branch on source fork containing PRs to merge (e.g. round-123-task-456)
+        is_source_fork_owner=False,  # True if we own the source fork, False if we need to fork it
+        staking_key=None,  # Leader's staking key
+        pub_key=None,  # Leader's public key
+        staking_signature=None,  # Leader's staking signature
+        public_signature=None,  # Leader's public signature
+        task_id=None,  # Task ID for signature validation
+        round_number=None,  # Round number for signature validation
+        staking_keys=None,  # Distribution list for signature validation
+        github_token="GITHUB_TOKEN",
+        github_username="GITHUB_USERNAME",
     ):
-        # Extract owner and repo name from URL
-        # URL format: https://github.com/owner/repo
-        parts = repo_url.strip("/").split("/")
-        repo_owner = parts[-2]
-        repo_name = parts[-1]
+        # Extract source repo info from source fork URL
+        parts = source_fork_url.strip("/").split("/")
+        source_fork_owner = parts[-2]
+        source_repo_name = parts[-1]
 
         super().__init__(
             client=client,
             prompts=prompts,
-            repo_url=repo_url,
-            repo_owner=repo_owner,
-            repo_name=repo_name,
-            target_branch=target_branch,
         )
-        self.resolved_conflicts = []
-        self.pr_limit = pr_limit
+
+        # Initialize conversation ID
+        self.conversation_id = None
+
+        check_required_env_vars([github_token, github_username])
+        self.context["github_token"] = os.getenv(github_token)
+        consolidation_username = os.getenv(github_username)
+        self.context["github_username"] = consolidation_username
+
+        self.source_fork_owner = source_fork_owner
+        # We own the source fork if our consolidation username matches the source fork owner
+        self.is_source_fork_owner = consolidation_username == source_fork_owner
+        self.task_id = task_id
+        self.round_number = round_number
+        self.staking_keys = staking_keys or []
+
+        # Verify source branch format matches task_id and round_number
+        expected_branch = f"task-{task_id}-round-{round_number}"
+        if source_branch != expected_branch:
+            raise ValueError(
+                f"Source branch {source_branch} does not match expected format {expected_branch}"
+            )
+
+        # Initialize context with source info
+        self.context.update(
+            {
+                "source_fork": {
+                    "url": source_fork_url,
+                    "owner": source_fork_owner,
+                    "name": source_repo_name,
+                    "branch": source_branch,
+                },
+                "head_branch": f"{source_branch}-merged",  # Branch where we'll merge all PRs
+                "merged_prs": [],  # List of PR numbers for type compatibility
+                "pr_details": [],  # List of {number, title, url} for merged PRs
+                # Add leader signature info to context
+                "staking_key": staking_key,
+                "pub_key": pub_key,
+                "staking_signature": staking_signature,
+                "public_signature": public_signature,
+            }
+        )
+
+        # Get upstream repo info and add to context
+        gh = Github(self.context["github_token"])
+        source_fork = gh.get_repo(f"{source_fork_owner}/{source_repo_name}")
+        upstream = source_fork.parent
+
+        self.context["upstream"] = {
+            "url": upstream.html_url,
+            "owner": upstream.owner.login,
+            "name": upstream.name,
+            "default_branch": upstream.default_branch,
+        }
+
+    def validate_pr_signatures(self, pr):
+        """Validate signatures in a PR against the distribution list.
+
+        Args:
+            pr: GitHub PR object to validate
+
+        Returns:
+            bool: True if all required signatures are valid, False otherwise
+        """
+        # Skip validation if we don't have task_id or round_number
+        if not self.task_id or not self.round_number:
+            return True
+
+        # Extract signatures using parser
+        staking_signature_section = extract_section(pr.body, "STAKING_KEY")
+
+        if not staking_signature_section:
+            print(f"Missing staking key signature in PR #{pr.number}")
+            return False
+
+        # Parse the signature sections to get the staking key
+        staking_parts = staking_signature_section.strip().split(":")
+
+        if len(staking_parts) != 2:
+            print(f"Invalid signature format in PR #{pr.number}")
+            return False
+
+        submitter_staking_key = staking_parts[0].strip()
+        staking_signature = staking_parts[1].strip()
+
+        # Verify this staking key is in our distribution list
+        if submitter_staking_key not in self.staking_keys:
+            print(
+                f"PR #{pr.number} has staking key {submitter_staking_key} not in distribution list"
+            )
+            return False
+
+        # Verify signature and validate payload
+        expected_values = {
+            "taskId": self.task_id,
+            "roundNumber": self.round_number,
+            "stakingKey": submitter_staking_key,
+        }
+
+        result = verify_and_parse_signature(
+            staking_signature, submitter_staking_key, expected_values
+        )
+
+        if result.get("error"):
+            print(f"Invalid signature in PR #{pr.number}: {result['error']}")
+            return False
+
+        print(f"✓ Valid signature found for {submitter_staking_key}")
+        return True
 
     def setup(self):
         """Set up repository and workspace."""
-        check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
-        validate_github_auth(os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_USERNAME"))
-
-        # Set up repository directory
-        repo_path, original_dir = setup_repo_directory()
-        self.context["repo_path"] = repo_path
-        self.original_dir = original_dir
-
-        # Clone repository
-        log_section("CLONING REPOSITORY")
-        clone_result = clone_repository(
-            self.context["repo_url"],
-            self.context["repo_path"],
-        )
-        if not clone_result["success"]:
-            error = clone_result.get("error", "Unknown error")
-            log_error(Exception(error), "Clone failed")
-            raise Exception(error)
-
-        # Enter repo directory
-        os.chdir(self.context["repo_path"])
-
-        # Configure Git user info
-        setup_git_user_config(self.context["repo_path"])
-
-        self.context["current_files"] = get_current_files()
-
-    def cleanup(self):
-        """Cleanup workspace."""
-        # Make sure we're not in the repo directory before cleaning up
-        if os.getcwd() == self.context.get("repo_path", ""):
-            os.chdir(self.original_dir)
-
-        # Clean up the repository directory
-        cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
-
-    def get_open_prs(self):
-        """Get all open PRs for the target branch, sorted by creation date."""
         try:
-            gh = Github(os.getenv("GITHUB_TOKEN"))
-            repo = gh.get_repo(
-                f"{self.context['repo_owner']}/{self.context['repo_name']}"
-            )
+            # Set up repository
+            log_section("SETTING UP REPOSITORY")
+            repo_url = self.context["source_fork"]["url"]
 
-            # Get open PRs targeting the specified branch
+            # If we own the source fork, clone it directly
+            # Otherwise, let setup_repository fork it
+            if self.is_source_fork_owner:
+                result = setup_repository(
+                    repo_url,
+                    github_token=self.context["github_token"],
+                    github_username=self.context["github_username"],
+                    skip_fork=True,  # Don't fork if we own the source
+                )
+            else:
+                result = setup_repository(
+                    repo_url,
+                    github_token=self.context["github_token"],
+                    github_username=self.context["github_username"],
+                )
+
+            if not result["success"]:
+                raise Exception(result.get("error", "Repository setup failed"))
+
+            # Add working fork info to context
+            if self.is_source_fork_owner:
+                self.context["working_fork"] = {
+                    "url": repo_url,  # We're working directly on the source fork
+                    "owner": self.context["source_fork"]["owner"],
+                    "name": self.context["source_fork"]["name"],
+                }
+            else:
+                self.context["working_fork"] = {
+                    "url": result["data"]["fork_url"],
+                    "owner": result["data"]["fork_owner"],
+                    "name": result["data"]["fork_name"],
+                }
+
+            # Set required context variables for PR creation
+            self.context["repo_owner"] = self.context["upstream"]["owner"]
+            self.context["repo_name"] = self.context["upstream"]["name"]
+
+            # Change to repo directory
+            self.context["repo_path"] = result["data"]["clone_path"]
+            os.chdir(self.context["repo_path"])
+
+            # Configure source remote if we don't own the source fork
+            if not self.is_source_fork_owner:
+                os.system(f"git remote add source {self.context['source_fork']['url']}")
+                os.system("git fetch source")
+
+            # Create merge branch from source branch
+            source_branch = self.context["source_fork"]["branch"]
+            head_branch = self.context["head_branch"]
+
+            # Fetch source branch and create merge branch from it
+            os.system(
+                f"git fetch {'origin' if self.is_source_fork_owner else 'source'} {source_branch}"
+            )
+            os.system(f"git checkout -b {head_branch} FETCH_HEAD")
+            os.system(f"git push origin {head_branch}")
+
+            return True
+
+        except Exception as e:
+            log_error(e, "Failed to set up repository")
+            return False
+
+    def merge_pr(self, pr_url, pr_title):
+        """Merge a single PR into the head branch."""
+        # Extract PR info from URL
+        parts = pr_url.strip("/").split("/")
+        pr_number = int(parts[-1])
+        pr_repo_owner = parts[-4]
+        pr_repo_name = parts[-3]
+
+        try:
+            # Create unique branch name for PR content
+            pr_branch = f"pr-{pr_number}-{pr_repo_owner}-{pr_repo_name}"
+            print(
+                f"Attempting to merge PR #{pr_number} from {pr_repo_owner}/{pr_repo_name}"
+            )
+            print(f"Creating branch: {pr_branch}")
+            print(f"Current directory: {os.getcwd()}")
+            print("Git remotes:")
+            remotes_output = os.popen("git remote -v 2>&1").read()
+            print(remotes_output)
+
+            # Always create a new branch with PR contents, regardless of fork ownership
+            if self.is_source_fork_owner:
+                # Even though we own the fork, create a new branch from the PR's HEAD
+                print("Fetching PR from origin (we own the fork)")
+                fetch_output = os.popen(
+                    f"git fetch origin pull/{pr_number}/head 2>&1"
+                ).read()
+                print(f"Fetch output: {fetch_output}")
+                checkout_output = os.popen(
+                    f"git checkout -b {pr_branch} FETCH_HEAD 2>&1"
+                ).read()
+                print(f"Checkout output: {checkout_output}")
+            else:
+                # Fetch PR from source fork into new branch
+                print("Fetching PR from source remote")
+                fetch_output = os.popen(
+                    f"git fetch source pull/{pr_number}/head 2>&1"
+                ).read()
+                print(f"Fetch output: {fetch_output}")
+                checkout_output = os.popen(
+                    f"git checkout -b {pr_branch} FETCH_HEAD 2>&1"
+                ).read()
+                print(f"Checkout output: {checkout_output}")
+
+            # Push PR branch to our fork for auditing
+            print(f"Pushing branch {pr_branch} to origin")
+            push_output = os.popen(f"git push origin {pr_branch} 2>&1").read()
+            print(f"Push output: {push_output}")
+
+            # Try to merge into head branch
+            print(f"Checking out head branch: {self.context['head_branch']}")
+            checkout_output = os.popen(
+                f"git checkout {self.context['head_branch']} 2>&1"
+            ).read()
+            print(f"Checkout output: {checkout_output}")
+
+            print(f"Attempting to merge {pr_branch}")
+            merge_output = os.popen(
+                f"git merge --no-commit --no-ff {pr_branch} 2>&1"
+            ).read()
+            print(f"Merge output: {merge_output}")
+
+            # Handle conflicts through the ConflictResolutionPhase
+            if "CONFLICT" in merge_output:
+                print("Merge conflicts detected, attempting resolution")
+                self.context["current_files"] = get_current_files()
+                resolution_phase = ConflictResolutionPhase(
+                    workflow=self,
+                    conversation_id=getattr(
+                        self, "conversation_id", None
+                    ),  # Get conversation_id if it exists
+                )
+                resolution_result = resolution_phase.execute()
+
+                # Store the conversation ID for future phases
+                self.conversation_id = resolution_phase.conversation_id
+
+                if not resolution_result or not resolution_result.get("success"):
+                    raise Exception("Failed to resolve conflicts")
+                print("Successfully resolved conflicts")
+
+            # Commit the merge with branch name and PR URL
+            print("Committing merge")
+            commit_output = os.popen(
+                f'git commit -m "Merged branch {pr_branch} for PR {pr_url}" 2>&1'
+            ).read()
+            print(f"Commit output: {commit_output}")
+
+            print(f"Pushing merged changes to {self.context['head_branch']}")
+            push_output = os.popen(
+                f"git push origin {self.context['head_branch']} 2>&1"
+            ).read()
+            print(f"Push output: {push_output}")
+
+            # Only track successfully merged PRs
+            self.context["merged_prs"].append(pr_number)
+            self.context["pr_details"].append(
+                {
+                    "number": pr_number,
+                    "title": pr_title,
+                    "url": pr_url,
+                    "source_owner": pr_repo_owner,
+                }
+            )
+            print(f"Successfully merged PR #{pr_number}")
+            return {"success": True, "message": f"Successfully merged PR #{pr_number}"}
+
+        except Exception as e:
+            log_error(e, f"Failed to merge PR #{pr_number}")
+            print(f"Current directory: {os.getcwd()}")
+            print("Git status:")
+            status_output = os.popen("git status 2>&1").read()
+            print(status_output)
+            print("Git branch:")
+            branch_output = os.popen("git branch 2>&1").read()
+            print(branch_output)
+            print("Git log:")
+            log_output = os.popen("git log --oneline -n 5 2>&1").read()
+            print(log_output)
+            return {"success": False, "message": str(e)}
+
+    def run(self):
+        """Execute the merge conflict workflow."""
+        try:
+            if not self.setup():
+                log_error(Exception("Setup failed"), "Repository setup failed")
+                return None
+
+            # Get list of PRs to process
+            gh = Github(self.context["github_token"])
+            source_fork = gh.get_repo(
+                f"{self.source_fork_owner}/{self.context['source_fork']['name']}"
+            )
             open_prs = list(
-                repo.get_pulls(state="open", base=self.context["target_branch"])
+                source_fork.get_pulls(
+                    state="open", base=self.context["source_fork"]["branch"]
+                )
             )
 
             # Sort PRs by creation date (oldest first)
             open_prs.sort(key=lambda pr: pr.created_at)
+            log_key_value("PRs to process", len(open_prs))
+            for pr in open_prs:
+                print(f"Found PR #{pr.number}: {pr.title} from {pr.user.login}")
 
-            log_key_value("Open PRs found", len(open_prs))
-            return open_prs
-        except Exception as e:
-            log_error(e, "Failed to get open PRs")
-            return []
-
-    def _try_api_merge(self, pr, repo_full_name):
-        """Try to merge a PR using the GitHub API."""
-        pr_number = pr.number
-
-        try:
-            # Wait for GitHub to calculate mergeable state
-            retries = 5
-            while retries > 0 and pr.mergeable is None:
-                log_key_value(
-                    "Merge status", f"Waiting for GitHub (attempts left: {retries})"
-                )
-                time.sleep(2)  # Wait 2 seconds between checks
-                pr.update()  # Refresh the PR data from GitHub
-                retries -= 1
-
-            if pr.mergeable is None:
-                log_key_value(
-                    "Merge status", "GitHub mergeable state calculation timed out"
-                )
-                return {
-                    "success": False,
-                    "message": f"Timed out waiting for GitHub to calculate mergeable state for PR #{pr_number}",
-                    "data": {
-                        "pr_number": pr_number,
-                        "conflicts": [],
-                        "resolved_conflicts": [],
-                    },
-                }
-
-            if pr.mergeable:
-                log_key_value("Merge strategy", "Direct GitHub API merge")
-                try:
-                    # Merge the PR directly using the PR object
-                    merge_result = pr.merge(merge_method="merge")
-                    if merge_result:
-                        log_key_value(
-                            "Merge result", "Successfully merged via GitHub API"
-                        )
-                        return {
-                            "success": True,
-                            "message": f"Successfully merged PR #{pr_number} via GitHub API",
-                            "data": {
-                                "pr_number": pr_number,
-                                "conflicts": [],
-                                "resolved_conflicts": [],
-                            },
-                        }
-                except Exception as merge_error:
-                    log_key_value("API merge failed", str(merge_error))
-                    return {
-                        "success": False,
-                        "message": f"GitHub API merge failed for PR #{pr_number}: {str(merge_error)}",
-                        "data": {
-                            "pr_number": pr_number,
-                            "conflicts": [],
-                            "resolved_conflicts": [],
-                        },
-                    }
-            else:
-                # PR has conflicts that need resolution
-                log_key_value("Merge status", "PR has conflicts that need resolution")
+            if not open_prs:
+                log_error(Exception("No open PRs found"), "No PRs to process")
                 return None
 
-        except Exception as e:
-            log_error(e, "GitHub API merge check failed")
-            return {
-                "success": False,
-                "message": f"GitHub API error for PR #{pr_number}: {str(e)}",
-                "data": {
-                    "pr_number": pr_number,
-                    "conflicts": [],
-                    "resolved_conflicts": [],
-                },
-            }
-
-    def _cleanup_ignored_files(self):
-        """Delete tracked files that are now ignored by .gitignore."""
-        try:
-            # First get the updated .gitignore from main
-            log_key_value("Checking", "Getting updated .gitignore from main")
-            gitignore_content = os.popen(
-                f"git show origin/{self.context['target_branch']}:.gitignore"
-            ).read()
-            if not gitignore_content:
-                log_key_value("Warning", "Could not get .gitignore from main branch")
-                return False
-
-            # Temporarily update .gitignore with main's version
-            log_key_value("Action", "Temporarily updating .gitignore")
-            with open(".gitignore", "w") as f:
-                f.write(gitignore_content)
-
-            # Now check for tracked files that should be ignored
-            log_key_value("Checking", "Finding tracked files that are now ignored")
-            ignored_files = (
-                os.popen("git ls-files -ci --exclude-standard").read().strip()
-            )
-
-            if not ignored_files:
-                log_key_value("Result", "No tracked files found that are ignored")
-                return True
-
-            # Log what files were found
-            log_key_value("Found ignored files", ignored_files.replace("\n", ", "))
-
-            # Try to delete each ignored file
-            for file in ignored_files.split("\n"):
-                try:
-                    os.remove(file)
-                    log_key_value("Deleted file", file)
-                except Exception as e:
-                    log_error(e, f"Failed to delete {file}")
-                    return False
-
-            # Check git status before staging
-            log_key_value(
-                "Git status before staging",
-                os.popen("git status --porcelain").read().strip(),
-            )
-
-            # Stage the deletions
-            stage_result = os.system("git add -A")
-            log_key_value(
-                "Stage result",
-                "Success" if stage_result == 0 else f"Failed with code {stage_result}",
-            )
-
-            # Check git status after staging
-            log_key_value(
-                "Git status after staging",
-                os.popen("git status --porcelain").read().strip(),
-            )
-
-            # Create commit
-            commit_result = os.system(
-                'git commit -m "Delete tracked files that are now ignored"'
-            )
-            log_key_value(
-                "Commit result",
-                (
-                    "Success"
-                    if commit_result == 0
-                    else f"Failed with code {commit_result}"
-                ),
-            )
-
-            # Verify the files are actually gone from git's index
-            still_tracked = (
-                os.popen("git ls-files -ci --exclude-standard").read().strip()
-            )
-            if still_tracked:
-                log_key_value(
-                    "Warning", f"Files still tracked after cleanup: {still_tracked}"
-                )
-                return False
-
-            log_key_value(
-                "Cleanup", "Successfully removed all ignored files from tracking"
-            )
-            return True
-        except Exception as e:
-            log_error(e, "Failed to cleanup ignored files")
-            return False
-
-    def _resolve_conflicts(self, pr):
-        """Resolve conflicts using the LLM."""
-        pr_number = pr.number
-        source_branch = pr.head.ref
-
-        try:
-            # Fetch both branches
-            log_key_value("Fetching branches", f"PR #{pr_number}")
-            os.system("git fetch origin")  # Fetch target branch
-            os.system(
-                f"git fetch {pr.head.repo.clone_url} {source_branch}"
-            )  # Fetch PR branch
-
-            # Checkout PR branch directly
-            checkout_result = os.system(
-                f"git checkout -b fix-conflicts-{pr_number} FETCH_HEAD"
-            )
-            if checkout_result != 0:
-                return {
-                    "success": False,
-                    "message": f"Failed to checkout PR branch {source_branch}",
-                    "data": None,
-                }
-
-            # Try to merge target branch first to get updated .gitignore
-            log_key_value(
-                "Attempting merge", f"Merging {self.context['target_branch']}"
-            )
-            merge_output = os.popen(
-                f"git merge origin/{self.context['target_branch']} 2>&1"
-            ).read()
-
-            # If we see "Already up to date", something went wrong with our merge setup
-            if "Already up to date" in merge_output:
-                return {
-                    "success": False,
-                    "message": f"Failed to properly set up merge state for PR #{pr_number}",
-                    "data": None,
-                }
-
-            # Now that we have the updated .gitignore from main, clean up any ignored files
-            log_key_value("Cleanup", "Removing ignored files after merge")
-
-            # First remove any tracked files that are now ignored
-            log_key_value("Checking", "Finding tracked files that are now ignored")
-            ignored_files = (
-                os.popen("git ls-files -ci --exclude-standard").read().strip()
-            )
-            if ignored_files:
-                log_key_value("Found ignored files", ignored_files.replace("\n", ", "))
-                # Remove them from git's index and filesystem
-                os.system("git rm -f $(git ls-files -ci --exclude-standard)")
-
-            # Then clean up any untracked ignored files
-            os.system("git clean -fdX")
-
-            # Stage all changes including deletions
-            os.system("git add -A")
-
-            # Check if we have any changes to commit (either from ignored files or merge)
-            if "nothing to commit" not in os.popen("git status").read():
-                # Create a single merge commit that includes both the merge and cleanup
-                commit_result = os.system(
-                    "git commit -m \"Merge branch 'main' - includes cleanup of ignored files\""
-                )
-                if commit_result != 0:
-                    return {
-                        "success": False,
-                        "message": f"Failed to create merge commit for PR #{pr_number}",
-                        "data": None,
-                    }
-
-            # Now check if we still have conflicts after cleaning up ignored files
-            if "Automatic merge failed" not in merge_output:
-                log_key_value(
-                    "Result", "No real conflicts after cleaning up ignored files"
-                )
-                # Push the changes back to the PR branch
-                auth_url = pr.head.repo.clone_url.replace(
-                    "https://", f"https://{os.getenv('GITHUB_TOKEN')}@"
-                )
-                push_result = os.system(f"git push {auth_url} HEAD:{source_branch}")
-                if push_result != 0:
-                    return {
-                        "success": False,
-                        "message": f"Failed to push changes to PR #{pr_number}",
-                        "data": None,
-                    }
-
-                # Try to merge via GitHub API
-                try:
-                    # Get a fresh PR object
-                    gh = Github(os.getenv("GITHUB_TOKEN"))
-                    repo = gh.get_repo(f"{pr.base.repo.full_name}")
-                    pr = repo.get_pull(pr_number)
-
-                    # Wait for GitHub to recalculate mergeable state
-                    retries = 10
-                    while retries > 0:
-                        pr = repo.get_pull(pr_number)  # Get fresh PR object
-                        if pr.mergeable is True:  # Explicitly check for True
-                            break
-                        log_key_value(
-                            "Merge status",
-                            f"Waiting for GitHub (attempts left: {retries})",
-                        )
-                        time.sleep(5)
-                        retries -= 1
-
-                    if pr.mergeable is True:  # Explicitly check for True
-                        merge_result = pr.merge(merge_method="merge")
-                        if merge_result:
-                            return {
-                                "success": True,
-                                "message": f"Successfully merged PR #{pr_number}",
-                                "data": {
-                                    "pr_number": pr_number,
-                                    "conflicts": [],
-                                },
-                            }
-
-                    log_key_value(
-                        "Error", f"PR #{pr_number} not mergeable after cleanup"
-                    )
-                    return {
-                        "success": False,
-                        "message": f"PR #{pr_number} not mergeable after cleanup",
-                        "data": None,
-                    }
-                except Exception as e:
-                    return {
-                        "success": False,
-                        "message": f"Failed to merge PR #{pr_number} via GitHub API: {str(e)}",
-                        "data": None,
-                    }
-
-            # Abort the merge if we got here somehow
-            try:
-                os.system("git merge --abort")
-            except Exception:
-                pass
-            return {
-                "success": False,
-                "message": f"Failed to resolve merge conflicts for PR #{pr_number}",
-                "data": {
-                    "pr_number": pr_number,
-                    "conflicts": [],
-                },
-            }
-
-        except Exception as e:
-            log_error(e, "Failed to set up merge state")
-            return {
-                "success": False,
-                "message": f"Failed to set up merge state: {str(e)}",
-                "data": None,
-            }
-
-    def merge_pr(self, pr):
-        """Merge a single PR, resolving conflicts if needed."""
-        try:
-            pr_number = pr.number
-            source_branch = pr.head.ref
-
-            log_section(f"PROCESSING PR #{pr_number}: {pr.title}")
-            log_key_value("Source branch", source_branch)
-            log_key_value("Target branch", self.context["target_branch"])
-
-            # Update context with PR-specific information
-            self.context["source_branch"] = source_branch
-            self.context["pr_number"] = pr_number
-            self.context["pr_title"] = pr.title
-
-            # Step 1: Check if PR can be merged automatically via GitHub API
-            retries = 5
-            while retries > 0 and pr.mergeable is None:
-                log_key_value(
-                    "Status",
-                    f"Waiting for GitHub mergeable state (attempts left: {retries})",
-                )
-                time.sleep(2)
-                pr.update()
-                retries -= 1
-
-            can_merge_automatically = pr.mergeable is True  # Explicitly check for True
-            log_key_value("Can merge automatically", str(can_merge_automatically))
-
-            # Step 2: If not automatically mergeable, check out PR and attempt merge
-            if not can_merge_automatically:
-                # Fetch and checkout PR branch
-                log_key_value("Action", "Checking out PR branch")
-                os.system("git fetch origin")  # Fetch target branch
-                os.system(
-                    f"git fetch {pr.head.repo.clone_url} {source_branch}"
-                )  # Fetch PR branch
-
-                checkout_result = os.system(
-                    f"git checkout -b fix-conflicts-{pr_number} FETCH_HEAD"
-                )
-                if checkout_result != 0:
-                    return {
-                        "success": False,
-                        "message": f"Failed to checkout PR branch {source_branch}",
-                        "data": None,
-                    }
-
-                # Try to merge target branch
-                log_key_value("Action", f"Merging {self.context['target_branch']}")
-                merge_output = os.popen(
-                    f"git merge origin/{self.context['target_branch']} 2>&1"
-                ).read()
-
-                if "Already up to date" in merge_output:
-                    return {
-                        "success": False,
-                        "message": f"Failed to properly set up merge state for PR #{pr_number}",
-                        "data": None,
-                    }
-
-                # Step 3: Check for and remove ignored tracked files
-                log_key_value("Action", "Checking for ignored tracked files")
-                ignored_files = (
-                    os.popen("git ls-files -ci --exclude-standard").read().strip()
-                )
-                if ignored_files:
-                    log_key_value(
-                        "Found ignored files", ignored_files.replace("\n", ", ")
-                    )
-                    os.system("git rm -f $(git ls-files -ci --exclude-standard)")
-                    os.system("git clean -fdX")  # Also clean untracked ignored files
-                    os.system("git add -A")
-
-                # Step 4: Check for remaining conflicts
-                has_conflicts = "Automatic merge failed" in merge_output
-                if has_conflicts:
-                    log_key_value("Status", "Checking for conflicting files")
-
-                    # Get conflict info using the dedicated tool
-                    conflict_info = get_conflict_info()
-                    if not conflict_info["success"]:
-                        return {
-                            "success": False,
-                            "message": f"Failed to get conflict info for PR #{pr_number}: {conflict_info['message']}",
-                            "data": None,
-                        }
-
-                    # Structure the conflicts in a more useful format for the agent
-                    conflicts = conflict_info["data"]["conflicts"]
-                    structured_conflicts = [
-                        {
-                            "file": file_path,
-                            "content": {
-                                "ours": content["content"].get("ours", ""),
-                                "theirs": content["content"].get("theirs", ""),
-                                "ancestor": content["content"].get("ancestor", ""),
-                            },
-                        }
-                        for file_path, content in conflicts.items()
-                    ]
-
-                    log_key_value(
-                        "Conflicting files",
-                        ", ".join(file_path for file_path, _ in conflicts.items()),
-                    )
-
-                    # Only invoke agent if there are actual conflicts
-                    if structured_conflicts:
-                        # Set up context with structured conflict information
-                        self.context["conflicts"] = structured_conflicts
-
-                        # Initialize conflict resolution phase
-                        resolve_phase = phases.ConflictResolutionPhase(workflow=self)
-                        resolution_result = resolve_phase.execute()
-
-                        if not resolution_result:
-                            # Agent was unable to resolve conflicts or determined target branch is better
-                            log_key_value(
-                                "Result", "Agent determined PR should not be merged"
-                            )
-                            try:
-                                os.system("git merge --abort")
-                            except Exception:
-                                pass
-                            return {
-                                "success": False,
-                                "message": f"PR #{pr_number} should be closed without merging",
-                                "data": {"pr_number": pr_number, "should_close": True},
-                            }
-
-                # Step 5: Create merge commit if we had to perform manual merge
-                if not can_merge_automatically:
-                    if "nothing to commit" not in os.popen("git status").read():
-                        commit_result = os.system(
-                            "git commit -m \"Merge branch 'main'\""
-                        )
-                        if commit_result != 0:
-                            return {
-                                "success": False,
-                                "message": f"Failed to create merge commit for PR #{pr_number}",
-                                "data": None,
-                            }
-
-                    # Push changes back to PR branch
-                    auth_url = pr.head.repo.clone_url.replace(
-                        "https://", f"https://{os.getenv('GITHUB_TOKEN')}@"
-                    )
-                    push_result = os.system(f"git push {auth_url} HEAD:{source_branch}")
-                    if push_result != 0:
-                        return {
-                            "success": False,
-                            "message": f"Failed to push changes to PR #{pr_number}",
-                            "data": None,
-                        }
-
-                    # Wait for GitHub to update PR state
-                    retries = 10
-                    while retries > 0:
-                        pr = pr.base.repo.get_pull(pr_number)  # Get fresh PR object
-                        if pr.mergeable is True:  # Explicitly check for True
-                            break
-                        log_key_value(
-                            "Status",
-                            f"Waiting for GitHub to update PR state (attempts left: {retries})",
-                        )
-                        time.sleep(5)
-                        retries -= 1
-
-            # Step 6: Merge the PR
-            try:
-                merge_result = pr.merge(merge_method="merge")
-                if merge_result:
-                    log_key_value("Status", f"Successfully merged PR #{pr_number}")
-                    return {
-                        "success": True,
-                        "message": f"Successfully merged PR #{pr_number}",
-                        "data": {"pr_number": pr_number},
-                    }
-            except Exception as e:
-                return {
-                    "success": False,
-                    "message": f"Failed to merge PR #{pr_number}: {str(e)}",
-                    "data": None,
-                }
-
-            return {
-                "success": False,
-                "message": f"Failed to merge PR #{pr_number} - PR not mergeable",
-                "data": None,
-            }
-
-        except Exception as e:
-            log_error(e, f"Failed to process PR #{pr.number}")
-            try:
-                os.system("git merge --abort")
-            except Exception:
-                pass
-            return {
-                "success": False,
-                "message": f"Exception while processing PR #{pr.number}: {str(e)}",
-                "data": None,
-            }
-
-    def run(self):
-        """Execute the merge conflict resolver workflow."""
-        try:
-            self.setup()
-
-            # Get all open PRs and merge them in order
-            open_prs = self.get_open_prs()
-            if not open_prs:
-                return {
-                    "success": True,
-                    "message": "No open PRs found to merge",
-                    "data": {
-                        "merged_prs": [],
-                        "failed_prs": [],
-                    },
-                }
-
-            # Apply PR limit if specified
-            if self.pr_limit > 0 and len(open_prs) > self.pr_limit:
-                log_key_value(
-                    "PR limit applied",
-                    f"{self.pr_limit} (out of {len(open_prs)} total)",
-                )
-                open_prs = open_prs[: self.pr_limit]
-            else:
-                log_key_value("PRs to process", len(open_prs))
-
-            merged_prs = []
-            failed_prs = []
-
+            # Filter PRs based on signature validation
+            valid_prs = []
             for pr in open_prs:
-                result = self.merge_pr(pr)
-                if result["success"]:
-                    merged_prs.append(result["data"]["pr_number"])
+                print(f"\nValidating signatures for PR #{pr.number}")
+                if self.validate_pr_signatures(pr):
+                    valid_prs.append(pr)
+                    print(f"PR #{pr.number} has valid signatures")
                 else:
-                    failed_prs.append(pr.number)
-                    log_error(
-                        Exception(
-                            f"Failed to merge PR #{pr.number}: {result.get('message', 'Unknown error')}"
-                        ),
-                        "Continuing to next PR",
-                    )
-                    # Continue to the next PR instead of breaking
+                    print(f"PR #{pr.number} failed signature validation")
 
-            return {
-                "success": True,
-                "message": f"Processed {len(open_prs)} PRs, merged {len(merged_prs)}, failed {len(failed_prs)}",
-                "data": {
-                    "merged_prs": merged_prs,
-                    "failed_prs": failed_prs,
-                },
-            }
+            log_key_value("PRs with valid signatures", len(valid_prs))
+
+            if not valid_prs:
+                log_error(
+                    Exception("No valid PRs found"),
+                    "No PRs passed signature validation",
+                )
+                return None
+
+            # Process each valid PR
+            all_merged = True
+            merged_count = 0
+
+            for pr in valid_prs:
+                log_section(f"Processing PR #{pr.number}")
+                result = self.merge_pr(pr_url=pr.html_url, pr_title=pr.title)
+                if not result["success"]:
+                    all_merged = False
+                    log_error(
+                        Exception(result.get("message", "Unknown error")),
+                        f"Failed to merge PR #{pr.number}",
+                    )
+                    break
+                merged_count += 1
+
+            if not all_merged:
+                log_error(
+                    Exception("Not all PRs were merged successfully"),
+                    f"Merged {merged_count}/{len(valid_prs)} PRs before failure",
+                )
+                return None
+
+            if not self.context["merged_prs"]:
+                log_error(
+                    Exception("No PRs were merged"), "No PRs were successfully merged"
+                )
+                return None
+
+            # Run tests and fix any issues
+            print("\nRunning test verification phase")
+            self.context["current_files"] = get_current_files()
+            test_phase = TestVerificationPhase(
+                workflow=self, conversation_id=self.conversation_id
+            )
+            test_result = test_phase.execute()
+            if not test_result or not test_result.get("success"):
+                log_error(
+                    Exception(test_result.get("error", "Test verification failed")),
+                    "Tests failed after merging PRs",
+                )
+                return None
+
+            # Store the conversation ID from test phase
+            self.conversation_id = test_phase.conversation_id
+
+            # Create PR if tests pass
+            print("\nCreating consolidated PR")
+            pr_phase = CreatePullRequestPhase(
+                workflow=self, conversation_id=self.conversation_id
+            )
+            try:
+                pr_result = pr_phase.execute()
+                if not pr_result:
+                    log_error(
+                        Exception("PR creation phase returned None"),
+                        "PR creation failed - no result returned",
+                    )
+                    return None
+
+                if pr_result.get("success"):
+                    pr_url = pr_result.get("data", {}).get("pr_url")
+                    if not pr_url:
+                        log_error(
+                            Exception("No PR URL in successful result"),
+                            "PR creation succeeded but no URL returned",
+                        )
+                        return None
+                    log_key_value("PR created successfully", pr_url)
+                    return pr_url
+                else:
+                    error = pr_result.get("error", "Unknown error")
+                    log_error(Exception(error), "PR creation failed with error")
+                    return None
+            except Exception as e:
+                log_error(e, "PR creation phase failed with exception")
+                return None
+
+            return None
+
         except Exception as e:
-            log_error(e, "Failed to run merge conflict resolver workflow")
-            return {
-                "success": False,
-                "message": f"Failed to run workflow: {str(e)}",
-                "data": None,
-            }
+            log_error(e, "Error in merge conflict workflow")
+            raise
+
         finally:
             self.cleanup()
+
+    def cleanup(self):
+        """Clean up repository."""
+        if hasattr(self, "original_dir") and "repo_path" in self.context:
+            cleanup_repository(self.original_dir, self.context["repo_path"])

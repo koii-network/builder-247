@@ -2,8 +2,7 @@
 .env
 __pycache__
 .pytest_cache
-conversations.db
-database.db
+*.db
 test
 task_flow.egg-info
 example_repo
@@ -29,6 +28,7 @@ metadata.json
 .vscode
 data/chunks
 data/process
+test_state.csv
 todos-example.csv
 
 

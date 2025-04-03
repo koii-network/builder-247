@@ -36,11 +36,24 @@ async function verifySignatureData(
     }
     const body = JSON.parse(data);
     console.log({ signature_payload: body });
+    console.log({
+      taskIDFromEnv: taskID,
+      taskIdFromPayload: body.taskId,
+      roundNumberValue: body.roundNumber,
+      githubUsername: body.githubUsername,
+      pubKey: body.pubKey,
+      stakingKey: body.stakingKey,
+      taskIDMatch: body.taskId === taskID,
+      roundNumberTypeMatch: typeof body.roundNumber === "number",
+      actionMatch: body.action === "task",
+      pubKeyMatch: body.pubKey === pubKey,
+      stakingKeyMatch: body.stakingKey === stakingKey,
+    });
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
       body.taskId !== taskID ||
-      body.action !== "fetch" ||
+      body.action !== "task" ||
       !body.githubUsername ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
@@ -116,7 +129,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
     return;
   }
   console.log();
-  const existingAssignment = await checkExistingAssignment(requestBody.pubKey, signatureData.roundNumber);
+  const existingAssignment = await checkExistingAssignment(requestBody.stakingKey, signatureData.roundNumber);
 
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
@@ -143,7 +156,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
       status: TodoStatus.INITIALIZED,
       $expr: { $lt: [{ $size: "$assignedTo" }, 30] },
       $nor: [
-        { "assignedTo.stakingKey": requestBody.pubKey },
+        { "assignedTo.stakingKey": requestBody.stakingKey },
         { "assignedTo.githubUsername": signatureData.githubUsername },
       ],
     }).sort({ createdAt: 1 });
@@ -162,7 +175,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
         _id: todos[0]?._id,
         $expr: { $lt: [{ $size: "$assignedTo" }, 30] },
         $nor: [
-          { "assignedTo.stakingKey": requestBody.pubKey },
+          { "assignedTo.stakingKey": requestBody.stakingKey },
           { "assignedTo.githubUsername": signatureData.githubUsername },
         ],
       },
@@ -174,7 +187,6 @@ export const fetchTodo = async (req: Request, res: Response) => {
             taskId: taskID,
             roundNumber: signatureData.roundNumber,
             githubUsername: signatureData.githubUsername,
-            todoSignature: requestBody.signature,
           },
         },
       },

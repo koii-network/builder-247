@@ -75,9 +75,7 @@ describe("Performing the task", () => {
         ),
       )
       .required();
-    const validationResult = schema.validate(
-      taskState?.submissions_audit_trigger,
-    );
+    const validationResult = schema.validate(taskState?.submissions_audit_trigger);
     try {
       expect(validationResult.error).toBeUndefined();
     } catch (e) {
@@ -103,13 +101,8 @@ describe("Performing the task", () => {
       )
       .required()
       .min(1);
-    console.log(
-      "Distribution submission",
-      taskState?.distribution_rewards_submission,
-    );
-    const validationResult = schema.validate(
-      taskState?.distribution_rewards_submission,
-    );
+    console.log("Distribution submission", taskState?.distribution_rewards_submission);
+    const validationResult = schema.validate(taskState?.distribution_rewards_submission);
     try {
       expect(validationResult.error).toBeUndefined();
     } catch (e) {
@@ -134,9 +127,7 @@ describe("Performing the task", () => {
         ),
       )
       .required();
-    const validationResult = schema.validate(
-      taskState?.distributions_audit_trigger,
-    );
+    const validationResult = schema.validate(taskState?.distributions_audit_trigger);
     try {
       expect(validationResult.error).toBeUndefined();
     } catch (e) {
@@ -146,20 +137,10 @@ describe("Performing the task", () => {
 
   it("should make sure the submitted distribution list is valid", async () => {
     const round = 1;
-    const distributionList = await namespaceWrapper.getDistributionList(
-      "",
-      round,
-    );
-    console.log(
-      "Generated distribution List",
-      JSON.parse(distributionList.toString()),
-    );
-    const schema = Joi.object()
-      .pattern(Joi.string().required(), Joi.number().integer().required())
-      .required();
-    const validationResult = schema.validate(
-      JSON.parse(distributionList.toString()),
-    );
+    const distributionList = await namespaceWrapper.getDistributionList("", round);
+    console.log("Generated distribution List", JSON.parse(distributionList.toString()));
+    const schema = Joi.object().pattern(Joi.string().required(), Joi.number().integer().required()).required();
+    const validationResult = schema.validate(JSON.parse(distributionList.toString()));
     console.log(validationResult);
     try {
       expect(validationResult.error).toBeUndefined();
@@ -175,7 +156,7 @@ describe("Performing the task", () => {
   });
 
   it("should generate a empty distribution list when submission is 0", async () => {
-    const submitters = [];
+    const submitters: Submitter[] = [];
     const bounty = Math.floor(Math.random() * 1e15) + 1;
     const roundNumber = Math.floor(Math.random() * 1e5) + 1;
     const distributionList = await distribution(submitters, bounty, roundNumber);
@@ -187,19 +168,18 @@ describe("Performing the task", () => {
     const submitters: Submitter[] = [];
     // 10k is the rough maximum number of submitters
     for (let i = 0; i < simulatedSubmitters; i++) {
-      const publicKey = `mockPublicKey${i}`; 
+      const publicKey = `mockPublicKey${i}`;
       submitters.push({
         publicKey,
-        votes: Math.floor(Math.random() * simulatedSubmitters) - 5000, 
-        stake: Math.floor(Math.random() * 1e9) + 1
+        votes: Math.floor(Math.random() * simulatedSubmitters) - 5000,
+        stake: Math.floor(Math.random() * 1e9) + 1,
       });
     }
     const bounty = Math.floor(Math.random() * 1e15) + 1;
     const roundNumber = 1;
     const distributionList = await distribution(submitters, bounty, roundNumber);
     expect(Object.keys(distributionList).length).toBe(submitters.length);
-    expect(Object.keys(distributionList).sort()).toEqual(submitters.map(submitter => submitter.publicKey).sort());
-
+    expect(Object.keys(distributionList).sort()).toEqual(submitters.map((submitter) => submitter.publicKey).sort());
   });
 });
 

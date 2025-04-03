@@ -4,6 +4,8 @@ from tenacity import (
     retry,
     stop_after_attempt,
     wait_exponential,
+    wait_fixed,
+    wait_chain,
 )
 from src.utils.logging import log_key_value
 from src.utils.errors import ClientAPIError
@@ -29,7 +31,13 @@ def with_retry(func_name: str, max_attempts: int = 6):
     def decorator(func):
         @retry(
             retry=is_retryable_error,
-            wait=wait_exponential(multiplier=4, min=1, max=60),
+            # Add a fixed 1 second delay between all API calls, then use exponential backoff for retries
+            wait=wait_chain(
+                # Always wait at least 10 seconds between calls
+                wait_fixed(10),
+                # On retries, use exponential backoff starting at 20 seconds
+                wait_exponential(multiplier=2, min=20, max=80),
+            ),
             stop=stop_after_attempt(max_attempts),
             before_sleep=lambda retry_state: log_key_value(
                 "Retry attempt",

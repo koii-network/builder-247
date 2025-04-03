@@ -14,7 +14,11 @@ from ..types import (
 )
 from src.utils.logging import log_section, log_key_value, log_error
 from src.utils.errors import ClientAPIError
-from src.utils.retry import is_retryable_error
+from src.utils.retry import (
+    is_retryable_error,
+    send_message_with_retry,
+    execute_tool_with_retry,
+)
 import json
 import ast
 
@@ -28,7 +32,7 @@ class Client(ABC):
     ):
         """Initialize the client."""
         self.storage = ConversationManager()
-        self.model = self._get_default_model() if model is None else model
+        self.model = model or self._get_default_model()
         self.tools: Dict[str, ToolDefinition] = {}
         self.tool_functions: Dict[str, Callable] = {}
         self.api_name = self._get_api_name()
@@ -66,9 +70,52 @@ class Client(ABC):
         max_tokens: Optional[int] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Make API call to the LLM."""
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> Any:
+        """Make API call to the LLM service.
+
+        This method should be implemented by each client to handle the specifics of their API.
+        The base class will handle error logging and wrapping.
+        """
         pass
+
+    def make_api_call(
+        self,
+        messages: List[Dict[str, Any]],
+        system_prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> Any:
+        """Make API call with error handling.
+
+        This method wraps the client-specific _make_api_call with common error handling.
+        """
+        try:
+            # Build kwargs based on what the specific client implementation supports
+            kwargs = {
+                "messages": messages,
+                "system_prompt": system_prompt,
+                "max_tokens": max_tokens,
+                "tools": tools,
+                "tool_choice": tool_choice,
+            }
+
+            # Only pass extra_headers to OpenAI-based clients
+            if extra_headers:
+                kwargs["extra_headers"] = extra_headers
+
+            return self._make_api_call(**kwargs)
+        except Exception as e:
+            # Only wrap non-ClientAPIError exceptions
+            if not isinstance(e, ClientAPIError):
+                log_error(
+                    e,
+                    context=f"Error making API call to {self.api_name}",
+                    include_traceback=not is_retryable_error(e),
+                )
+            raise
 
     def register_tools(self, tools_dir: str) -> List[str]:
         """Register all tools found in a directory.
@@ -244,6 +291,10 @@ class Client(ABC):
             return result
 
         except Exception as e:
+            # Let ClientAPIError propagate for retry handling
+            if isinstance(e, ClientAPIError):
+                raise
+            # For tool execution errors, log and return error response
             log_key_value("Status", "✗ Failed")
             log_key_value("Error", str(e))
             return {"success": False, "message": str(e), "data": None}
@@ -273,6 +324,7 @@ class Client(ABC):
         tool_choice: Optional[ToolChoice] = None,
         tool_response: Optional[str] = None,
         is_retry: bool = False,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> Any:
         """Send a message to the LLM."""
         if not prompt and not tool_response:
@@ -312,39 +364,45 @@ class Client(ABC):
 
         # Get conversation details including system prompt
         conversation = self.storage.get_conversation(conversation_id)
-        system_prompt = conversation.get("system_prompt")
+        system_prompt = conversation["system_prompt"]
 
-        # Get previous messages
+        # Get conversation history
         messages = self.storage.get_messages(conversation_id)
 
-        # Add new message if it's a prompt or tool response and not a retry
-        if not is_retry:
-            if prompt:
+        # Add new message if prompt provided
+        if prompt:
+            messages.append({"role": "user", "content": prompt})
+            if not is_retry:
                 self.storage.save_message(conversation_id, "user", prompt)
-                messages.append({"role": "user", "content": prompt})
-            elif tool_response:
-                if self._should_split_tool_responses():
-                    # Send each tool response as a separate message
-                    results = json.loads(tool_response)
-                    for result in results:
-                        formatted_response = self._format_tool_response(
-                            json.dumps([result])
-                        )
-                        self.storage.save_message(
-                            conversation_id,
-                            formatted_response["role"],
-                            formatted_response["content"],
-                        )
-                        messages.append(formatted_response)
-                else:
-                    # Send all tool responses in one message
-                    formatted_response = self._format_tool_response(tool_response)
-                    self.storage.save_message(
-                        conversation_id,
-                        formatted_response["role"],
-                        formatted_response["content"],
+
+        # Add tool response if provided
+        if tool_response:
+            tool_message = self._format_tool_response(tool_response)
+            if self._should_split_tool_responses():
+                # Some APIs (e.g. OpenAI) require separate messages for each tool response
+                results = json.loads(tool_response)
+                for result in results:
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "content": [
+                                {
+                                    "type": "tool_response",
+                                    "tool_response": {
+                                        "tool_call_id": result["tool_call_id"],
+                                        "content": result["response"],
+                                    },
+                                }
+                            ],
+                        }
                     )
-                    messages.append(formatted_response)
+            else:
+                messages.append(tool_message)
+
+            if not is_retry:
+                self.storage.save_message(
+                    conversation_id, "tool", tool_message["content"]
+                )
 
         try:
             # Convert messages to API format
@@ -384,13 +442,14 @@ class Client(ABC):
                 else None
             )
 
-            # Make API call
-            response = self._make_api_call(
+            # Make API call - errors will already be wrapped in ClientAPIError
+            response = self.make_api_call(
                 messages=api_messages,
                 system_prompt=system_prompt,
                 max_tokens=max_tokens,
                 tools=api_tools,
                 tool_choice=api_tool_choice,
+                extra_headers=extra_headers,
             )
 
             # Convert response to internal format
@@ -419,13 +478,14 @@ class Client(ABC):
             return converted_response
 
         except Exception as e:
-            # Only wrap actual API errors
+            # Let ClientAPIError propagate for retry handling
+            if isinstance(e, ClientAPIError):
+                raise
+            # Wrap other unexpected errors
             log_error(
-                e,
-                context=f"Error making API call to {self.api_name}",
-                include_traceback=not is_retryable_error(e),
+                e, context="Unexpected error in send_message", include_traceback=True
             )
-            raise ClientAPIError(e)
+            raise
 
     def _get_tool_calls(self, msg: MessageContent) -> List[ToolCallContent]:
         """Return all tool call blocks from the message."""
@@ -435,7 +495,7 @@ class Client(ABC):
                 tool_calls.append(block["tool_call"])
         return tool_calls
 
-    def handle_tool_response(self, response):
+    def handle_tool_response(self, response, context: Dict[str, Any]):
         """
         Handle tool responses until natural completion.
         If a tool has final_tool=True and was successful, returns immediately after executing that tool.
@@ -454,8 +514,10 @@ class Client(ABC):
             tool_results = []
             for tool_call in tool_calls:
                 try:
-                    # Execute the tool
-                    result = self.execute_tool(tool_call)
+                    # Update tool arguments with context
+                    tool_call["arguments"].update(context)
+                    # Execute the tool with retry
+                    result = execute_tool_with_retry(self, tool_call)
                     if not result:
                         result = {
                             "success": False,
@@ -499,8 +561,8 @@ class Client(ABC):
             last_results = tool_results
 
             # Send tool results to agent and get next response
-            response = self.send_message(
+            response = send_message_with_retry(
+                self,
                 conversation_id=conversation_id,
                 tool_response=json.dumps(tool_results),
             )
-            # Loop continues - will check new response for more tool calls
