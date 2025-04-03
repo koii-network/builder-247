@@ -363,7 +363,7 @@ def run_test_sequence(
                 print("✓ Aggregator info updated successfully")
 
                 # Save state after completing step 1
-                save_state(data_manager, pr_urls, data_manager.round_number)
+                save_state(data_manager, pr_urls, step_completed=1)
 
             # 2. Worker tasks (Worker 1 and Worker 2)
             if start_step <= 2 <= stop_step:
@@ -404,7 +404,7 @@ def run_test_sequence(
                 print(f"✓ Worker 2 PR created: {pr_urls['worker2']}")
 
                 # Save state after completing step 2
-                save_state(data_manager, pr_urls, 2)
+                save_state(data_manager, pr_urls, step_completed=2)
 
             # 3. Cross audits
             if start_step <= 3 <= stop_step:
@@ -442,7 +442,7 @@ def run_test_sequence(
                 print("✓ Worker 1 audit complete")
 
                 # Save state after completing step 3
-                save_state(data_manager, pr_urls, 3)
+                save_state(data_manager, pr_urls, step_completed=3)
 
             # 4. Update audit results (separate step)
             if start_step <= 4 <= stop_step:
@@ -469,7 +469,7 @@ def run_test_sequence(
                     print("✓ Audit results updated successfully")
 
                 # Save state after completing step 4
-                save_state(data_manager, pr_urls, 4)
+                save_state(data_manager, pr_urls, step_completed=4)
 
             # 5. Leader task
             if start_step <= 5 <= stop_step:
@@ -493,7 +493,7 @@ def run_test_sequence(
                 print(f"✓ Leader PR created: {pr_urls['leader']}")
 
                 # Save state after completing step 5
-                save_state(data_manager, pr_urls, 5)
+                save_state(data_manager, pr_urls, step_completed=5)
 
             # 6. Leader audits (renumbered from 5)
             if start_step <= 6 <= stop_step:
@@ -515,7 +515,7 @@ def run_test_sequence(
                 print("✓ Leader audit complete")
 
                 # Save state after completing step 6
-                save_state(data_manager, pr_urls, 6)
+                save_state(data_manager, pr_urls, step_completed=6)
 
             print("\n" + "=" * 80)
             print("TEST SEQUENCE COMPLETED SUCCESSFULLY")
