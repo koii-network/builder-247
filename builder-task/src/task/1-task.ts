@@ -13,6 +13,51 @@ interface PodCallBody {
   addPRSignature: string;
 }
 
+/**
+ * Function to trigger the update-audit-result endpoint to update todo and issue statuses
+ * This will update todos that were approved in audits and make issues ready for leader round
+ */
+async function triggerAuditUpdate(taskId: string, round: number, stakingKeypair: any): Promise<void> {
+  try {
+    console.log(`Triggering audit update for worker round ${round}`);
+    const orcaClient = await getOrcaClient();
+    const stakingKey = stakingKeypair.publicKey.toBase58();
+    const pubKey = await namespaceWrapper.getMainAccountPubkey();
+
+    // Create the payload for the update-audit-result endpoint
+    const updatePayload = {
+      taskId,
+      round,
+      action: "update-audit-result",
+      stakingKey,
+      pubKey,
+      githubUsername: process.env.GITHUB_USERNAME,
+    };
+
+    // Sign the payload
+    const signature = await namespaceWrapper.payloadSigning(updatePayload, stakingKeypair.secretKey);
+
+    // Make the request
+    const response = await orcaClient.podCall(`update-audit-result`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        taskId,
+        round,
+        signature,
+        stakingKey,
+        pubKey,
+      }),
+    });
+
+    console.log("Audit update response:", response);
+  } catch (error) {
+    console.error("Error triggering audit update:", error);
+  }
+}
+
 export async function task(roundNumber: number): Promise<void> {
   /**
    * Run your task and store the proofs to be submitted for auditing
@@ -77,13 +122,19 @@ export async function task(roundNumber: number): Promise<void> {
     if (leaderNode === null) {
       return;
     }
+
+    // If this is a leader task and round >= 4, call update-audit-result for the previous worker round
+    if (roundNumber >= 3) {
+      await triggerAuditUpdate(TASK_ID || "", roundNumber - 3, stakingKeypair);
+    }
+
     const fetchTodoPayload = {
       taskId: TASK_ID,
       roundNumber,
       githubUsername: process.env.GITHUB_USERNAME,
       stakingKey,
       pubKey,
-      action: "fetch-todo",
+      action: isLeader ? "fetch-todo" : "fetch-issue",
     };
     const addPRPayload = {
       taskId: TASK_ID,
@@ -91,7 +142,7 @@ export async function task(roundNumber: number): Promise<void> {
       githubUsername: process.env.GITHUB_USERNAME,
       stakingKey,
       pubKey,
-      action: "add-pr",
+      action: isLeader ? "add-todo-pr" : "add-issue-pr",
     };
     const stakingSignature = await namespaceWrapper.payloadSigning(fetchTodoPayload, stakingKeypair.secretKey);
     const publicSignature = await namespaceWrapper.payloadSigning(fetchTodoPayload);

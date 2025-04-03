@@ -21,6 +21,5 @@ router.post("/assign-issue", assignIssue as RequestHandler);
 router.post("/update-audit-result", updateAuditResult as RequestHandler);
 // router.get("/get-issue-pr-urls/:issueUuid", getIssuePrUrls as RequestHandler);
 router.post("/fetch-issue", fetchIssue as RequestHandler);
-router.post("/add-issue-pr", addIssuePR as RequestHandler);
 
 export default router;

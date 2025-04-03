@@ -6,6 +6,7 @@ from pathlib import Path
 from tests.setup import TestSetup
 from tests.data import DataManager
 from pymongo import MongoClient
+import uuid
 
 
 def log_request(method: str, url: str, payload: dict = None):
@@ -159,10 +160,16 @@ def reset_mongodb():
         print(f"Current todos count after delete: {todos_count}")
         print(f"Current prompts count after delete: {prompts_count}")
 
+        # Generate a real UUID for the issue
+        issue_uuid = str(uuid.uuid4())
+        print(f"\nGenerated issue UUID: {issue_uuid}")
+
         # Read and import issues
         print(f"\nReading issues from {issues_path}")
         with open(issues_path, "r") as f:
             issues_data = json.load(f)
+            # Replace the hardcoded UUID with the generated one
+            issues_data["issueUuid"] = issue_uuid
             print(f"Issues data to import: {json.dumps(issues_data, indent=2)}")
             result = db.issues.insert_one(issues_data)
             print(f"Imported issue with ID: {result.inserted_id}")
@@ -171,6 +178,12 @@ def reset_mongodb():
         print(f"\nReading todos from {todos_path}")
         with open(todos_path, "r") as f:
             todos_data = json.load(f)
+            # Update each todo with a real UUID and link it to the issue
+            for i, todo in enumerate(todos_data):
+                todo["uuid"] = str(uuid.uuid4())
+                todo["issueUuid"] = issue_uuid
+                print(f"Generated todo UUID for todo {i+1}: {todo['uuid']}")
+
             result = db.todos.insert_many(todos_data)
             print(f"Imported {len(result.inserted_ids)} todos")
 
@@ -208,7 +221,7 @@ def reset_mongodb():
 
 def run_test_sequence(
     start_step: int = 1,
-    stop_step: int = 5,
+    stop_step: int = 6,
     reset: bool = False,
 ):
     """Run the test sequence from start_step to stop_step (inclusive)"""
@@ -232,6 +245,23 @@ def run_test_sequence(
     with TestSetup() as setup:
         data_manager = DataManager()
         pr_urls = {}  # Store PR URLs for later use
+
+        # If we're resetting or starting from step 1, get the issue UUID from MongoDB
+        if reset or start_step == 1:
+            mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/todos")
+            client = MongoClient(mongodb_uri)
+            db = client["todos"]
+
+            try:
+                # Get the issue from MongoDB
+                issue = db.issues.find_one()
+                if issue:
+                    data_manager.issue_uuid = issue["issueUuid"]
+                    print(f"Using issue UUID from MongoDB: {data_manager.issue_uuid}")
+            except Exception as e:
+                print(f"Error fetching issue from MongoDB: {e}")
+            finally:
+                client.close()
 
         # Load state if starting from a later step
         if start_step > 1:
@@ -386,9 +416,36 @@ def run_test_sequence(
                 # Save state after completing step 3
                 save_state(data_manager, pr_urls, 3)
 
-            # 4. Leader task
+            # 4. Update audit results (separate step)
             if start_step <= 4 <= stop_step:
-                log_step(4, "Running leader task")
+                log_step(4, "Updating audit results")
+                setup.switch_role("leader")
+
+                # Prepare update-audit-result payload
+                update_payload = {
+                    "taskId": data_manager.task_id,
+                    "round": 1,  # Worker round is 1
+                }
+
+                url = f"{os.getenv('MIDDLE_SERVER_URL')}/api/update-audit-result"
+                log_request("POST", url, update_payload)
+                response = requests.post(url, json=update_payload)
+                log_response(response)
+
+                result = response.json()
+                if not result.get("success", False):
+                    print(
+                        f"⚠️ Warning: Update audit result failed: {result.get('message', 'Unknown error')}"
+                    )
+                else:
+                    print("✓ Audit results updated successfully")
+
+                # Save state after completing step 4
+                save_state(data_manager, pr_urls, 4)
+
+            # 5. Leader task (renumbered from 4)
+            if start_step <= 5 <= stop_step:
+                log_step(5, "Running leader task")
                 setup.switch_role("leader")
                 payload = data_manager.prepare_leader_task(
                     "leader", 4, [pr_urls["worker1"], pr_urls["worker2"]]
@@ -405,13 +462,13 @@ def run_test_sequence(
                 pr_urls["leader"] = result.get("pr_url")
                 print(f"✓ Leader PR created: {pr_urls['leader']}")
 
-                # Save state after completing step 4
-                save_state(data_manager, pr_urls, 4)
+                # Save state after completing step 5
+                save_state(data_manager, pr_urls, 5)
 
-            # 5. Leader audits
-            if start_step <= 5 <= stop_step:
-                log_step(5, "Running leader audits")
-                print("\nFirst leader audit...")
+            # 6. Leader audits (renumbered from 5)
+            if start_step <= 6 <= stop_step:
+                log_step(6, "Running leader audits")
+                print("\nLeader audit...")
                 setup.switch_role("worker1")
                 payload = data_manager.prepare_worker_audit(
                     "worker1", pr_urls["leader"], 4
@@ -424,13 +481,11 @@ def run_test_sequence(
 
                 result = response.json()
                 if not result.get("success"):
-                    raise Exception(
-                        f"First leader audit failed: {result.get('message')}"
-                    )
-                print("✓ First leader audit complete")
+                    raise Exception(f"Leader audit failed: {result.get('message')}")
+                print("✓ Leader audit complete")
 
-                # Save state after completing step 5
-                save_state(data_manager, pr_urls, 5)
+                # Save state after completing step 6
+                save_state(data_manager, pr_urls, 6)
 
             print("\n" + "=" * 80)
             print("TEST SEQUENCE COMPLETED SUCCESSFULLY")
@@ -452,31 +507,35 @@ Available steps:
   1. Create aggregator repo
   2. Worker tasks (Worker 1 and Worker 2)
   3. Cross audits (Worker 2 audits Worker 1, then Worker 1 audits Worker 2)
-  4. Leader task
-  5. Leader audits
+  4. Update audit results
+  5. Leader task
+  6. Leader audits
 
 Example usage:
   # Run the full sequence
   python -m tests.e2e
 
-  # Run only worker tasks and cross audits
-  python -m tests.e2e --start 2 --stop 3
+  # Run only the audit update
+  python -m tests.e2e --start 4 --stop 4
+
+  # Run from worker tasks to leader task
+  python -m tests.e2e --start 2 --stop 5
 
   # Reset databases and run specific steps
-  python -m tests.e2e --start 2 --stop 4 --reset
+  python -m tests.e2e --start 2 --stop 5 --reset
 """,
     )
     parser.add_argument(
         "--start",
         type=int,
         default=1,
-        help="Start step number (1-5)",
+        help="Start step number (1-6)",
     )
     parser.add_argument(
         "--stop",
         type=int,
-        default=5,
-        help="Stop step number (1-5)",
+        default=6,
+        help="Stop step number (1-6)",
     )
     parser.add_argument(
         "--reset",
@@ -486,8 +545,8 @@ Example usage:
     args = parser.parse_args()
 
     # Validate step numbers
-    if not (1 <= args.start <= 5 and 1 <= args.stop <= 5):
-        print("Error: Step numbers must be between 1 and 5")
+    if not (1 <= args.start <= 6 and 1 <= args.stop <= 6):
+        print("Error: Step numbers must be between 1 and 6")
         exit(1)
     if args.start > args.stop:
         print("Error: Start step cannot be greater than stop step")

@@ -14,7 +14,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
       assignedStakingKey: stakingKey,
       assignedRoundNumber: roundNumber,
     })
-      .select("title acceptanceCriteria repoOwner repoName issueUuid")
+      .select("title acceptanceCriteria repoName issueUuid prUrl aggregatorOwner")
       .lean();
 
     if (!result) return null;
@@ -130,11 +130,24 @@ export const fetchIssueLogic = async (
         },
       };
     }
+
+    console.log("existingAssignment", existingAssignment);
+
+    // Get PR dict for the existing assignment
+    const prDict = await getPRDict(existingAssignment.issue.issueUuid);
+
+    // Return consistent response format with snake_case
     return {
       statuscode: 200,
       data: {
         success: true,
-        data: existingAssignment.issue,
+        data: {
+          // Use aggregatorOwner if it exists, otherwise fallback to repoOwner
+          repo_owner: existingAssignment.issue.aggregatorOwner,
+          repo_name: existingAssignment.issue.repoName,
+          issue_uuid: existingAssignment.issue.issueUuid,
+          pr_list: prDict || {},
+        },
       },
     };
   }
@@ -146,14 +159,14 @@ export const fetchIssueLogic = async (
         $or: [
           { status: IssueStatus.ASSIGN_PENDING },
           {
-            status: IssueStatus.IN_REVIEW,
+            status: IssueStatus.ASSIGNED,
             updatedAt: { $lt: fifteenMinutesAgo },
           },
         ],
       },
       {
         $set: {
-          status: IssueStatus.IN_REVIEW,
+          status: IssueStatus.ASSIGNED,
           assignedStakingKey: requestBody.stakingKey,
           assignedGithubUsername: signatureData.githubUsername,
           assignedRoundNumber: signatureData.roundNumber,
@@ -189,7 +202,8 @@ export const fetchIssueLogic = async (
       data: {
         success: true,
         data: {
-          repo_owner: eligibleIssue.repoOwner,
+          // Use aggregatorOwner if it exists, otherwise fallback to repoOwner
+          repo_owner: eligibleIssue.aggregatorOwner || eligibleIssue.repoOwner,
           repo_name: eligibleIssue.repoName,
           issue_uuid: eligibleIssue.issueUuid,
           pr_list: prDict,

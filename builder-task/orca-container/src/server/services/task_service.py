@@ -153,7 +153,7 @@ def get_task_details(signature, staking_key, pub_key, task_type):
         )
         response.raise_for_status()
         result = response.json()
-        logger.info(f"Fetch todo response: {result}")
+        logger.info(f"Fetch response: {result}")
 
         if not result.get("success", False):
             return {
@@ -298,7 +298,10 @@ def run_todo_task(
 
 
 def _check_existing_pr(round_number: int, task_id: str) -> dict:
-    """Check if we already have a completed record for this round."""
+    """Check if we already have a completed record for this round in local DB.
+
+    Returns the PR URL if found, but doesn't prevent remote recording.
+    """
     try:
         db = get_db()
         submission = (
@@ -311,11 +314,17 @@ def _check_existing_pr(round_number: int, task_id: str) -> dict:
             .first()
         )
 
-        if submission:
-            logger.info(f"PR already recorded for task {task_id}, round {round_number}")
+        if submission and submission.pr_url:
+            logger.info(
+                f"Local PR record found for task {task_id}, round {round_number}"
+            )
             return {
                 "success": True,
-                "data": {"message": "PR already recorded", "pr_url": submission.pr_url},
+                "data": {
+                    "message": "Local PR record found",
+                    "pr_url": submission.pr_url,
+                },
+                "skip_local_recording": True,  # Flag to skip local recording but still do remote
             }
         return {"success": False}
     except Exception as e:
@@ -324,18 +333,42 @@ def _check_existing_pr(round_number: int, task_id: str) -> dict:
 
 
 def _store_pr_remotely(
-    staking_key: str, staking_signature: str, pub_key: str, pr_url: str
+    staking_key: str,
+    staking_signature: str,
+    pub_key: str,
+    pr_url: str,
+    node_type: str = "worker",
+    issue_uuid: str = None,
 ) -> dict:
-    """Store PR URL in middle server."""
+    """Store PR URL in middle server.
+
+    Uses different endpoints based on node_type:
+    - worker: /api/add-pr-to-to-do
+    - leader: /api/add-issue-pr
+
+    For leader tasks, the issue_uuid must be included in the request body.
+    """
     try:
+        # Determine the endpoint based on node type
+        endpoint = (
+            "/api/add-pr-to-to-do" if node_type == "worker" else "/api/add-issue-pr"
+        )
+
+        # Base payload used by both endpoints
+        payload = {
+            "signature": staking_signature,
+            "stakingKey": staking_key,
+            "pubKey": pub_key,
+            "prUrl": pr_url,
+        }
+
+        # Add issue_uuid to the payload for leader tasks
+        if node_type == "leader" and issue_uuid:
+            payload["issueUuid"] = issue_uuid
+
         response = requests.post(
-            os.environ["MIDDLE_SERVER_URL"] + "/api/add-pr-to-to-do",
-            json={
-                "signature": staking_signature,
-                "stakingKey": staking_key,
-                "pubKey": pub_key,
-                "prUrl": pr_url,
-            },
+            os.environ["MIDDLE_SERVER_URL"] + endpoint,
+            json=payload,
             headers={"Content-Type": "application/json"},
         )
         response.raise_for_status()
@@ -404,7 +437,7 @@ def record_pr(
     task_id,
     node_type="worker",
 ):
-    """Record PR URL locally and optionally remotely.
+    """Record PR URL both remotely and locally.
 
     Args:
         staking_key: Node's staking key
@@ -413,24 +446,47 @@ def record_pr(
         pr_url: URL of the PR to record
         round_number: Round number
         task_id: Task ID
-        node_type: Type of node ("worker" or "leader"). Workers record both locally and remotely.
+        node_type: Type of node ("worker" or "leader") to determine which endpoint to use
     """
-    # First check if we already have a record
+    # First check if we already have a record locally
     existing = _check_existing_pr(round_number, task_id)
     if existing["success"]:
-        return existing
+        # Even if we have a local record, still attempt to record remotely
+        # but use the existing PR URL from the local record
+        pr_url = existing["data"]["pr_url"]
+        logger.info(f"Using existing PR URL: {pr_url} for remote recording attempt")
 
-    # For workers, record with middle server first as it's the source of truth
-    if node_type == "worker":
-        remote_result = _store_pr_remotely(staking_key, staking_signature, pub_key, pr_url)
-        if not remote_result["success"]:
+    # For leader tasks, we need to get the issue UUID
+    issue_uuid = None
+    if node_type == "leader":
+        # Get task details to retrieve issue_uuid
+        task_details = get_task_details(
+            staking_signature, staking_key, pub_key, "leader"
+        )
+        if task_details.get("success", False) and "data" in task_details:
+            issue_uuid = task_details["data"].get("issue_uuid")
+            if not issue_uuid:
+                logger.warning("No issue_uuid found in task details for leader task")
+
+    # Step 1: Always attempt to record with middle server, even for existing PRs
+    remote_result = _store_pr_remotely(
+        staking_key, staking_signature, pub_key, pr_url, node_type, issue_uuid
+    )
+    if not remote_result["success"]:
+        # If the error is because the PR is already recorded, treat as success
+        if "already" in str(remote_result.get("error", "")).lower():
+            logger.info("PR already recorded remotely, continuing")
+        else:
+            # For other errors, return the error
             return remote_result
 
-    # Only record locally after successful remote recording (for workers)
-    # or immediately (for leaders)
-    local_result = _store_pr_locally(round_number, pr_url, task_id)
-    if not local_result["success"]:
-        return local_result
+    # Step 2: Record locally if not already recorded
+    if existing["success"] and existing.get("skip_local_recording"):
+        logger.info("Skipping local recording as PR already exists locally")
+    else:
+        local_result = _store_pr_locally(round_number, pr_url, task_id)
+        if not local_result["success"]:
+            return local_result
 
     return {
         "success": True,
@@ -459,114 +515,126 @@ def consolidate_prs(
             .first()
         )
 
+        # If we have an existing PR, we'll use it
+        pr_url = None
         if existing_submission and existing_submission.pr_url:
+            pr_url = existing_submission.pr_url
             logger.info(
-                f"Found existing PR URL for task {task_id}, round {round_number}"
+                f"Found existing PR URL for task {task_id}, round {round_number}: {pr_url}"
             )
-            return {
-                "success": True,
-                "data": {
-                    "pr_url": existing_submission.pr_url,
-                    "message": "Using existing PR URL",
-                },
-            }
-
-        # If no existing submission with PR URL, delete any incomplete submission
-        if existing_submission:
-            db.delete(existing_submission)
-            db.commit()
-            logger.info(
-                f"Deleted existing incomplete submission for task {task_id}, round {round_number}"
+            # We'll use the existing PR URL
+        else:
+            # Get task details which includes issue_uuid
+            issue_result = get_task_details(
+                staking_signature, staking_key, pub_key, "leader"
             )
 
-        issue_result = get_task_details(
-            staking_signature, staking_key, pub_key, "leader"
-        )
+            if not issue_result.get("success", False):
+                return {
+                    "success": False,
+                    "status": issue_result.get("status", 500),
+                    "error": issue_result.get("error", "Unknown error fetching todo"),
+                }
 
-        if not issue_result.get("success", False):
-            return {
-                "success": False,
-                "status": issue_result.get("status", 500),
-                "error": issue_result.get("error", "Unknown error fetching todo"),
-            }
+            issue = issue_result["data"]
+            repo_owner = issue["repo_owner"]
+            repo_name = issue["repo_name"]
+            source_branch = issue["issue_uuid"]
+            pr_list = issue["pr_list"]
 
-        issue = issue_result["data"]
-        repo_owner = issue["repo_owner"]
-        repo_name = issue["repo_name"]
-        source_branch = issue["issue_uuid"]
+            # If no existing submission with PR URL, delete any incomplete submission
+            if existing_submission:
+                db.delete(existing_submission)
+                db.commit()
+                logger.info(
+                    f"Deleted existing incomplete submission for task {task_id}, round {round_number}"
+                )
 
-        pr_list = issue_result["pr_list"]
-
-        # Create new submission
-        submission = Submission(
-            task_id=task_id,
-            round_number=round_number,
-            status="running",
-            repo_owner=repo_owner,
-            repo_name=repo_name,
-        )
-        db.add(submission)
-        db.commit()
-
-        # Get source fork
-        github = Github(os.environ["GITHUB_TOKEN"])
-        source_fork = github.get_repo(f"{repo_owner}/{repo_name}")
-
-        # Verify this is a fork
-        if not source_fork.fork:
-            submission.status = "failed"
+            # Create new submission
+            submission = Submission(
+                task_id=task_id,
+                round_number=round_number,
+                status="running",
+                repo_owner=repo_owner,
+                repo_name=repo_name,
+            )
+            db.add(submission)
             db.commit()
-            return {
-                "success": False,
-                "status": 400,
-                "error": "Source repository is not a fork",
-            }
 
-        # TODO:leader should create a fork of the source repo
+            # Get source fork
+            github = Github(os.environ["GITHUB_TOKEN"])
+            source_fork = github.get_repo(f"{repo_owner}/{repo_name}")
 
-        # Create workflow instance with validated PRs
-        logger.info("\nCreating workflow with:")
-        logger.info(f"  task_id: {task_id}")
+            # Verify this is a fork
+            if not source_fork.fork:
+                submission.status = "failed"
+                db.commit()
+                return {
+                    "success": False,
+                    "status": 400,
+                    "error": "Source repository is not a fork",
+                }
 
-        # Initialize Claude client
-        client = setup_client("anthropic")
+            # Create workflow instance with validated PRs
+            logger.info("\nCreating workflow with:")
+            logger.info(f"  task_id: {task_id}")
 
-        workflow = MergeConflictWorkflow(
-            client=client,
-            prompts=CONFLICT_PROMPTS,
-            source_fork_url=source_fork.html_url,
-            source_branch=source_branch,
+            # Initialize Claude client
+            client = setup_client("anthropic")
+
+            workflow = MergeConflictWorkflow(
+                client=client,
+                prompts=CONFLICT_PROMPTS,
+                source_fork_url=source_fork.html_url,
+                source_branch=source_branch,
+                staking_key=staking_key,
+                pub_key=pub_key,
+                staking_signature=staking_signature,
+                public_signature=public_signature,
+                task_id=task_id,  # Add task_id for signature validation
+                pr_list=pr_list,
+                expected_branch=source_branch,
+            )
+
+            # Run workflow
+            pr_url = workflow.run()
+            if not pr_url:
+                log_error(
+                    Exception("No PR URL returned from workflow"),
+                    context="Merge workflow failed to create PR",
+                )
+                submission.status = "failed"
+                db.commit()
+                return {
+                    "success": False,
+                    "status": 500,
+                    "error": "Merge workflow failed to create PR",
+                }
+
+            # Store PR URL in local DB
+            submission.pr_url = pr_url
+            submission.status = (
+                "pending_record"  # Will be updated to completed by record_pr
+            )
+            db.commit()
+            logger.info(
+                f"Stored PR URL {pr_url} locally for task {task_id}, round {round_number}"
+            )
+
+        # Use record_pr to handle both local and remote recording
+        record_result = record_pr(
             staking_key=staking_key,
-            pub_key=pub_key,
             staking_signature=staking_signature,
-            public_signature=public_signature,
-            task_id=task_id,  # Add task_id for signature validation
-            pr_list=pr_list,
-            expected_branch=source_branch,
+            pub_key=pub_key,
+            pr_url=pr_url,
+            round_number=round_number,
+            task_id=task_id,
+            node_type="leader",
         )
 
-        # Run workflow
-        pr_url = workflow.run()
-        if not pr_url:
-            log_error(
-                Exception("No PR URL returned from workflow"),
-                context="Merge workflow failed to create PR",
-            )
-            submission.status = "failed"
-            db.commit()
-            return {
-                "success": False,
-                "status": 500,
-                "error": "Merge workflow failed to create PR",
-            }
-
-        # Store PR URL in local DB immediately
-        submission.pr_url = pr_url
-        submission.status = "pending_record"  # New status to indicate PR exists but not recorded with middle server
-        db.commit()
-        logger.info(
-            f"Stored PR URL {pr_url} locally for task {task_id}, round {round_number}"
-        )
+        if not record_result["success"]:
+            logger.warning(f"PR recording had issues: {record_result}")
+            # Continue anyway since we have the PR
 
         return {
             "success": True,

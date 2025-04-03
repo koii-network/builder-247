@@ -10,18 +10,20 @@ export async function getPRDict(issueUuid: string) {
 
   const todos = await TodoModel.find({ issueUuid }).select("prUrl assignedStakingKey assignedRoundNumber").lean();
 
-  const prDict = {
-    issue: {
-      prUrl: issue.prUrl,
-      stakingKey: issue.assignedStakingKey,
-      roundNumber: issue.assignedRoundNumber,
-    },
-    todos: todos.map((todo) => ({
-      prUrl: todo.prUrl,
-      stakingKey: todo.assignedStakingKey,
-      roundNumber: todo.assignedRoundNumber,
-    })),
-  };
+  // Create a dictionary with staking keys as keys and PR URLs as values
+  const prDict: Record<string, string> = {};
+
+  // Add the main issue if it has a PR URL and staking key
+  if (issue.prUrl && issue.assignedStakingKey) {
+    prDict[issue.assignedStakingKey] = issue.prUrl;
+  }
+
+  // Add todos that have PR URLs and staking keys
+  for (const todo of todos) {
+    if (todo.prUrl && todo.assignedStakingKey) {
+      prDict[todo.assignedStakingKey] = todo.prUrl;
+    }
+  }
 
   return prDict;
 }
