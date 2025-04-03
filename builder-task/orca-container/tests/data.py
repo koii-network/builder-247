@@ -115,34 +115,20 @@ class DataManager:
                 "Fork URL and branch name must be set before preparing worker task"
             )
 
-        # Extract aggregator owner from fork URL
-        # Format typically: https://github.com/username/repo-name
-        repo_parts = self.fork_url.strip("/").split("/")
-        aggregator_owner = repo_parts[-2]
-
-        # Extract repo name from fork URL if not set
-        if not self.repo_name:
-            self.repo_name = repo_parts[-1]
-            print(f"Extracted repo name from fork URL: {self.repo_name}")
-
         # Create fetch-todo payload for stakingSignature and publicSignature
         fetch_todo_payload = {
             "taskId": self.task_id,
             "roundNumber": round_number,
             "action": "fetch-todo",
             "githubUsername": os.getenv(f"{role.upper()}_GITHUB_USERNAME"),
-            "forkUrl": self.fork_url,
-            "branchName": self.branch_name,
         }
 
         # Create add-pr payload for addPRSignature
         add_pr_payload = {
             "taskId": self.task_id,
             "roundNumber": round_number,
-            "action": "add-pr",
+            "action": "add-todo-pr",
             "githubUsername": os.getenv(f"{role.upper()}_GITHUB_USERNAME"),
-            "forkUrl": self.fork_url,
-            "branchName": self.branch_name,
         }
 
         # Get signatures for fetch-todo
@@ -174,6 +160,7 @@ class DataManager:
             print(f"Error creating add-PR signature: {e}")
             add_pr_signature = "dummy_add_pr_signature"
 
+        # Match exactly what 1-task.ts sends
         return {
             "taskId": self.task_id,
             "roundNumber": round_number,
@@ -181,12 +168,7 @@ class DataManager:
             "pubKey": fetch_signatures["pub_key"],
             "stakingSignature": fetch_signatures["staking_signature"],
             "publicSignature": fetch_signatures["public_signature"],
-            "addPRSignature": add_pr_signature,  # Add the new signature
-            "repoOwner": aggregator_owner,  # Use the aggregator owner
-            "repoName": self.repo_name,  # Use repo name from fork URL or server response
-            "distributionList": {},
-            "forkUrl": self.fork_url,
-            "branchName": self.branch_name,
+            "addPRSignature": add_pr_signature,
         }
 
     def create_submitter_signature(
@@ -325,36 +307,58 @@ class DataManager:
         self, role: str, round_number: int, pr_urls: list[str]
     ) -> Dict[str, Any]:
         """Prepare payload for leader-task endpoint."""
-        # Create distribution list from PR URLs
-        distribution_list = {}
-        for pr_url in pr_urls:
-            worker_key = self.extract_staking_key_from_pr(pr_url)
-            distribution_list[worker_key] = {
-                "taskId": self.task_id,
-                "roundNumber": round_number - 3,  # Worker round is 3 rounds before
-                "prUrl": pr_url,
-                "stakingKey": worker_key,
-            }
-
-        payload = {
+        # Create fetch-issue payload for stakingSignature and publicSignature
+        fetch_issue_payload = {
             "taskId": self.task_id,
             "roundNumber": round_number,
-            "action": "task",
+            "action": "fetch-issue",
             "githubUsername": os.getenv(f"{role.upper()}_GITHUB_USERNAME"),
         }
 
-        signatures = self.create_signature(role, payload)
+        # Create add-pr payload for addPRSignature
+        add_pr_payload = {
+            "taskId": self.task_id,
+            "roundNumber": round_number,
+            "action": "add-issue-pr",
+            "githubUsername": os.getenv(f"{role.upper()}_GITHUB_USERNAME"),
+        }
 
+        # Get signatures for fetch-issue
+        fetch_signatures = self.create_signature(role, fetch_issue_payload)
+
+        # Create addPRSignature for add-pr
+        try:
+            keypair = self.keypairs[role]
+            staking_keypair_path = keypair["staking"]
+
+            if not staking_keypair_path:
+                add_pr_signature = "dummy_add_pr_signature"
+            else:
+                # Load staking keypair for add-todo-pr signature
+                staking_signing_key, _ = self._load_keypair(staking_keypair_path)
+
+                # Update add_pr_payload with staking key and pub key
+                add_pr_payload["stakingKey"] = fetch_signatures["staking_key"]
+                add_pr_payload["pubKey"] = fetch_signatures["pub_key"]
+
+                # Create add-todo-pr signature
+                payload_str = json.dumps(add_pr_payload, sort_keys=True).encode()
+                staking_signed = staking_signing_key.sign(payload_str)
+                staking_combined = staking_signed.signature + payload_str
+                add_pr_signature = base58.b58encode(staking_combined).decode()
+        except Exception as e:
+            print(f"Error creating add-PR signature: {e}")
+            add_pr_signature = "dummy_add_pr_signature"
+
+        # Match exactly what 1-task.ts sends
         return {
             "taskId": self.task_id,
             "roundNumber": round_number,
-            "stakingKey": signatures["staking_key"],
-            "pubKey": signatures["pub_key"],
-            "stakingSignature": signatures["staking_signature"],
-            "publicSignature": signatures["public_signature"],
-            "repoOwner": os.getenv("LEADER_GITHUB_USERNAME"),
-            "repoName": self.source_repo,
-            "distributionList": distribution_list,
+            "stakingKey": fetch_signatures["staking_key"],
+            "pubKey": fetch_signatures["pub_key"],
+            "stakingSignature": fetch_signatures["staking_signature"],
+            "publicSignature": fetch_signatures["public_signature"],
+            "addPRSignature": add_pr_signature,
         }
 
     def extract_staking_key_from_pr(self, pr_url: str) -> str:

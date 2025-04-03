@@ -103,7 +103,7 @@ export const addPR = async (req: Request, res: Response) => {
     requestBody.signature,
     requestBody.pubKey,
     requestBody.stakingKey,
-    "add-pr",
+    "add-todo-pr",
   );
   if (!signatureData) {
     res.status(401).json({

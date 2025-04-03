@@ -91,7 +91,7 @@ export const fetchIssue = async (req: Request, res: Response) => {
     requestBody.signature,
     requestBody.stakingKey,
     requestBody.pubKey,
-    "fetch_issue",
+    "fetch-issue",
   );
   if (!signatureData) {
     res.status(401).json({
@@ -109,6 +109,15 @@ export const fetchIssue = async (req: Request, res: Response) => {
     return;
   }
 
+  const response = await fetchIssueLogic(requestBody, signatureData);
+  res.status(response.statuscode).json(response.data);
+};
+
+export const fetchIssueLogic = async (
+  requestBody: { signature: string; stakingKey: string; pubKey: string },
+  signatureData: { roundNumber: number; githubUsername: string; taskId: string },
+) => {
+  // 1. Check if user already has an assignment
   const existingAssignment = await checkExistingAssignment(requestBody.stakingKey, signatureData.roundNumber);
 
   if (existingAssignment) {
@@ -130,74 +139,71 @@ export const fetchIssue = async (req: Request, res: Response) => {
     };
   }
 
-  const fetchIssueLogic = async (
-    requestBody: { signature: string; stakingKey: string; pubKey: string },
-    signatureData: { roundNumber: number; githubUsername: string },
-  ) => {
-    try {
-      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-      const eligibleIssue = await IssueModel.findOneAndUpdate(
-        {
-          $or: [
-            { status: IssueStatus.ASSIGN_PENDING },
-            {
-              status: IssueStatus.IN_REVIEW,
-              updatedAt: { $lt: fifteenMinutesAgo },
-            },
-          ],
-        },
-        {
-          $set: {
+  try {
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const eligibleIssue = await IssueModel.findOneAndUpdate(
+      {
+        $or: [
+          { status: IssueStatus.ASSIGN_PENDING },
+          {
             status: IssueStatus.IN_REVIEW,
-            assignedStakingKey: requestBody.stakingKey,
-            assignedGithubUsername: signatureData.githubUsername,
-            assignedRoundNumber: signatureData.roundNumber,
-            updatedAt: new Date(),
+            updatedAt: { $lt: fifteenMinutesAgo },
           },
+        ],
+      },
+      {
+        $set: {
+          status: IssueStatus.IN_REVIEW,
+          assignedStakingKey: requestBody.stakingKey,
+          assignedGithubUsername: signatureData.githubUsername,
+          assignedRoundNumber: signatureData.roundNumber,
+          updatedAt: new Date(),
         },
-        { new: true, sort: { createdAt: 1 } },
-      );
+      },
+      { new: true, sort: { createdAt: 1 } },
+    );
 
-      if (!eligibleIssue) {
-        return {
-          statuscode: 404,
-          data: {
-            success: false,
-            message: "No eligible issues found",
-          },
-        };
-      }
-
-      const prDict = await getPRDict(eligibleIssue.issueUuid);
-      if (!prDict) {
-        res.status(404).json({
-          success: false,
-          message: "Issue not found",
-        });
-        return;
-      }
-
+    if (!eligibleIssue) {
       return {
-        statuscode: 200,
-        data: {
-          success: true,
-          data: {
-            repo_owner: eligibleIssue.repoOwner,
-            repo_name: eligibleIssue.repoName,
-            issue_uuid: eligibleIssue.issueUuid,
-            pr_list: prDict,
-          },
-        },
-      };
-    } catch (error) {
-      console.error("Error fetching issue:", error);
-      return {
-        statuscode: 500,
+        statuscode: 404,
         data: {
           success: false,
-          message: "Failed to fetch issue",
+          message: "No eligible issues found",
         },
       };
     }
-  };
+
+    const prDict = await getPRDict(eligibleIssue.issueUuid);
+    if (!prDict) {
+      return {
+        statuscode: 404,
+        data: {
+          success: false,
+          message: "Issue not found",
+        },
+      };
+    }
+
+    return {
+      statuscode: 200,
+      data: {
+        success: true,
+        data: {
+          repo_owner: eligibleIssue.repoOwner,
+          repo_name: eligibleIssue.repoName,
+          issue_uuid: eligibleIssue.issueUuid,
+          pr_list: prDict,
+        },
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching issue:", error);
+    return {
+      statuscode: 500,
+      data: {
+        success: false,
+        message: "Failed to fetch issue",
+      },
+    };
+  }
 };

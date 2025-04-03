@@ -72,7 +72,7 @@ export const addIssuePR = async (req: Request, res: Response) => {
     requestBody.signature,
     requestBody.stakingKey,
     requestBody.pubKey,
-    "addIssuePR",
+    "add-issue-pr",
   );
   if (!signatureData) {
     res.status(401).json({
