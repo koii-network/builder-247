@@ -8,12 +8,10 @@ import re
 import requests
 from github import Github
 import os
-from typing import Dict, Tuple
 from git import Repo
-from src.workflows.utils import verify_pr_signatures
-from agent_framework.utils.distribution import validate_distribution_list
-import json
+from typing import Tuple
 from agent_framework.tools.github_operations.parser import extract_section
+from src.workflows.utils import verify_pr_signatures
 
 
 def verify_pr_ownership(
@@ -145,7 +143,6 @@ def audit_leader_submission(
     submitter_signature: str,  # Leader's signature
     submitter_staking_key: str,  # Leader's staking key
     submitter_pub_key: str,  # Leader's pub key
-    distribution_list: Dict[str, Dict[str, str]],
     leader_username: str,
 ) -> Tuple[bool, str]:
     """Audit a leader's consolidated PR submission.
@@ -160,13 +157,10 @@ def audit_leader_submission(
         print(f"PR URL: {pr_url}", flush=True)
         print(f"Leader username: {leader_username}", flush=True)
         print(f"Leader staking key: {submitter_staking_key}", flush=True)
-        print(
-            f"Distribution list: {json.dumps(distribution_list, indent=2)}", flush=True
-        )
 
         gh = Github(os.environ["GITHUB_TOKEN"])
 
-        # Parse PR URL and get PR object
+        # 1. Parse PR URL and get PR object
         match = re.match(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
         if not match:
             return False, f"Invalid PR URL format: {pr_url}"
@@ -183,7 +177,7 @@ def audit_leader_submission(
         print(f"PR base repo: {pr.base.repo.full_name}", flush=True)
         print(f"PR head repo: {pr.head.repo.full_name}", flush=True)
 
-        # 1. Verify PR is targeting the source repo's default branch
+        # 2. Verify PR is targeting the source repo's default branch
         if pr.base.repo.owner.login != repo_owner or pr.base.repo.name != repo_name:
             return (
                 False,
@@ -197,7 +191,7 @@ def audit_leader_submission(
                 f"Wrong base branch - expected: {source_repo.default_branch}, got: {pr.base.ref}",
             )
 
-        # 2. Verify PR is coming from the leader's fork
+        # 3. Verify PR is coming from the leader's fork
         print(
             f"\nVerifying PR owner - expected: {leader_username}, actual: {pr.head.repo.owner.login}",
             flush=True,
@@ -208,14 +202,14 @@ def audit_leader_submission(
                 f"PR owner mismatch - expected: {leader_username}, got: {pr.head.repo.owner.login}",
             )
 
-        # 2. Verify leader's staking key and signature in PR description
+        # 4. Verify leader's staking key and signature in PR description
         print("\nVerifying leader's signature...", flush=True)
         is_valid = verify_pr_signatures(
             pr.body,
             task_id,
             round_number,
             expected_staking_key=submitter_staking_key,  # Use leader's key to verify their signature
-            expected_action="task",
+            expected_action="fetch-issue",
         )
         if not is_valid:
             return (
@@ -223,17 +217,48 @@ def audit_leader_submission(
                 f"Failed to verify leader's signature for staking key {submitter_staking_key}",
             )
 
-        # 3. Validate and filter distribution list
-        print("\nValidating distribution list...", flush=True)
-        filtered_distribution_list, error = validate_distribution_list(
-            distribution_list=distribution_list,
-            repo_owner=repo_owner,
-            repo_name=repo_name,
-        )
-        if error:
-            return False, f"Distribution list validation failed: {error}"
+        # 5. Verify issue assignment and get PR list from middle server
+        print("\nVerifying issue assignment and getting PR list...", flush=True)
 
-        # 4. Clone the repository and analyze merge commits
+        middle_server_url = os.environ.get("MIDDLE_SERVER_URL")
+        if not middle_server_url:
+            return False, "MIDDLE_SERVER_URL environment variable not set"
+
+        # Call check-issue endpoint with staking key and signatures
+        print(f"Calling check-issue endpoint with staking key: {submitter_staking_key}")
+        check_response = requests.post(
+            f"{middle_server_url}/api/check-issue",
+            json={
+                "signature": submitter_signature,
+                "stakingKey": submitter_staking_key,
+                "pubKey": submitter_pub_key,
+            },
+            headers={"Content-Type": "application/json"},
+        )
+
+        if check_response.status_code != 200:
+            error_message = f"Failed to verify issue assignment: {check_response.text}"
+            print(error_message, flush=True)
+            return False, error_message
+
+        check_data = check_response.json()
+        if not check_data.get("success"):
+            error_message = (
+                f"Issue assignment check failed: {check_data.get('message')}"
+            )
+            print(error_message, flush=True)
+            return False, error_message
+
+        # Extract PR list from response
+        pr_list = check_data.get("data", {}).get("pr_list", {})
+        if not pr_list:
+            error_message = "No PR list found in issue assignment check response"
+            print(error_message, flush=True)
+            return False, error_message
+
+        print(f"Received PR list with {len(pr_list)} entries", flush=True)
+
+        # 6. Clone the repository and analyze merge commits
         clone_path = f"/tmp/audit-{repo_owner}-{repo_name}-{pr.head.ref}"
         print(f"\nClone path: {clone_path}", flush=True)
         if os.path.exists(clone_path):
@@ -261,27 +286,21 @@ def audit_leader_submission(
         commits = list(repo.iter_commits(f"{pr.base.ref}..{merged_branch}"))
         print(f"\nFound {len(commits)} commits in PR", flush=True)
 
-        # Get merge commits (for counting against distribution list)
+        # Get merge commits
         merge_commits = [c for c in commits if len(c.parents) == 2]
         print(f"Found {len(merge_commits)} merge commits", flush=True)
 
-        # Verify number of merge commits matches number of PRs in filtered distribution list
-        eligible_prs = len(filtered_distribution_list)
-        print(
-            f"\nVerifying merge commit count - expected: {eligible_prs}, actual: {len(merge_commits)}",
-            flush=True,
-        )
-        if len(merge_commits) != eligible_prs:
-            return (
-                False,
-                f"Merge commit count mismatch - expected {eligible_prs}, got {len(merge_commits)}",
-            )
+        # 7. Verify merge commits against PR list
+        print("\nVerifying merge commits against PR list...", flush=True)
+        print(f"PR list contains {len(pr_list)} PRs", flush=True)
+
+        # Track processed merge commits to ensure all are valid
+        valid_commits = 0
 
         # Track used staking keys to prevent duplicates
         used_staking_keys = set()
 
-        # 7. Verify each merge commit corresponds to a PR from an eligible node
-        print("\nVerifying individual merge commits...", flush=True)
+        # Verify each merge commit corresponds to a PR from the PR list
         for commit in merge_commits:
             print(f"\nChecking commit: {commit.hexsha[:8]}", flush=True)
             print(f"Commit message: {commit.message}", flush=True)
@@ -293,82 +312,95 @@ def audit_leader_submission(
                     commit.message,
                 )
                 if not commit_match:
-                    return False, f"No match found in commit message: {commit.message}"
+                    print(
+                        f"Warning: No match found in commit message: {commit.message}"
+                    )
+                    continue
 
                 copied_branch = commit_match.group(1)
-                pr_url = commit_match.group(2)
-                print(f"Found PR URL: {pr_url}", flush=True)
-            except Exception as e:
-                return False, f"Error parsing commit message: {str(e)}"
+                merge_pr_url = commit_match.group(2)
+                print(f"Found PR URL in commit: {merge_pr_url}", flush=True)
 
-            # Extract PR number from URL
-            try:
-                print(f"\nExtracting PR details from URL: {pr_url}", flush=True)
-                pr_number = int(pr_url.strip("/").split("/")[-1])
-                pr_owner = pr_url.split("/")[-4]
-                pr_repo_name = pr_url.split("/")[-3]
-                print(
-                    f"Extracted - owner: {pr_owner}, repo: {pr_repo_name}, number: {pr_number}",
-                    flush=True,
-                )
-
-                # Get PR using GitHub API
-                print(
-                    f"Fetching PR from GitHub API: {pr_owner}/{pr_repo_name}#{pr_number}",
-                    flush=True,
-                )
-                gh_repo = gh.get_repo(f"{pr_owner}/{pr_repo_name}")
-                source_pr = gh_repo.get_pull(pr_number)
-                print(f"Found PR: {source_pr.title}", flush=True)
-
-                # Extract staking key from PR body
-                print("Checking PR against filtered distribution list...", flush=True)
-                staking_section = extract_section(source_pr.body, "STAKING_KEY")
-                if not staking_section:
-                    return False, f"No staking key section found in PR #{pr_number}"
-
+                # Extract PR number from URL
                 try:
-                    pr_staking_key = staking_section.split(":")[0].strip()
-                    print(f"Found staking key in PR: {pr_staking_key}", flush=True)
+                    pr_match = re.match(
+                        r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)", merge_pr_url
+                    )
+                    if not pr_match:
+                        print(
+                            f"Warning: Invalid PR URL format in commit: {merge_pr_url}"
+                        )
+                        continue
+
+                    pr_owner, pr_repo_name, pr_number = pr_match.groups()
+
+                    # Fetch the PR to extract the staking key from its description
+                    pr_repo = gh.get_repo(f"{pr_owner}/{pr_repo_name}")
+                    worker_pr = pr_repo.get_pull(int(pr_number))
+
+                    # Extract staking key from PR body
+                    staking_section = extract_section(worker_pr.body, "STAKING_KEY")
+                    if not staking_section:
+                        print(
+                            f"Warning: No staking key section found in PR #{pr_number}"
+                        )
+                        continue
+
+                    worker_staking_key = staking_section.split(":")[0].strip()
+                    print(f"Found staking key in PR: {worker_staking_key}")
+
+                    # Check if this staking key is in our PR list
+                    if worker_staking_key not in pr_list:
+                        print(
+                            f"Warning: Staking key {worker_staking_key} not found in PR list"
+                        )
+                        continue
+
+                    # Verify the PR URL matches what's in our PR list
+                    expected_pr_url = pr_list[worker_staking_key]
+                    if expected_pr_url.strip() != merge_pr_url.strip():
+                        print(
+                            f"Warning: PR URL mismatch for staking key {worker_staking_key}"
+                        )
+                        print(f"  Expected: {expected_pr_url}")
+                        print(f"  Found: {merge_pr_url}")
+                        continue
+
+                    # Check for duplicate staking keys
+                    if worker_staking_key in used_staking_keys:
+                        print(
+                            f"Warning: Duplicate PR from staking key {worker_staking_key}"
+                        )
+                        continue
+
+                    used_staking_keys.add(worker_staking_key)
+                    valid_commits += 1
+                    print(f"✓ Valid PR from staking key {worker_staking_key}")
+
                 except Exception as e:
-                    return (
-                        False,
-                        f"Error parsing staking key section in PR #{pr_number}: {str(e)}",
-                    )
-
-                # Check if this key is in our filtered distribution list
-                if pr_staking_key not in filtered_distribution_list:
-                    return (
-                        False,
-                        f"PR #{pr_number} has staking key {pr_staking_key} not in filtered distribution list",
-                    )
-
-                # Check for duplicate staking keys
-                if pr_staking_key in used_staking_keys:
-                    return False, f"Duplicate staking key found: {pr_staking_key}"
-
-                used_staking_keys.add(pr_staking_key)
-                print(
-                    f"✓ PR {pr_number} has valid staking key {pr_staking_key}",
-                    flush=True,
-                )
-
-                # Return to merged branch for next iteration
-                print(f"Returning to merged branch {merged_branch}...", flush=True)
-                repo.git.checkout(merged_branch)
+                    print(f"Warning: Error processing PR {merge_pr_url}: {str(e)}")
+                    continue
 
             except Exception as e:
-                return False, f"Error processing PR {pr_url}: {str(e)}"
+                print(f"Warning: Error parsing commit message: {str(e)}")
+                continue
 
-        # 8. Verify all eligible nodes are included
-        print("\nVerifying all eligible nodes are included...")
-        print(f"Used staking keys: {used_staking_keys}")
-        print(f"Expected staking keys: {set(filtered_distribution_list.keys())}")
-        if used_staking_keys != set(filtered_distribution_list.keys()):
-            missing_keys = set(filtered_distribution_list.keys()) - used_staking_keys
-            return False, f"Missing PRs from nodes: {missing_keys}"
+        print(
+            f"\nFound {valid_commits} valid merge commits out of {len(merge_commits)}"
+        )
+        print(f"PR list contained {len(pr_list)} entries")
 
-        # 9. Perform code review using the same audit workflow
+        # Check if we have enough valid commits
+        if valid_commits == 0:
+            return False, "No valid PRs found in merge commits"
+
+        # We don't require all PRs to be merged, so just warn if counts don't match
+        if valid_commits < len(pr_list):
+            print(
+                f"Warning: {len(pr_list) - valid_commits} PRs from the PR list were not found in merge commits"
+            )
+
+        # 8. Perform code review using the same audit workflow
         print("\nPerforming code review...", flush=True)
         try:
             # Use the auditor's signatures for the review

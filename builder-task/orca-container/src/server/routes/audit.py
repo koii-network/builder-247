@@ -108,7 +108,7 @@ def audit_worker_submission(round_number: str):
 def handle_leader_audit(round_number: int):
     """Audit a leader's consolidated PR submission.
 
-    Expected request body matches worker audit:
+    Expected request body:
     {
         "submission": {
             "roundNumber": int,
@@ -120,7 +120,6 @@ def handle_leader_audit(round_number: int):
             "pubKey": str,
             "action": "audit",
             "githubUsername": str,
-            "distributionList": {...}
         },
         "submitterSignature": str,
         "submitterStakingKey": str,
@@ -129,7 +128,6 @@ def handle_leader_audit(round_number: int):
         "pubKey": str,
         "stakingSignature": str,
         "publicSignature": str,
-        "distributionList": {...}
     }
     """
     logger.info("Auditing leader submission")
@@ -147,7 +145,6 @@ def handle_leader_audit(round_number: int):
     repo_owner = submission.get("repoOwner")
     repo_name = submission.get("repoName")
     github_username = submission.get("githubUsername")
-    distribution_list = data.get("distributionList", {})
 
     # Extract signature data from top level
     submitter_signature = data.get("submitterSignature")
@@ -169,7 +166,6 @@ def handle_leader_audit(round_number: int):
         or not repo_owner
         or not repo_name
         or not github_username
-        or not distribution_list
         or not submitter_signature
         or not submitter_staking_key
         or not submitter_pub_key
@@ -195,7 +191,6 @@ def handle_leader_audit(round_number: int):
             submitter_signature=submitter_signature,  # Leader's signature
             submitter_staking_key=submitter_staking_key,  # Leader's staking key
             submitter_pub_key=submitter_pub_key,  # Leader's pub key
-            distribution_list=distribution_list,
             leader_username=github_username,
         )
 
