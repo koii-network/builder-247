@@ -209,14 +209,25 @@ def reset_mongodb():
 def run_test_sequence(
     start_step: int = 1,
     stop_step: int = 5,
-    reset_db: bool = False,
-    reset_mongo: bool = False,
+    reset: bool = False,
 ):
     """Run the test sequence from start_step to stop_step (inclusive)"""
-    if reset_db:
+    if reset:
+        # Reset SQLite databases
         reset_databases()
-    if reset_mongo:
+
+        # Reset MongoDB
         reset_mongodb()
+
+        # Remove state file if it exists
+        state_file = Path(__file__).parent / "e2e_state.json"
+        if state_file.exists():
+            print(f"Removing state file: {state_file}")
+            os.remove(state_file)
+
+        print(
+            "Reset completed: SQLite databases, MongoDB, and state file have been reset"
+        )
 
     with TestSetup() as setup:
         data_manager = DataManager()
@@ -452,7 +463,7 @@ Example usage:
   python -m tests.e2e --start 2 --stop 3
 
   # Reset databases and run specific steps
-  python -m tests.e2e --start 2 --stop 4 --reset-db --reset-mongo
+  python -m tests.e2e --start 2 --stop 4 --reset
 """,
     )
     parser.add_argument(
@@ -468,12 +479,9 @@ Example usage:
         help="Stop step number (1-5)",
     )
     parser.add_argument(
-        "--reset-db", action="store_true", help="Reset SQLite databases before running"
-    )
-    parser.add_argument(
-        "--reset-mongo",
+        "--reset",
         action="store_true",
-        help="Reset MongoDB database before running",
+        help="Reset SQLite databases, MongoDB, and state file before running",
     )
     args = parser.parse_args()
 
@@ -485,4 +493,4 @@ Example usage:
         print("Error: Start step cannot be greater than stop step")
         exit(1)
 
-    run_test_sequence(args.start, args.stop, args.reset_db, args.reset_mongo)
+    run_test_sequence(args.start, args.stop, args.reset)
