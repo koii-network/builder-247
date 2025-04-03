@@ -233,6 +233,14 @@ class MergeConflictWorkflow(Workflow):
         pr_repo_name = parts[-3]
 
         try:
+            # Get the actual PR author from the GitHub API
+            gh = Github(self.context["github_token"])
+            repo = gh.get_repo(f"{pr_repo_owner}/{pr_repo_name}")
+            pr = repo.get_pull(pr_number)
+            pr_author = pr.user.login  # Get the actual author's GitHub username
+
+            print(f"PR #{pr_number} created by GitHub user: {pr_author}")
+
             # Create unique branch name for PR content
             pr_branch = f"pr-{pr_number}-{pr_repo_owner}-{pr_repo_name}"
             print(
@@ -325,7 +333,7 @@ class MergeConflictWorkflow(Workflow):
                     "number": pr_number,
                     "title": pr_title,
                     "url": pr_url,
-                    "source_owner": pr_repo_owner,
+                    "source_owner": pr_author,  # Use the actual PR author instead of repo owner
                 }
             )
             print(f"Successfully merged PR #{pr_number}")
