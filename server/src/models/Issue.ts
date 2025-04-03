@@ -12,7 +12,7 @@ modelOptions({
 enum IssueStatus {
   INITIALIZED = "initialized",
   AGGREGATOR_PENDING = "aggregator_pending",
-  IN_PROCESS = "in_process",
+  IN_PROGRESS = "in_progress",
   ASSIGN_PENDING = "assign_pending", // Means awaiting assignment to a leader node
   ASSIGNED = "assigned", // Means assigned to a leader node
   IN_REVIEW = "in_review", // Means a PR is opened and waiting for review

@@ -43,7 +43,7 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
           {
             $match: {
               $or: [
-                { status: IssueStatus.IN_PROCESS },
+                { status: IssueStatus.IN_PROGRESS },
                 {
                   $and: [{ status: IssueStatus.AGGREGATOR_PENDING }, { updatedAt: { $gt: fiveMinutesAgo } }],
                 },

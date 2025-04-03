@@ -148,7 +148,7 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
   // 1. Update all IN_PROGRESS todos to APPROVED
   const todosResult = await TodoModel.updateMany(
     {
-      status: TodoStatus.IN_PROGRESS,
+      status: TodoStatus.IN_REVIEW,
       assignedRoundNumber: round,
     },
     {
@@ -158,17 +158,17 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
 
   console.log(`[TEST MODE] Updated ${todosResult.modifiedCount} todos from IN_PROGRESS to APPROVED for round ${round}`);
 
-  // 2. Update all IN_PROCESS issues to ASSIGN_PENDING (changed from IN_REVIEW)
+  // 2. Update all IN_PROGRESS issues to ASSIGN_PENDING
   const issuesResult = await IssueModel.updateMany(
     {
-      status: IssueStatus.IN_PROCESS,
+      status: IssueStatus.IN_PROGRESS,
     },
     {
       $set: { status: IssueStatus.ASSIGN_PENDING },
     },
   );
 
-  console.log(`[TEST MODE] Updated ${issuesResult.modifiedCount} issues from IN_PROCESS to ASSIGN_PENDING`);
+  console.log(`[TEST MODE] Updated ${issuesResult.modifiedCount} issues from IN_PROGRESS to ASSIGN_PENDING`);
 
   // 3. Keep ASSIGN_PENDING issues as ASSIGN_PENDING for leader tasks
   // (No need to change status here, they're already in the correct state)
@@ -252,19 +252,5 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
       await TodoModel.updateMany({ issueUuid: issue.issueUuid }, { $set: { status: TodoStatus.MERGED } });
     }
     await issue.save();
-  }
-
-  // Special handling for test environment - if no issues found with PRs, look for any ASSIGN_PENDING issues and update them
-  if (process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development") {
-    if (auditableIssues.length === 0) {
-      const pendingIssues = await IssueModel.find({ status: IssueStatus.ASSIGN_PENDING });
-      console.log(`Test mode: Found ${pendingIssues.length} ASSIGN_PENDING issues to update to IN_REVIEW`);
-
-      for (const issue of pendingIssues) {
-        issue.status = IssueStatus.IN_REVIEW;
-        console.log(`Test mode: Setting issue ${issue.issueUuid} to IN_REVIEW`);
-        await issue.save();
-      }
-    }
   }
 };

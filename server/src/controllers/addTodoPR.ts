@@ -8,18 +8,19 @@ import { TodoStatus } from "../models/Todo";
 
 function verifyRequestBody(
   req: Request,
-): { signature: string; pubKey: string; stakingKey: string; prUrl: string } | null {
+): { signature: string; pubKey: string; stakingKey: string; prUrl: string; todo_uuid: string } | null {
   try {
     console.log("req.body", req.body);
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
     const stakingKey = req.body.stakingKey as string;
     const prUrl = req.body.prUrl as string;
-    if (!signature || !pubKey || !stakingKey || !prUrl) {
+    const todo_uuid = req.body.todo_uuid as string;
+    if (!signature || !pubKey || !stakingKey || !prUrl || !todo_uuid) {
       return null;
     }
 
-    return { signature, pubKey, stakingKey, prUrl };
+    return { signature, pubKey, stakingKey, prUrl, todo_uuid };
   } catch {
     return null;
   }
@@ -62,22 +63,24 @@ async function verifySignatureData(
     return null;
   }
 }
-async function updateAssignedInfoWithPRUrl(
+
+async function updateTodoWithPRUrl(
+  todo_uuid: string,
   stakingKey: string,
   roundNumber: number,
   prUrl: string,
-  prSignature: string,
 ): Promise<boolean> {
-  console.log("updateAssignedInfoWithPRUrl", { stakingKey, roundNumber, prUrl, prSignature });
+  console.log("updateTodoWithPRUrl", { todo_uuid, stakingKey, roundNumber, prUrl });
   const result = await TodoModel.findOneAndUpdate(
     {
-      assignedStakingKey: stakingKey,
-      assignedRoundNumber: roundNumber,
+      uuid: todo_uuid,
     },
     {
       $set: {
         prUrl: prUrl,
         status: TodoStatus.IN_REVIEW,
+        assignedStakingKey: stakingKey,
+        assignedRoundNumber: roundNumber,
       },
     },
   )
@@ -126,46 +129,22 @@ export const addPR = async (req: Request, res: Response) => {
 };
 
 export const addPRLogic = async (
-  requestBody: { signature: string; pubKey: string; stakingKey: string; prUrl: string },
+  requestBody: { signature: string; pubKey: string; stakingKey: string; prUrl: string; todo_uuid: string },
   signatureData: { roundNumber: number; taskId: string },
 ) => {
   console.log("prUrl", requestBody.prUrl);
-  const result = await updateAssignedInfoWithPRUrl(
+  const result = await updateTodoWithPRUrl(
+    requestBody.todo_uuid,
     requestBody.stakingKey,
     signatureData.roundNumber,
     requestBody.prUrl,
-    requestBody.signature,
   );
   if (!result) {
     return {
-      statuscode: 401,
+      statuscode: 404,
       data: {
         success: false,
-        message: "Failed to update pull request URL",
-      },
-    };
-  }
-
-  const updatedTodo = await TodoModel.findOneAndUpdate(
-    {
-      assignedStakingKey: requestBody.stakingKey,
-      assignedRoundNumber: signatureData.roundNumber,
-    },
-    {
-      $set: {
-        prUrl: requestBody.prUrl,
-        status: TodoStatus.IN_REVIEW,
-      },
-    },
-    { new: true },
-  );
-
-  if (!updatedTodo) {
-    return {
-      statuscode: 401,
-      data: {
-        success: false,
-        message: "Failed to update todo status",
+        message: "Todo not found",
       },
     };
   }

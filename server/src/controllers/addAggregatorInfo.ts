@@ -117,7 +117,7 @@ export const addAggregatorInfoLogic = async (
     },
     {
       $set: {
-        status: IssueStatus.IN_PROCESS,
+        status: IssueStatus.IN_PROGRESS,
         aggregatorOwner: signatureData.githubUsername,
         aggregatorUrl: signatureData.aggregatorUrl,
       },
@@ -147,7 +147,7 @@ export const addAggregatorInfoLogic = async (
     aggregatorOwner: signatureData.githubUsername,
   });
 
-  issue.status = IssueStatus.IN_PROCESS;
+  issue.status = IssueStatus.IN_PROGRESS;
 
   await issue.save();
 

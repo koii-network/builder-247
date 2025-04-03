@@ -231,18 +231,30 @@ def run_todo_task(
                 f"Deleted existing incomplete submission for task {task_id}, round {round_number}"
             )
 
-        # Create new submission with issue_uuid and node_type
+        # Extract todo_uuid from the todo data
+        todo_uuid = todo.get("todo_uuid")
+        if not todo_uuid:
+            # Fallback to using base_branch if todo_uuid is not available
+            todo_uuid = base_branch
+            logger.warning(
+                f"No todo_uuid found in todo data, using base_branch: {base_branch}"
+            )
+        else:
+            logger.info(f"Using todo_uuid from todo data: {todo_uuid}")
+
+        # Create new submission with todo_uuid in the uuid column
         submission = Submission(
             task_id=task_id,
             round_number=round_number,
             status="running",
             repo_owner=repo_owner,
             repo_name=repo_name,
-            issue_uuid=base_branch,  # Store issue_uuid (base_branch contains it)
+            uuid=todo_uuid,  # Store the todo_uuid in the uuid column
             node_type="worker",  # Set node_type to worker
         )
         db.add(submission)
         db.commit()
+        logger.info(f"Created new submission with uuid={todo_uuid}, node_type=worker")
 
         # Set up client and workflow
         client = setup_client("anthropic")
@@ -340,9 +352,10 @@ def _store_pr_remotely(
     pub_key: str,
     pr_url: str,
     node_type: str = "worker",
-    issue_uuid: str = None,
+    uuid: str = None,
     task_id: str = None,
     round_number: int = None,
+    github_username: str = None,
 ) -> dict:
     """Store PR URL in middle server.
 
@@ -350,8 +363,9 @@ def _store_pr_remotely(
     - worker: /api/add-pr-to-to-do
     - leader: /api/add-issue-pr
 
-    For leader tasks, the issue_uuid must be included in the request body.
-    If issue_uuid is not provided, will attempt to get it from the database using task_id and round_number.
+    For leader tasks, the uuid must be included in the request body as issueUuid.
+    For worker tasks, the uuid must be included as todo_uuid.
+    If uuid is not provided, will attempt to get it from the database using task_id and round_number.
     """
     try:
         # Determine the endpoint based on node type
@@ -367,31 +381,41 @@ def _store_pr_remotely(
             "prUrl": pr_url,
         }
 
-        # Add issue_uuid to the payload for leader tasks
-        if node_type == "leader":
-            # If issue_uuid not provided directly, try to get it from the database
-            if not issue_uuid and task_id and round_number is not None:
-                try:
-                    db = get_db()
-                    submission = (
-                        db.query(Submission)
-                        .filter(
-                            Submission.task_id == task_id,
-                            Submission.round_number == round_number,
-                        )
-                        .first()
+        # Add uuid to the payload (different field name based on node type)
+        if not uuid and task_id and round_number is not None:
+            try:
+                db = get_db()
+                submission = (
+                    db.query(Submission)
+                    .filter(
+                        Submission.task_id == task_id,
+                        Submission.round_number == round_number,
                     )
-                    if submission and submission.issue_uuid:
-                        issue_uuid = submission.issue_uuid
-                        logger.info(f"Retrieved issue_uuid={issue_uuid} from database")
-                except Exception as e:
-                    logger.warning(f"Failed to get issue_uuid from database: {str(e)}")
+                    .first()
+                )
+                if submission and submission.uuid:
+                    uuid = submission.uuid
+                    logger.info(f"Retrieved uuid={uuid} from database")
+            except Exception as e:
+                logger.warning(f"Failed to get uuid from database: {str(e)}")
 
-            if issue_uuid:
-                payload["issueUuid"] = issue_uuid
+        if uuid:
+            if node_type == "leader":
+                payload["issueUuid"] = uuid
             else:
-                logger.warning("No issue_uuid available for leader PR recording")
+                payload["todo_uuid"] = uuid
+            logger.info(
+                f"Added {'issueUuid' if node_type == 'leader' else 'todo_uuid'}={uuid} to payload"
+            )
+        else:
+            logger.warning(f"No uuid available for {node_type} PR recording")
 
+        # Add github_username to the payload if provided
+        if github_username:
+            payload["githubUsername"] = github_username
+            logger.info(f"Including GitHub username in payload: {github_username}")
+
+        logger.info(f"Sending payload to {endpoint}: {payload}")
         response = requests.post(
             os.environ["MIDDLE_SERVER_URL"] + endpoint,
             json=payload,
@@ -420,8 +444,9 @@ def _store_pr_locally(
     round_number: int,
     pr_url: str,
     task_id: str,
-    issue_uuid: str = None,
+    uuid: str = None,
     node_type: str = "worker",
+    github_username: str = None,
 ) -> dict:
     """Store PR URL in local database."""
     try:
@@ -443,10 +468,14 @@ def _store_pr_locally(
                 submission.pr_url = pr_url
             submission.username = username
 
-            # Update issue_uuid and node_type if provided
-            if issue_uuid:
-                submission.issue_uuid = issue_uuid
+            # Update uuid and node_type if provided
+            if uuid:
+                submission.uuid = uuid
             submission.node_type = node_type
+
+            # Update github_username if provided
+            if github_username:
+                submission.username = github_username
 
             db.commit()
             logger.info("Local database updated successfully")
@@ -499,16 +528,45 @@ def record_pr(
         pr_url = existing_pr_url
 
     # For leader tasks, we need to get the issue UUID
-    issue_uuid = None
-    if node_type == "leader":
-        # Get task details to retrieve issue_uuid
+    uuid = None
+    # First, try to get UUID from the database
+    try:
+        db = get_db()
+        submission = (
+            db.query(Submission)
+            .filter(
+                Submission.round_number == round_number,
+                Submission.task_id == task_id,
+            )
+            .first()
+        )
+        if submission and submission.uuid:
+            uuid = submission.uuid
+            logger.info(f"Found uuid={uuid} in database")
+    except Exception as e:
+        logger.warning(f"Error retrieving uuid from database: {str(e)}")
+
+    # If we couldn't find the UUID in the database and this is a leader task, try getting it from task details
+    if not uuid and node_type == "leader":
+        # Get task details to retrieve uuid
         task_details = get_task_details(
             staking_signature, staking_key, pub_key, "leader"
         )
         if task_details.get("success", False) and "data" in task_details:
-            issue_uuid = task_details["data"].get("issue_uuid")
-            if not issue_uuid:
+            uuid = task_details["data"].get("issue_uuid")
+            if not uuid:
                 logger.warning("No issue_uuid found in task details for leader task")
+
+    # If we're processing a worker task and couldn't find the UUID, try to get it from task details
+    if not uuid and node_type == "worker":
+        # Get task details to retrieve uuid
+        task_details = get_task_details(
+            staking_signature, staking_key, pub_key, "worker"
+        )
+        if task_details.get("success", False) and "data" in task_details:
+            uuid = task_details["data"].get("todo_uuid")
+            if not uuid:
+                logger.warning("No todo_uuid found in task details for worker task")
 
     # Step 1: Always attempt to record with middle server, even for existing PRs
     remote_result = _store_pr_remotely(
@@ -517,7 +575,7 @@ def record_pr(
         pub_key,
         pr_url,
         node_type,
-        issue_uuid,
+        uuid,
         task_id,
         round_number,
     )
@@ -533,8 +591,8 @@ def record_pr(
     if existing["success"] and existing.get("skip_local_recording"):
         logger.info("Skipping local recording as PR already exists locally")
 
-        # But we should update the issue_uuid and node_type if we have new information
-        if existing_pr_url and (issue_uuid or node_type):
+        # But we should update the uuid and node_type if we have new information
+        if existing_pr_url and (uuid or node_type):
             try:
                 db = get_db()
                 submission = (
@@ -546,20 +604,18 @@ def record_pr(
                     .first()
                 )
                 if submission:
-                    if issue_uuid and not submission.issue_uuid:
-                        submission.issue_uuid = issue_uuid
+                    if uuid and not submission.uuid:
+                        submission.uuid = uuid
                     if node_type:
                         submission.node_type = node_type
                     db.commit()
                     logger.info(
-                        f"Updated submission with issue_uuid={issue_uuid}, node_type={node_type}"
+                        f"Updated submission with uuid={uuid}, node_type={node_type}"
                     )
             except Exception as e:
                 logger.warning(f"Failed to update existing submission: {str(e)}")
     else:
-        local_result = _store_pr_locally(
-            round_number, pr_url, task_id, issue_uuid, node_type
-        )
+        local_result = _store_pr_locally(round_number, pr_url, task_id, uuid, node_type)
         if not local_result["success"]:
             return local_result
 
@@ -633,11 +689,14 @@ def consolidate_prs(
                 status="running",
                 repo_owner=repo_owner,
                 repo_name=repo_name,
-                issue_uuid=issue_uuid,  # Store issue_uuid
+                uuid=issue_uuid,  # Store issue_uuid in the uuid column
                 node_type="leader",  # Set node_type to leader
             )
             db.add(submission)
             db.commit()
+            logger.info(
+                f"Created new submission with uuid={issue_uuid}, node_type=leader"
+            )
 
             # Get source fork
             github = Github(os.environ["GITHUB_TOKEN"])

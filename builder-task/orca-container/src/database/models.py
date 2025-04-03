@@ -14,5 +14,5 @@ class Submission(SQLModel, table=True):
     username: Optional[str] = None
     repo_owner: str
     repo_name: str
-    issue_uuid: Optional[str] = None  # UUID of the issue/todo
+    uuid: Optional[str] = None  # UUID of the issue/todo
     node_type: str = "worker"  # Either "worker" or "leader"

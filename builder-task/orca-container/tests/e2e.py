@@ -150,15 +150,20 @@ def reset_mongodb():
         print(f"Cleared {result.deleted_count} todos")
         result = db.systemprompts.delete_many({})
         print(f"Cleared {result.deleted_count} system prompts")
+        # Also clear audits collection
+        result = db.audits.delete_many({})
+        print(f"Cleared {result.deleted_count} audits")
 
         # Verify collections are empty
         print("\nVerifying collections are empty...")
         issues_count = db.issues.count_documents({})
         todos_count = db.todos.count_documents({})
         prompts_count = db.systemprompts.count_documents({})
+        audits_count = db.audits.count_documents({})
         print(f"Current issues count after delete: {issues_count}")
         print(f"Current todos count after delete: {todos_count}")
         print(f"Current prompts count after delete: {prompts_count}")
+        print(f"Current audits count after delete: {audits_count}")
 
         # Generate a real UUID for the issue
         issue_uuid = str(uuid.uuid4())
@@ -207,9 +212,11 @@ def reset_mongodb():
         issues_count = db.issues.count_documents({})
         todos_count = db.todos.count_documents({})
         prompts_count = db.systemprompts.count_documents({})
+        audits_count = db.audits.count_documents({})
         print(f"Final issues count: {issues_count}")
         print(f"Final todos count: {todos_count}")
         print(f"Final prompts count: {prompts_count}")
+        print(f"Final audits count: {audits_count}")
 
         print("\nMongoDB database reset completed successfully")
     except Exception as e:

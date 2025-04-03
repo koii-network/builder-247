@@ -16,7 +16,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number, 
       assignedRoundNumber: roundNumber,
       taskId: taskId,
     })
-      .select("title acceptanceCriteria repoOwner repoName issueUuid prUrl")
+      .select("title acceptanceCriteria repoOwner repoName uuid issueUuid prUrl")
       .lean();
 
     if (!result) return null;
@@ -140,7 +140,8 @@ export const fetchTodoLogic = async (
         success: true,
         data: {
           title: existingAssignment.todo.title,
-          issueUuid: existingAssignment.todo.issueUuid,
+          todo_uuid: existingAssignment.todo.uuid,
+          issue_uuid: existingAssignment.todo.issueUuid,
           acceptance_criteria: existingAssignment.todo.acceptanceCriteria,
           repo_owner: existingAssignment.todo.repoOwner,
           repo_name: existingAssignment.todo.repoName,
@@ -152,7 +153,7 @@ export const fetchTodoLogic = async (
   try {
     // 1. Find the current in-process issue
     const currentIssue = await IssueModel.findOne({
-      status: IssueStatus.IN_PROCESS,
+      status: IssueStatus.IN_PROGRESS,
     });
 
     if (!currentIssue) {
@@ -271,12 +272,13 @@ export const fetchTodoLogic = async (
       data: {
         success: true,
         data: {
+          _id: updatedTodo._id,
           title: updatedTodo.title,
+          todo_uuid: updatedTodo.uuid,
           issue_uuid: updatedTodo.issueUuid,
           acceptance_criteria: updatedTodo.acceptanceCriteria,
           repo_owner: updatedTodo.repoOwner,
           repo_name: updatedTodo.repoName,
-          system_prompt: systemPrompt.prompt,
         },
       },
     };
