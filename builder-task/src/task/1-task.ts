@@ -10,6 +10,7 @@ interface PodCallBody {
   pubKey: string;
   stakingSignature: string;
   publicSignature: string;
+  addPRSignature: string;
 }
 
 export async function task(roundNumber: number): Promise<void> {
@@ -76,7 +77,7 @@ export async function task(roundNumber: number): Promise<void> {
     if (leaderNode === null) {
       return;
     }
-    const payload = {
+    const fetchTodoPayload = {
       taskId: TASK_ID,
       roundNumber,
       githubUsername: process.env.GITHUB_USERNAME,
@@ -84,9 +85,19 @@ export async function task(roundNumber: number): Promise<void> {
       pubKey,
       action: "fetch-todo",
     };
-    const stakingSignature = await namespaceWrapper.payloadSigning(payload, stakingKeypair.secretKey);
-    const publicSignature = await namespaceWrapper.payloadSigning(payload);
-    if (!stakingSignature || !publicSignature) {
+    const addPRPayload = {
+      taskId: TASK_ID,
+      roundNumber,
+      githubUsername: process.env.GITHUB_USERNAME,
+      stakingKey,
+      pubKey,
+      action: "add-pr",
+    };
+    const stakingSignature = await namespaceWrapper.payloadSigning(fetchTodoPayload, stakingKeypair.secretKey);
+    const publicSignature = await namespaceWrapper.payloadSigning(fetchTodoPayload);
+    const addPRSignature = await namespaceWrapper.payloadSigning(addPRPayload, stakingKeypair.secretKey);
+
+    if (!stakingSignature || !publicSignature || !addPRSignature) {
       throw new Error("Signature generation failed");
     }
 
@@ -97,6 +108,7 @@ export async function task(roundNumber: number): Promise<void> {
       pubKey,
       stakingSignature,
       publicSignature,
+      addPRSignature,
     };
     let podCallUrl;
     if (isLeader) {

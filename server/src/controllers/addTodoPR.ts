@@ -27,6 +27,7 @@ async function verifySignatureData(
   signature: string,
   pubKey: string,
   stakingKey: string,
+  action: string,
 ): Promise<{ roundNumber: number; prUrl: string; taskId: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
@@ -36,12 +37,16 @@ async function verifySignatureData(
     }
     const body = JSON.parse(data);
     console.log("signature payload", { body, pubKey, stakingKey });
+    console.log("taskIDs match", taskIDs.includes(body.taskId));
+    console.log("typeof body.roundNumber", typeof body.roundNumber);
+    console.log("body.action", body.action);
+    console.log("body.pubKey", body.pubKey);
+    console.log("body.stakingKey", body.stakingKey);
     if (
       !body.taskId ||
       !taskIDs.includes(body.taskId) ||
       typeof body.roundNumber !== "number" ||
-      body.action !== "add" ||
-      !body.prUrl ||
+      body.action !== action ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
       !body.stakingKey ||
@@ -91,7 +96,12 @@ export const addPR = async (req: Request, res: Response) => {
     return;
   }
 
-  const signatureData = await verifySignatureData(requestBody.signature, requestBody.pubKey, requestBody.stakingKey);
+  const signatureData = await verifySignatureData(
+    requestBody.signature,
+    requestBody.pubKey,
+    requestBody.stakingKey,
+    "add-pr",
+  );
   if (!signatureData) {
     res.status(401).json({
       success: false,

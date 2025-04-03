@@ -69,9 +69,18 @@ def start_task(round_number, node_type, request):
         "stakingSignature",
         "pubKey",
         "publicSignature",
+        "addPRSignature",
     ]
+
     if any(request_data.get(field) is None for field in required_fields):
-        return jsonify({"success": False, "error": "Missing data"}), 401
+        missing_fields = [
+            field for field in required_fields if request_data.get(field) is None
+        ]
+        logger.error(f"Missing required fields: {missing_fields}")
+        return (
+            jsonify({"success": False, "error": f"Missing data: {missing_fields}"}),
+            401,
+        )
 
     response = task_functions[node_type](
         task_id=request_data["taskId"],
@@ -98,6 +107,7 @@ def start_task(round_number, node_type, request):
         pr_url=response_data["pr_url"],
         task_id=request_data["taskId"],
         node_type=node_type,
+        pr_signature=request_data["addPRSignature"],
     )
     response_data = response.get("data", {})
     if not response.get("success", False):

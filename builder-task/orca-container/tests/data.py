@@ -125,7 +125,8 @@ class DataManager:
             self.repo_name = repo_parts[-1]
             print(f"Extracted repo name from fork URL: {self.repo_name}")
 
-        payload = {
+        # Create fetch-todo payload for stakingSignature and publicSignature
+        fetch_todo_payload = {
             "taskId": self.task_id,
             "roundNumber": round_number,
             "action": "fetch-todo",
@@ -134,15 +135,53 @@ class DataManager:
             "branchName": self.branch_name,
         }
 
-        signatures = self.create_signature(role, payload)
+        # Create add-pr payload for addPRSignature
+        add_pr_payload = {
+            "taskId": self.task_id,
+            "roundNumber": round_number,
+            "action": "add-pr",
+            "githubUsername": os.getenv(f"{role.upper()}_GITHUB_USERNAME"),
+            "forkUrl": self.fork_url,
+            "branchName": self.branch_name,
+        }
+
+        # Get signatures for fetch-todo
+        fetch_signatures = self.create_signature(role, fetch_todo_payload)
+
+        # Create addPRSignature for add-pr
+        # We need to manually create this signature since our create_signature method
+        # doesn't support multiple payloads in one call
+        try:
+            keypair = self.keypairs[role]
+            staking_keypair_path = keypair["staking"]
+
+            if not staking_keypair_path:
+                add_pr_signature = "dummy_add_pr_signature"
+            else:
+                # Load staking keypair for add-todo-pr signature
+                staking_signing_key, _ = self._load_keypair(staking_keypair_path)
+
+                # Update add_pr_payload with staking key and pub key
+                add_pr_payload["stakingKey"] = fetch_signatures["staking_key"]
+                add_pr_payload["pubKey"] = fetch_signatures["pub_key"]
+
+                # Create add-todo-pr signature
+                payload_str = json.dumps(add_pr_payload, sort_keys=True).encode()
+                staking_signed = staking_signing_key.sign(payload_str)
+                staking_combined = staking_signed.signature + payload_str
+                add_pr_signature = base58.b58encode(staking_combined).decode()
+        except Exception as e:
+            print(f"Error creating add-PR signature: {e}")
+            add_pr_signature = "dummy_add_pr_signature"
 
         return {
             "taskId": self.task_id,
             "roundNumber": round_number,
-            "stakingKey": signatures["staking_key"],
-            "pubKey": signatures["pub_key"],
-            "stakingSignature": signatures["staking_signature"],
-            "publicSignature": signatures["public_signature"],
+            "stakingKey": fetch_signatures["staking_key"],
+            "pubKey": fetch_signatures["pub_key"],
+            "stakingSignature": fetch_signatures["staking_signature"],
+            "publicSignature": fetch_signatures["public_signature"],
+            "addPRSignature": add_pr_signature,  # Add the new signature
             "repoOwner": aggregator_owner,  # Use the aggregator owner
             "repoName": self.repo_name,  # Use repo name from fork URL or server response
             "distributionList": {},
