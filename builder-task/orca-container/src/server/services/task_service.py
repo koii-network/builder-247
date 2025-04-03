@@ -39,37 +39,26 @@ def complete_todo(
             }
         todo = todo_result["data"]
 
-        # Get repository info from kwargs (the request parameters) if provided,
-        # otherwise fall back to todo data
-        repo_owner = kwargs.get("repoOwner", todo.get("repo_owner"))
-        repo_name = kwargs.get("repoName", todo.get("repo_name"))
-        fork_url = kwargs.get("forkUrl")
-        branch_name = kwargs.get("branchName", todo.get("issue_uuid"))
+        # Use aggregator owner if it was provided
+        repo_owner = todo.get("repo_owner")
+        repo_name = todo.get("repo_name")
+        base_branch = todo.get("issue_uuid")
 
-        # Use branch_name as base_branch to check
-        base_branch = branch_name
-
-        # Log what we received from the server and request
+        # Log what we received from the server
         logger.info(f"Received todo data: {todo}")
-        logger.info(
-            f"Using repository: {repo_owner}/{repo_name}, branch: {base_branch}"
-        )
-        if fork_url:
-            logger.info(f"Using fork URL: {fork_url}")
 
         # Check required fields
         if not repo_owner or not repo_name or not base_branch:
             return {
                 "success": False,
                 "status": 400,
-                "error": "Missing required fields (repoOwner, repoName, or branchName)",
+                "error": "Missing required fields in todo data",
             }
 
         # Check if base branch exists in target repo
         github = Github(os.environ["GITHUB_TOKEN"])
         try:
             target_repo = github.get_repo(f"{repo_owner}/{repo_name}")
-            logger.info(f"Found target repo: {target_repo.html_url}")
         except Exception as e:
             return {
                 "success": False,
@@ -78,16 +67,13 @@ def complete_todo(
             }
 
         try:
-            branch = target_repo.get_branch(base_branch)
-            logger.info(
-                f"Found branch {base_branch} in {repo_owner}/{repo_name}: SHA {branch.commit.sha}"
-            )
+            target_repo.get_branch(base_branch)
         except Exception as e:
             return {
                 "success": False,
                 "status": 400,
                 "error": (
-                    f"Base branch '{base_branch}' does not exist in repository {repo_owner}/{repo_name}: {str(e)}"
+                    f"Base branch '{base_branch}' does not exist in target repository: {str(e)}"
                 ),
             }
 
@@ -103,7 +89,6 @@ def complete_todo(
                 repo_owner=repo_owner,
                 repo_name=repo_name,
                 base_branch=base_branch,
-                **kwargs,
             )
 
             if not result.get("success", False):
@@ -191,7 +176,6 @@ def run_todo_task(
     repo_owner,
     repo_name,
     base_branch,
-    **kwargs,
 ):
     """Run todo task and create PR."""
     try:
@@ -239,10 +223,6 @@ def run_todo_task(
 
         # Set up client and workflow
         client = setup_client("anthropic")
-
-        # Get additional parameters that might be useful
-        fork_url = kwargs.get("forkUrl")
-
         workflow = TaskWorkflow(
             client=client,
             prompts=TASK_PROMPTS,
@@ -257,7 +237,6 @@ def run_todo_task(
             staking_signature=staking_signature,
             public_signature=public_signature,
             base_branch=base_branch,
-            fork_url=fork_url,  # Pass fork_url if available
         )
 
         # Run workflow and get PR URL
