@@ -214,7 +214,11 @@ class DataManager:
             raise ValueError(f"No public key found in PR {pr_url}")
         submitter_pub_key = pub_section.split(":")[0].strip()
 
-        # Create submission payload
+        # Get auditor's keys and create signatures
+        auditor_keys = self.create_signature(auditor, {})  # Get keys only
+
+        # Create the actual submission that the submitter would have made
+        # This exactly matches the format in 2-submission.ts
         submission_payload = {
             "taskId": self.task_id,
             "roundNumber": round_number,
@@ -227,22 +231,56 @@ class DataManager:
             "repoName": pr_repo_name,
         }
 
-        # Create auditor's signatures
-        signatures = self.create_signature(auditor, submission_payload)
+        # Create submitter signature by simulating what would happen in 2-submission.ts
+        # This is what would be stored on IPFS and retrieved by the auditor
+        try:
+            # Load submitter's staking keypair from environment
+            submitter_role = (
+                "worker1"  # Assuming worker1 is being audited - adjust if needed
+            )
+            staking_keypair_path = self.keypairs[submitter_role]["staking"]
+            if staking_keypair_path:
+                staking_signing_key, _ = self._load_keypair(staking_keypair_path)
+                payload_str = json.dumps(submission_payload, sort_keys=True).encode()
+                staking_signed = staking_signing_key.sign(payload_str)
+                staking_combined = staking_signed.signature + payload_str
+                submitter_signature = base58.b58encode(staking_combined).decode()
+            else:
+                submitter_signature = "dummy_submitter_signature"
+        except Exception as e:
+            print(f"Error creating submitter signature: {e}")
+            submitter_signature = "dummy_submitter_signature"
 
+        # Create auditor payload which is used to generate the signature
+        # This matches what would be signed in the worker task
+        auditor_payload = {
+            "taskId": self.task_id,
+            "roundNumber": round_number,
+            "stakingKey": auditor_keys["staking_key"],
+            "pubKey": auditor_keys["pub_key"],
+            "action": "audit",
+            "githubUsername": os.getenv(f"{auditor.upper()}_GITHUB_USERNAME"),
+            "prUrl": pr_url,
+        }
+
+        # Create auditor's signatures with the complete payload
+        auditor_signatures = self.create_signature(auditor, auditor_payload)
+
+        # Structure the payload according to what the server expects
+        # This matches the structure in audit.py route handler
         return {
             "submission": submission_payload,
-            "submitterSignature": staking_section.split(":")[1].strip(),
+            "submitterSignature": submitter_signature,
             "submitterStakingKey": submitter_key,
             "submitterPubKey": submitter_pub_key,
             "prUrl": pr_url,
             "repoOwner": pr_repo_owner,
             "repoName": pr_repo_name,
-            "githubUsername": pr.user.login,
-            "stakingKey": signatures["staking_key"],
-            "pubKey": signatures["pub_key"],
-            "stakingSignature": signatures["staking_signature"],
-            "publicSignature": signatures["public_signature"],
+            "githubUsername": os.getenv(f"{auditor.upper()}_GITHUB_USERNAME"),
+            "stakingKey": auditor_signatures["staking_key"],
+            "pubKey": auditor_signatures["pub_key"],
+            "stakingSignature": auditor_signatures["staking_signature"],
+            "publicSignature": auditor_signatures["public_signature"],
         }
 
     def prepare_leader_task(

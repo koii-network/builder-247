@@ -6,17 +6,20 @@ import { taskIDs } from "../constant";
 import { isValidStakingKey } from "../utils/taskState";
 import { TodoStatus } from "../models/Todo";
 
-function verifyRequestBody(req: Request): { signature: string; pubKey: string; stakingKey: string } | null {
+function verifyRequestBody(
+  req: Request,
+): { signature: string; pubKey: string; stakingKey: string; prUrl: string } | null {
   try {
     console.log("req.body", req.body);
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
     const stakingKey = req.body.stakingKey as string;
-    if (!signature || !pubKey || !stakingKey) {
+    const prUrl = req.body.prUrl as string;
+    if (!signature || !pubKey || !stakingKey || !prUrl) {
       return null;
     }
 
-    return { signature, pubKey, stakingKey };
+    return { signature, pubKey, stakingKey, prUrl };
   } catch {
     return null;
   }
@@ -28,7 +31,7 @@ async function verifySignatureData(
   pubKey: string,
   stakingKey: string,
   action: string,
-): Promise<{ roundNumber: number; prUrl: string; taskId: string } | null> {
+): Promise<{ roundNumber: number; taskId: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -54,7 +57,7 @@ async function verifySignatureData(
     ) {
       return null;
     }
-    return { roundNumber: body.roundNumber, prUrl: body.prUrl, taskId: body.taskId };
+    return { roundNumber: body.roundNumber, taskId: body.taskId };
   } catch {
     return null;
   }
@@ -123,14 +126,14 @@ export const addPR = async (req: Request, res: Response) => {
 };
 
 export const addPRLogic = async (
-  requestBody: { signature: string; pubKey: string; stakingKey: string },
-  signatureData: { roundNumber: number; prUrl: string },
+  requestBody: { signature: string; pubKey: string; stakingKey: string; prUrl: string },
+  signatureData: { roundNumber: number; taskId: string },
 ) => {
-  console.log("prUrl", signatureData.prUrl);
+  console.log("prUrl", requestBody.prUrl);
   const result = await updateAssignedInfoWithPRUrl(
     requestBody.stakingKey,
     signatureData.roundNumber,
-    signatureData.prUrl,
+    requestBody.prUrl,
     requestBody.signature,
   );
   if (!result) {
@@ -150,7 +153,7 @@ export const addPRLogic = async (
     },
     {
       $set: {
-        prUrl: signatureData.prUrl,
+        prUrl: requestBody.prUrl,
         status: TodoStatus.IN_REVIEW,
       },
     },

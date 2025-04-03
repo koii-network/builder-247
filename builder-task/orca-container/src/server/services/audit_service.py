@@ -10,7 +10,7 @@ from github import Github
 import os
 from typing import Dict, Tuple
 from git import Repo
-from agent_framework.utils.signatures import verify_signature
+from src.workflows.utils import verify_pr_signatures
 from agent_framework.utils.distribution import validate_distribution_list
 import json
 from agent_framework.tools.github_operations.parser import extract_section
@@ -26,7 +26,6 @@ def verify_pr_ownership(
     staking_key: str,
     pub_key: str,
     signature: str,
-    submitter_signature: str,
 ) -> bool:
     """Verify PR ownership and signature.
 
@@ -39,7 +38,7 @@ def verify_pr_ownership(
         round_number: Round number for signature validation
         staking_key: Worker's staking key
         pub_key: Worker's public key
-        submitter_signature: Submitter's signature
+        signature: Submitter's signature
 
     Returns:
         bool: True if PR ownership and signature are valid
@@ -75,11 +74,12 @@ def verify_pr_ownership(
             return False
 
         # Verify PR signature
-        is_valid = verify_signature(
+        is_valid = verify_pr_signatures(
             pr.body,
             task_id,
             round_number,
             expected_staking_key=staking_key,
+            expected_action="fetch-todo",
         )
         if not is_valid:
             return False
@@ -94,7 +94,7 @@ def verify_pr_ownership(
                 "githubUsername": expected_username,
                 "prUrl": pr_url,
                 "taskId": task_id,
-                "signature": submitter_signature,
+                "signature": signature,
             },
             headers={"Content-Type": "application/json"},
         )

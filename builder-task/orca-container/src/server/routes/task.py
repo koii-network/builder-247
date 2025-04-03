@@ -101,13 +101,12 @@ def start_task(round_number, node_type, request):
     # Record PR for both worker and leader tasks, but only workers record remotely
     response = task_service.record_pr(
         round_number=int(round_number),
-        staking_signature=request_data["stakingSignature"],
+        staking_signature=request_data["addPRSignature"],
         staking_key=request_data["stakingKey"],
         pub_key=request_data["pubKey"],
         pr_url=response_data["pr_url"],
         task_id=request_data["taskId"],
         node_type=node_type,
-        pr_signature=request_data["addPRSignature"],
     )
     response_data = response.get("data", {})
     if not response.get("success", False):

@@ -6,7 +6,7 @@
   "repo_owner": "momstrosity",
   "repo_name": "builder-test",
   "pr_urls": {
-    "worker1": "https://github.com/momstrosity/builder-test/pull/5",
-    "worker2": "https://github.com/momstrosity/builder-test/pull/6"
+    "worker1": "https://github.com/momstrosity/builder-test/pull/8",
+    "worker2": "https://github.com/momstrosity/builder-test/pull/9"
   }
 }

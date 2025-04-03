@@ -403,7 +403,6 @@ def record_pr(
     round_number,
     task_id,
     node_type="worker",
-    pr_signature=None,
 ):
     """Record PR URL locally and optionally remotely.
 
@@ -423,7 +422,7 @@ def record_pr(
 
     # For workers, record with middle server first as it's the source of truth
     if node_type == "worker":
-        remote_result = _store_pr_remotely(staking_key, pr_signature, pub_key, pr_url)
+        remote_result = _store_pr_remotely(staking_key, staking_signature, pub_key, pr_url)
         if not remote_result["success"]:
             return remote_result
 

@@ -26,7 +26,6 @@ def verify_pr_ownership(
     staking_key: str,
     pub_key: str,
     signature: str,
-    submitter_signature: str,
 ) -> bool:
     """Verify PR ownership and signature.
 
@@ -80,6 +79,7 @@ def verify_pr_ownership(
             task_id,
             round_number,
             expected_staking_key=staking_key,
+            expected_action="fetch-todo",
         )
         if not is_valid:
             return False
@@ -94,7 +94,7 @@ def verify_pr_ownership(
                 "githubUsername": expected_username,
                 "prUrl": pr_url,
                 "taskId": task_id,
-                "signature": submitter_signature,
+                "signature": signature,
             },
             headers={"Content-Type": "application/json"},
         )
