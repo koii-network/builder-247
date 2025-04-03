@@ -63,6 +63,7 @@ def save_state(data_manager, pr_urls, step_completed):
         "repo_owner": data_manager.repo_owner,
         "repo_name": data_manager.repo_name,
         "pr_urls": pr_urls,
+        "round_number": data_manager.round_number,
     }
 
     # Save to file
@@ -104,6 +105,7 @@ def load_state(data_manager, pr_urls, starting_step):
     print(f"Starting from step {starting_step} with:")
     print(f"Fork URL: {data_manager.fork_url}")
     print(f"Branch name: {data_manager.branch_name}")
+    print(f"Round number: {data_manager.round_number}")
     print(f"PR URLs: {pr_urls}")
 
 
@@ -230,6 +232,8 @@ def run_test_sequence(
     start_step: int = 1,
     stop_step: int = 6,
     reset: bool = False,
+    task_id: str = "",
+    round_number: int = 1,
 ):
     """Run the test sequence from start_step to stop_step (inclusive)"""
     if reset:
@@ -249,8 +253,19 @@ def run_test_sequence(
             "Reset completed: SQLite databases, MongoDB, and state file have been reset"
         )
 
+    # Get task ID from environment if not provided
+    if not task_id:
+        task_id = os.getenv("TASK_ID")
+        if not task_id:
+            raise ValueError(
+                "No task ID provided and TASK_ID environment variable not set"
+            )
+
+    print(f"Using task ID: {task_id}")
+    print(f"Using round number: {round_number}")
+
     with TestSetup() as setup:
-        data_manager = DataManager()
+        data_manager = DataManager(task_id=task_id, round_number=round_number)
         pr_urls = {}  # Store PR URLs for later use
 
         # If we're resetting or starting from step 1, get the issue UUID from MongoDB
@@ -331,7 +346,9 @@ def run_test_sequence(
                 print("\nCalling add-aggregator-info endpoint...")
 
                 # Prepare the payload for add-aggregator-info
-                aggregator_payload = data_manager.prepare_aggregator_info("leader", 1)
+                aggregator_payload = data_manager.prepare_aggregator_info(
+                    "leader", data_manager.round_number
+                )
 
                 url = f"{setup.current_server.url}/add-aggregator-info/{data_manager.task_id}"
                 log_request("POST", url, aggregator_payload)
@@ -346,7 +363,7 @@ def run_test_sequence(
                 print("✓ Aggregator info updated successfully")
 
                 # Save state after completing step 1
-                save_state(data_manager, pr_urls, 1)
+                save_state(data_manager, pr_urls, data_manager.round_number)
 
             # 2. Worker tasks (Worker 1 and Worker 2)
             if start_step <= 2 <= stop_step:
@@ -354,9 +371,11 @@ def run_test_sequence(
 
                 # Worker 1 task
                 setup.switch_role("worker1")
-                payload = data_manager.prepare_worker_task("worker1", 1)
+                payload = data_manager.prepare_worker_task(
+                    "worker1", data_manager.round_number
+                )
 
-                url = f"{setup.current_server.url}/worker-task/1"
+                url = f"{setup.current_server.url}/worker-task/{data_manager.round_number}"
                 log_request("POST", url, payload)
                 response = requests.post(url, json=payload)
                 log_response(response)
@@ -369,9 +388,11 @@ def run_test_sequence(
 
                 # Worker 2 task
                 setup.switch_role("worker2")
-                payload = data_manager.prepare_worker_task("worker2", 1)
+                payload = data_manager.prepare_worker_task(
+                    "worker2", data_manager.round_number
+                )
 
-                url = f"{setup.current_server.url}/worker-task/1"
+                url = f"{setup.current_server.url}/worker-task/{data_manager.round_number}"
                 log_request("POST", url, payload)
                 response = requests.post(url, json=payload)
                 log_response(response)
@@ -391,10 +412,10 @@ def run_test_sequence(
                 print("\nWorker 2 auditing Worker 1's PR...")
                 setup.switch_role("worker2")
                 payload = data_manager.prepare_worker_audit(
-                    "worker2", pr_urls["worker1"], 1
+                    "worker2", pr_urls["worker1"], data_manager.round_number
                 )
 
-                url = f"{setup.current_server.url}/worker-audit/1"
+                url = f"{setup.current_server.url}/worker-audit/{data_manager.round_number}"
                 log_request("POST", url, payload)
                 response = requests.post(url, json=payload)
                 log_response(response)
@@ -407,10 +428,10 @@ def run_test_sequence(
                 print("\nWorker 1 auditing Worker 2's PR...")
                 setup.switch_role("worker1")
                 payload = data_manager.prepare_worker_audit(
-                    "worker1", pr_urls["worker2"], 1
+                    "worker1", pr_urls["worker2"], data_manager.round_number
                 )
 
-                url = f"{setup.current_server.url}/worker-audit/1"
+                url = f"{setup.current_server.url}/worker-audit/{data_manager.round_number}"
                 log_request("POST", url, payload)
                 response = requests.post(url, json=payload)
                 log_response(response)
@@ -431,7 +452,7 @@ def run_test_sequence(
                 # Prepare update-audit-result payload
                 update_payload = {
                     "taskId": data_manager.task_id,
-                    "round": 1,  # Worker round is 1
+                    "round": data_manager.round_number,  # Worker round is 1
                 }
 
                 url = f"{os.getenv('MIDDLE_SERVER_URL')}/api/update-audit-result"
@@ -450,15 +471,17 @@ def run_test_sequence(
                 # Save state after completing step 4
                 save_state(data_manager, pr_urls, 4)
 
-            # 5. Leader task (renumbered from 4)
+            # 5. Leader task
             if start_step <= 5 <= stop_step:
                 log_step(5, "Running leader task")
                 setup.switch_role("leader")
                 payload = data_manager.prepare_leader_task(
-                    "leader", 4, [pr_urls["worker1"], pr_urls["worker2"]]
+                    "leader",
+                    data_manager.round_number,
+                    [pr_urls["worker1"], pr_urls["worker2"]],
                 )
 
-                url = f"{setup.current_server.url}/leader-task/4"
+                url = f"{setup.current_server.url}/leader-task/{data_manager.round_number}"
                 log_request("POST", url, payload)
                 response = requests.post(url, json=payload)
                 log_response(response)
@@ -477,11 +500,11 @@ def run_test_sequence(
                 log_step(6, "Running leader audits")
                 print("\nLeader audit...")
                 setup.switch_role("worker1")
-                payload = data_manager.prepare_worker_audit(
-                    "worker1", pr_urls["leader"], 4
+                payload = data_manager.prepare_leader_audit(
+                    "worker1", pr_urls["leader"], data_manager.round_number
                 )
 
-                url = f"{setup.current_server.url}/leader-audit/4"
+                url = f"{setup.current_server.url}/leader-audit/{data_manager.round_number}"
                 log_request("POST", url, payload)
                 response = requests.post(url, json=payload)
                 log_response(response)
@@ -530,6 +553,9 @@ Example usage:
 
   # Reset databases and run specific steps
   python -m tests.e2e --start 2 --stop 5 --reset
+
+  # Run with specific task ID and round number
+  python -m tests.e2e --task-id 123abc --round 2
 """,
     )
     parser.add_argument(
@@ -549,6 +575,17 @@ Example usage:
         action="store_true",
         help="Reset SQLite databases, MongoDB, and state file before running",
     )
+    parser.add_argument(
+        "--task-id",
+        type=str,
+        help="Task ID to use (defaults to TASK_ID environment variable)",
+    )
+    parser.add_argument(
+        "--round",
+        type=int,
+        default=1,
+        help="Round number to use (defaults to 1)",
+    )
     args = parser.parse_args()
 
     # Validate step numbers
@@ -559,4 +596,6 @@ Example usage:
         print("Error: Start step cannot be greater than stop step")
         exit(1)
 
-    run_test_sequence(args.start, args.stop, args.reset)
+    run_test_sequence(
+        args.start, args.stop, args.reset, task_id=args.task_id, round_number=args.round
+    )

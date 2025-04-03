@@ -208,7 +208,7 @@ def audit_leader_submission(
             pr.body,
             task_id,
             round_number,
-            expected_staking_key=submitter_staking_key,  # Use leader's key to verify their signature
+            expected_staking_key=submitter_staking_key,
             expected_action="fetch-issue",
         )
         if not is_valid:

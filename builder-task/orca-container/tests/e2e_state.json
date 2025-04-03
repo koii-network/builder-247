@@ -9,5 +9,6 @@
     "worker1": "https://github.com/momstrosity/builder-test/pull/14",
     "worker2": "https://github.com/momstrosity/builder-test/pull/15",
     "leader": "https://github.com/koii-network/builder-test/pull/24"
-  }
+  },
+  "round_number": 1
 }

@@ -8,13 +8,14 @@ from agent_framework.tools.github_operations.parser import extract_section
 
 
 class DataManager:
-    def __init__(self):
-        self.task_id = os.getenv("TASK_ID")
+    def __init__(self, task_id=None, round_number=None):
+        self.task_id = task_id
         self.fork_url = None
         self.branch_name = None
         self.issue_uuid = None
         self.repo_owner = None
         self.repo_name = None
+        self.round_number = round_number
 
         # Store keypair paths for each role
         self.keypairs = {
@@ -409,4 +410,102 @@ class DataManager:
             "issueUuid": self.branch_name,
             "aggregatorUrl": self.fork_url,
             "signature": signatures["staking_signature"],
+        }
+
+    def prepare_leader_audit(
+        self, auditor: str, pr_url: str, round_number: int
+    ) -> Dict[str, Any]:
+        """Prepare payload for leader-audit endpoint."""
+        # Get PR info using GitHub API
+        parts = pr_url.strip("/").split("/")
+        pr_number = int(parts[-1])
+        pr_repo_owner = parts[-4]
+        pr_repo_name = parts[-3]
+
+        gh = Github(os.getenv("GITHUB_TOKEN"))
+        repo = gh.get_repo(f"{pr_repo_owner}/{pr_repo_name}")
+        pr = repo.get_pull(pr_number)
+
+        # Extract submitter's keys from PR
+        staking_section = extract_section(pr.body, "STAKING_KEY")
+        if not staking_section:
+            raise ValueError(f"No staking key found in PR {pr_url}")
+        submitter_key = staking_section.split(":")[0].strip()
+
+        pub_section = extract_section(pr.body, "PUB_KEY")
+        if not pub_section:
+            raise ValueError(f"No public key found in PR {pr_url}")
+        submitter_pub_key = pub_section.split(":")[0].strip()
+
+        # Get auditor's keys and create signatures
+        auditor_keys = self.create_signature(auditor, {})  # Get keys only
+
+        # Create the submission payload (what the leader would have submitted)
+        submission_payload = {
+            "taskId": self.task_id,
+            "roundNumber": round_number,
+            "stakingKey": submitter_key,
+            "pubKey": submitter_pub_key,
+            "action": "audit",
+            "githubUsername": pr.user.login,
+            "prUrl": pr_url,
+            "repoOwner": pr_repo_owner,
+            "repoName": pr_repo_name,
+        }
+
+        # Determine the submitter role (leader in this case)
+        if pr.user.login == os.getenv("LEADER_GITHUB_USERNAME"):
+            submitter_role = "leader"
+        else:
+            print(f"Warning: PR user {pr.user.login} doesn't match leader username")
+            # Try to match by staking key
+            for role in ["leader"]:
+                role_keypair = self.keypairs[role]["staking"]
+                if role_keypair:
+                    try:
+                        _, pub_key = self._load_keypair(role_keypair)
+                        if pub_key == submitter_key:
+                            submitter_role = role
+                            break
+                    except Exception:
+                        pass
+            else:
+                print(f"Warning: Could not match leader staking key {submitter_key}")
+                submitter_role = "leader"  # Fallback
+
+        print(f"Using {submitter_role} as submitter for PR: {pr_url}")
+
+        # Create submitter signature from the submission payload
+        submitter_signature = self.create_submitter_signature(
+            submitter_role, submission_payload
+        )
+
+        # Create auditor payload (what the worker would sign to audit)
+        auditor_payload = {
+            "taskId": self.task_id,
+            "roundNumber": round_number,
+            "stakingKey": auditor_keys["staking_key"],
+            "pubKey": auditor_keys["pub_key"],
+            "action": "audit",
+            "githubUsername": os.getenv(f"{auditor.upper()}_GITHUB_USERNAME"),
+            "prUrl": pr_url,
+        }
+
+        # Create auditor's signatures
+        auditor_signatures = self.create_signature(auditor, auditor_payload)
+
+        # Structure the payload according to the audit.ts implementation
+        return {
+            "submission": submission_payload,
+            "submitterSignature": submitter_signature,
+            "submitterStakingKey": submitter_key,
+            "submitterPubKey": submitter_pub_key,
+            "prUrl": pr_url,
+            "repoOwner": pr_repo_owner,
+            "repoName": pr_repo_name,
+            "githubUsername": os.getenv(f"{auditor.upper()}_GITHUB_USERNAME"),
+            "stakingKey": auditor_signatures["staking_key"],
+            "pubKey": auditor_signatures["pub_key"],
+            "stakingSignature": auditor_signatures["staking_signature"],
+            "publicSignature": auditor_signatures["public_signature"],
         }
