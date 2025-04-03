@@ -17,7 +17,7 @@ export async function task(roundNumber: number): Promise<void> {
    */
   // FORCE TO PAUSE 30 SECONDS
 // No submission on Round 0 so no need to trigger fetch audit result before round 3
-  if (roundNumber > 4) {
+  if (roundNumber >= 3) {
     const triggerFetchAuditResult = await fetch(`${middleServerUrl}/api/summarizer/trigger-fetch-audit-result`, {
       method: "POST",
       headers: {
@@ -35,10 +35,10 @@ export async function task(roundNumber: number): Promise<void> {
       return;
     }
 
-    if (orcaClient && roundNumber == 0) {
-      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ROUND_LESS_THAN_OR_EQUAL_TO_1);
-      return;
-    }
+    // if (orcaClient) {
+    //   await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ROUND_LESS_THAN_OR_EQUAL_TO_1);
+    //   return;
+    // }
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
       throw new Error("No staking keypair found");

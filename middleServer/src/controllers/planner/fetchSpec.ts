@@ -108,7 +108,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(requestBody.stakingKey))) {
+  if (!(await isValidStakingKey(taskID, requestBody.stakingKey))) {
     res.status(401).json({
       success: false,
       message: "Invalid staking key",
