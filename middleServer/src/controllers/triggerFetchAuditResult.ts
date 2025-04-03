@@ -30,7 +30,7 @@ export async function triggerFetchAuditResult(req: Request, res: Response): Prom
         return;
     }
 
-    const distributionList = await getDistributionListWrapper("FttDHvbX3nM13TUrSvvS614Sgtr9418TC8NpvR7hkMcE", "361");
+    const distributionList = await getDistributionListWrapper(taskId, round);
     
     let positiveKeys: string[] = [];
     let negativeKeys: string[] = [];

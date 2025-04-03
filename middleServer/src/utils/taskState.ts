@@ -1,6 +1,6 @@
 import { getTaskStateInfo } from "@_koii/create-task-cli";
 import { Connection } from "@_koii/web3.js";
-import { RPCURL, taskID } from "../config/constant";
+import { RPCURL } from "../config/constant";
 import NodeCache from "node-cache";
 
 const taskCache = new NodeCache({ stdTTL: 30, checkperiod: 120 });
@@ -20,10 +20,10 @@ export async function getTaskState(taskId: string): Promise<string[]> {
   return stakeListKeys;
 }
 
-export async function isValidStakingKey(pubKey: string): Promise<boolean> {
+export async function isValidStakingKey(taskId: string, pubKey: string): Promise<boolean> {
   let stakeListKeys: string[];
   try {
-    stakeListKeys = await getTaskState(taskID);
+    stakeListKeys = await getTaskState(taskId);
   } catch (error) {
     console.log("Error fetching task state", error);
     return true;

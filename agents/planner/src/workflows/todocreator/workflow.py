@@ -123,14 +123,25 @@ class TodoCreatorWorkflow(Workflow):
         # Clean up the MongoDB
     def run(self):
         generate_issues_result = self.generate_issues()
-        
+        tasks = []
         for issue in generate_issues_result["data"]["issues"]:
             self.context["feature_spec"] = issue
-            self.generate_tasks(issue["uuid"])
+            task_result = self.generate_tasks(issue["uuid"])
+            if task_result:
+                tasks.append(task_result["data"]["tasks"])
         
-        return generate_issues_result
+        return {
+            "success": True,
+            "message": "Issue generation workflow completed",
+            "data": {
+                "issues": generate_issues_result["data"]["issues"],
+                "tasks": tasks
+            }
+        }
     def generate_issues(self):
         """Execute the issue generation workflow."""
+
+        issues = []
         try:
             self.setup()
             # ==================== Generate issues ====================
@@ -155,7 +166,7 @@ class TodoCreatorWorkflow(Workflow):
                 }
                 # print(issueModel)
                 issue_model = IssueModel(**issueModel)
-                insert_issue_to_mongodb(issue_model)
+                issues.append(issue_model)
                 # print("Issue inserted to MongoDB")
             return generate_issues_result
         except Exception as e:
@@ -164,10 +175,13 @@ class TodoCreatorWorkflow(Workflow):
             return {
                 "success": False,
                 "message": f"Issue generation workflow failed: {str(e)}",
-                "data": None,
+                "data": {
+                    "issues": issues
+                }
             }
     def generate_tasks(self, issue_uuid):
         """Execute the task decomposition workflow."""
+        tasks = []
         try:
             self.setup()
             # ==================== Decompose feature into tasks ====================
@@ -282,13 +296,15 @@ class TodoCreatorWorkflow(Workflow):
                         uuid=task["uuid"],
                         issueUuid=issue_uuid
                     )
-                    insert_task_to_mongodb(task_model)
+                    tasks.append(task_model)
 
             # Return the final result
             return {
                 "success": True,
                 "message": f"Created {task_count} tasks for the feature",
-                "data" : None
+                "data" : {
+                    "tasks": tasks
+                }
             }
 
         except Exception as e:

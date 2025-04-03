@@ -71,6 +71,6 @@ const SwarmBountySchema = new Schema(
 );
 
 // Check if the model is already defined to prevent overwriting during hot reloads
-const SwarmBounty = prometheusDB.models.SwarmBounty || prometheusDB.model('SwarmBounty', SwarmBountySchema);
+const SwarmBounty = prometheusDB.model('swarmbounties', SwarmBountySchema);
 
 export default SwarmBounty; 

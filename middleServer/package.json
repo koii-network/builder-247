@@ -21,6 +21,7 @@
   "dependencies": {
     "@_koii/create-task-cli": "^1.1.7",
     "@_koii/namespace-wrapper": "^1.0.23",
+    "@_koii/storage-task-sdk": "^1.2.7",
     "@_koii/web3.js": "^0.1.11",
     "@octokit/rest": "^21.1.1",
     "@typegoose/typegoose": "^12.10.1",
