@@ -187,8 +187,14 @@ def audit_leader_submission(round_number: int):
     issue_uuid = verify_response.get("issue_uuid", None)
 
     try:
-
-        valid_prs = validate_pr_list(pr_list, issue_uuid)
+        valid_prs = validate_pr_list(
+            pr_url=pr_url,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            leader_username=github_username,
+            pr_list=pr_list,
+            issue_uuid=issue_uuid,
+        )
 
         if not valid_prs:
             log_error(Exception("Invalid PR list"), context="Invalid PR list")

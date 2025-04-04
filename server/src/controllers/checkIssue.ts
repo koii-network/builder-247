@@ -45,7 +45,6 @@ async function verifySignatureData(
       typeof body.roundNumber !== "number" ||
       !taskIDs.includes(body.taskId) ||
       body.action !== "audit" ||
-      !body.issueUuid ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
       !body.stakingKey ||

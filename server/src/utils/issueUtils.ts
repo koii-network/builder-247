@@ -13,11 +13,6 @@ export async function getPRDict(issueUuid: string) {
   // Create a dictionary with staking keys as keys and PR URLs as values
   const prDict: Record<string, string> = {};
 
-  // Add the main issue if it has a PR URL and staking key
-  if (issue.prUrl && issue.assignedStakingKey) {
-    prDict[issue.assignedStakingKey] = issue.prUrl;
-  }
-
   // Add todos that have PR URLs and staking keys
   for (const todo of todos) {
     if (todo.prUrl && todo.assignedStakingKey) {

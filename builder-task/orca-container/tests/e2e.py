@@ -495,7 +495,7 @@ def run_test_sequence(
                 # Save state after completing step 5
                 save_state(data_manager, pr_urls, step_completed=5)
 
-            # 6. Leader audits (renumbered from 5)
+            # 6. Leader audits
             if start_step <= 6 <= stop_step:
                 log_step(6, "Running leader audits")
                 print("\nLeader audit...")
