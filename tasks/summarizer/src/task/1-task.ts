@@ -5,7 +5,7 @@ import { getRandomNodes } from "../utils/leader";
 import { getExistingIssues } from "../utils/existingIssues";
 import { status, middleServerUrl } from "../utils/constant";
 import dotenv from "dotenv";
-import { isValidAnthropicApiKey } from "../utils/anthropicCheck";
+import { checkAnthropicAPIKey, isValidAnthropicApiKey } from "../utils/anthropicCheck";
 import { checkGitHub } from "../utils/githubCheck";
 dotenv.config();
 
@@ -39,6 +39,11 @@ export async function task(roundNumber: number): Promise<void> {
     }
     if (!isValidAnthropicApiKey(process.env.ANTHROPIC_API_KEY!)) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ANTHROPIC_API_KEY_INVALID);
+      return;
+    }
+    const isAnthropicAPIKeyValid = await checkAnthropicAPIKey(process.env.ANTHROPIC_API_KEY!);
+    if (!isAnthropicAPIKeyValid) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ANTHROPIC_API_KEY_NO_CREDIT);
       return;
     }
     if (!process.env.GITHUB_USERNAME || !process.env.GITHUB_TOKEN) {
@@ -155,7 +160,7 @@ export async function task(roundNumber: number): Promise<void> {
           });
           console.log("[TASK] addPrToSummarizerTodoResponse: ", addPrToSummarizerTodoResponse);
         }catch(error){
-          await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
+          await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_ADD_PR_TO_SUMMARIZER_TODO);
           console.error("[TASK] Error adding PR to summarizer todo:", error);
         }
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_SUCCESSFULLY_SUMMARIZED);

@@ -24,7 +24,7 @@ export async function submission(roundNumber: number) : Promise<string | void> {
     const taskResult = await namespaceWrapper.storeGet(`result-${roundNumber}`);
     if (!taskResult) {
       console.log("[SUBMISSION] No task result found for this round");
-      return "No Data For This Round";
+      return status.NO_DATA_FOR_THIS_ROUND;
     }
     console.log(`[SUBMISSION] Task result status: ${taskResult}`);
 

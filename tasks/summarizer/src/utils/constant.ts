@@ -13,6 +13,9 @@ export const status = {
   STAR_ISSUE_FAILED: "Star issue failed",
   GITHUB_CHECK_FAILED: "GitHub check failed",
   ANTHROPIC_API_KEY_INVALID: "Anthropic API key invalid",
+  ANTHROPIC_API_KEY_NO_CREDIT: "Anthropic API key has no credit",
+  NO_DATA_FOR_THIS_ROUND: "No data for this round",
+  ISSUE_FAILED_TO_ADD_PR_TO_SUMMARIZER_TODO: "Issue failed to add PR to summarizer todo",
 }
 
 /*********************THE CONSTANTS THAT PROD/TEST ARE DIFFERENT *********************/
