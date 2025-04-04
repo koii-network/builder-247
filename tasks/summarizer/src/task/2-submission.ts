@@ -19,7 +19,7 @@ export async function submission(roundNumber: number) : Promise<string | void> {
     }
     const taskResult = await namespaceWrapper.storeGet(`result-${roundNumber}`);
     if (!taskResult) {
-      return "Hello World!";
+      return "No Data For This Round";
     }
     if (taskResult !== status.ISSUE_SUCCESSFULLY_SUMMARIZED) {
       return taskResult;

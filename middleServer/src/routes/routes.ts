@@ -13,6 +13,8 @@ import { fetchSummarizerTodo } from "../controllers/summarizer/fetchSummarizer";
 import { addPRToSummarizerTodo } from "../controllers/summarizer/addDocsRequest";
 import { triggerFetchAuditResult as triggerFetchAuditResultSummarizer } from "../controllers/summarizer/triggerFetchAuditResult";
 // import { fetchSummarizerTodo as fetchSummarizerTodoLogic } from "../controllers/summarizer/fetchSummarizer";
+
+import { checkSummarizer } from "../controllers/summarizer/checkSummarizer";
 const router = Router();
 
 router.post("/fetch-to-do", fetchTodo as RequestHandler);
@@ -27,6 +29,7 @@ router.get("/get-issue-pr-urls/:issueUuid", getIssuePrUrls as RequestHandler);
 router.post("/summarizer/fetch-summarizer-todo", fetchSummarizerTodo as RequestHandler);
 router.post("/summarizer/add-pr-to-summarizer-todo", addPRToSummarizerTodo as RequestHandler);
 router.post("/summarizer/trigger-fetch-audit-result", triggerFetchAuditResultSummarizer as RequestHandler);
+router.post("/summarizer/check-summarizer", checkSummarizer as RequestHandler);
 router.get("/hello", (req, res) => {
   res.json({ message: "Hello World!" });
 });

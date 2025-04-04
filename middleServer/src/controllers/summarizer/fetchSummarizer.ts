@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import "dotenv/config";
 
 import { DocumentationModel, DocumentationStatus } from "../../models/Documentation";
-import { taskID } from "../../config/constant";
+// import { documentSummarizerTaskID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
 import { verifySignature } from "../../utils/sign";
 import { documentSummarizerTaskID } from "../../config/constant";
@@ -15,7 +15,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
     const result = await DocumentationModel.findOne({
       assignedTo: {
         $elemMatch: {
-          taskId: taskID,
+          taskId: documentSummarizerTaskID,
           stakingKey: stakingKey,
           roundNumber: roundNumber,
         },
@@ -28,7 +28,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
 
     // Find the specific assignment entry
     const assignment = result.assignedTo.find(
-      (a: any) => a.stakingKey === stakingKey && a.roundNumber === roundNumber && a.taskId === taskID,
+      (a: any) => a.stakingKey === stakingKey && a.roundNumber === roundNumber && a.taskId === documentSummarizerTaskID,
     );
 
     return {
@@ -68,7 +68,7 @@ async function verifySignatureData(
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
-      body.taskId !== taskID ||
+      body.taskId !== documentSummarizerTaskID ||
       body.action !== action ||
       !body.githubUsername ||
       !body.stakingKey ||
@@ -158,7 +158,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
         $push: {
           assignedTo: {
             stakingKey: requestBody.stakingKey,
-            taskId: taskID,
+            taskId: documentSummarizerTaskID,
             roundNumber: signatureData.roundNumber,
             githubUsername: signatureData.githubUsername,
             todoSignature: requestBody.signature
@@ -169,13 +169,19 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
     ).sort({ createdAt: 1 }).exec();
 
     if (!updatedTodo) {
-      return {statuscode: 409, data:{
+      return {statuscode: 404, data:{
         success: false,
-        message: "Task assignment conflict",
+        message: "No available todos found",
       }};
     }
 
-
+    // Validate required data fields
+    if (!updatedTodo.repoOwner || !updatedTodo.repoName) {
+      return {statuscode: 404, data:{
+        success: false,
+        message: "Todo data is incomplete",
+      }};
+    }
 
     return {statuscode: 200, data:{
       success: true,

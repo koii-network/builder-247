@@ -14,6 +14,6 @@ export const status = {
   STAR_ISSUE_FAILED: "Star issue failed",
 }
 
-export const customReward = 400*10**9 // This should be in ROE! 
+export const customReward = 0.5*10**9 // This should be in ROE! 
 
-export const middleServerUrl = "https://prometheus-docs.api.koii.network"
+export const middleServerUrl = "http://localhost:3008"

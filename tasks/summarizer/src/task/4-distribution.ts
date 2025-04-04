@@ -44,28 +44,9 @@ export const distribution = async (
 
     // Slash the stake of submitters who submitted incorrect values
     // and make a list of submitters who submitted correct values
-    console.log(`Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
-    const response = await fetch(`${middleServerUrl}/api/summarizer/trigger-save-swarms-for-round`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ taskId: TASK_ID, round: roundNumber }),
-    });
-    const data = await response.json();
     
-    // Count transaction hashes
-    const transactionHashCount = data.transactionHashs ? data.transactionHashs.length : 0;
-    const randomNodes = await getRandomNodes(roundNumber, transactionHashCount);
     for (const submitter of submitters) {
-      // TODO: Check if this guy is the one that should make submission
-      // TODO: If not, then skip
-
-      const submitterIndex = randomNodes.indexOf(submitter.publicKey);
-      if (submitterIndex === -1) {
-        distributionList[submitter.publicKey] = 0;
-        continue;
-      }
+      
       // TODO: Check if this guy is making the submission that is supposed to be made(based on the index)
       const submitterSubmissions = await getSubmissionList(roundNumber);
       // get the submitter's submission
@@ -78,6 +59,22 @@ export const distribution = async (
       console.log("decodeResult", decodeResult);
       if (!decodeResult) {
         console.error("INVALID SIGNATURE DATA");
+        distributionList[submitter.publicKey] = 0;
+        continue;
+      }
+
+
+      // Check if this is the assigner
+      const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/summarizer/check-summarizer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ stakingKey: submitter.publicKey, roundNumber, githubUsername: decodeResult.githubUsername, prUrl: decodeResult.prUrl }),
+      });
+      const checkSummarizerJSON = await checkSummarizerResponse.json();
+      if (!checkSummarizerJSON.success) {
+        console.log("❌ Audit failed for ", submitter.publicKey);
         distributionList[submitter.publicKey] = 0;
         continue;
       }

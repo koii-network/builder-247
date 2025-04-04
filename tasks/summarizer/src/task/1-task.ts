@@ -51,7 +51,6 @@ export async function task(roundNumber: number): Promise<void> {
     /****************** All issues need to be starred ******************/
 
     const existingIssues = await getExistingIssues();
-    console.log("Existing issues:", existingIssues);
     const githubUrls = existingIssues.map((issue) => issue.githubUrl);
     try {
       await orcaClient.podCall(`star/${roundNumber}`, {
@@ -88,13 +87,18 @@ export async function task(roundNumber: number): Promise<void> {
       },
       body: JSON.stringify({ signature: signature, stakingKey: stakingKey }),
     });
-    const data = await requiredWorkResponse.json();
-    console.log("data: ", data);
+    // check if the response is 200
+    if (requiredWorkResponse.status !== 200) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ISSUES_PENDING_TO_BE_SUMMARIZED);
+      return;
+    }
+    const requiredWorkResponseData = await requiredWorkResponse.json();
+    console.log("requiredWorkResponseData: ", requiredWorkResponseData);
     
     const jsonBody = {
       taskId: TASK_ID,
       round_number: String(roundNumber),
-      repo_url: `https://github.com/${data.repo_owner}/${data.repo_name}`,
+      repo_url: `https://github.com/${requiredWorkResponseData.data.repo_owner}/${requiredWorkResponseData.data.repo_name}`,
     };
     console.log("jsonBody: ", jsonBody);
     try {
@@ -106,26 +110,30 @@ export async function task(roundNumber: number): Promise<void> {
         body: JSON.stringify(jsonBody),
       });
       console.log("repoSummaryResponse: ", repoSummaryResponse);
+      console.log("repoSummaryResponse.data.result.data ", repoSummaryResponse.data.result.data);
+      const payload = {
+        taskId: TASK_ID,
+        action: "add",
+        roundNumber: roundNumber,
+        prUrl: repoSummaryResponse.data.result.data.pr_url,
+        stakingKey: stakingKey
+      }
+      console.log("Signing payload: ", payload);
       if (repoSummaryResponse.status === 200) {
         try{
           const signature = await namespaceWrapper.payloadSigning(
-            {
-              taskId: TASK_ID,
-              action: "add",
-              roundNumber: roundNumber,
-              prUrl: repoSummaryResponse.data?.result?.data?.prUrl,
-              stakingKey: stakingKey
-            },
+            payload,
             stakingKeypair.secretKey,
           );
-          const response = await fetch(`${middleServerUrl}/api/summarizer/add-pr-to-summarizer-todo`, {
+          console.log("signature: ", signature);
+          const addPrToSummarizerTodoResponse = await fetch(`${middleServerUrl}/api/summarizer/add-pr-to-summarizer-todo`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ signature: signature, stakingKey: stakingKey }),
           });
-          console.log("response: ", response);
+          console.log("addPrToSummarizerTodoResponse: ", addPrToSummarizerTodoResponse);
         }catch(error){
           await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
           console.error("Error adding PR to summarizer todo:", error);
