@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-export const defaultBountyMarkdownFile = "https://raw.githubusercontent.com/koii-network/prometheus-swarm-bounties/master/README.md"
 
 export const status = {
   ISSUE_FAILED_TO_BE_SUMMARIZED: "Issue failed to be summarized",
@@ -14,6 +13,9 @@ export const status = {
   STAR_ISSUE_FAILED: "Star issue failed",
 }
 
-export const customReward = 0.5*10**9 // This should be in ROE! 
+/*********************THE CONSTANTS THAT PROD/TEST ARE DIFFERENT *********************/
+export const defaultBountyMarkdownFile = "https://raw.githubusercontent.com/koii-network/prometheus-swarm-bounties/master/README.md"
 
-export const middleServerUrl = "http://localhost:3008"
+export const customReward = 400*10**9 // This should be in ROE! 
+
+export const middleServerUrl = "https://ooww84kco0s0cs808w8cg804.dev.koii.network"
