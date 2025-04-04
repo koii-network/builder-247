@@ -1,6 +1,9 @@
 from flask import Blueprint, jsonify, request
-from src.server.services.audit_service import verify_pr_ownership
-from src.server.services.audit_service import review_pr, audit_leader_submission
+from src.server.services.audit_service import (
+    verify_pr_ownership,
+    review_pr,
+    validate_pr_list,
+)
 from agent_framework.utils.logging import logger, log_error
 
 bp = Blueprint("audit", __name__)
@@ -51,7 +54,7 @@ def audit_worker_submission(round_number: str):
     ):
         return jsonify({"error": "Missing submission data"}), 400
 
-    is_valid = verify_pr_ownership(
+    verify_response = verify_pr_ownership(
         pr_url=pr_url,
         expected_username=github_username,
         expected_owner=repo_owner,
@@ -61,9 +64,10 @@ def audit_worker_submission(round_number: str):
         staking_key=submitter_staking_key,
         pub_key=submitter_pub_key,
         signature=submitter_signature,
+        node_type="worker",
     )
 
-    if not is_valid:
+    if not verify_response.get("valid"):
         log_error(
             Exception("Invalid PR ownership"),
             context=f"Invalid PR ownership: {pr_url}",
@@ -105,31 +109,8 @@ def audit_worker_submission(round_number: str):
 
 
 @bp.post("/leader-audit/<round_number>")
-def handle_leader_audit(round_number: int):
-    """Audit a leader's consolidated PR submission.
-
-    Expected request body:
-    {
-        "submission": {
-            "roundNumber": int,
-            "taskId": str,
-            "prUrl": str,
-            "repoOwner": str,
-            "repoName": str,
-            "stakingKey": str,
-            "pubKey": str,
-            "action": "audit",
-            "githubUsername": str,
-        },
-        "submitterSignature": str,
-        "submitterStakingKey": str,
-        "submitterPubKey": str,
-        "stakingKey": str,
-        "pubKey": str,
-        "stakingSignature": str,
-        "publicSignature": str,
-    }
-    """
+def audit_leader_submission(round_number: int):
+    """Audit a leader's consolidated PR submission."""
     logger.info("Auditing leader submission")
 
     data = request.get_json()
@@ -176,31 +157,66 @@ def handle_leader_audit(round_number: int):
     ):
         return jsonify({"error": "Missing submission data"}), 400
 
-    try:
-        # Run leader audit checks
-        passed, message = audit_leader_submission(
-            task_id=task_id,
-            round_number=round_number,
-            pr_url=pr_url,
-            repo_owner=repo_owner,
-            repo_name=repo_name,
-            staking_key=staking_key,  # Auditor's staking key
-            pub_key=pub_key,  # Auditor's pub key
-            staking_signature=staking_signature,  # Auditor's staking signature
-            public_signature=public_signature,  # Auditor's public signature
-            submitter_signature=submitter_signature,  # Leader's signature
-            submitter_staking_key=submitter_staking_key,  # Leader's staking key
-            submitter_pub_key=submitter_pub_key,  # Leader's pub key
-            leader_username=github_username,
-        )
+    verify_response = verify_pr_ownership(
+        pr_url=pr_url,
+        expected_username=github_username,
+        expected_owner=repo_owner,
+        expected_repo=repo_name,
+        task_id=task_id,
+        round_number=round_number,
+        staking_key=submitter_staking_key,
+        pub_key=submitter_pub_key,
+        signature=submitter_signature,
+        node_type="leader",
+    )
 
+    if not verify_response.get("valid"):
+        log_error(
+            Exception("Invalid PR ownership"),
+            context=f"Invalid PR ownership: {pr_url}",
+        )
         return jsonify(
             {
                 "success": True,
-                "message": message,
-                "data": {"passed": passed},
+                "message": "PR ownership validation failed",
+                "data": {"passed": False},
             }
         )
+
+    pr_list = verify_response.get("pr_list", {})
+    issue_uuid = verify_response.get("issue_uuid", None)
+
+    try:
+
+        valid_prs = validate_pr_list(pr_list, issue_uuid)
+
+        if not valid_prs:
+            log_error(Exception("Invalid PR list"), context="Invalid PR list")
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "PR list validation failed",
+                    "data": {"passed": False},
+                }
+            )
+
+        is_approved = review_pr(
+            pr_url,
+            staking_key,
+            pub_key,
+            staking_signature,
+            public_signature,
+        )
+        return jsonify(
+            {
+                "success": True,
+                "message": (
+                    "PR approved by agent" if is_approved else "PR rejected by agent"
+                ),
+                "data": {"passed": is_approved},
+            }
+        )
+
     except Exception as e:
         log_error(e, context="Error auditing leader submission")
         return jsonify({"error": str(e)}), 500

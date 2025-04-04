@@ -30,7 +30,7 @@ async function verifySignatureData(
   signature: string,
   stakingKey: string,
   pubKey: string,
-): Promise<{ roundNumber: number; issueUuid: string; taskId: string } | null> {
+): Promise<{ roundNumber: number; issueUuid: string; taskId: string; prUrl: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -44,38 +44,39 @@ async function verifySignatureData(
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
       !taskIDs.includes(body.taskId) ||
-      body.action !== "checkIssue" ||
+      body.action !== "audit" ||
       !body.issueUuid ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
       !body.stakingKey ||
-      body.stakingKey !== stakingKey
+      body.stakingKey !== stakingKey ||
+      !body.prUrl
     ) {
       console.log("Signature payload validation failed");
       return null;
     }
-    return { roundNumber: body.roundNumber, issueUuid: body.issueUuid, taskId: body.taskId };
+    return { roundNumber: body.roundNumber, issueUuid: body.issueUuid, taskId: body.taskId, prUrl: body.prUrl };
   } catch (error) {
     console.error("Error in verifySignatureData:", error);
     return null;
   }
 }
 
-async function checkIssueAssignment(stakingKey: string, roundNumber: number, issueUuid: string): Promise<boolean> {
+async function checkIssueAssignment(stakingKey: string, roundNumber: number, prUrl: string): Promise<string | null> {
   try {
     const result = await IssueModel.findOne({
-      issueUuid: issueUuid,
       assignedStakingKey: stakingKey,
       assignedRoundNumber: roundNumber,
+      prUrl: prUrl,
     })
-      .select("_id")
+      .select("issueUuid")
       .lean();
 
     console.log("Issue assignment check result:", result);
-    return result !== null;
+    return result?.issueUuid ?? null;
   } catch (error) {
     console.error("Error checking issue assignment:", error);
-    return false;
+    return null;
   }
 }
 
@@ -110,13 +111,9 @@ export const checkIssue = async (req: Request, res: Response) => {
     return;
   }
 
-  const isValid = await checkIssueAssignment(
-    requestBody.stakingKey,
-    signatureData.roundNumber,
-    signatureData.issueUuid,
-  );
+  const issueUuid = await checkIssueAssignment(requestBody.stakingKey, signatureData.roundNumber, signatureData.prUrl);
 
-  if (!isValid) {
+  if (!issueUuid) {
     console.log("No matching issue assignment found");
     res.status(404).json({
       success: false,
@@ -126,7 +123,7 @@ export const checkIssue = async (req: Request, res: Response) => {
   }
 
   // Get the PR dictionary
-  const prDict = await getPRDict(signatureData.issueUuid);
+  const prDict = await getPRDict(issueUuid);
   if (!prDict) {
     res.status(404).json({
       success: false,
@@ -139,6 +136,6 @@ export const checkIssue = async (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     message: "Issue assignment verified successfully",
-    data: { pr_list: prDict },
+    data: { pr_list: prDict, issue_uuid: issueUuid },
   });
 };

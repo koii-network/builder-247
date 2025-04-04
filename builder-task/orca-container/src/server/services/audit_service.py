@@ -9,7 +9,7 @@ import requests
 from github import Github
 import os
 from git import Repo
-from typing import Tuple
+from typing import Tuple, Dict
 from agent_framework.tools.github_operations.parser import extract_section
 from src.workflows.utils import verify_pr_signatures
 
@@ -24,7 +24,8 @@ def verify_pr_ownership(
     staking_key: str,
     pub_key: str,
     signature: str,
-) -> bool:
+    node_type: str,
+) -> Dict[str, bool | Dict[str, str]]:
     """Verify PR ownership and signature.
 
     Args:
@@ -37,18 +38,31 @@ def verify_pr_ownership(
         staking_key: Worker's staking key
         pub_key: Worker's public key
         signature: Submitter's signature
-
+        node_type: Type of node (worker or leader)
     Returns:
         bool: True if PR ownership and signature are valid
     """
     try:
+        node_actions = {
+            "worker": "fetch-todo",
+            "leader": "fetch-issue",
+        }
+
+        node_endpoints = {
+            "worker": "check-to-do",
+            "leader": "check-issue",
+        }
+
         gh = Github(os.environ.get("GITHUB_TOKEN"))
 
         # Parse PR URL
         match = re.match(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
         if not match:
             log_error(Exception("Invalid PR URL"), context=f"Invalid PR URL: {pr_url}")
-            return False
+            return {
+                "valid": False,
+                "pr_list": {},
+            }
 
         owner, repo_name, pr_number = match.groups()
 
@@ -58,7 +72,10 @@ def verify_pr_ownership(
                 Exception("PR URL mismatch"),
                 context=f"PR URL mismatch: {pr_url} != {expected_owner}/{expected_repo}",
             )
-            return False
+            return {
+                "valid": False,
+                "pr_list": {},
+            }
 
         # Get PR and verify author
         repo = gh.get_repo(f"{owner}/{repo_name}")
@@ -69,7 +86,10 @@ def verify_pr_ownership(
                 Exception("PR username mismatch"),
                 context=f"PR username mismatch: {pr.user.login} != {expected_username}",
             )
-            return False
+            return {
+                "valid": False,
+                "pr_list": {},
+            }
 
         # Verify PR signature
         is_valid = verify_pr_signatures(
@@ -77,14 +97,17 @@ def verify_pr_ownership(
             task_id,
             round_number,
             expected_staking_key=staking_key,
-            expected_action="fetch-todo",
+            expected_action=node_actions[node_type],
         )
         if not is_valid:
-            return False
+            return {
+                "valid": False,
+                "pr_list": {},
+            }
 
         # Verify todo assignment with middle server
         response = requests.post(
-            os.environ["MIDDLE_SERVER_URL"] + "/api/check-to-do",
+            os.environ["MIDDLE_SERVER_URL"] + f"/api/{node_endpoints[node_type]}",
             json={
                 "stakingKey": staking_key,
                 "pubKey": pub_key,
@@ -98,13 +121,17 @@ def verify_pr_ownership(
         )
 
         response_data = response.json()
-        return response_data.get("success", True)
-
-        return True
+        return {
+            "valid": response_data.get("success", True),
+            "pr_list": response_data.get("data", {}).get("pr_list", {}),
+        }
 
     except Exception as e:
         log_error(e, context="Error verifying PR ownership")
-        return True
+        return {
+            "valid": False,
+            "pr_list": {},
+        }
 
 
 def review_pr(pr_url, staking_key, pub_key, staking_signature, public_signature):
@@ -130,9 +157,7 @@ def review_pr(pr_url, staking_key, pub_key, staking_signature, public_signature)
         raise Exception("PR review failed")
 
 
-def audit_leader_submission(
-    task_id: str,
-    round_number: int,
+def validate_pr_list(
     pr_url: str,
     repo_owner: str,
     repo_name: str,
@@ -140,10 +165,10 @@ def audit_leader_submission(
     pub_key: str,  # Auditor's pub key
     staking_signature: str,  # Auditor's staking signature
     public_signature: str,  # Auditor's public signature
-    submitter_signature: str,  # Leader's signature
     submitter_staking_key: str,  # Leader's staking key
-    submitter_pub_key: str,  # Leader's pub key
     leader_username: str,
+    pr_list: Dict[str, str],
+    issue_uuid: str,
 ) -> Tuple[bool, str]:
     """Audit a leader's consolidated PR submission.
 
@@ -160,7 +185,7 @@ def audit_leader_submission(
 
         gh = Github(os.environ["GITHUB_TOKEN"])
 
-        # 1. Parse PR URL and get PR object
+        # Parse PR URL and get PR object
         match = re.match(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
         if not match:
             return False, f"Invalid PR URL format: {pr_url}"
@@ -177,7 +202,7 @@ def audit_leader_submission(
         print(f"PR base repo: {pr.base.repo.full_name}", flush=True)
         print(f"PR head repo: {pr.head.repo.full_name}", flush=True)
 
-        # 2. Verify PR is targeting the source repo's default branch
+        # Verify PR is targeting the source repo's default branch
         if pr.base.repo.owner.login != repo_owner or pr.base.repo.name != repo_name:
             return (
                 False,
@@ -191,7 +216,7 @@ def audit_leader_submission(
                 f"Wrong base branch - expected: {source_repo.default_branch}, got: {pr.base.ref}",
             )
 
-        # 3. Verify PR is coming from the leader's fork
+        # Verify PR is coming from the leader's fork
         print(
             f"\nVerifying PR owner - expected: {leader_username}, actual: {pr.head.repo.owner.login}",
             flush=True,
@@ -202,63 +227,7 @@ def audit_leader_submission(
                 f"PR owner mismatch - expected: {leader_username}, got: {pr.head.repo.owner.login}",
             )
 
-        # 4. Verify leader's staking key and signature in PR description
-        print("\nVerifying leader's signature...", flush=True)
-        is_valid = verify_pr_signatures(
-            pr.body,
-            task_id,
-            round_number,
-            expected_staking_key=submitter_staking_key,
-            expected_action="fetch-issue",
-        )
-        if not is_valid:
-            return (
-                False,
-                f"Failed to verify leader's signature for staking key {submitter_staking_key}",
-            )
-
-        # 5. Verify issue assignment and get PR list from middle server
-        print("\nVerifying issue assignment and getting PR list...", flush=True)
-
-        middle_server_url = os.environ.get("MIDDLE_SERVER_URL")
-        if not middle_server_url:
-            return False, "MIDDLE_SERVER_URL environment variable not set"
-
-        # Call check-issue endpoint with staking key and signatures
-        print(f"Calling check-issue endpoint with staking key: {submitter_staking_key}")
-        check_response = requests.post(
-            f"{middle_server_url}/api/check-issue",
-            json={
-                "signature": submitter_signature,
-                "stakingKey": submitter_staking_key,
-                "pubKey": submitter_pub_key,
-            },
-            headers={"Content-Type": "application/json"},
-        )
-
-        if check_response.status_code != 200:
-            error_message = f"Failed to verify issue assignment: {check_response.text}"
-            print(error_message, flush=True)
-            return False, error_message
-
-        check_data = check_response.json()
-        if not check_data.get("success"):
-            error_message = (
-                f"Issue assignment check failed: {check_data.get('message')}"
-            )
-            print(error_message, flush=True)
-            return False, error_message
-
-        # Extract PR list from response
-        pr_list = check_data.get("data", {}).get("pr_list", {})
-        if not pr_list:
-            error_message = "No PR list found in issue assignment check response"
-            print(error_message, flush=True)
-            return False, error_message
-
-        print(f"Received PR list with {len(pr_list)} entries", flush=True)
-
-        # 6. Clone the repository and analyze merge commits
+        # Clone the repository and analyze merge commits
         clone_path = f"/tmp/audit-{repo_owner}-{repo_name}-{pr.head.ref}"
         print(f"\nClone path: {clone_path}", flush=True)
         if os.path.exists(clone_path):
@@ -275,7 +244,7 @@ def audit_leader_submission(
         repo = Repo.clone_from(clone_url, clone_path)
 
         # Checkout the -merged branch
-        source_branch = f"task-{task_id}-round-{round_number - 3}"
+        source_branch = issue_uuid
         merged_branch = f"{source_branch}-merged"
         print(f"Source branch: {source_branch}", flush=True)
         print(f"Merged branch: {merged_branch}", flush=True)
@@ -399,23 +368,6 @@ def audit_leader_submission(
             print(
                 f"Warning: {len(pr_list) - valid_commits} PRs from the PR list were not found in merge commits"
             )
-
-        # 8. Perform code review using the same audit workflow
-        print("\nPerforming code review...", flush=True)
-        try:
-            # Use the auditor's signatures for the review
-            is_approved = review_pr(
-                pr_url,
-                staking_key,  # Auditor's staking key
-                pub_key,  # Auditor's pub key
-                staking_signature,  # Auditor's staking signature
-                public_signature,  # Auditor's public signature
-            )
-            if not is_approved:
-                return False, "PR was rejected during code review"
-            print("✓ Code review passed")
-        except Exception as e:
-            return False, f"Error during code review: {str(e)}"
 
         # All checks passed
         print("\n✓ All leader audit checks passed!")
