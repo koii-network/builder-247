@@ -5,7 +5,8 @@ import { getRandomNodes } from "../utils/leader";
 import { getExistingIssues } from "../utils/existingIssues";
 import { status, middleServerUrl } from "../utils/constant";
 import dotenv from "dotenv";
-
+import { isValidAnthropicApiKey } from "../utils/anthropicCheck";
+import { checkGitHub } from "../utils/githubCheck";
 dotenv.config();
 
 
@@ -31,6 +32,24 @@ export async function task(roundNumber: number): Promise<void> {
   console.log(`[TASK] EXECUTE TASK FOR ROUND ${roundNumber}`);
   try {
     const orcaClient = await getOrcaClient();
+    // check if the env variable is valid
+    if (!process.env.ANTHROPIC_API_KEY) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ANTHROPIC_API_KEY_INVALID);
+      return;
+    }
+    if (!isValidAnthropicApiKey(process.env.ANTHROPIC_API_KEY!)) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ANTHROPIC_API_KEY_INVALID);
+      return;
+    }
+    if (!process.env.GITHUB_USERNAME || !process.env.GITHUB_TOKEN) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.GITHUB_CHECK_FAILED);
+      return;
+    }
+    const isGitHubValid = await checkGitHub(process.env.GITHUB_USERNAME!, process.env.GITHUB_TOKEN!);
+    if (!isGitHubValid) {
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.GITHUB_CHECK_FAILED);
+      return;
+    }
     if (!orcaClient) {
       // await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ORCA_CLIENT);
       return;

@@ -11,6 +11,8 @@ export const status = {
   NO_CHOSEN_AS_ISSUE_SUMMARIZER: "No chosen as issue summarizer",
   UNKNOWN_ERROR: "Unknown error",
   STAR_ISSUE_FAILED: "Star issue failed",
+  GITHUB_CHECK_FAILED: "GitHub check failed",
+  ANTHROPIC_API_KEY_INVALID: "Anthropic API key invalid",
 }
 
 /*********************THE CONSTANTS THAT PROD/TEST ARE DIFFERENT *********************/
