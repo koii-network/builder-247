@@ -165,10 +165,41 @@ export async function task(roundNumber: number): Promise<void> {
         }
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_SUCCESSFULLY_SUMMARIZED);
       } else {
+        // post this summary response to slack` to notify the team
+        try{
+          const slackResponse = await fetch('https://hooks.slack.com/services/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', {
+            method: "POST",
+            headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ 
+            text: `[TASK] Error summarizing issue:\nStatus: ${repoSummaryResponse.status}\nData: ${JSON.stringify(repoSummaryResponse.data, null, 2)}`
+          }),
+        });
+        console.log("[TASK] slackResponse: ", slackResponse);
+        }catch(error){
+          console.error("[TASK] Error posting to slack:", error);
+        }
+
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
       }
     } catch (error) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
+
+      try{
+        const slackResponse = await fetch('https://hooks.slack.com/services/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', {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ 
+            text: `[TASK] Error summarizing issue:\n ${JSON.stringify(error)}`
+          }),
+        });
+        console.log("[TASK] slackResponse: ", slackResponse);
+      }catch(error){
+        console.error("[TASK] Error posting to slack:", error);
+      }
       console.error("[TASK] EXECUTE TASK ERROR:", error);
     }
   } catch (error) {
