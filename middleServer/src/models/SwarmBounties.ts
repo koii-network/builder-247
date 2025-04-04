@@ -53,7 +53,7 @@ const SwarmBountySchema = new Schema(
     bountyType: {
       type: String,
       required: [true, 'Bounty type is required'],
-      enum: ['usdc', 'weth', 'usd', 'koii', 'kpl'],
+      enum: ['usdc', 'weth', 'usd', 'koii', 'kpl', 'eth'],
     },
     walletAddress: {
       type: String,

@@ -9,27 +9,38 @@ export async function submission(roundNumber: number) : Promise<string | void> {
    * The default implementation handles uploading the proofs to IPFS
    * and returning the CID
    */
-  console.log(`FETCH SUBMISSION FOR ROUND ${roundNumber}`);
-
+  console.log(`[SUBMISSION] Starting submission process for round ${roundNumber}`);
 
   try {
+    console.log("[SUBMISSION] Initializing Orca client...");
     const orcaClient = await getOrcaClient();
     if (!orcaClient) {
+      console.error("[SUBMISSION] Failed to initialize Orca client");
       return;
     }
+    console.log("[SUBMISSION] Orca client initialized successfully");
+
+    console.log(`[SUBMISSION] Fetching task result for round ${roundNumber}...`);
     const taskResult = await namespaceWrapper.storeGet(`result-${roundNumber}`);
     if (!taskResult) {
+      console.log("[SUBMISSION] No task result found for this round");
       return "No Data For This Round";
     }
+    console.log(`[SUBMISSION] Task result status: ${taskResult}`);
+
     if (taskResult !== status.ISSUE_SUCCESSFULLY_SUMMARIZED) {
+      console.log(`[SUBMISSION] Task not successfully summarized. Status: ${taskResult}`);
       return taskResult;
     }
+
+    console.log(`[SUBMISSION] Fetching submission data for round ${roundNumber}...`);
     const result = await orcaClient.podCall(`submission/${roundNumber}`);
     let submission;
 
-    console.log({ "submission result": result.data });
+    console.log("[SUBMISSION] Submission result:", result.data);
 
     if (result.data === "No submission") {
+      console.log("[SUBMISSION] No existing submission found, creating new submission object");
       submission = {
         githubUsername: process.env.GITHUB_USERNAME,
         prUrl: "none",
@@ -39,27 +50,34 @@ export async function submission(roundNumber: number) : Promise<string | void> {
       submission = result.data;
     }
 
+    console.log("[SUBMISSION] Validating submission data...");
     if (submission.roundNumber !== roundNumber) {
+      console.error(`[SUBMISSION] Round number mismatch. Expected: ${roundNumber}, Got: ${submission.roundNumber}`);
       throw new Error("Submission is not for the current round");
     }
 
     if (!submission.prUrl) {
+      console.error("[SUBMISSION] Missing PR URL in submission");
       throw new Error("Submission is missing PR URL");
     }
 
-    console.log({ submission });
+    console.log("[SUBMISSION] Submission data validated successfully:", submission);
 
-    // if you are writing a KPL task, use namespaceWrapper.getSubmitterAccount("KPL");
+    console.log("[SUBMISSION] Getting submitter account...");
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
 
     if (!stakingKeypair) {
+      console.error("[SUBMISSION] No staking keypair found");
       throw new Error("No staking keypair found");
     }
+    console.log("[SUBMISSION] Submitter account retrieved successfully");
 
     const stakingKey = stakingKeypair.publicKey.toBase58();
     const pubKey = await namespaceWrapper.getMainAccountPubkey();
+    console.log("[SUBMISSION] Staking key:", stakingKey);
+    console.log("[SUBMISSION] Public key:", pubKey);
 
-    // sign the submission
+    console.log("[SUBMISSION] Signing submission payload...");
     const signature = await namespaceWrapper.payloadSigning(
       {
         taskId: TASK_ID,
@@ -71,12 +89,14 @@ export async function submission(roundNumber: number) : Promise<string | void> {
       },
       stakingKeypair.secretKey,
     );
+    console.log("[SUBMISSION] Payload signed successfully");
 
-    // store the submission on IPFS
+    console.log("[SUBMISSION] Storing submission on IPFS...");
     const cid = await storeFile({ signature }, "submission.json");
-    console.log("SUBMISSION CID:", cid);
+    console.log("[SUBMISSION] Submission stored successfully. CID:", cid);
     return cid || void 0;
   } catch (error) {
-    console.error("FETCH SUBMISSION ERROR:", error);
+    console.error("[SUBMISSION] Error during submission process:", error);
+    throw error;
   }
 }

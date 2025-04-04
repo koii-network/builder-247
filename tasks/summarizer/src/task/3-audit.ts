@@ -12,7 +12,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
   try {
     return true;
   } catch (error) {
-    console.error("ERROR AUDITING SUBMISSION", error);
+    console.error("[AUDIT] Error auditing submission:", error);
     return true;
   }
 }

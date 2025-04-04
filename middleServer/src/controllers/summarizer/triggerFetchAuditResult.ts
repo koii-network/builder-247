@@ -88,7 +88,7 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
 }
 
 // async function test(){
-//     const response = await triggerFetchAuditResultLogic(["0x123"], ["0x456"], 1);
+//     const response = await triggerFetchAuditResultLogic(["G79TK8ccVx11JCsStBY85thohoSCm5eDwACAVju4z7bj"], ["0x456"], 13);
 //     console.log(response);
 // }
 

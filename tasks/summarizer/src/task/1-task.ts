@@ -25,9 +25,9 @@ export async function task(roundNumber: number): Promise<void> {
       },
       body: JSON.stringify({ taskId: TASK_ID, round: roundNumber - 3 })
     });
-    console.log(`Trigger fetch audit result for round ${roundNumber - 3}. Result is ${triggerFetchAuditResult.status}.`);
+    console.log(`[TASK] Trigger fetch audit result for round ${roundNumber - 3}. Result is ${triggerFetchAuditResult.status}.`);
   }
-  console.log(`EXECUTE TASK FOR ROUND ${roundNumber}`);
+  console.log(`[TASK] EXECUTE TASK FOR ROUND ${roundNumber}`);
   try {
     const orcaClient = await getOrcaClient();
     if (!orcaClient) {
@@ -79,7 +79,7 @@ export async function task(roundNumber: number): Promise<void> {
 
     // const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues(existingIssues);
 
-    console.log(`Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
+    console.log(`[TASK] Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
     const requiredWorkResponse = await fetch(`${middleServerUrl}/api/summarizer/fetch-summarizer-todo`, {
       method: "POST",
       headers: {
@@ -93,14 +93,14 @@ export async function task(roundNumber: number): Promise<void> {
       return;
     }
     const requiredWorkResponseData = await requiredWorkResponse.json();
-    console.log("requiredWorkResponseData: ", requiredWorkResponseData);
+    console.log("[TASK] requiredWorkResponseData: ", requiredWorkResponseData);
     
     const jsonBody = {
       taskId: TASK_ID,
       round_number: String(roundNumber),
       repo_url: `https://github.com/${requiredWorkResponseData.data.repo_owner}/${requiredWorkResponseData.data.repo_name}`,
     };
-    console.log("jsonBody: ", jsonBody);
+    console.log("[TASK] jsonBody: ", jsonBody);
     try {
       const repoSummaryResponse = await orcaClient.podCall(`repo_summary/${roundNumber}`, {
         method: "POST",
@@ -109,8 +109,8 @@ export async function task(roundNumber: number): Promise<void> {
         },
         body: JSON.stringify(jsonBody),
       });
-      console.log("repoSummaryResponse: ", repoSummaryResponse);
-      console.log("repoSummaryResponse.data.result.data ", repoSummaryResponse.data.result.data);
+      console.log("[TASK] repoSummaryResponse: ", repoSummaryResponse);
+      console.log("[TASK] repoSummaryResponse.data.result.data ", repoSummaryResponse.data.result.data);
       const payload = {
         taskId: TASK_ID,
         action: "add",
@@ -118,14 +118,14 @@ export async function task(roundNumber: number): Promise<void> {
         prUrl: repoSummaryResponse.data.result.data.pr_url,
         stakingKey: stakingKey
       }
-      console.log("Signing payload: ", payload);
+      console.log("[TASK] Signing payload: ", payload);
       if (repoSummaryResponse.status === 200) {
         try{
           const signature = await namespaceWrapper.payloadSigning(
             payload,
             stakingKeypair.secretKey,
           );
-          console.log("signature: ", signature);
+          console.log("[TASK] signature: ", signature);
           const addPrToSummarizerTodoResponse = await fetch(`${middleServerUrl}/api/summarizer/add-pr-to-summarizer-todo`, {
             method: "POST",
             headers: {
@@ -133,10 +133,10 @@ export async function task(roundNumber: number): Promise<void> {
             },
             body: JSON.stringify({ signature: signature, stakingKey: stakingKey }),
           });
-          console.log("addPrToSummarizerTodoResponse: ", addPrToSummarizerTodoResponse);
+          console.log("[TASK] addPrToSummarizerTodoResponse: ", addPrToSummarizerTodoResponse);
         }catch(error){
           await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
-          console.error("Error adding PR to summarizer todo:", error);
+          console.error("[TASK] Error adding PR to summarizer todo:", error);
         }
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_SUCCESSFULLY_SUMMARIZED);
       } else {
@@ -144,10 +144,10 @@ export async function task(roundNumber: number): Promise<void> {
       }
     } catch (error) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
-      console.error("EXECUTE TASK ERROR:", error);
+      console.error("[TASK] EXECUTE TASK ERROR:", error);
     }
   } catch (error) {
     await namespaceWrapper.storeSet(`result-${roundNumber}`, status.UNKNOWN_ERROR);
-    console.error("EXECUTE TASK ERROR:", error);
+    console.error("[TASK] EXECUTE TASK ERROR:", error);
   }
 }
