@@ -150,7 +150,13 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
           { "assignedTo.githubUsername": signatureData.githubUsername }
         ],
         $or: [
-          { $and: [{ "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 3 } }, { status: DocumentationStatus. IN_PROGRESS}] },
+          { 
+            $and: [
+              // Check if the maximum round number is less than current round - 3
+              { $expr: { $lt: [{ $max: "$assignedTo.roundNumber" }, signatureData.roundNumber - 3] } },
+              { status: DocumentationStatus.IN_PROGRESS }
+            ]
+          },
           { $and: [{ status: DocumentationStatus.INITIALIZED }] }
         ]
       },
