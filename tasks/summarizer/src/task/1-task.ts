@@ -17,13 +17,14 @@ export async function task(roundNumber: number): Promise<void> {
    */
   // FORCE TO PAUSE 30 SECONDS
 // No submission on Round 0 so no need to trigger fetch audit result before round 3
-  if (roundNumber >= 3) {
+// Changed from 3 to 4 to have more time
+  if (roundNumber >= 4) {
     const triggerFetchAuditResult = await fetch(`${middleServerUrl}/api/summarizer/trigger-fetch-audit-result`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ taskId: TASK_ID, round: roundNumber - 3 })
+      body: JSON.stringify({ taskId: TASK_ID, round: roundNumber - 4 })
     });
     console.log(`[TASK] Trigger fetch audit result for round ${roundNumber - 3}. Result is ${triggerFetchAuditResult.status}.`);
   }

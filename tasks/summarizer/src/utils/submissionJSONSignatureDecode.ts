@@ -3,11 +3,11 @@ import { getFile } from "./ipfs";
 import { Submission } from "@_koii/namespace-wrapper/dist/types";
 import { Submitter } from "@_koii/task-manager/dist/types/global";
 import { namespaceWrapper } from "@_koii/namespace-wrapper";
-export async function submissionJSONSignatureDecode({submitterSubmission, submitter, roundNumber}: {submitterSubmission: Submission, submitter: Submitter, roundNumber: number}) {
+export async function submissionJSONSignatureDecode({submission_value, submitterPublicKey, roundNumber}: {submission_value: string, submitterPublicKey: string, roundNumber: number}) {
     let submissionString;
     try {
-        console.log("Getting file from IPFS", submitterSubmission.submission_value);
-      submissionString = await getFile(submitterSubmission.submission_value);
+        console.log("Getting file from IPFS", submission_value);
+      submissionString = await getFile(submission_value);
       console.log("submissionString", submissionString);
     } catch (error) {
 
@@ -18,7 +18,7 @@ export async function submissionJSONSignatureDecode({submitterSubmission, submit
     // verify the signature of the submission
     const submission = JSON.parse(submissionString);
     console.log("submission", submission);
-    const signaturePayload = await namespaceWrapper.verifySignature(submission.signature, submitter.publicKey);
+    const signaturePayload = await namespaceWrapper.verifySignature(submission.signature, submitterPublicKey);
     if (!signaturePayload.data) {
       console.error("INVALID SIGNATURE");
       return null;
@@ -29,7 +29,7 @@ export async function submissionJSONSignatureDecode({submitterSubmission, submit
     if (
       data.taskId !== TASK_ID ||
       data.roundNumber !== roundNumber ||
-      data.stakingKey !== submitter.publicKey ||
+      data.stakingKey !== submitterPublicKey ||
       !data.pubKey ||
       !data.prUrl
     ) {

@@ -24,29 +24,7 @@ export const distribution = async (
   bounty: number,
   roundNumber: number,
 ): Promise<DistributionList> => {
-  console.log(`[DISTRIBUTION] Starting distribution for round ${roundNumber}`);
-  console.log(`[DISTRIBUTION] Number of submitters: ${submitters.length}`);
-  console.log(`[DISTRIBUTION] Bounty amount: ${bounty}`);
-  
   try {
-    console.log(`[DISTRIBUTION] Checking task result for round ${roundNumber}`);
-    const taskResult = await namespaceWrapper.storeGet(`result-${roundNumber}`);
-    console.log(`[DISTRIBUTION] Task result:`, taskResult);
-    
-    if (taskResult && taskResult !== status.ISSUE_SUCCESSFULLY_SUMMARIZED) {
-      console.log(`[DISTRIBUTION] Task not successfully summarized, returning empty distribution list`);
-      return await getEmptyDistributionList(submitters);
-    }
-
-    console.log(`[DISTRIBUTION] Getting Orca client`);
-    const orcaClient = await getOrcaClient();
-    if (!orcaClient) {
-      console.log("[DISTRIBUTION] ❌ NO ORCA CLIENT AVAILABLE");
-      return await getEmptyDistributionList(submitters);
-    }
-    console.log(`[DISTRIBUTION] ✅ Orca client obtained successfully`);
-
-    console.log(`[DISTRIBUTION] Creating distribution list for round ${roundNumber}`);
     const distributionList: DistributionList = {};
 
     for (const submitter of submitters) {
@@ -62,70 +40,17 @@ export const distribution = async (
         distributionList[submitter.publicKey] = 0;
         continue;
       }
-      console.log(`[DISTRIBUTION] ✅ Found submission for submitter ${submitter.publicKey}`);
-
-      console.log(`[DISTRIBUTION] Decoding submission signature`);
-      const decodeResult = await submissionJSONSignatureDecode({submitterSubmission, submitter, roundNumber});
-      console.log(`[DISTRIBUTION] Decode result:`, decodeResult);
-      
-      if (!decodeResult) {
-        console.error(`[DISTRIBUTION] ❌ INVALID SIGNATURE DATA for submitter ${submitter.publicKey}`);
-        distributionList[submitter.publicKey] = 0;
-        continue;
+      if (Object.values(status).includes(submitterSubmission.submission_value)) {
+         distributionList[submitter.publicKey] = 0;
+         continue;
+      }else{
+        // TODO: Check if I should include = 0 here 
+        if (submitter.votes >= 0) {
+          distributionList[submitter.publicKey] = customReward;
+        }else{
+          distributionList[submitter.publicKey] = 0;
+        }
       }
-      console.log(`[DISTRIBUTION] ✅ Signature decoded successfully`);
-
-      console.log(`[DISTRIBUTION] Checking summarizer status for submitter ${submitter.publicKey}`);
-      const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/summarizer/check-summarizer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ 
-          stakingKey: submitter.publicKey, 
-          roundNumber, 
-          githubUsername: decodeResult.githubUsername, 
-          prUrl: decodeResult.prUrl 
-        }),
-      });
-      const checkSummarizerJSON = await checkSummarizerResponse.json();
-      console.log(`[DISTRIBUTION] Summarizer check response:`, checkSummarizerJSON);
-      
-      if (!checkSummarizerJSON.success) {
-        console.log(`[DISTRIBUTION] ❌ Audit failed for ${submitter.publicKey}`);
-        distributionList[submitter.publicKey] = 0;
-        continue;
-      }
-      console.log(`[DISTRIBUTION] ✅ Summarizer check passed`);
-
-      console.log(`[DISTRIBUTION] Sending audit request for submitter: ${submitter.publicKey}`);
-      console.log(`[DISTRIBUTION] Submission data being sent to audit:`, decodeResult);
-      
-      const result = await orcaClient.podCall(`audit/${roundNumber}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          submission: decodeResult,
-        }),
-      });
-
-      console.log(`[DISTRIBUTION] Raw audit result:`, result);
-      console.log(`[DISTRIBUTION] Audit result data type:`, typeof result.data);
-      console.log(`[DISTRIBUTION] Audit result data value:`, result.data);
-      
-      if (result.data === true) {
-        console.log(`[DISTRIBUTION] ✅ Audit passed for ${submitter.publicKey}`);
-        console.log(`[DISTRIBUTION] Setting reward to customReward value:`, customReward);
-        distributionList[submitter.publicKey] = customReward;
-      } else {
-        console.log(`[DISTRIBUTION] ❌ Audit failed for ${submitter.publicKey}`);
-        console.log(`[DISTRIBUTION] Failed audit result data:`, result.data);
-        distributionList[submitter.publicKey] = 0;
-      }
-      
-      console.log(`[DISTRIBUTION] Current distribution list:`, distributionList);
     }
 
     console.log(`[DISTRIBUTION] ✅ Distribution completed successfully`);
