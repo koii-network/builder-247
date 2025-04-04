@@ -5,7 +5,7 @@ import { DocumentationModel, DocumentationStatus } from "../../models/Documentat
 // import { documentSummarizerTaskID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
 import { verifySignature } from "../../utils/sign";
-import { documentSummarizerTaskID } from "../../config/constant";
+import { documentSummarizerTaskID, taskID } from "../../config/constant";
 import { syncDB } from "../../services/summarizer/syncDB";
 
 
@@ -152,8 +152,17 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
         $or: [
           { 
             $and: [
-              // Check if the maximum round number is less than current round - 3
-              { $expr: { $lt: [{ $max: "$assignedTo.roundNumber" }, signatureData.roundNumber - 3] } },
+              {
+                $or: [
+                  {
+                    $and: [
+                      { roundNumber: { $lt: signatureData.roundNumber - 3 } },
+                      { taskId: documentSummarizerTaskID }
+                    ]
+                  },
+                  { taskId: { $ne: documentSummarizerTaskID } }
+                ]
+              },
               { status: DocumentationStatus.IN_PROGRESS }
             ]
           },
@@ -171,7 +180,9 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
           }
         },
         $set: {
-          status: DocumentationStatus.IN_PROGRESS
+          status: DocumentationStatus.IN_PROGRESS,
+          taskId: documentSummarizerTaskID,
+          roundNumber: signatureData.roundNumber,
         }
       },
       { new: true }

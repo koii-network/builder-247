@@ -124,7 +124,7 @@ environment: "TEST"
 #################################### FOR UPDATING TASKS ONLY ####################################
 
 ## Old Task ID ##
-task_id: "HgtTUW5jCKvjh9qa27ZfTWdYsY26W17DPWsfzDTbiEdn"
+task_id: "ErpmC7vyKQpBuSgS5J3DvvZaE8Fh4Xop68aifCw8bpRF"
 
 ## Migration Description ##
 migrationDescription: "Fix audit bug"

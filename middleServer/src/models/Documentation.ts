@@ -45,6 +45,12 @@ class Documentation {
 
   @prop({ required: false })
   public swarmBountyId?: string;
+  
+  @prop({ required: false })
+  public taskId!: string;
+
+  @prop({ required: false })
+  public roundNumber!: number;
 
   @prop({ type: () => [AssignedInfo], default: [] })
   public assignedTo!: AssignedInfo[];
