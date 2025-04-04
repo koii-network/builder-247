@@ -8,6 +8,8 @@ const cache: Record<string, Set<number>> = {};
 
 export async function triggerFetchAuditResult(req: Request, res: Response): Promise<void> {
     const { taskId, round } = req.body;
+    console.log("[TRIGGER FETCH AUDIT RESULT] taskId: ", taskId);
+    console.log("[TRIGGER FETCH AUDIT RESULT] round: ", round);
     if (taskId !== documentSummarizerTaskID) {
         res.status(400).send('Invalid task ID.');
         return;
@@ -34,7 +36,7 @@ export async function triggerFetchAuditResult(req: Request, res: Response): Prom
     }
 
     const distributionList = await getDistributionListWrapper(taskId, round);
-    
+    console.log("distributionList", distributionList);
     let positiveKeys: string[] = [];
     let negativeKeys: string[] = [];
     if (distributionList) {
@@ -61,12 +63,18 @@ export async function updateSwarmBountyStatus(swarmBountyId: string, status: Swa
     await swarmBounty.save();
 }
 export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
-
+        console.log("positiveKeys", positiveKeys);
+        console.log("negativeKeys", negativeKeys);
+        console.log("round", round);
         // ============== Update the subtask status ==============
         const specs = await DocumentationModel.find({ "assignedTo.stakingKey": { $in: [...positiveKeys, ...negativeKeys] } });
         // console.log('Todos Found');
         for (const spec of specs) {
             for (const assignee of spec.assignedTo) {
+                if (!assignee.taskId || !assignee.roundNumber || !assignee.stakingKey) {
+                    console.log('Missing required fields for assignee:', assignee);
+                    continue;
+                }
                 if (positiveKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
                     assignee.auditResult = true;
                     spec.status = DocumentationStatus.DONE;

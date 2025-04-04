@@ -8,6 +8,14 @@ export async function getDistributionListSubmitter(taskId: string, round: string
     
     try {
         const taskStateInfo = await getTaskStateInfo(connection, taskId);
+        if (!taskStateInfo || !taskStateInfo.distribution_rewards_submission) {
+            console.error('No distribution rewards submission found for task:', taskId);
+            return null;
+        }
+        if (!taskStateInfo.distribution_rewards_submission[round]) {
+            console.error('No distribution rewards submission found for round:', round);
+            return null;
+        }
         const keys = Object.keys(taskStateInfo.distribution_rewards_submission[round]);
         return keys.length > 0 ? keys[0] : null;
     } catch (error) {
@@ -110,7 +118,7 @@ export async function getKeysByValueSign(distributionList: object): Promise<{ po
         const numValue = Number(value);
         if (numValue > 0) {
             positive.push(key);
-        } else if (numValue < 0) {
+        } else if (numValue <= 0) {
             negative.push(key);
         }
     });
