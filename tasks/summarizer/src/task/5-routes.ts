@@ -33,35 +33,41 @@ export async function routes() {
     const taskResult = await task(Number(roundNumber));
     res.status(200).json({ result: taskResult });
   });
-
+  app.get("/audit/:roundNumber/:cid/:submitterPublicKey", async (req, res) => {
+    const cid = req.params.cid;
+    const roundNumber = req.params.roundNumber;
+    const submitterPublicKey = req.params.submitterPublicKey;
+    const auditResult = await audit(cid, Number(roundNumber), submitterPublicKey);
+    res.status(200).json({ result: auditResult });
+  });
   app.get("/submission/:roundNumber", async (req, res) => {
     const roundNumber = req.params.roundNumber;
     const submissionResult = await submission(Number(roundNumber));
     res.status(200).json({ result: submissionResult });
   });
 
-  app.get("/submissionJSONSignatureDecode/:roundNumber/:submissionValue", async (req, res) => {
-    const roundNumber = req.params.roundNumber;
-    const submissionValue = req.params.submissionValue;
+  // app.get("/submissionJSONSignatureDecode/:roundNumber/:submissionValue", async (req, res) => {
+  //   const roundNumber = req.params.roundNumber;
+  //   const submissionValue = req.params.submissionValue;
 
-    const submitter = await namespaceWrapper.getSubmitterAccount();
-    if (!submitter) {
-      res.status(400).json({ result: "No submitter found" });
-      return;
-    }
-    const submitterPublicKey = submitter.publicKey.toBase58();
-    // console.log({submissionValue, submitterPublicKey, roundNumber});
-    const submission:Submission = {submission_value: submissionValue, slot: 0, round: Number(roundNumber)};
+  //   const submitter = await namespaceWrapper.getSubmitterAccount();
+  //   if (!submitter) {
+  //     res.status(400).json({ result: "No submitter found" });
+  //     return;
+  //   }
+  //   const submitterPublicKey = submitter.publicKey.toBase58();
+  //   // console.log({submissionValue, submitterPublicKey, roundNumber});
+  //   const submission:Submission = {submission_value: submissionValue, slot: 0, round: Number(roundNumber)};
 
-    console.log({submitterSubmission: submission, submitter: { publicKey: submitterPublicKey, votes: 1, stake: 0}, roundNumber: Number(roundNumber)});
-    const submissionResult = await submissionJSONSignatureDecode({submitterSubmission: submission, submitter: { publicKey: submitterPublicKey, votes: 1, stake: 0}, roundNumber: Number(roundNumber)});
-    res.status(200).json({ result: submissionResult });
-  });
+  //   console.log({submitterSubmission: submission, submitter: { publicKey: submitterPublicKey, votes: 1, stake: 0}, roundNumber: Number(roundNumber)});
+  //   const submissionResult = await submissionJSONSignatureDecode({submitterSubmission: submission, submitter: { publicKey: submitterPublicKey, votes: 1, stake: 0}, roundNumber: Number(roundNumber)});
+  //   res.status(200).json({ result: submissionResult });
+  // });
 
-  app.get("/randomNodes/:roundNumber/:number", async (req, res) => {
-    const roundNumber = req.params.roundNumber;
-    const number = req.params.number;
-    const randomNodes = await getRandomNodes(Number(roundNumber), Number(number));
-    res.status(200).json({ result: randomNodes });
-  });
+  // app.get("/randomNodes/:roundNumber/:number", async (req, res) => {
+  //   const roundNumber = req.params.roundNumber;
+  //   const number = req.params.number;
+  //   const randomNodes = await getRandomNodes(Number(roundNumber), Number(number));
+  //   res.status(200).json({ result: randomNodes });
+  // });
 }
