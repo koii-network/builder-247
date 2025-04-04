@@ -45,6 +45,11 @@ export async function routes() {
     const submissionResult = await submission(Number(roundNumber));
     res.status(200).json({ result: submissionResult });
   });
+  // app.get("/distribution/:roundNumber", async (req, res) => {
+  //   const roundNumber = req.params.roundNumber;
+  //   const distributionResult = await distribution(Number(roundNumber));
+  //   res.status(200).json({ result: distributionResult });
+  // });
 
   // app.get("/submissionJSONSignatureDecode/:roundNumber/:submissionValue", async (req, res) => {
   //   const roundNumber = req.params.roundNumber;
