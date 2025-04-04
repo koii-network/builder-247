@@ -38,6 +38,7 @@ def fetch_submission(roundNumber):
                 "githubUsername": submission.username,
                 "repoOwner": submission.repo_owner,
                 "repoName": submission.repo_name,
+                "nodeType": submission.node_type,
             }
         )
     else:

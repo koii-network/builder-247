@@ -1,9 +1,7 @@
 import { getFile } from "../utils/ipfs";
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
-import { getLeaderNode } from "../utils/leader";
-import { getDistributionList } from "../utils/distributionList";
-export async function audit(cid: string, roundNumber: number, submitterKey: string): Promise<boolean | void> {
+export async function audit(cid: string, roundNumber: number, submitterKey: string): Promise<boolean> {
   /**
    * Audit a submission
    * This function should return true if the submission is correct, false otherwise
@@ -46,10 +44,9 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
       return true;
     }
 
-    const orca = await getOrcaClient();
+    const isLeader = data.nodeType === "leader";
 
-    const { isLeader } = await getLeaderNode({ roundNumber, leaderNumber: 1, submitterPublicKey: submitterKey });
-    let podCallUrl;
+    const orca = await getOrcaClient();
 
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
@@ -100,6 +97,8 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
       stakingSignature: stakingSignature,
       publicSignature: publicSignature,
     };
+
+    let podCallUrl;
 
     if (isLeader) {
       podCallUrl = `leader-audit/${roundNumber}`;

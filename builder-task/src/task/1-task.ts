@@ -1,9 +1,8 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
-import "dotenv/config";
-import { getLeaderNode } from "../utils/leader";
 import { triggerAuditUpdate } from "../utils/auditUpdate";
 import { createAggregatorRepo } from "../utils/aggregatorRepo";
+import "dotenv/config";
 
 interface PodCallBody {
   taskId: string;
@@ -37,28 +36,58 @@ export async function task(roundNumber: number): Promise<void> {
 
     await createAggregatorRepo(orcaClient, roundNumber, stakingKey, pubKey, stakingKeypair.secretKey);
 
-    const { isLeader, leaderNode } = await getLeaderNode({
-      roundNumber,
-      leaderNumber: 1,
-      submitterPublicKey: stakingKey,
-    });
-    console.log({ isLeader, leaderNode });
-    if (leaderNode === null) {
-      return;
-    }
-
     // Once we reach round 3, trigger the audit update for the previous round to check the distribution list
     if (roundNumber >= 3) {
       await triggerAuditUpdate(TASK_ID || "", roundNumber - 3, stakingKeypair, orcaClient);
     }
 
+    const leaderPrUrl = await runTask(roundNumber, "leader", orcaClient, stakingKey, pubKey, stakingKeypair.secretKey);
+    if (!leaderPrUrl) {
+      const workerPrUrl = await runTask(
+        roundNumber,
+        "worker",
+        orcaClient,
+        stakingKey,
+        pubKey,
+        stakingKeypair.secretKey,
+      );
+      if (!workerPrUrl) {
+        console.log("Did not create PR for round", roundNumber);
+      }
+    }
+  } catch (error) {
+    console.error("EXECUTE TASK ERROR:", error);
+  }
+}
+
+async function runTask(
+  roundNumber: number,
+  taskType: "worker" | "leader",
+  orcaClient: any,
+  stakingKey: string,
+  pubKey: string,
+  secretKey: Uint8Array,
+) {
+  try {
+    const taskConfig = {
+      worker: {
+        fetchAction: "fetch-todo",
+        addAction: "add-todo-pr",
+        endpoint: `worker-task/${roundNumber}`,
+      },
+      leader: {
+        fetchAction: "fetch-issue",
+        addAction: "add-issue-pr",
+        endpoint: `leader-task/${roundNumber}`,
+      },
+    };
     const fetchTodoPayload = {
       taskId: TASK_ID,
       roundNumber,
       githubUsername: process.env.GITHUB_USERNAME,
       stakingKey,
       pubKey,
-      action: isLeader ? "fetch-todo" : "fetch-issue",
+      action: taskConfig[taskType].fetchAction,
     };
     const addPRPayload = {
       taskId: TASK_ID,
@@ -66,11 +95,12 @@ export async function task(roundNumber: number): Promise<void> {
       githubUsername: process.env.GITHUB_USERNAME,
       stakingKey,
       pubKey,
-      action: isLeader ? "add-todo-pr" : "add-issue-pr",
+      action: taskConfig[taskType].addAction,
     };
-    const stakingSignature = await namespaceWrapper.payloadSigning(fetchTodoPayload, stakingKeypair.secretKey);
+
+    const stakingSignature = await namespaceWrapper.payloadSigning(fetchTodoPayload, secretKey);
     const publicSignature = await namespaceWrapper.payloadSigning(fetchTodoPayload);
-    const addPRSignature = await namespaceWrapper.payloadSigning(addPRPayload, stakingKeypair.secretKey);
+    const addPRSignature = await namespaceWrapper.payloadSigning(addPRPayload, secretKey);
 
     if (!stakingSignature || !publicSignature || !addPRSignature) {
       throw new Error("Signature generation failed");
@@ -85,21 +115,23 @@ export async function task(roundNumber: number): Promise<void> {
       publicSignature,
       addPRSignature,
     };
-    let podCallUrl;
-    if (isLeader) {
-      podCallUrl = `leader-task/${roundNumber}`;
-    } else {
-      podCallUrl = `worker-task/${roundNumber}`;
-    }
 
-    await orcaClient.podCall(podCallUrl, {
+    const response = await orcaClient.podCall(taskConfig[taskType].endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(podCallBody),
     });
+
+    if (response?.data?.success) {
+      return response.data.pr_url;
+    } else {
+      console.error(`${taskType} task failed:`, response?.data?.error || "Unknown error");
+      return null;
+    }
   } catch (error) {
-    console.error("EXECUTE TASK ERROR:", error);
+    console.error(`${taskType} task error:`, error);
+    return null;
   }
 }

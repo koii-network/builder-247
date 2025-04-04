@@ -304,9 +304,7 @@ class DataManager:
             "publicSignature": auditor_signatures["public_signature"],
         }
 
-    def prepare_leader_task(
-        self, role: str, round_number: int, pr_urls: list[str]
-    ) -> Dict[str, Any]:
+    def prepare_leader_task(self, role: str, round_number: int) -> Dict[str, Any]:
         """Prepare payload for leader-task endpoint."""
         # Create fetch-issue payload for stakingSignature and publicSignature
         fetch_issue_payload = {

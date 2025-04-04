@@ -202,8 +202,7 @@ export const fetchIssueLogic = async (
       data: {
         success: true,
         data: {
-          // Use aggregatorOwner if it exists, otherwise fallback to repoOwner
-          repo_owner: eligibleIssue.aggregatorOwner || eligibleIssue.repoOwner,
+          repo_owner: eligibleIssue.aggregatorOwner,
           repo_name: eligibleIssue.repoName,
           issue_uuid: eligibleIssue.issueUuid,
           pr_list: prDict,
