@@ -45,15 +45,17 @@ async function checkToDoAssignment(
     };
     console.log("Data:", data);
 
-    const result = await DocumentationModel.findOneAndUpdate(
+    const result = await DocumentationModel.findOne(
       {
-        assignedTo: {
-          $elemMatch: data,
-        },
+        "assignedTo": {
+          $elemMatch: {
+            stakingKey: stakingKey,
+            taskId: documentSummarizerTaskID,
+            roundNumber: Number(roundNumber),
+          }
+        }
       }
     )
-      .select("_id")
-      .lean();
 
     console.log("Todo assignment check result:", result);
     return result !== null;
