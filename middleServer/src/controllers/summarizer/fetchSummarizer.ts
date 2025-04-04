@@ -150,7 +150,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
           { "assignedTo.githubUsername": signatureData.githubUsername }
         ],
         $or: [
-          { $and: [{ "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 3 } }, { status: DocumentationStatus.INITIALIZED }] },
+          { $and: [{ "assignedTo.roundNumber": { $lt: signatureData.roundNumber - 3 } }, { status: DocumentationStatus. IN_PROGRESS}] },
           { $and: [{ status: DocumentationStatus.INITIALIZED }] }
         ]
       },
@@ -163,11 +163,14 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
             githubUsername: signatureData.githubUsername,
             todoSignature: requestBody.signature
           }
+        },
+        $set: {
+          status: DocumentationStatus.IN_PROGRESS
         }
       },
       { new: true }
     ).sort({ createdAt: 1 }).exec();
-
+    
     if (!updatedTodo) {
       return {statuscode: 404, data:{
         success: false,
