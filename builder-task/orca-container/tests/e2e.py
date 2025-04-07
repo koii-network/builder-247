@@ -53,23 +53,35 @@ def save_state(data_manager, pr_urls, step_completed):
     """Save the current state to a JSON file after completing a step"""
     state_file = Path(__file__).parent / "e2e_state.json"
 
-    # Prepare the state dictionary
-    state = {
+    # Load existing state if it exists
+    all_rounds_state = {}
+    if state_file.exists():
+        with open(state_file, "r") as f:
+            all_rounds_state = json.load(f)
+
+    # Create state for current round
+    current_round_state = {
         "step_completed": step_completed,
         "fork_url": data_manager.fork_url,
         "branch_name": data_manager.branch_name,
         "issue_uuid": data_manager.issue_uuid,
         "repo_owner": data_manager.repo_owner,
         "repo_name": data_manager.repo_name,
-        "pr_urls": pr_urls,
+        "pr_urls": pr_urls.copy(),  # Make a copy to avoid reference issues
         "round_number": data_manager.round_number,
     }
 
+    # Store state under the current round number
+    round_key = str(data_manager.round_number)
+    all_rounds_state[round_key] = current_round_state
+
     # Save to file
     with open(state_file, "w") as f:
-        json.dump(state, f, indent=2)
+        json.dump(all_rounds_state, f, indent=2)
 
-    print(f"\nState saved to {state_file} after completing step {step_completed}")
+    print(
+        f"\nState saved to {state_file} after completing step {step_completed} in round {data_manager.round_number}"
+    )
 
 
 def load_state(data_manager, pr_urls, starting_step):
@@ -82,30 +94,64 @@ def load_state(data_manager, pr_urls, starting_step):
         )
 
     with open(state_file, "r") as f:
-        state = json.load(f)
+        all_rounds_state = json.load(f)
+
+    # Get state for current round
+    round_key = str(data_manager.round_number)
+    if round_key not in all_rounds_state:
+        # If starting a new round, check if previous round was completed
+        prev_round_key = str(data_manager.round_number - 1)
+        if prev_round_key in all_rounds_state:
+            prev_round_state = all_rounds_state[prev_round_key]
+            if prev_round_state["step_completed"] < 6:  # 6 is the last step
+                raise Exception(
+                    f"Cannot start round {data_manager.round_number}: Previous round {data_manager.round_number - 1} "
+                    f"has not been completed (stopped at step {prev_round_state['step_completed']})"
+                )
+        return  # New round, no state to load
+
+    current_round_state = all_rounds_state[round_key]
 
     # Check if we have completed the previous step
-    if state["step_completed"] < starting_step - 1:
+    if current_round_state["step_completed"] < starting_step - 1:
         raise Exception(
-            f"Cannot start from step {starting_step}: Previous step {starting_step - 1} has not been completed"
+            f"Cannot start from step {starting_step} in round {data_manager.round_number}: "
+            f"Previous step {starting_step - 1} has not been completed"
         )
 
     # Load state into data_manager
-    data_manager.fork_url = state["fork_url"]
-    data_manager.branch_name = state["branch_name"]
-    data_manager.issue_uuid = state["issue_uuid"]
-    data_manager.repo_owner = state["repo_owner"]
-    data_manager.repo_name = state["repo_name"]
+    data_manager.fork_url = current_round_state["fork_url"]
+    data_manager.branch_name = current_round_state["branch_name"]
+    data_manager.issue_uuid = current_round_state["issue_uuid"]
+    data_manager.repo_owner = current_round_state["repo_owner"]
+    data_manager.repo_name = current_round_state["repo_name"]
 
-    # Load PR URLs
-    pr_urls.update(state["pr_urls"])
+    # Load PR URLs for current round
+    pr_urls.clear()  # Clear existing URLs
+    pr_urls.update(current_round_state["pr_urls"])
 
-    print(f"\nLoaded state from {state_file}")
+    print(f"\nLoaded state from {state_file} for round {data_manager.round_number}")
     print(f"Starting from step {starting_step} with:")
     print(f"Fork URL: {data_manager.fork_url}")
     print(f"Branch name: {data_manager.branch_name}")
     print(f"Round number: {data_manager.round_number}")
     print(f"PR URLs: {pr_urls}")
+
+
+def get_previous_round_prs(round_number: int) -> dict:
+    """Get PR URLs from a previous round"""
+    state_file = Path(__file__).parent / "e2e_state.json"
+    if not state_file.exists():
+        return {}
+
+    with open(state_file, "r") as f:
+        all_rounds_state = json.load(f)
+
+    round_key = str(round_number)
+    if round_key not in all_rounds_state:
+        return {}
+
+    return all_rounds_state[round_key].get("pr_urls", {})
 
 
 def reset_mongodb():
@@ -252,14 +298,72 @@ def check_remaining_work():
         client.close()
 
 
+def determine_start_step(round_number: int) -> int:
+    """Determine which step to start from based on saved state"""
+    state_file = Path(__file__).parent / "e2e_state.json"
+    if not state_file.exists():
+        return 1
+
+    try:
+        with open(state_file, "r") as f:
+            all_rounds_state = json.load(f)
+
+        round_key = str(round_number)
+        if round_key not in all_rounds_state:
+            # Check if previous round was completed
+            prev_round_key = str(round_number - 1)
+            if prev_round_key in all_rounds_state:
+                prev_round_state = all_rounds_state[prev_round_key]
+                if prev_round_state["step_completed"] < 6:  # 6 is the last step
+                    raise Exception(
+                        f"Cannot start round {round_number}: Previous round {round_number - 1} "
+                        f"has not been completed (stopped at step {prev_round_state['step_completed']})"
+                    )
+            return 1  # Start new round from beginning
+
+        # Resume from the next step after the last completed one
+        current_round_state = all_rounds_state[round_key]
+        return current_round_state["step_completed"] + 1
+    except Exception as e:
+        print(f"Error reading state file: {e}")
+        return 1
+
+
+def determine_current_round() -> int:
+    """Determine the current round number from state file"""
+    state_file = Path(__file__).parent / "e2e_state.json"
+    if not state_file.exists():
+        return 1
+
+    try:
+        with open(state_file, "r") as f:
+            all_rounds_state = json.load(f)
+
+        # Find the highest round number that exists
+        max_round = 0
+        for round_key in all_rounds_state:
+            round_num = int(round_key)
+            if round_num > max_round:
+                max_round = round_num
+
+        # If the highest round is completed, start the next round
+        if max_round > 0:
+            last_round_state = all_rounds_state[str(max_round)]
+            if last_round_state["step_completed"] == 6:  # Last step completed
+                return max_round + 1
+            return max_round  # Continue with current round
+
+        return 1  # No rounds exist yet
+    except Exception as e:
+        print(f"Error reading state file: {e}")
+        return 1
+
+
 def run_test_sequence(
-    start_step: int = 1,
-    stop_step: int = 6,
     reset: bool = False,
     task_id: str = "",
-    round_number: int = 1,
 ):
-    """Run the test sequence from start_step to stop_step (inclusive)"""
+    """Run the test sequence, automatically determining where to resume from"""
     if reset:
         # Reset SQLite databases
         reset_databases()
@@ -281,15 +385,22 @@ def run_test_sequence(
                 "No task ID provided and TASK_ID environment variable not set"
             )
 
+    # Determine current round from state
+    round_number = determine_current_round()
+
     print(f"Using task ID: {task_id}")
-    print(f"Using round number: {round_number}")
+    print(f"Starting with round {round_number}")
 
     # Initialize data manager
     data_manager = DataManager(task_id=task_id, round_number=round_number)
     pr_urls = {}
 
-    # Load state if starting from a later step
-    if start_step > 1 and not reset:
+    # Determine which step to start from
+    start_step = determine_start_step(round_number)
+    print(f"Resuming from step {start_step}")
+
+    # Load state if we're not starting from the beginning
+    if start_step > 1:
         load_state(data_manager, pr_urls, start_step)
 
     # Use TestSetup as a context manager to ensure servers are started and stopped properly
@@ -301,32 +412,32 @@ def run_test_sequence(
             print(f"{'='*80}")
 
             # Run the test steps for this round
-            if start_step <= 1 <= stop_step:
+            if start_step <= 1:
                 log_step(1, "Create aggregator repo")
                 test_setup.create_aggregator_repo(data_manager)
                 save_state(data_manager, pr_urls, 1)
 
-            if start_step <= 2 <= stop_step:
+            if start_step <= 2:
                 log_step(2, "Run worker task")
                 test_setup.run_worker_task(data_manager, pr_urls)
                 save_state(data_manager, pr_urls, 2)
 
-            if start_step <= 3 <= stop_step:
+            if start_step <= 3:
                 log_step(3, "Run worker audit")
                 test_setup.run_worker_audit(data_manager, pr_urls)
                 save_state(data_manager, pr_urls, 3)
 
-            if start_step <= 4 <= stop_step:
+            if start_step <= 4:
                 log_step(4, "Run leader task")
                 test_setup.run_leader_task(data_manager)
                 save_state(data_manager, pr_urls, 4)
 
-            if start_step <= 5 <= stop_step:
+            if start_step <= 5:
                 log_step(5, "Run leader audit")
                 test_setup.run_leader_audit(data_manager, pr_urls)
                 save_state(data_manager, pr_urls, 5)
 
-            if start_step <= 6 <= stop_step:
+            if start_step <= 6:
                 log_step(6, "Run aggregator info")
                 test_setup.run_aggregator_info(data_manager)
                 save_state(data_manager, pr_urls, 6)
@@ -336,8 +447,9 @@ def run_test_sequence(
                 print(f"\nAll work completed after round {data_manager.round_number}!")
                 break
 
-            # Increment round number and continue
+            # Increment round number and reset start_step for next round
             data_manager.round_number += 1
+            start_step = 1  # Always start from beginning for new rounds
             print(f"\nMoving to round {data_manager.round_number}...")
 
 
@@ -346,7 +458,11 @@ if __name__ == "__main__":
         description="Run the test sequence for the builder task",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Available steps:
+The script will automatically determine where to resume from based on the saved state.
+If no state exists, or if --reset is used, it will start from the beginning.
+The current round is determined from the state file.
+
+Steps that will be executed:
   1. Create aggregator repo
   2. Worker tasks (Worker 1 and Worker 2)
   3. Cross audits (Worker 2 audits Worker 1, then Worker 1 audits Worker 2)
@@ -355,33 +471,15 @@ Available steps:
   6. Leader audits
 
 Example usage:
-  # Run the full sequence
+  # Run or resume the sequence
   python -m tests.e2e
 
-  # Run only the audit update
-  python -m tests.e2e --start 4 --stop 4
+  # Reset databases and start fresh
+  python -m tests.e2e --reset
 
-  # Run from worker tasks to leader task
-  python -m tests.e2e --start 2 --stop 5
-
-  # Reset databases and run specific steps
-  python -m tests.e2e --start 2 --stop 5 --reset
-
-  # Run with specific task ID and round number
-  python -m tests.e2e --task-id 123abc --round 2
+  # Run with specific task ID
+  python -m tests.e2e --task-id 123abc
 """,
-    )
-    parser.add_argument(
-        "--start",
-        type=int,
-        default=1,
-        help="Start step number (1-6)",
-    )
-    parser.add_argument(
-        "--stop",
-        type=int,
-        default=6,
-        help="Stop step number (1-6)",
     )
     parser.add_argument(
         "--reset",
@@ -393,22 +491,6 @@ Example usage:
         type=str,
         help="Task ID to use (defaults to TASK_ID environment variable)",
     )
-    parser.add_argument(
-        "--round",
-        type=int,
-        default=1,
-        help="Round number to use (defaults to 1)",
-    )
     args = parser.parse_args()
 
-    # Validate step numbers
-    if not (1 <= args.start <= 6 and 1 <= args.stop <= 6):
-        print("Error: Step numbers must be between 1 and 6")
-        exit(1)
-    if args.start > args.stop:
-        print("Error: Start step cannot be greater than stop step")
-        exit(1)
-
-    run_test_sequence(
-        args.start, args.stop, args.reset, task_id=args.task_id, round_number=args.round
-    )
+    run_test_sequence(reset=args.reset, task_id=args.task_id)
