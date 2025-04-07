@@ -2,13 +2,13 @@
   "1": {
     "step_completed": 4,
     "fork_url": "https://github.com/momstrosity/builder-test",
-    "branch_name": "efd8dced-8ba3-4092-a109-803420ae3085",
+    "branch_name": "2ee4502e-c057-49de-915e-1d27d49d35e4",
     "issue_uuid": null,
     "repo_owner": "momstrosity",
     "repo_name": "builder-test",
     "pr_urls": {
-      "worker1": "https://github.com/momstrosity/builder-test/pull/30",
-      "worker2": "https://github.com/momstrosity/builder-test/pull/31"
+      "worker1": "https://github.com/momstrosity/builder-test/pull/24",
+      "worker2": "https://github.com/momstrosity/builder-test/pull/25"
     },
     "round_number": 1
   }

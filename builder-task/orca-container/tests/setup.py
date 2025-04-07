@@ -11,18 +11,6 @@ import requests
 load_dotenv()
 
 
-class TodosNotCompletedException(Exception):
-    """Raised when attempting to run leader task before all todos are completed."""
-
-    def __init__(self, completed_count: int, message: str = None):
-        self.completed_count = completed_count
-        self.message = (
-            message
-            or f"Cannot run leader task - found only {completed_count} completed todos"
-        )
-        super().__init__(self.message)
-
-
 class ServerInstance:
     def __init__(self, role: str, port: int, github_token: str, github_username: str):
         self.role = role
@@ -292,43 +280,9 @@ class TestSetup:
             )
         print("✓ Audit results processed")
 
-    def check_todos_completed(self, data_manager):
-        """Check if all todos for the current issue are completed and approved"""
-        import requests
-        import os
-
-        self.switch_role("leader")
-        url = f"{os.getenv('MIDDLE_SERVER_URL')}/api/get-issue-pr-urls/{data_manager.issue_uuid}"
-        response = requests.get(url)
-
-        if not response.ok:
-            raise Exception(f"Failed to check todo completion: {response.text}")
-
-        result = response.json()
-        if not result.get("success", False):
-            raise Exception(
-                f"Failed to check todo completion: {result.get('message', 'Unknown error')}"
-            )
-
-        # Check if we have PR URLs for all todos
-        pr_urls = result.get("data", [])
-        completed_count = len(pr_urls)
-        if not pr_urls:
-            raise TodosNotCompletedException(completed_count)
-
-        print(f"✓ Found {completed_count} completed todos")
-        return True
-
     def run_leader_task(self, data_manager, pr_urls):
-        """Run leader task after verifying todos are completed"""
+        """Run leader task"""
         import requests
-
-        # First verify all todos are completed
-        try:
-            self.check_todos_completed(data_manager)
-        except TodosNotCompletedException as e:
-            print(f"⚠️ {e.message}")
-            raise
 
         # Leader task
         self.switch_role("leader")

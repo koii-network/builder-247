@@ -2,7 +2,7 @@ import json
 import argparse
 import os
 from pathlib import Path
-from tests.setup import TestSetup, TodosNotCompletedException
+from tests.setup import TestSetup
 from tests.data import DataManager
 from pymongo import MongoClient
 import uuid
@@ -432,17 +432,10 @@ def run_test_sequence(
                 test_setup.update_audit_results(data_manager)
                 save_state(data_manager, pr_urls, 4)
 
-            # Try to run leader task, but only if all todos are completed
             if start_step <= 5:
                 log_step(5, "Running leader task")
-                try:
-                    test_setup.run_leader_task(data_manager, pr_urls)
-                    save_state(data_manager, pr_urls, 5)
-                except TodosNotCompletedException as e:
-                    print(f"\nStarting new round - {e.message}")
-                    data_manager.round_number += 1
-                    start_step = 1
-                    continue
+                test_setup.run_leader_task(data_manager, pr_urls)
+                save_state(data_manager, pr_urls, 5)
 
             if start_step <= 6:
                 log_step(6, "Running leader audit")
