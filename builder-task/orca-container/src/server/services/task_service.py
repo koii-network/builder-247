@@ -808,8 +808,9 @@ def create_aggregator_repo(task_id):
     Returns:
         dict: Dictionary containing:
             - success (bool): Whether the operation succeeded
-            - message (str): Success/error message
+            - error (str): Error message if failed
             - data (dict): Contains fork_url and branch_name if successful
+            - status (int): HTTP status code
     """
     try:
         # Initialize GitHub client with token
@@ -825,8 +826,9 @@ def create_aggregator_repo(task_id):
             logger.error(f"assign_issue failed: {issue_data.get('error')}")
             return {
                 "success": False,
-                "message": f"Failed to assign issue: {issue_data.get('error')}",
+                "error": f"Failed to assign issue: {issue_data.get('error')}",
                 "data": None,
+                "status": issue_data.get("status", 500),
             }
 
         logger.info(f"assign_issue data: {issue_data.get('data')}")
@@ -842,8 +844,9 @@ def create_aggregator_repo(task_id):
             logger.error("Missing required data in assign_issue response")
             return {
                 "success": False,
-                "message": "Missing required data (issueId, repoOwner, or repoName) from assign_issue",
+                "error": "Missing required data (issueId, repoOwner, or repoName) from assign_issue",
                 "data": None,
+                "status": 500,
             }
 
         # Get source repo from the repo information obtained from the middle server
@@ -856,8 +859,9 @@ def create_aggregator_repo(task_id):
             )
             return {
                 "success": False,
-                "message": f"Failed to find source repo {repo_owner}/{repo_name}: {str(e)}",
+                "error": f"Failed to find source repo {repo_owner}/{repo_name}: {str(e)}",
                 "data": None,
+                "status": 500,
             }
 
         # Check if fork already exists
@@ -892,6 +896,7 @@ def create_aggregator_repo(task_id):
                 "success": True,
                 "message": "Successfully created aggregator repository",
                 "data": {"fork_url": fork.html_url, "branch_name": branch_name},
+                "status": 200,
             }
 
         except Exception as e:
@@ -900,16 +905,18 @@ def create_aggregator_repo(task_id):
             )
             return {
                 "success": False,
-                "message": f"Failed to create branch or record aggregator info: {str(e)}",
+                "error": f"Failed to create branch or record aggregator info: {str(e)}",
                 "data": None,
+                "status": 500,
             }
 
     except Exception as e:
         logger.error(f"Error in create_aggregator_repo: {str(e)}")
         return {
             "success": False,
-            "message": f"Failed to create aggregator repository: {str(e)}",
+            "error": f"Failed to create aggregator repository: {str(e)}",
             "data": None,
+            "status": 500,
         }
 
 
@@ -1000,7 +1007,7 @@ def add_aggregator_info(task_id, staking_key, pub_key, signature):
         signature (str): The signature
 
     Returns:
-        dict: The result of the operation
+        dict: The result of the operation with status code
     """
     logger.info(f"Adding aggregator info for task {task_id}")
     try:
@@ -1023,7 +1030,8 @@ def add_aggregator_info(task_id, staking_key, pub_key, signature):
             logger.error(f"Failed to add aggregator info: {result.get('message')}")
             return {
                 "success": False,
-                "message": f"Failed to add aggregator info: {result.get('message')}",
+                "error": f"Failed to add aggregator info: {result.get('message')}",
+                "status": response.status_code,
             }
 
         logger.info("Successfully added aggregator info")
@@ -1031,11 +1039,26 @@ def add_aggregator_info(task_id, staking_key, pub_key, signature):
             "success": True,
             "message": "Successfully added aggregator info",
             "data": result.get("data", {}),
+            "status": 200,
         }
 
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request exception in add_aggregator_info: {str(e)}")
+        if not hasattr(e, "response") or e.response is None:
+            return {
+                "success": False,
+                "error": "No response from middle server",
+                "status": 500,
+            }
+        return {
+            "success": False,
+            "error": e.response.text,
+            "status": e.response.status_code,
+        }
     except Exception as e:
         logger.error(f"Error in add_aggregator_info: {str(e)}")
         return {
             "success": False,
-            "message": f"Failed to add aggregator info: {str(e)}",
+            "error": f"Failed to add aggregator info: {str(e)}",
+            "status": 500,
         }

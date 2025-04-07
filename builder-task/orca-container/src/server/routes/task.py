@@ -22,12 +22,15 @@ def create_aggregator_repo(task_id):
     request_data = request.get_json()
     print(f"request_data: {request_data}")
     if not request_data:
-        return jsonify({"error": "Invalid request body"}), 401
+        return jsonify({"success": False, "error": "Invalid request body"}), 401
 
     # Create the aggregator repo (which now handles assign_issue internally)
     result = task_service.create_aggregator_repo(task_id)
     print(f"result: {result}")
-    return result
+
+    # Extract status code from result if present, default to 200
+    status_code = result.pop("status", 200) if isinstance(result, dict) else 200
+    return jsonify(result), status_code
 
 
 @bp.post("/add-aggregator-info/<task_id>")
@@ -37,7 +40,7 @@ def add_aggregator_info(task_id):
     request_data = request.get_json()
     print(f"request_data: {request_data}")
     if not request_data:
-        return jsonify({"error": "Invalid request body"}), 401
+        return jsonify({"success": False, "error": "Invalid request body"}), 401
 
     # Call the task service to update aggregator info with the middle server
     result = task_service.add_aggregator_info(
@@ -47,12 +50,15 @@ def add_aggregator_info(task_id):
         request_data.get("signature"),
     )
     print(f"result: {result}")
-    return result
+
+    # Extract status code from result if present, default to 200
+    status_code = result.pop("status", 200) if isinstance(result, dict) else 200
+    return jsonify(result), status_code
 
 
 def start_task(round_number, node_type, request):
     if node_type not in ["worker", "leader"]:
-        return jsonify({"success": False, "error": "Invalid node type"}), 400
+        return jsonify({"success": False, "message": "Invalid node type"}), 400
 
     task_functions = {
         "worker": task_service.complete_todo,
@@ -78,7 +84,7 @@ def start_task(round_number, node_type, request):
         ]
         logger.error(f"Missing required fields: {missing_fields}")
         return (
-            jsonify({"success": False, "error": f"Missing data: {missing_fields}"}),
+            jsonify({"success": False, "message": f"Missing data: {missing_fields}"}),
             401,
         )
 
@@ -94,7 +100,7 @@ def start_task(round_number, node_type, request):
     if not response.get("success", False):
         status = response.get("status", 500)
         error = response.get("error", "Unknown error")
-        return jsonify({"success": False, "error": error}), status
+        return jsonify({"success": False, "message": error}), status
 
     logger.info(response_data["message"])
 
@@ -112,7 +118,7 @@ def start_task(round_number, node_type, request):
     if not response.get("success", False):
         status = response.get("status", 500)
         error = response.get("error", "Unknown error")
-        return jsonify({"success": False, "error": error}), status
+        return jsonify({"success": False, "message": error}), status
 
     return jsonify(
         {

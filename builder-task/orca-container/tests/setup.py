@@ -179,6 +179,10 @@ class TestSetup:
         response = requests.post(url, json=payload)
 
         result = response.json()
+        if response.status_code == 404:
+            print("✓ No eligible issues for aggregator repo - continuing")
+            return
+
         if not result.get("success"):
             raise Exception(
                 f"Failed to create aggregator repo: {result.get('message')}"
@@ -217,9 +221,14 @@ class TestSetup:
         response = requests.post(url, json=payload)
 
         result = response.json()
-        if not result.get("success"):
+        if response.status_code == 404:
+            print("✓ No eligible todos for Worker 1 - continuing")
+            return
+        elif not result.get("success"):
             raise Exception(f"Worker 1 task failed: {result.get('message')}")
-        pr_urls["worker1"] = result.get("pr_url")
+        else:
+            pr_urls["worker1"] = result.get("pr_url")
+            print(f"✓ Worker 1 PR created: {pr_urls['worker1']}")
 
         # Worker 2 task
         self.switch_role("worker2")
@@ -228,13 +237,23 @@ class TestSetup:
         response = requests.post(url, json=payload)
 
         result = response.json()
-        if not result.get("success"):
+        if response.status_code == 404:
+            print("✓ No eligible todos for Worker 2 - continuing")
+            return
+        elif not result.get("success"):
             raise Exception(f"Worker 2 task failed: {result.get('message')}")
-        pr_urls["worker2"] = result.get("pr_url")
+        else:
+            pr_urls["worker2"] = result.get("pr_url")
+            print(f"✓ Worker 2 PR created: {pr_urls['worker2']}")
 
     def run_worker_audit(self, data_manager, pr_urls):
         """Run cross audits between workers"""
         import requests
+
+        # Only run audits if there are PRs to audit
+        if "worker1" not in pr_urls:
+            print("✓ No Worker 1 PR to audit - skipping Worker 2 audit")
+            return
 
         # Worker 2 audits Worker 1's PR
         self.switch_role("worker2")
@@ -247,6 +266,10 @@ class TestSetup:
         result = response.json()
         if not result.get("success"):
             raise Exception(f"Worker 2 audit failed: {result.get('message')}")
+
+        if "worker2" not in pr_urls:
+            print("✓ No Worker 2 PR to audit - skipping Worker 1 audit")
+            return
 
         # Worker 1 audits Worker 2's PR
         self.switch_role("worker1")
@@ -294,15 +317,23 @@ class TestSetup:
         response = requests.post(url, json=payload)
 
         result = response.json()
+        if response.status_code == 404:
+            print("✓ No eligible issues for leader task - continuing")
+            return
+
         if not result.get("success"):
             raise Exception(f"Leader task failed: {result.get('message')}")
+
         pr_urls["leader"] = result.get("pr_url")
         print(f"✓ Leader PR created: {pr_urls['leader']}")
 
     def run_leader_audit(self, data_manager, pr_urls):
         """Run leader audit"""
+        # Only run leader audit if there's a leader PR
+        if "leader" not in pr_urls:
+            print("✓ No leader PR to audit - skipping leader audit")
+            return
 
-        # Leader audit
         self.switch_role("worker1")
         payload = data_manager.prepare_leader_audit(
             "worker1", pr_urls["leader"], data_manager.round_number
@@ -313,4 +344,5 @@ class TestSetup:
         result = response.json()
         if not result.get("success"):
             raise Exception(f"Leader audit failed: {result.get('message')}")
-        print("✓ Leader PR audited")
+        else:
+            print("✓ Leader PR audited")
