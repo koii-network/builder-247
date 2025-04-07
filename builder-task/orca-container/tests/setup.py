@@ -6,7 +6,6 @@ import signal
 from pathlib import Path
 from dotenv import load_dotenv
 import requests
-import json
 
 # Load environment variables
 load_dotenv()
@@ -214,13 +213,6 @@ class TestSetup:
     def run_worker_task(self, data_manager, pr_urls):
         """Run worker tasks for both workers"""
         import requests
-
-        # Validate required data is present
-        if not data_manager.fork_url or not data_manager.branch_name:
-            raise Exception(
-                "Fork URL and branch name must be set before running worker task. "
-                "Make sure state is properly loaded from e2e_state.json"
-            )
 
         # Worker 1 task
         self.switch_role("worker1")

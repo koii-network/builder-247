@@ -319,17 +319,14 @@ def determine_start_step(round_number: int) -> int:
                         f"Cannot start round {round_number}: Previous round {round_number - 1} "
                         f"has not been completed (stopped at step {prev_round_state['step_completed']})"
                     )
-                # If previous round was completed, we need to load its state
-                # even though we're starting a new round
-                return 1, prev_round_state
-            return 1, None  # Start new round from beginning with no previous state
+            return 1  # Start new round from beginning
 
         # Resume from the next step after the last completed one
         current_round_state = all_rounds_state[round_key]
-        return current_round_state["step_completed"] + 1, None
+        return current_round_state["step_completed"] + 1
     except Exception as e:
         print(f"Error reading state file: {e}")
-        return 1, None
+        return 1
 
 
 def determine_current_round() -> int:
@@ -398,25 +395,13 @@ def run_test_sequence(
     data_manager = DataManager(task_id=task_id, round_number=round_number)
     pr_urls = {}
 
-    # Determine which step to start from and get previous round state if needed
-    start_step, prev_round_state = determine_start_step(round_number)
+    # Determine which step to start from
+    start_step = determine_start_step(round_number)
     print(f"Resuming from step {start_step}")
 
-    # Load state if we're not starting from the beginning or if we have previous round state
-    if start_step > 1 or prev_round_state:
-        if prev_round_state:
-            # Load state from previous round
-            data_manager.fork_url = prev_round_state["fork_url"]
-            data_manager.branch_name = prev_round_state["branch_name"]
-            data_manager.issue_uuid = prev_round_state["issue_uuid"]
-            data_manager.repo_owner = prev_round_state["repo_owner"]
-            data_manager.repo_name = prev_round_state["repo_name"]
-            print(f"Loaded state from previous round {round_number - 1}")
-            print(f"Fork URL: {data_manager.fork_url}")
-            print(f"Branch name: {data_manager.branch_name}")
-        else:
-            # Load state for current round
-            load_state(data_manager, pr_urls, start_step)
+    # Load state if we're not starting from the beginning
+    if start_step > 1:
+        load_state(data_manager, pr_urls, start_step)
 
     # Use TestSetup as a context manager to ensure servers are started and stopped properly
     with TestSetup() as test_setup:
