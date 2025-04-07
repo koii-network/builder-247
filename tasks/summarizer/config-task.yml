@@ -124,7 +124,7 @@ environment: "TEST"
 #################################### FOR UPDATING TASKS ONLY ####################################
 
 ## Old Task ID ##
-task_id: "ErpmC7vyKQpBuSgS5J3DvvZaE8Fh4Xop68aifCw8bpRF"
+task_id: "62n2aAVVV42rtt53wxieotTdnKpTRjiChsHYdSxHDhAZ"
 
 ## Migration Description ##
-migrationDescription: "Fix audit bug"
+migrationDescription: "Error logging and Bug Fixing and Slack Notification"

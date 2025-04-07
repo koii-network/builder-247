@@ -7,6 +7,9 @@ import { status, middleServerUrl } from "../utils/constant";
 import dotenv from "dotenv";
 import { checkAnthropicAPIKey, isValidAnthropicApiKey } from "../utils/anthropicCheck";
 import { checkGitHub } from "../utils/githubCheck";
+import { LogLevel } from "@_koii/namespace-wrapper/dist/types";
+import { actionMessage } from "../utils/constant";
+import { errorMessage } from "../utils/constant";
 dotenv.config();
 
 
@@ -34,36 +37,38 @@ export async function task(roundNumber: number): Promise<void> {
     const orcaClient = await getOrcaClient();
     // check if the env variable is valid
     if (!process.env.ANTHROPIC_API_KEY) {
+      await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.ANTHROPIC_API_KEY_INVALID, actionMessage.ANTHROPIC_API_KEY_INVALID);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ANTHROPIC_API_KEY_INVALID);
       return;
     }
     if (!isValidAnthropicApiKey(process.env.ANTHROPIC_API_KEY!)) {
+      await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.ANTHROPIC_API_KEY_INVALID, actionMessage.ANTHROPIC_API_KEY_INVALID);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ANTHROPIC_API_KEY_INVALID);
       return;
     }
     const isAnthropicAPIKeyValid = await checkAnthropicAPIKey(process.env.ANTHROPIC_API_KEY!);
     if (!isAnthropicAPIKeyValid) {
+      await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.ANTHROPIC_API_KEY_NO_CREDIT, actionMessage.ANTHROPIC_API_KEY_NO_CREDIT);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ANTHROPIC_API_KEY_NO_CREDIT);
       return;
     }
     if (!process.env.GITHUB_USERNAME || !process.env.GITHUB_TOKEN) {
+      await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.GITHUB_CHECK_FAILED, actionMessage.GITHUB_CHECK_FAILED);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.GITHUB_CHECK_FAILED);
       return;
     }
     const isGitHubValid = await checkGitHub(process.env.GITHUB_USERNAME!, process.env.GITHUB_TOKEN!);
     if (!isGitHubValid) {
+      await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.GITHUB_CHECK_FAILED, actionMessage.GITHUB_CHECK_FAILED);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.GITHUB_CHECK_FAILED);
       return;
     }
     if (!orcaClient) {
-      // await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ORCA_CLIENT);
+      await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.NO_ORCA_CLIENT, actionMessage.NO_ORCA_CLIENT);
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ORCA_CLIENT);
       return;
     }
 
-    // if (orcaClient) {
-    //   await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ROUND_LESS_THAN_OR_EQUAL_TO_1);
-    //   return;
-    // }
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
       throw new Error("No staking keypair found");
@@ -166,40 +171,41 @@ export async function task(roundNumber: number): Promise<void> {
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_SUCCESSFULLY_SUMMARIZED);
       } else {
         // post this summary response to slack` to notify the team
-        try{
-          const slackResponse = await fetch('https://hooks.slack.com/services/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', {
-            method: "POST",
-            headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ 
-            text: `[TASK] Error summarizing issue:\nStatus: ${repoSummaryResponse.status}\nData: ${JSON.stringify(repoSummaryResponse.data, null, 2)}`
-          }),
-        });
-        console.log("[TASK] slackResponse: ", slackResponse);
-        }catch(error){
-          console.error("[TASK] Error posting to slack:", error);
-        }
+        // THE HOOK IS ALREADY DISABLED 
+        // try{
+        //   const slackResponse = await fetch('https://hooks.slack.com/services/', {
+        //     method: "POST",
+        //     headers: {
+        //     "Content-Type": "application/json",
+        //   },
+        //   body: JSON.stringify({ 
+        //     text: `[TASK] Error summarizing issue:\nStatus: ${repoSummaryResponse.status}\nData: ${JSON.stringify(repoSummaryResponse.data, null, 2)}`
+        //   }),
+        // });
+        // console.log("[TASK] slackResponse: ", slackResponse);
+        // }catch(error){
+        //   console.error("[TASK] Error posting to slack:", error);
+        // }
 
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
       }
     } catch (error) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
 
-      try{
-        const slackResponse = await fetch('https://hooks.slack.com/services/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', {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ 
-            text: `[TASK] Error summarizing issue:\n ${JSON.stringify(error)}`
-          }),
-        });
-        console.log("[TASK] slackResponse: ", slackResponse);
-      }catch(error){
-        console.error("[TASK] Error posting to slack:", error);
-      }
+      // try{
+      //   const slackResponse = await fetch('https://hooks.slack.com/services', {
+      //     method: "POST",
+      //     headers: {
+      //       "Content-Type": "application/json",
+      //     },
+      //     body: JSON.stringify({ 
+      //       text: `[TASK] Error summarizing issue:\n ${JSON.stringify(error)}`
+      //     }),
+      //   });
+      //   console.log("[TASK] slackResponse: ", slackResponse);
+      // }catch(error){
+      //   console.error("[TASK] Error posting to slack:", error);
+      // }
       console.error("[TASK] EXECUTE TASK ERROR:", error);
     }
   } catch (error) {

@@ -6,6 +6,8 @@ import { audit } from "./3-audit";
 import { distribution } from "./4-distribution";
 import { submissionJSONSignatureDecode } from "../utils/submissionJSONSignatureDecode";
 import { Submission } from "@_koii/namespace-wrapper/dist/types";
+import { taskRunner } from "@_koii/task-manager"
+
 /**
  *
  * Define all your custom routes here
@@ -45,34 +47,11 @@ export async function routes() {
     const submissionResult = await submission(Number(roundNumber));
     res.status(200).json({ result: submissionResult });
   });
-  // app.get("/distribution/:roundNumber", async (req, res) => {
-  //   const roundNumber = req.params.roundNumber;
-  //   const distributionResult = await distribution(Number(roundNumber));
-  //   res.status(200).json({ result: distributionResult });
-  // });
 
-  // app.get("/submissionJSONSignatureDecode/:roundNumber/:submissionValue", async (req, res) => {
-  //   const roundNumber = req.params.roundNumber;
-  //   const submissionValue = req.params.submissionValue;
+  app.get("/submitDistribution/:roundNumber", async (req, res) => {
+    const roundNumber = req.params.roundNumber;
+    const submitDistributionResult = await taskRunner.submitDistributionList(Number(roundNumber));
+    res.status(200).json({ result: submitDistributionResult });
+  });
 
-  //   const submitter = await namespaceWrapper.getSubmitterAccount();
-  //   if (!submitter) {
-  //     res.status(400).json({ result: "No submitter found" });
-  //     return;
-  //   }
-  //   const submitterPublicKey = submitter.publicKey.toBase58();
-  //   // console.log({submissionValue, submitterPublicKey, roundNumber});
-  //   const submission:Submission = {submission_value: submissionValue, slot: 0, round: Number(roundNumber)};
-
-  //   console.log({submitterSubmission: submission, submitter: { publicKey: submitterPublicKey, votes: 1, stake: 0}, roundNumber: Number(roundNumber)});
-  //   const submissionResult = await submissionJSONSignatureDecode({submitterSubmission: submission, submitter: { publicKey: submitterPublicKey, votes: 1, stake: 0}, roundNumber: Number(roundNumber)});
-  //   res.status(200).json({ result: submissionResult });
-  // });
-
-  // app.get("/randomNodes/:roundNumber/:number", async (req, res) => {
-  //   const roundNumber = req.params.roundNumber;
-  //   const number = req.params.number;
-  //   const randomNodes = await getRandomNodes(Number(roundNumber), Number(number));
-  //   res.status(200).json({ result: randomNodes });
-  // });
 }
