@@ -98,6 +98,7 @@ def load_state(data_manager, pr_urls, starting_step):
 
     # Get state for current round
     round_key = str(data_manager.round_number)
+
     if round_key not in all_rounds_state:
         # If starting a new round, check if previous round was completed
         prev_round_key = str(data_manager.round_number - 1)
@@ -108,9 +109,33 @@ def load_state(data_manager, pr_urls, starting_step):
                     f"Cannot start round {data_manager.round_number}: Previous round {data_manager.round_number - 1} "
                     f"has not been completed (stopped at step {prev_round_state['step_completed']})"
                 )
-        return  # New round, no state to load
-
-    current_round_state = all_rounds_state[round_key]
+            # Load state from previous round since it was completed
+            current_round_state = prev_round_state
+        else:
+            return  # New round, no state to load
+    else:
+        current_round_state = all_rounds_state[round_key]
+        # If current round's values are null, try to get them from previous round
+        if not current_round_state.get("fork_url") or not current_round_state.get(
+            "branch_name"
+        ):
+            prev_round_key = str(data_manager.round_number - 1)
+            if prev_round_key in all_rounds_state:
+                prev_round_state = all_rounds_state[prev_round_key]
+                if (
+                    prev_round_state["step_completed"] == 7
+                ):  # Previous round was completed
+                    print(f"Using values from completed round {prev_round_key}")
+                    # Only override null values
+                    for key in [
+                        "fork_url",
+                        "branch_name",
+                        "issue_uuid",
+                        "repo_owner",
+                        "repo_name",
+                    ]:
+                        if not current_round_state.get(key):
+                            current_round_state[key] = prev_round_state.get(key)
 
     # Check if we have completed the previous step
     if current_round_state["step_completed"] < starting_step - 1:
