@@ -1,14 +1,5 @@
 import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typegoose";
 
-modelOptions({
-  schemaOptions: {
-    timestamps: true,
-  },
-  options: {
-    allowMixed: Severity.ALLOW,
-  },
-});
-
 enum IssueStatus {
   INITIALIZED = "initialized",
   AGGREGATOR_PENDING = "aggregator_pending",
@@ -20,6 +11,14 @@ enum IssueStatus {
   MERGED = "merged", // Means a PR is merged manually
 }
 
+@modelOptions({
+  schemaOptions: {
+    timestamps: true,
+  },
+  options: {
+    allowMixed: Severity.ALLOW,
+  },
+})
 class Issue {
   @prop({ required: true })
   public issueUuid!: string;
