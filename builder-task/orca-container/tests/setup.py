@@ -179,11 +179,10 @@ class TestSetup:
         response = requests.post(url, json=payload)
 
         result = response.json()
-        if response.status_code == 404:
+        if response.status_code == 409:
             print("✓ No eligible issues for aggregator repo - continuing")
             return
-
-        if not result.get("success"):
+        elif not result.get("success"):
             raise Exception(
                 f"Failed to create aggregator repo: {result.get('message')}"
             )
@@ -317,7 +316,7 @@ class TestSetup:
         response = requests.post(url, json=payload)
 
         result = response.json()
-        if response.status_code == 404:
+        if response.status_code == 409:
             print("✓ No eligible issues for leader task - continuing")
             return
 

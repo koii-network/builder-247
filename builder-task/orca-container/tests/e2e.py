@@ -111,6 +111,10 @@ def load_state(data_manager, pr_urls, starting_step):
                 )
             # Load state from previous round since it was completed
             current_round_state = prev_round_state
+            # Save the loaded state back to the file
+            all_rounds_state[round_key] = current_round_state
+            with open(state_file, "w") as f:
+                json.dump(all_rounds_state, f, indent=2)
         else:
             return  # New round, no state to load
     else:
@@ -136,6 +140,9 @@ def load_state(data_manager, pr_urls, starting_step):
                     ]:
                         if not current_round_state.get(key):
                             current_round_state[key] = prev_round_state.get(key)
+                    # Save the updated state back to the file
+                    with open(state_file, "w") as f:
+                        json.dump(all_rounds_state, f, indent=2)
 
     # Check if we have completed the previous step
     if current_round_state["step_completed"] < starting_step - 1:
