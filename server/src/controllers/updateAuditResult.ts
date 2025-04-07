@@ -145,48 +145,62 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
  * without needing to check the distribution list
  */
 async function updateTestEnvironmentStatus(round: number): Promise<void> {
-  // 1. Update all IN_REVIEW todos to APPROVED
+  // 1. Update IN_REVIEW todos to APPROVED if they have PR URLs
   const todosResult = await TodoModel.updateMany(
     {
       status: TodoStatus.IN_REVIEW,
       assignedRoundNumber: round,
+      prUrl: { $exists: true, $ne: null },
     },
     {
       $set: { status: TodoStatus.APPROVED },
     },
   );
 
-  console.log(`[TEST MODE] Updated ${todosResult.modifiedCount} todos from IN_PROGRESS to APPROVED for round ${round}`);
+  console.log(`[TEST MODE] Updated ${todosResult.modifiedCount} todos from IN_REVIEW to APPROVED for round ${round}`);
 
-  // 2. Update all IN_PROGRESS issues to ASSIGN_PENDING
-  const issuesResult = await IssueModel.updateMany(
-    {
-      status: IssueStatus.IN_PROGRESS,
-    },
-    {
-      $set: { status: IssueStatus.ASSIGN_PENDING },
-    },
-  );
+  // 2. Find all IN_PROGRESS issues
+  const inProgressIssues = await IssueModel.find({
+    status: IssueStatus.IN_PROGRESS,
+  });
 
-  console.log(`[TEST MODE] Updated ${issuesResult.modifiedCount} issues from IN_PROGRESS to ASSIGN_PENDING`);
+  console.log(`[TEST MODE] Found ${inProgressIssues.length} issues in IN_PROGRESS status`);
 
-  // 3. Keep ASSIGN_PENDING issues as ASSIGN_PENDING for leader tasks
-  // (No need to change status here, they're already in the correct state)
-  const pendingIssuesCount = await IssueModel.countDocuments({ status: IssueStatus.ASSIGN_PENDING });
-  console.log(`[TEST MODE] Found ${pendingIssuesCount} issues already in ASSIGN_PENDING status`);
+  // 3. For each IN_PROGRESS issue, check if all its todos are APPROVED
+  for (const issue of inProgressIssues) {
+    const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
+    const allTodosApproved = todos.length > 0 && todos.every((todo) => todo.status === TodoStatus.APPROVED);
 
-  // 4. Ensure that todos for issues in ASSIGN_PENDING status are properly marked
+    if (allTodosApproved) {
+      // Only update to ASSIGN_PENDING if all todos are approved
+      await IssueModel.updateOne({ _id: issue._id }, { $set: { status: IssueStatus.ASSIGN_PENDING } });
+      console.log(`[TEST MODE] Updated issue ${issue.issueUuid} to ASSIGN_PENDING - all todos are approved`);
+    } else {
+      console.log(`[TEST MODE] Issue ${issue.issueUuid} remains IN_PROGRESS - not all todos are approved`);
+      console.log(
+        `[TEST MODE] Todo statuses for issue ${issue.issueUuid}:`,
+        todos.map((t) => ({ id: t._id, status: t.status })),
+      );
+    }
+  }
+
+  // 4. For issues already in ASSIGN_PENDING, verify they should stay there
   const pendingIssues = await IssueModel.find({ status: IssueStatus.ASSIGN_PENDING });
-  console.log(`[TEST MODE] Processing ${pendingIssues.length} issues in ASSIGN_PENDING status`);
+  console.log(`[TEST MODE] Verifying ${pendingIssues.length} issues in ASSIGN_PENDING status`);
 
   for (const issue of pendingIssues) {
-    // Update todos for this issue
-    const todosForIssueResult = await TodoModel.updateMany(
-      { issueUuid: issue.issueUuid },
-      { $set: { status: TodoStatus.APPROVED } },
-    );
+    const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
+    const allTodosApproved = todos.length > 0 && todos.every((todo) => todo.status === TodoStatus.APPROVED);
 
-    console.log(`[TEST MODE] Updated ${todosForIssueResult.modifiedCount} todos for issue ${issue.issueUuid}`);
+    if (!allTodosApproved) {
+      // If not all todos are approved, move back to IN_PROGRESS
+      await IssueModel.updateOne({ _id: issue._id }, { $set: { status: IssueStatus.IN_PROGRESS } });
+      console.log(`[TEST MODE] Moved issue ${issue.issueUuid} back to IN_PROGRESS - not all todos are approved`);
+      console.log(
+        `[TEST MODE] Todo statuses:`,
+        todos.map((t) => ({ id: t._id, status: t.status })),
+      );
+    }
   }
 }
 
