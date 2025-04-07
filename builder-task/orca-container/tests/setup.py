@@ -5,6 +5,7 @@ import time
 import signal
 from pathlib import Path
 from dotenv import load_dotenv
+import requests
 
 # Load environment variables
 load_dotenv()
@@ -259,12 +260,11 @@ class TestSetup:
         if not result.get("success"):
             raise Exception(f"Worker 1 audit failed: {result.get('message')}")
 
-    def run_leader_task(self, data_manager):
-        """Run leader task"""
+    def update_audit_results(self, data_manager):
+        """Update audit results based on the distribution list"""
         import requests
         import os
 
-        # Update audit results
         self.switch_role("leader")
         update_payload = {
             "taskId": data_manager.task_id,
@@ -275,17 +275,22 @@ class TestSetup:
 
         result = response.json()
         if not result.get("success", False):
-            print(
-                f"⚠️ Warning: Update audit result failed: {result.get('message', 'Unknown error')}"
+            raise Exception(
+                f"Update audit result failed: {result.get('message', 'Unknown error')}"
             )
+        print("✓ Audit results processed")
 
-    def run_leader_audit(self, data_manager, pr_urls):
-        """Run leader task and audit"""
+    def run_leader_task(self, data_manager, pr_urls):
+        """Run leader task"""
         import requests
 
         # Leader task
         self.switch_role("leader")
-        payload = data_manager.prepare_leader_task("leader", data_manager.round_number)
+        payload = data_manager.prepare_leader_task(
+            "leader",
+            data_manager.round_number,
+            [pr_urls["worker1"], pr_urls["worker2"]],
+        )
         url = f"{self.current_server.url}/leader-task/{data_manager.round_number}"
         response = requests.post(url, json=payload)
 
@@ -293,6 +298,10 @@ class TestSetup:
         if not result.get("success"):
             raise Exception(f"Leader task failed: {result.get('message')}")
         pr_urls["leader"] = result.get("pr_url")
+        print(f"✓ Leader PR created: {pr_urls['leader']}")
+
+    def run_leader_audit(self, data_manager, pr_urls):
+        """Run leader audit"""
 
         # Leader audit
         self.switch_role("worker1")
@@ -305,20 +314,4 @@ class TestSetup:
         result = response.json()
         if not result.get("success"):
             raise Exception(f"Leader audit failed: {result.get('message')}")
-
-    def run_aggregator_info(self, data_manager):
-        """Update aggregator info"""
-        import requests
-
-        self.switch_role("leader")
-        payload = data_manager.prepare_aggregator_info(
-            "leader", data_manager.round_number
-        )
-        url = f"{self.current_server.url}/add-aggregator-info/{data_manager.task_id}"
-        response = requests.post(url, json=payload)
-
-        result = response.json()
-        if not result.get("success"):
-            raise Exception(
-                f"Failed to update aggregator info: {result.get('message')}"
-            )
+        print("✓ Leader PR audited")

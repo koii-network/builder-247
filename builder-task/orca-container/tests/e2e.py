@@ -103,7 +103,7 @@ def load_state(data_manager, pr_urls, starting_step):
         prev_round_key = str(data_manager.round_number - 1)
         if prev_round_key in all_rounds_state:
             prev_round_state = all_rounds_state[prev_round_key]
-            if prev_round_state["step_completed"] < 6:  # 6 is the last step
+            if prev_round_state["step_completed"] < 7:  # 7 is the last step
                 raise Exception(
                     f"Cannot start round {data_manager.round_number}: Previous round {data_manager.round_number - 1} "
                     f"has not been completed (stopped at step {prev_round_state['step_completed']})"
@@ -314,7 +314,7 @@ def determine_start_step(round_number: int) -> int:
             prev_round_key = str(round_number - 1)
             if prev_round_key in all_rounds_state:
                 prev_round_state = all_rounds_state[prev_round_key]
-                if prev_round_state["step_completed"] < 6:  # 6 is the last step
+                if prev_round_state["step_completed"] < 7:  # 7 is the last step
                     raise Exception(
                         f"Cannot start round {round_number}: Previous round {round_number - 1} "
                         f"has not been completed (stopped at step {prev_round_state['step_completed']})"
@@ -346,10 +346,10 @@ def determine_current_round() -> int:
             if round_num > max_round:
                 max_round = round_num
 
-        # If the highest round is completed, start the next round
+        # Check if the highest round is completed
         if max_round > 0:
             last_round_state = all_rounds_state[str(max_round)]
-            if last_round_state["step_completed"] == 6:  # Last step completed
+            if last_round_state["step_completed"] == 7:  # Last step completed
                 return max_round + 1
             return max_round  # Continue with current round
 
@@ -428,19 +428,24 @@ def run_test_sequence(
                 save_state(data_manager, pr_urls, 3)
 
             if start_step <= 4:
-                log_step(4, "Run leader task")
-                test_setup.run_leader_task(data_manager)
+                log_step(4, "Processing worker audit results")
+                test_setup.update_audit_results(data_manager)
                 save_state(data_manager, pr_urls, 4)
 
             if start_step <= 5:
-                log_step(5, "Run leader audit")
-                test_setup.run_leader_audit(data_manager, pr_urls)
+                log_step(5, "Running leader task")
+                test_setup.run_leader_task(data_manager, pr_urls)
                 save_state(data_manager, pr_urls, 5)
 
             if start_step <= 6:
-                log_step(6, "Run aggregator info")
-                test_setup.run_aggregator_info(data_manager)
+                log_step(6, "Running leader audit")
+                test_setup.run_leader_audit(data_manager, pr_urls)
                 save_state(data_manager, pr_urls, 6)
+
+            if start_step <= 7:
+                log_step(7, "Processing leader audit results")
+                test_setup.update_audit_results(data_manager)
+                save_state(data_manager, pr_urls, 7)
 
             # Check if there's more work to be done
             if not check_remaining_work():
