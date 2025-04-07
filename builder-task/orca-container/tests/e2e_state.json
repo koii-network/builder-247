@@ -1,10 +1,13 @@
 {
-  "step_completed": 1,
+  "step_completed": 4,
   "fork_url": "https://github.com/momstrosity/builder-test",
-  "branch_name": "da4edb74-56ca-4272-bf9c-eca15a0991b2",
+  "branch_name": "9c094aba-7e18-4d9e-8490-1fb4c707ea3b",
   "issue_uuid": null,
   "repo_owner": "momstrosity",
   "repo_name": "builder-test",
-  "pr_urls": {},
+  "pr_urls": {
+    "worker1": "https://github.com/momstrosity/builder-test/pull/20",
+    "worker2": "https://github.com/momstrosity/builder-test/pull/21"
+  },
   "round_number": 1
 }

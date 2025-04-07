@@ -285,11 +285,7 @@ class TestSetup:
 
         # Leader task
         self.switch_role("leader")
-        payload = data_manager.prepare_leader_task(
-            "leader",
-            data_manager.round_number,
-            [pr_urls["worker1"], pr_urls["worker2"]],
-        )
+        payload = data_manager.prepare_leader_task("leader", data_manager.round_number)
         url = f"{self.current_server.url}/leader-task/{data_manager.round_number}"
         response = requests.post(url, json=payload)
 
