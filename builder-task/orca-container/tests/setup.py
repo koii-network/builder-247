@@ -166,3 +166,163 @@ class TestSetup:
             self.current_server = self.worker2_server
         else:
             raise ValueError(f"Unknown role: {role}")
+
+    def create_aggregator_repo(self, data_manager):
+        """Create aggregator repo and update aggregator info"""
+        import requests
+
+        self.switch_role("leader")
+        payload = data_manager.prepare_create_aggregator_repo()
+
+        url = f"{self.current_server.url}/create-aggregator-repo/{data_manager.task_id}"
+        response = requests.post(url, json=payload)
+
+        result = response.json()
+        if not result.get("success"):
+            raise Exception(
+                f"Failed to create aggregator repo: {result.get('message')}"
+            )
+
+        # Store the fork URL and branch name for use in subsequent steps
+        data_manager.fork_url = result.get("data", {}).get("fork_url")
+        data_manager.branch_name = result.get("data", {}).get("branch_name")
+        data_manager.issue_uuid = result.get("data", {}).get("issue_uuid")
+
+        # Extract repository info from fork URL
+        repo_parts = data_manager.fork_url.strip("/").split("/")
+        if len(repo_parts) >= 2:
+            data_manager.repo_owner = repo_parts[-2]
+            data_manager.repo_name = repo_parts[-1]
+
+        # Update aggregator info
+        aggregator_payload = data_manager.prepare_aggregator_info(
+            "leader", data_manager.round_number
+        )
+        url = f"{self.current_server.url}/add-aggregator-info/{data_manager.task_id}"
+        response = requests.post(url, json=aggregator_payload)
+
+        result = response.json()
+        if not result.get("success"):
+            raise Exception(f"Failed to add aggregator info: {result.get('message')}")
+
+    def run_worker_task(self, data_manager, pr_urls):
+        """Run worker tasks for both workers"""
+        import requests
+
+        # Worker 1 task
+        self.switch_role("worker1")
+        payload = data_manager.prepare_worker_task("worker1", data_manager.round_number)
+        url = f"{self.current_server.url}/worker-task/{data_manager.round_number}"
+        response = requests.post(url, json=payload)
+
+        result = response.json()
+        if not result.get("success"):
+            raise Exception(f"Worker 1 task failed: {result.get('message')}")
+        pr_urls["worker1"] = result.get("pr_url")
+
+        # Worker 2 task
+        self.switch_role("worker2")
+        payload = data_manager.prepare_worker_task("worker2", data_manager.round_number)
+        url = f"{self.current_server.url}/worker-task/{data_manager.round_number}"
+        response = requests.post(url, json=payload)
+
+        result = response.json()
+        if not result.get("success"):
+            raise Exception(f"Worker 2 task failed: {result.get('message')}")
+        pr_urls["worker2"] = result.get("pr_url")
+
+    def run_worker_audit(self, data_manager, pr_urls):
+        """Run cross audits between workers"""
+        import requests
+
+        # Worker 2 audits Worker 1's PR
+        self.switch_role("worker2")
+        payload = data_manager.prepare_worker_audit(
+            "worker2", pr_urls["worker1"], data_manager.round_number
+        )
+        url = f"{self.current_server.url}/worker-audit/{data_manager.round_number}"
+        response = requests.post(url, json=payload)
+
+        result = response.json()
+        if not result.get("success"):
+            raise Exception(f"Worker 2 audit failed: {result.get('message')}")
+
+        # Worker 1 audits Worker 2's PR
+        self.switch_role("worker1")
+        payload = data_manager.prepare_worker_audit(
+            "worker1", pr_urls["worker2"], data_manager.round_number
+        )
+        url = f"{self.current_server.url}/worker-audit/{data_manager.round_number}"
+        response = requests.post(url, json=payload)
+
+        result = response.json()
+        if not result.get("success"):
+            raise Exception(f"Worker 1 audit failed: {result.get('message')}")
+
+    def run_leader_task(self, data_manager):
+        """Run leader task"""
+        import requests
+        import os
+
+        # Update audit results
+        self.switch_role("leader")
+        update_payload = {
+            "taskId": data_manager.task_id,
+            "round": data_manager.round_number,
+        }
+        url = f"{os.getenv('MIDDLE_SERVER_URL')}/api/update-audit-result"
+        response = requests.post(url, json=update_payload)
+
+        result = response.json()
+        if not result.get("success", False):
+            print(
+                f"⚠️ Warning: Update audit result failed: {result.get('message', 'Unknown error')}"
+            )
+
+    def run_leader_audit(self, data_manager, pr_urls):
+        """Run leader task and audit"""
+        import requests
+
+        # Leader task
+        self.switch_role("leader")
+        payload = data_manager.prepare_leader_task(
+            "leader",
+            data_manager.round_number,
+            [pr_urls["worker1"], pr_urls["worker2"]],
+        )
+        url = f"{self.current_server.url}/leader-task/{data_manager.round_number}"
+        response = requests.post(url, json=payload)
+
+        result = response.json()
+        if not result.get("success"):
+            raise Exception(f"Leader task failed: {result.get('message')}")
+        pr_urls["leader"] = result.get("pr_url")
+
+        # Leader audit
+        self.switch_role("worker1")
+        payload = data_manager.prepare_leader_audit(
+            "worker1", pr_urls["leader"], data_manager.round_number
+        )
+        url = f"{self.current_server.url}/leader-audit/{data_manager.round_number}"
+        response = requests.post(url, json=payload)
+
+        result = response.json()
+        if not result.get("success"):
+            raise Exception(f"Leader audit failed: {result.get('message')}")
+
+    def run_aggregator_info(self, data_manager):
+        """Update aggregator info"""
+        import requests
+
+        self.switch_role("leader")
+        payload = data_manager.prepare_aggregator_info(
+            "leader", data_manager.round_number
+        )
+        url = f"{self.current_server.url}/add-aggregator-info/{data_manager.task_id}"
+        response = requests.post(url, json=payload)
+
+        result = response.json()
+        if not result.get("success"):
+            raise Exception(
+                f"Failed to update aggregator info: {result.get('message')}"
+            )

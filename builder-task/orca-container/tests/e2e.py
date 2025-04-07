@@ -1,4 +1,3 @@
-import requests
 import json
 import argparse
 import os
@@ -113,8 +112,8 @@ def reset_mongodb():
     """Reset the MongoDB database by clearing collections and importing fresh test data"""
     print("\nResetting MongoDB database...")
 
-    # Get data directory path
-    data_dir = Path(os.getenv("DATA_DIR", os.path.dirname(__file__)))
+    # Get data directory path - explicitly use tests/data
+    data_dir = Path(__file__).parent / "data"
     print(f"Using data directory: {data_dir}")
 
     # Check if files exist
@@ -156,43 +155,45 @@ def reset_mongodb():
         result = db.audits.delete_many({})
         print(f"Cleared {result.deleted_count} audits")
 
-        # Verify collections are empty
-        print("\nVerifying collections are empty...")
-        issues_count = db.issues.count_documents({})
-        todos_count = db.todos.count_documents({})
-        prompts_count = db.systemprompts.count_documents({})
-        audits_count = db.audits.count_documents({})
-        print(f"Current issues count after delete: {issues_count}")
-        print(f"Current todos count after delete: {todos_count}")
-        print(f"Current prompts count after delete: {prompts_count}")
-        print(f"Current audits count after delete: {audits_count}")
-
-        # Generate a real UUID for the issue
-        issue_uuid = str(uuid.uuid4())
-        print(f"\nGenerated issue UUID: {issue_uuid}")
-
-        # Read and import issues
-        print(f"\nReading issues from {issues_path}")
+        # Read issues and todos first to build dependency mappings
         with open(issues_path, "r") as f:
             issues_data = json.load(f)
-            # Replace the hardcoded UUID with the generated one
-            issues_data["issueUuid"] = issue_uuid
-            print(f"Issues data to import: {json.dumps(issues_data, indent=2)}")
-            result = db.issues.insert_one(issues_data)
-            print(f"Imported issue with ID: {result.inserted_id}")
-
-        # Read and import todos
-        print(f"\nReading todos from {todos_path}")
         with open(todos_path, "r") as f:
             todos_data = json.load(f)
-            # Update each todo with a real UUID and link it to the issue
-            for i, todo in enumerate(todos_data):
-                todo["uuid"] = str(uuid.uuid4())
-                todo["issueUuid"] = issue_uuid
-                print(f"Generated todo UUID for todo {i+1}: {todo['uuid']}")
 
-            result = db.todos.insert_many(todos_data)
-            print(f"Imported {len(result.inserted_ids)} todos")
+        # Create UUID mappings
+        title_to_uuid = {}
+        issue_uuids = {}
+
+        # Process issues first
+        for issue in issues_data:
+            real_uuid = str(uuid.uuid4())
+            issue_uuids[issue["issueUuid"]] = real_uuid
+            issue["issueUuid"] = real_uuid
+
+        # First pass: generate UUIDs for all todos
+        for todo in todos_data:
+            todo_uuid = str(uuid.uuid4())
+            todo["uuid"] = todo_uuid
+            title_to_uuid[todo["title"]] = todo_uuid
+            # Update issue UUID reference
+            todo["issueUuid"] = issue_uuids[todo["issueUuid"]]
+
+        # Second pass: update dependencies to use UUIDs
+        for todo in todos_data:
+            if "dependencies" in todo:
+                todo["dependencies"] = [
+                    title_to_uuid[dep_title] for dep_title in todo["dependencies"]
+                ]
+
+        # Now insert the processed data
+        print("\nInserting issues...")
+        result = db.issues.insert_many(issues_data)
+        print(f"Inserted {len(result.inserted_ids)} issues")
+
+        print("\nInserting todos...")
+        result = db.todos.insert_many(todos_data)
+        print(f"Inserted {len(result.inserted_ids)} todos")
 
         # Read and import system prompts
         print(f"\nReading system prompts from {prompts_path}")
@@ -228,6 +229,29 @@ def reset_mongodb():
         client.close()
 
 
+def check_remaining_work():
+    """Check if there are any remaining issues or todos that need to be completed"""
+    # Connect to MongoDB
+    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/todos")
+    client = MongoClient(mongodb_uri)
+    db = client["todos"]
+
+    try:
+        # Check for unapproved todos
+        pending_todos = db.todos.count_documents({"status": {"$ne": "approved"}})
+
+        # Check for unapproved issues
+        pending_issues = db.issues.count_documents({"status": {"$ne": "approved"}})
+
+        print("\nRemaining work status:")
+        print(f"Pending todos: {pending_todos}")
+        print(f"Pending issues: {pending_issues}")
+
+        return pending_todos > 0 or pending_issues > 0
+    finally:
+        client.close()
+
+
 def run_test_sequence(
     start_step: int = 1,
     stop_step: int = 6,
@@ -249,10 +273,6 @@ def run_test_sequence(
             print(f"Removing state file: {state_file}")
             os.remove(state_file)
 
-        print(
-            "Reset completed: SQLite databases, MongoDB, and state file have been reset"
-        )
-
     # Get task ID from environment if not provided
     if not task_id:
         task_id = os.getenv("TASK_ID")
@@ -264,268 +284,61 @@ def run_test_sequence(
     print(f"Using task ID: {task_id}")
     print(f"Using round number: {round_number}")
 
-    with TestSetup() as setup:
-        data_manager = DataManager(task_id=task_id, round_number=round_number)
-        pr_urls = {}  # Store PR URLs for later use
+    # Initialize data manager
+    data_manager = DataManager(task_id=task_id, round_number=round_number)
+    pr_urls = {}
 
-        # If we're resetting or starting from step 1, get the issue UUID from MongoDB
-        if reset or start_step == 1:
-            mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/todos")
-            client = MongoClient(mongodb_uri)
-            db = client["todos"]
+    # Load state if starting from a later step
+    if start_step > 1 and not reset:
+        load_state(data_manager, pr_urls, start_step)
 
-            try:
-                # Get the issue from MongoDB
-                issue = db.issues.find_one()
-                if issue:
-                    data_manager.issue_uuid = issue["issueUuid"]
-                    print(f"Using issue UUID from MongoDB: {data_manager.issue_uuid}")
-            except Exception as e:
-                print(f"Error fetching issue from MongoDB: {e}")
-            finally:
-                client.close()
+    # Use TestSetup as a context manager to ensure servers are started and stopped properly
+    with TestSetup() as test_setup:
+        # Continue running rounds until all work is completed
+        while True:
+            print(f"\n{'='*80}")
+            print(f"Starting round {data_manager.round_number}")
+            print(f"{'='*80}")
 
-        # Load state if starting from a later step
-        if start_step > 1:
-            try:
-                load_state(data_manager, pr_urls, start_step)
-            except Exception as e:
-                print(f"Error loading state: {e}")
-                return
-
-        try:
-            # 1. Create aggregator repo
+            # Run the test steps for this round
             if start_step <= 1 <= stop_step:
-                log_step(1, "Creating aggregator repo")
-                setup.switch_role("leader")
-                payload = data_manager.prepare_create_aggregator_repo()
+                log_step(1, "Create aggregator repo")
+                test_setup.create_aggregator_repo(data_manager)
+                save_state(data_manager, pr_urls, 1)
 
-                url = f"{setup.current_server.url}/create-aggregator-repo/{data_manager.task_id}"
-                log_request("POST", url, payload)
-                response = requests.post(url, json=payload)
-                log_response(response)
-
-                result = response.json()
-                if not result.get("success"):
-                    raise Exception(
-                        f"Failed to create aggregator repo: {result.get('message')}"
-                    )
-                print("\n" + "=" * 40)
-                print("✓ AGGREGATOR REPO CREATED SUCCESSFULLY")
-                print("=" * 40)
-                fork_url = result.get("data", {}).get("fork_url")
-                branch_name = result.get("data", {}).get("branch_name")
-                issue_uuid = result.get("data", {}).get("issue_uuid")
-                if not fork_url or not branch_name:
-                    raise Exception("Missing fork_url or branch_name in response")
-                print(f"✓ Fork URL: {fork_url}")
-                print(f"✓ Branch name: {branch_name}")
-                print(f"✓ Issue UUID: {issue_uuid}")
-
-                # Store the fork URL and branch name for use in subsequent steps
-                data_manager.fork_url = fork_url
-                data_manager.branch_name = branch_name
-                data_manager.issue_uuid = issue_uuid
-
-                # Extract repository name from fork URL
-                repo_parts = fork_url.strip("/").split("/")
-                if len(repo_parts) >= 2:
-                    aggregator_owner = repo_parts[-2]
-                    repo_name = repo_parts[-1]
-                    data_manager.repo_owner = aggregator_owner
-                    data_manager.repo_name = repo_name
-                    print(
-                        f"✓ Using repository information from fork: {aggregator_owner}/{repo_name}"
-                    )
-                else:
-                    print(
-                        f"⚠️ Could not extract repository information from fork URL: {fork_url}"
-                    )
-
-                # Now call the add-aggregator-info endpoint to update the middle server
-                print("\nCalling add-aggregator-info endpoint...")
-
-                # Prepare the payload for add-aggregator-info
-                aggregator_payload = data_manager.prepare_aggregator_info(
-                    "leader", data_manager.round_number
-                )
-
-                url = f"{setup.current_server.url}/add-aggregator-info/{data_manager.task_id}"
-                log_request("POST", url, aggregator_payload)
-                response = requests.post(url, json=aggregator_payload)
-                log_response(response)
-
-                result = response.json()
-                if not result.get("success"):
-                    raise Exception(
-                        f"Failed to add aggregator info: {result.get('message')}"
-                    )
-                print("✓ Aggregator info updated successfully")
-
-                # Save state after completing step 1
-                save_state(data_manager, pr_urls, step_completed=1)
-
-            # 2. Worker tasks (Worker 1 and Worker 2)
             if start_step <= 2 <= stop_step:
-                log_step(2, "Running Worker tasks")
+                log_step(2, "Run worker task")
+                test_setup.run_worker_task(data_manager, pr_urls)
+                save_state(data_manager, pr_urls, 2)
 
-                # Worker 1 task
-                setup.switch_role("worker1")
-                payload = data_manager.prepare_worker_task(
-                    "worker1", data_manager.round_number
-                )
-
-                url = f"{setup.current_server.url}/worker-task/{data_manager.round_number}"
-                log_request("POST", url, payload)
-                response = requests.post(url, json=payload)
-                log_response(response)
-
-                result = response.json()
-                if not result.get("success"):
-                    raise Exception(f"Worker 1 task failed: {result.get('message')}")
-                pr_urls["worker1"] = result.get("pr_url")
-                print(f"✓ Worker 1 PR created: {pr_urls['worker1']}")
-
-                # Worker 2 task
-                setup.switch_role("worker2")
-                payload = data_manager.prepare_worker_task(
-                    "worker2", data_manager.round_number
-                )
-
-                url = f"{setup.current_server.url}/worker-task/{data_manager.round_number}"
-                log_request("POST", url, payload)
-                response = requests.post(url, json=payload)
-                log_response(response)
-
-                result = response.json()
-                if not result.get("success"):
-                    raise Exception(f"Worker 2 task failed: {result.get('message')}")
-                pr_urls["worker2"] = result.get("pr_url")
-                print(f"✓ Worker 2 PR created: {pr_urls['worker2']}")
-
-                # Save state after completing step 2
-                save_state(data_manager, pr_urls, step_completed=2)
-
-            # 3. Cross audits
             if start_step <= 3 <= stop_step:
-                log_step(3, "Running cross audits")
-                print("\nWorker 2 auditing Worker 1's PR...")
-                setup.switch_role("worker2")
-                payload = data_manager.prepare_worker_audit(
-                    "worker2", pr_urls["worker1"], data_manager.round_number
-                )
+                log_step(3, "Run worker audit")
+                test_setup.run_worker_audit(data_manager, pr_urls)
+                save_state(data_manager, pr_urls, 3)
 
-                url = f"{setup.current_server.url}/worker-audit/{data_manager.round_number}"
-                log_request("POST", url, payload)
-                response = requests.post(url, json=payload)
-                log_response(response)
-
-                result = response.json()
-                if not result.get("success"):
-                    raise Exception(f"Worker 2 audit failed: {result.get('message')}")
-                print("✓ Worker 2 audit complete")
-
-                print("\nWorker 1 auditing Worker 2's PR...")
-                setup.switch_role("worker1")
-                payload = data_manager.prepare_worker_audit(
-                    "worker1", pr_urls["worker2"], data_manager.round_number
-                )
-
-                url = f"{setup.current_server.url}/worker-audit/{data_manager.round_number}"
-                log_request("POST", url, payload)
-                response = requests.post(url, json=payload)
-                log_response(response)
-
-                result = response.json()
-                if not result.get("success"):
-                    raise Exception(f"Worker 1 audit failed: {result.get('message')}")
-                print("✓ Worker 1 audit complete")
-
-                # Save state after completing step 3
-                save_state(data_manager, pr_urls, step_completed=3)
-
-            # 4. Update audit results (separate step)
             if start_step <= 4 <= stop_step:
-                log_step(4, "Updating audit results")
-                setup.switch_role("leader")
+                log_step(4, "Run leader task")
+                test_setup.run_leader_task(data_manager)
+                save_state(data_manager, pr_urls, 4)
 
-                # Prepare update-audit-result payload
-                update_payload = {
-                    "taskId": data_manager.task_id,
-                    "round": data_manager.round_number,  # Worker round is 1
-                }
-
-                url = f"{os.getenv('MIDDLE_SERVER_URL')}/api/update-audit-result"
-                log_request("POST", url, update_payload)
-                response = requests.post(url, json=update_payload)
-                log_response(response)
-
-                result = response.json()
-                if not result.get("success", False):
-                    print(
-                        f"⚠️ Warning: Update audit result failed: {result.get('message', 'Unknown error')}"
-                    )
-                else:
-                    print("✓ Audit results updated successfully")
-
-                # Save state after completing step 4
-                save_state(data_manager, pr_urls, step_completed=4)
-
-            # 5. Leader task
             if start_step <= 5 <= stop_step:
-                log_step(5, "Running leader task")
-                setup.switch_role("leader")
-                payload = data_manager.prepare_leader_task(
-                    "leader",
-                    data_manager.round_number,
-                    [pr_urls["worker1"], pr_urls["worker2"]],
-                )
+                log_step(5, "Run leader audit")
+                test_setup.run_leader_audit(data_manager, pr_urls)
+                save_state(data_manager, pr_urls, 5)
 
-                url = f"{setup.current_server.url}/leader-task/{data_manager.round_number}"
-                log_request("POST", url, payload)
-                response = requests.post(url, json=payload)
-                log_response(response)
-
-                result = response.json()
-                if not result.get("success"):
-                    raise Exception(f"Leader task failed: {result.get('message')}")
-                pr_urls["leader"] = result.get("pr_url")
-                print(f"✓ Leader PR created: {pr_urls['leader']}")
-
-                # Save state after completing step 5
-                save_state(data_manager, pr_urls, step_completed=5)
-
-            # 6. Leader audits
             if start_step <= 6 <= stop_step:
-                log_step(6, "Running leader audits")
-                print("\nLeader audit...")
-                setup.switch_role("worker1")
-                payload = data_manager.prepare_leader_audit(
-                    "worker1", pr_urls["leader"], data_manager.round_number
-                )
+                log_step(6, "Run aggregator info")
+                test_setup.run_aggregator_info(data_manager)
+                save_state(data_manager, pr_urls, 6)
 
-                url = f"{setup.current_server.url}/leader-audit/{data_manager.round_number}"
-                log_request("POST", url, payload)
-                response = requests.post(url, json=payload)
-                log_response(response)
+            # Check if there's more work to be done
+            if not check_remaining_work():
+                print(f"\nAll work completed after round {data_manager.round_number}!")
+                break
 
-                result = response.json()
-                if not result.get("success"):
-                    raise Exception(f"Leader audit failed: {result.get('message')}")
-                print("✓ Leader audit complete")
-
-                # Save state after completing step 6
-                save_state(data_manager, pr_urls, step_completed=6)
-
-            print("\n" + "=" * 80)
-            print("TEST SEQUENCE COMPLETED SUCCESSFULLY")
-            print("=" * 80)
-
-        except Exception as e:
-            print("\n" + "!" * 80)
-            print(f"TEST SEQUENCE FAILED: {str(e)}")
-            print("!" * 80)
-            raise
+            # Increment round number and continue
+            data_manager.round_number += 1
+            print(f"\nMoving to round {data_manager.round_number}...")
 
 
 if __name__ == "__main__":
