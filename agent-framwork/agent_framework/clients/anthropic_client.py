@@ -1,7 +1,7 @@
 """Anthropic API client implementation."""
 
 from typing import Dict, Any, Optional, List, Union
-from anthropic import Anthropic
+from anthropic import Anthropic, APIError, APIStatusError
 from anthropic.types import Message, TextBlock, ToolUseBlock
 import json
 from .base_client import Client
@@ -12,6 +12,7 @@ from ..types import (
     ToolCallContent,
     ToolChoice,
 )
+from ..utils.errors import ClientAPIError
 
 
 class AnthropicClient(Client):
@@ -121,19 +122,26 @@ class AnthropicClient(Client):
         tool_choice: Optional[Dict[str, Any]] = None,
     ) -> Message:
         """Make API call to Anthropic."""
-        params = {
-            "model": self.model,
-            "messages": messages,
-            "max_tokens": max_tokens or 2000,
-        }
-        if system_prompt:
-            params["system"] = system_prompt
-        if tools:
-            params["tools"] = tools
-            if tool_choice:
-                params["tool_choice"] = tool_choice
+        try:
+            params = {
+                "model": self.model,
+                "messages": messages,
+                "max_tokens": max_tokens or 2000,
+            }
+            if system_prompt:
+                params["system"] = system_prompt
+            if tools:
+                params["tools"] = tools
+                if tool_choice:
+                    params["tool_choice"] = tool_choice
 
-        return self.client.messages.create(**params)
+            return self.client.messages.create(**params)
+        except APIStatusError as e:
+            # HTTP error with status code (4xx or 5xx)
+            raise ClientAPIError(str(e), status_code=e.status_code) from e
+        except APIError as e:
+            # Any other API error - use 500 when no status code is available
+            raise ClientAPIError(str(e), status_code=e.status_code or 500) from e
 
     def _format_tool_response(self, response: str) -> MessageContent:
         """Format a tool response into a message.
