@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+- Always prefer pathlib to os. Only use os for path operations if pathlib cannot be used
