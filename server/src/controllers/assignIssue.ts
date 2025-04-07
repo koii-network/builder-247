@@ -78,7 +78,7 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
 
   if (result.hasActive) {
     return {
-      statuscode: 400,
+      statuscode: 409,
       data: {
         success: false,
         message: "Issue is already in process",
@@ -87,7 +87,7 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
   }
   if (!result.nextIssue) {
     return {
-      statuscode: 404,
+      statuscode: 409,
       data: {
         success: false,
         message: "No issue found",
@@ -97,7 +97,7 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
 
   if (githubUsername === result.nextIssue.repoOwner) {
     return {
-      statuscode: 400,
+      statuscode: 409,
       data: {
         success: false,
         message: "Aggregator cannot be the same as the repo owner",

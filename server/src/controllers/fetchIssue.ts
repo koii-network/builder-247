@@ -123,7 +123,7 @@ export const fetchIssueLogic = async (
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
       return {
-        statuscode: 401,
+        statuscode: 409,
         data: {
           success: false,
           message: "Issue already completed",
@@ -178,7 +178,7 @@ export const fetchIssueLogic = async (
 
     if (!eligibleIssue) {
       return {
-        statuscode: 404,
+        statuscode: 409,
         data: {
           success: false,
           message: "No eligible issues found",
@@ -189,7 +189,7 @@ export const fetchIssueLogic = async (
     const prDict = await getPRDict(eligibleIssue.issueUuid);
     if (!prDict) {
       return {
-        statuscode: 404,
+        statuscode: 409,
         data: {
           success: false,
           message: "Issue not found",

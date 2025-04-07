@@ -221,8 +221,8 @@ class TestSetup:
         response = requests.post(url, json=payload)
 
         result = response.json()
-        if response.status_code == 404:
-            print("✓ No eligible todos for Worker 1 - continuing")
+        if response.status_code in [401, 409]:
+            print(f"✓ {result.get('message')} for Worker 1 - continuing")
             return
         elif not result.get("success"):
             raise Exception(f"Worker 1 task failed: {result.get('message')}")
@@ -237,8 +237,8 @@ class TestSetup:
         response = requests.post(url, json=payload)
 
         result = response.json()
-        if response.status_code == 404:
-            print("✓ No eligible todos for Worker 2 - continuing")
+        if response.status_code in [401, 409]:
+            print(f"✓ {result.get('message')} for Worker 2 - continuing")
             return
         elif not result.get("success"):
             raise Exception(f"Worker 2 task failed: {result.get('message')}")

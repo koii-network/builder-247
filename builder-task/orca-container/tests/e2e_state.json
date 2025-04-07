@@ -26,12 +26,12 @@
     "round_number": 2
   },
   "3": {
-    "step_completed": 1,
-    "fork_url": null,
-    "branch_name": null,
+    "step_completed": 4,
+    "fork_url": "https://github.com/momstrosity/builder-test",
+    "branch_name": "08d86072-5dc9-45d9-9e34-92dbcbe1f14b",
     "issue_uuid": null,
-    "repo_owner": null,
-    "repo_name": null,
+    "repo_owner": "momstrosity",
+    "repo_name": "builder-test",
     "pr_urls": {},
     "round_number": 3
   }

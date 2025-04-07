@@ -127,7 +127,7 @@ export const fetchTodoLogic = async (
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
       return {
-        statuscode: 401,
+        statuscode: 409,
         data: {
           success: false,
           message: "Task already completed",
