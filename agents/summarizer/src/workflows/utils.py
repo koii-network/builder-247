@@ -43,7 +43,7 @@ def setup_repo_directory():
     """
     # Generate sequential repo path
     # TODO THIS IS A TEMPORARY FIX
-    base_dir = os.path.abspath("/app/repos")
+    base_dir = os.path.abspath("./repos")
     os.makedirs(base_dir, exist_ok=True)
 
     counter = 0
@@ -92,12 +92,15 @@ def cleanup_repo_directory(original_dir, repo_path):
 
 
 def get_current_files():
-    """Get current files in repository."""
+    """Get current files in repository, excluding node_modules directory."""
     files_result = list_files(".")
     if not files_result["success"]:
         raise Exception(f"Failed to get file list: {files_result['message']}")
 
-    return files_result["data"]["files"]
+    # Filter out files in node_modules directory
+    files = [f for f in files_result["data"]["files"] if not f.startswith("node_modules/")]
+    
+    return files
 
 
 def clone_repository(repo_url: str, repo_path: str) -> dict:
