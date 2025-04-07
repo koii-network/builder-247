@@ -145,7 +145,7 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
  * without needing to check the distribution list
  */
 async function updateTestEnvironmentStatus(round: number): Promise<void> {
-  // 1. Update all IN_PROGRESS todos to APPROVED
+  // 1. Update all IN_REVIEW todos to APPROVED
   const todosResult = await TodoModel.updateMany(
     {
       status: TodoStatus.IN_REVIEW,
