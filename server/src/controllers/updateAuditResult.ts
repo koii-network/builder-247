@@ -166,20 +166,23 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
 
   console.log(`[TEST MODE] Found ${inProgressIssues.length} issues in IN_PROGRESS status`);
 
-  // 3. For each IN_PROGRESS issue, check if all its todos are APPROVED
+  // 3. For each IN_PROGRESS issue, check if all its todos are APPROVED and have PR URLs
   for (const issue of inProgressIssues) {
     const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
-    const allTodosApproved = todos.length > 0 && todos.every((todo) => todo.status === TodoStatus.APPROVED);
+    const allTodosApprovedWithPRs =
+      todos.length > 0 && todos.every((todo) => todo.status === TodoStatus.APPROVED && todo.prUrl);
 
-    if (allTodosApproved) {
-      // Only update to ASSIGN_PENDING if all todos are approved
+    if (allTodosApprovedWithPRs) {
+      // Only update to ASSIGN_PENDING if all todos are approved and have PR URLs
       await IssueModel.updateOne({ _id: issue._id }, { $set: { status: IssueStatus.ASSIGN_PENDING } });
-      console.log(`[TEST MODE] Updated issue ${issue.issueUuid} to ASSIGN_PENDING - all todos are approved`);
+      console.log(
+        `[TEST MODE] Updated issue ${issue.issueUuid} to ASSIGN_PENDING - all todos are approved with PR URLs`,
+      );
     } else {
-      console.log(`[TEST MODE] Issue ${issue.issueUuid} remains IN_PROGRESS - not all todos are approved`);
+      console.log(`[TEST MODE] Issue ${issue.issueUuid} remains IN_PROGRESS - not all todos are approved with PR URLs`);
       console.log(
         `[TEST MODE] Todo statuses for issue ${issue.issueUuid}:`,
-        todos.map((t) => ({ id: t._id, status: t.status })),
+        todos.map((t) => ({ id: t._id, status: t.status, hasPR: !!t.prUrl })),
       );
     }
   }
@@ -190,15 +193,18 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
 
   for (const issue of pendingIssues) {
     const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
-    const allTodosApproved = todos.length > 0 && todos.every((todo) => todo.status === TodoStatus.APPROVED);
+    const allTodosApprovedWithPRs =
+      todos.length > 0 && todos.every((todo) => todo.status === TodoStatus.APPROVED && todo.prUrl);
 
-    if (!allTodosApproved) {
-      // If not all todos are approved, move back to IN_PROGRESS
+    if (!allTodosApprovedWithPRs) {
+      // If not all todos are approved with PR URLs, move back to IN_PROGRESS
       await IssueModel.updateOne({ _id: issue._id }, { $set: { status: IssueStatus.IN_PROGRESS } });
-      console.log(`[TEST MODE] Moved issue ${issue.issueUuid} back to IN_PROGRESS - not all todos are approved`);
+      console.log(
+        `[TEST MODE] Moved issue ${issue.issueUuid} back to IN_PROGRESS - not all todos are approved with PR URLs`,
+      );
       console.log(
         `[TEST MODE] Todo statuses:`,
-        todos.map((t) => ({ id: t._id, status: t.status })),
+        todos.map((t) => ({ id: t._id, status: t.status, hasPR: !!t.prUrl })),
       );
     }
   }
@@ -237,15 +243,20 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
   // Get all the issue's for this round changed todos
   const issueUuids = auditableTodos.map((todo) => todo.issueUuid);
 
-  // Check if all subtasks of an issue are completed
+  // Check if all subtasks of an issue are completed and have PR URLs
   const issues = await IssueModel.find({ issueUuid: { $in: issueUuids } });
   console.log(`Found ${issues.length} issues related to updated todos`);
 
   for (const issue of issues) {
     const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
-    if (todos.every((todo) => todo.status === TodoStatus.APPROVED)) {
+    if (todos.every((todo) => todo.status === TodoStatus.APPROVED && todo.prUrl)) {
       issue.status = IssueStatus.ASSIGN_PENDING;
-      console.log(`Setting issue ${issue.issueUuid} to ASSIGN_PENDING`);
+      console.log(`Setting issue ${issue.issueUuid} to ASSIGN_PENDING - all todos approved with PR URLs`);
+    } else {
+      console.log(
+        `Issue ${issue.issueUuid} remains in current status - not all todos are approved with PR URLs:`,
+        todos.map((t) => ({ id: t._id, status: t.status, hasPR: !!t.prUrl })),
+      );
     }
     await issue.save();
   }
