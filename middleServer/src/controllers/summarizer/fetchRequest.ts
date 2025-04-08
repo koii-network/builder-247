@@ -85,7 +85,7 @@ async function verifySignatureData(
 }
 
 
-export const fetchSummarizerTodo = async (req: Request, res: Response) => {
+export const fetchRequest = async (req: Request, res: Response) => {
   
   const requestBody: {signature: string, stakingKey: string} | null = verifyRequestBody(req);
   if (!requestBody) {

@@ -1,16 +1,19 @@
 import { Request, Response } from 'express';
-import { KoiiStorageClient } from '@_koii/storage-task-sdk';
 import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../../utils/taskState/getDistributionList';
-import { SpecModel, SpecStatus } from "../../models/Spec";
-import { IssueModel } from '../../models/Issue';
-import { getFile } from '../../utils/ipfs/ipfs';
-import { TodoModel } from '../../models/Todo';
+import { DocumentationModel, DocumentationStatus } from "../../models/Documentation";
+import { plannerTaskID } from '../../config/constant';
+import SwarmBounty, { SwarmBountyStatus } from '../../models/SwarmBounties';
 // A simple in-memory cache to store processed task IDs and rounds
 const cache: Record<string, Set<number>> = {};
 
 export async function triggerFetchAuditResult(req: Request, res: Response): Promise<void> {
     const { taskId, round } = req.body;
-
+    console.log("[TRIGGER FETCH AUDIT RESULT] taskId: ", taskId);
+    console.log("[TRIGGER FETCH AUDIT RESULT] round: ", round);
+    if (taskId !== plannerTaskID) {
+        res.status(400).send('Invalid task ID.');
+        return;
+    }
     // Check if the taskId and round have already been processed
     if (cache[taskId] && cache[taskId].has(round)) {
         res.status(200).send('Task already processed.');
@@ -33,7 +36,7 @@ export async function triggerFetchAuditResult(req: Request, res: Response): Prom
     }
 
     const distributionList = await getDistributionListWrapper(taskId, round);
-    
+    console.log("distributionList", distributionList);
     let positiveKeys: string[] = [];
     let negativeKeys: string[] = [];
     if (distributionList) {
@@ -51,25 +54,33 @@ export async function triggerFetchAuditResult(req: Request, res: Response): Prom
     res.status(response.statuscode).json(response.data);
 
 }
-
+export async function updateSwarmBountyStatus(swarmBountyId: string, status: SwarmBountyStatus){
+    const swarmBounty = await SwarmBounty.findById(swarmBountyId);
+    if (!swarmBounty) {
+        return;
+    }
+    swarmBounty.status = status;
+    await swarmBounty.save();
+}
 export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
-
+        console.log("positiveKeys", positiveKeys);
+        console.log("negativeKeys", negativeKeys);
+        console.log("round", round);
         // ============== Update the subtask status ==============
-        const specs = await SpecModel.find({ "assignedTo.stakingKey": { $in: [...positiveKeys, ...negativeKeys] } });
+        const specs = await DocumentationModel.find({ "assignedTo.stakingKey": { $in: [...positiveKeys, ...negativeKeys] } });
         // console.log('Todos Found');
         for (const spec of specs) {
             for (const assignee of spec.assignedTo) {
+                if (!assignee.taskId || !assignee.roundNumber || !assignee.stakingKey) {
+                    console.log('Missing required fields for assignee:', assignee);
+                    continue;
+                }
                 if (positiveKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
-                    if (assignee.ipfsCid) {
-                        await addToIssuesAndTodos(assignee.ipfsCid);
-                    }else{
-                        return {statuscode: 500, data: {
-                            success: false,
-                            message: 'No IPFS CID found for the assignee',
-                        }};
-                    }
                     assignee.auditResult = true;
-                    spec.status = SpecStatus.DONE;
+                    spec.status = DocumentationStatus.DONE;
+                    if (spec.swarmBountyId) {
+                        await updateSwarmBountyStatus(spec.swarmBountyId, SwarmBountyStatus.COMPLETED);
+                    }
                 } else if (negativeKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
                     assignee.auditResult = false;
                 }
@@ -78,21 +89,15 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
             await spec.save();
         }
         
-    return {statuscode: 200, data: {
-        success: true,
-        message: 'Task processed successfully.',
-    }};
+        return {statuscode: 200, data: {
+            success: true,
+            message: 'Task processed successfully.',
+        }};
 }
-export const addToIssuesAndTodos = async (ipfsCid: string) =>{
-    const data = await getFile(ipfsCid);
-    const issues = JSON.parse(data).issues;
-    const todos = JSON.parse(data).todos;
-    for (const issue of issues) {
-        const issueModel = new IssueModel(issue);
-        await issueModel.save();
-    }
-    for (const todo of todos) {
-        const todoModel = new TodoModel(todo);
-        await todoModel.save();
-    }
-}
+
+// async function test(){
+//     const response = await triggerFetchAuditResultLogic(["G79TK8ccVx11JCsStBY85thohoSCm5eDwACAVju4z7bj"], ["0x456"], 13);
+//     console.log(response);
+// }
+
+// test();

@@ -1,21 +1,20 @@
-import { SpecModel } from "../../models/Spec";
+import { DocumentationModel } from "../../models/Documentation";
 
 import { Request, Response } from "express";
 import { verifySignature } from "../../utils/sign";
-import { taskID } from "../../config/constant";
+import { documentSummarizerTaskID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
 
-function verifyRequestBody(req: Request): { signature: string; pubKey: string; stakingKey: string } | null {
+function verifyRequestBody(req: Request): { signature: string; stakingKey: string } | null {
   try {
     console.log("req.body", req.body);
     const signature = req.body.signature as string;
-    const pubKey = req.body.pubKey as string;
     const stakingKey = req.body.stakingKey as string;
-    if (!signature || !pubKey || !stakingKey) {
+    if (!signature || !stakingKey) {
       return null;
     }
 
-    return { signature, pubKey, stakingKey };
+    return { signature, stakingKey };
   } catch {
     return null;
   }
@@ -24,9 +23,8 @@ function verifyRequestBody(req: Request): { signature: string; pubKey: string; s
 // Helper function to verify signature
 async function verifySignatureData(
   signature: string,
-  pubKey: string,
   stakingKey: string,
-): Promise<{ roundNumber: number; ipfsCid: string } | null> {
+): Promise<{ roundNumber: number; prUrl: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -34,55 +32,53 @@ async function verifySignatureData(
       return null;
     }
     const body = JSON.parse(data);
-    console.log("signature payload", { body, pubKey, stakingKey });
+    console.log("signature payload", { body, stakingKey });
     if (
       !body.taskId ||
-      body.taskId !== taskID ||
+      body.taskId !== documentSummarizerTaskID ||
       typeof body.roundNumber !== "number" ||
       body.action !== "add" ||
-      !body.ipfsCid ||
-      !body.pubKey ||
-      body.pubKey !== pubKey ||
+      !body.prUrl ||
       !body.stakingKey ||
       body.stakingKey !== stakingKey
     ) {
       return null;
     }
-    return { roundNumber: body.roundNumber, ipfsCid: body.ipfsCid };
+    return { roundNumber: body.roundNumber, prUrl: body.prUrl };
   } catch {
     return null;
   }
 }
-async function updateAssignedInfoWithIPFS(
+async function updateAssignedInfoPrUrl(
   stakingKey: string,
   roundNumber: number,
-  ipfsCid: string,
-  ipfsSignature: string,
+  prUrl: string,
+  signature: string,
 ): Promise<boolean> {
-  console.log("updateAssignedInfoWithIPFS", { stakingKey, roundNumber, ipfsCid, ipfsSignature });
-  const result = await SpecModel.findOneAndUpdate(
+  console.log("updateAssignedInfoWithIPFS", { stakingKey, roundNumber, prUrl, signature });
+  const result = await DocumentationModel.findOneAndUpdate(
     {
       assignedTo: {
         $elemMatch: {
-          taskId: taskID,
+          taskId: documentSummarizerTaskID,
           stakingKey: stakingKey,
           roundNumber: roundNumber,
         },
-      },
+      },            
     },
     {
-      $set: { "assignedTo.$.ipfsCid": ipfsCid, "assignedTo.$.ipfsSignature": ipfsSignature },
+      $set: { "assignedTo.$.prUrl": prUrl },
     },
   )
     .select("_id")
     .lean();
 
-  console.log("ipfsCid update result", result);
+  console.log("prUrl update result", result);
 
   return result !== null;
 }
 
-export const addIPFS = async (req: Request, res: Response) => {
+export const addRequest = async (req: Request, res: Response) => {
   const requestBody = verifyRequestBody(req);
   if (!requestBody) {
     res.status(401).json({
@@ -92,7 +88,7 @@ export const addIPFS = async (req: Request, res: Response) => {
     return;
   }
 
-  const signatureData = await verifySignatureData(requestBody.signature, requestBody.pubKey, requestBody.stakingKey);
+  const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey);
   if (!signatureData) {
     res.status(401).json({
       success: false,
@@ -101,7 +97,7 @@ export const addIPFS = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(taskID, requestBody.stakingKey))) {
+  if (!(await isValidStakingKey(documentSummarizerTaskID, requestBody.stakingKey))) {
     res.status(401).json({
       success: false,
       message: "Invalid staking key",
@@ -109,27 +105,34 @@ export const addIPFS = async (req: Request, res: Response) => {
     return;
   }
 
-  const response = await addIPFSLogic(requestBody, signatureData);
+  const response = await addPRUrlLogic(requestBody, signatureData);
   res.status(response.statuscode).json(response.data);
 };
 
-export const addIPFSLogic = async (requestBody: {signature: string, pubKey: string, stakingKey: string}, signatureData: {roundNumber: number, ipfsCid: string}) => {
-  console.log("ipfsCid", signatureData.ipfsCid);
-  const result = await updateAssignedInfoWithIPFS(
+export const addPRUrlLogic = async (requestBody: {signature: string, stakingKey: string}, signatureData: {roundNumber: number, prUrl: string}) => {
+  console.log("prUrl", signatureData.prUrl);
+  const result = await updateAssignedInfoPrUrl(
     requestBody.stakingKey,
     signatureData.roundNumber,
-    signatureData.ipfsCid,
+    signatureData.prUrl,
     requestBody.signature,
   );
   if (!result) {
     return {statuscode: 401, data:{
       success: false, 
-      message: "Failed to update IPFS CID",
+      message: "Failed to update PR URL",
     }};
   }
 
   return {statuscode: 200, data:{
     success: true,
-    message: "IPFS CID updated",
+    message: "PR URL updated",
   }};
 };
+
+// async function test(){
+//     const docs = await addPRUrlLogic({signature: "0x123", stakingKey: "0x123"}, {roundNumber: 1, prUrl: "0x123"});
+//     console.log(docs);
+//   }
+  
+//   test();

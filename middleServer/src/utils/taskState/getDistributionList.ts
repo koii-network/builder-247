@@ -24,45 +24,45 @@ export async function getDistributionListSubmitter(taskId: string, round: string
     }
 }
 
-export async function getDistributionList(
-    publicKey: string,
-    round: string,
-    taskId: string,
-  ): Promise<string | null> {
+async function getDistributionList(
+  publicKey: string,
+  round: string,
+  taskId: string,
+): Promise<string | null> {
 
-    const connection = new Connection("https://mainnet.koii.network");
-
-
-    let accountInfo: AccountInfo<Buffer> | null = null;
-    accountInfo = await connection.getAccountInfo(
-      new PublicKey(publicKey),
-      'base64+zstd',
-    );
-    if (!accountInfo) {
-      console.log(`${publicKey} doesn't contain any distribution list data`);
-      return null;
-    }
-    accountInfo.data = await decodeZstd(
-      (accountInfo.data ? accountInfo.data[0] : '') + '',
-    );
-    const origData = getBincodeDeserializedDistributionList(
-      accountInfo?.data,
-      round,
-      taskId,
-    );
-    if (origData) return origData;
-    try {
-      const d = JSON.parse(accountInfo.data + '');
-      const i = Buffer.from(d[round][taskId]).indexOf(0x00);
-      const t = Buffer.from(d[round][taskId]).slice(0, i);
-
-      const origData = JSON.stringify(new TextDecoder().decode(t));
-      return origData;
-    } catch (error) {
-      console.log('ERROR', error);
-      return null;
-    }
+  const connection = new Connection("https://mainnet.koii.network", "confirmed");
+  let accountInfo: AccountInfo<Buffer> | null = null;
+  accountInfo = await connection.getAccountInfo(
+    new PublicKey(publicKey),
+    'base64+zstd',
+  );
+  if (!accountInfo) {
+    console.log(`${publicKey} doesn't contain any distribution list data`);
+    return null;
   }
+  accountInfo.data = await decodeZstd(
+    (accountInfo.data ? accountInfo.data[0] : '') + '',
+  );
+  const origData = getBincodeDeserializedDistributionList(
+    accountInfo?.data,
+    round,
+    taskId,
+  );
+  if (origData) return origData;
+  try {
+    const d = JSON.parse(accountInfo.data + '');
+    const i = Buffer.from(d[round][taskId]).indexOf(0x00);
+    const t = Buffer.from(d[round][taskId]).slice(0, i);
+
+    const origData = JSON.stringify(new TextDecoder().decode(t));
+    return origData;
+  } catch (error) {
+    console.log('ERROR', error);
+    return null;
+  }
+}
+
+
   export function getBincodeDeserializedDistributionList(
     raw_data: any,
     round: string,
@@ -72,6 +72,7 @@ export async function getDistributionList(
       if (!raw_data) return null;
       const jsObject = {};
       const parse_result = bincode_js_deserialize(raw_data);
+      console.log("parse_result", parse_result);
       // @ts-ignore
       parse_result.forEach((innerMap: any, epoch: any) => {
         const innerJsObject = {};
@@ -96,10 +97,18 @@ export async function getDistributionListWrapper(taskId: string, round: string):
         console.log("No submitter found");
         return null;
     }
+    console.log("submitter", submitter);
+    console.log("round", round);
+    console.log("taskId", taskId);
     const distributionList = await getDistributionList(submitter, round, taskId);
-    
+    // console.log("distributionList", distributionList);
     if (distributionList) {
         try {
+            // Check if distributionList is already an object
+            // if (typeof distributionList === 'object') {
+            //     return distributionList;
+            // }
+            // If it's a string, try to parse it
             const parsedList = JSON.parse(distributionList);
             return parsedList; 
         } catch (error) {

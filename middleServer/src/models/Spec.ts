@@ -5,16 +5,13 @@ class AssignedInfo {
   public stakingKey!: string;
 
   @prop({ required: true })
-  public pubkey!: string;
-
-  @prop({ required: true })
   public taskId!: string;
 
   @prop({ required: true })
   public roundNumber!: number;
 
   @prop({ required: false })
-  public ipfsCid?: string;
+  public prUrl?: string;
 
   @prop({ required: false })
   public auditResult?: boolean;
@@ -54,6 +51,12 @@ class Spec {
 
   @prop({ required: false })
   public swarmBountyId?: string;
+
+  @prop({ required: false })
+  public taskId!: string;
+
+  @prop({ required: false })
+  public roundNumber!: number;
 
   @prop({ type: () => [AssignedInfo], default: [] })
   public assignedTo!: AssignedInfo[];

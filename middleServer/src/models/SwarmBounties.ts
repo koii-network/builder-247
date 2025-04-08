@@ -1,6 +1,9 @@
 import { Schema } from 'mongoose';
 import { prometheusDB } from '../services/database/database';
-
+/*
+ * IMPORTANT: THIS MODEL HAS TO BE SYNCED WITH ANOTHER REPO - Prometheus Website Repository
+ * CONTACT: @Taehong or @Herman for more information
+ */
 export enum SwarmBountyStatus {
   COMPLETED = "completed",
   FAILED = "failed",

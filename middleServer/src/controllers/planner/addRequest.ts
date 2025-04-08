@@ -1,4 +1,4 @@
-import { DocumentationModel } from "../../models/Documentation";
+import { Spec, SpecModel } from "../../models/Spec";
 
 import { Request, Response } from "express";
 import { verifySignature } from "../../utils/sign";
@@ -56,7 +56,7 @@ async function updateAssignedInfoPrUrl(
   signature: string,
 ): Promise<boolean> {
   console.log("updateAssignedInfoWithIPFS", { stakingKey, roundNumber, prUrl, signature });
-  const result = await DocumentationModel.findOneAndUpdate(
+  const result = await SpecModel.findOneAndUpdate(
     {
       assignedTo: {
         $elemMatch: {
@@ -78,7 +78,7 @@ async function updateAssignedInfoPrUrl(
   return result !== null;
 }
 
-export const addPRToSummarizerTodo = async (req: Request, res: Response) => {
+export const addRequest = async (req: Request, res: Response) => {
   const requestBody = verifyRequestBody(req);
   if (!requestBody) {
     res.status(401).json({

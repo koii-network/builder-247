@@ -65,7 +65,7 @@ async function checkToDoAssignment(
   }
 }
 
-export const checkSummarizer = async (req: Request, res: Response) => {
+export const checkRequest = async (req: Request, res: Response) => {
   const requestBody = verifyRequestBody(req);
   if (!requestBody) {
     res.status(401).json({
