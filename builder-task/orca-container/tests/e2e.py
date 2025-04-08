@@ -186,12 +186,13 @@ def get_previous_round_prs(round_number: int) -> dict:
     return all_rounds_state[round_key].get("pr_urls", {})
 
 
-def reset_mongodb():
+def reset_mongodb(data_dir: Path = None):
     """Reset the MongoDB database by clearing collections and importing fresh test data"""
     print("\nResetting MongoDB database...")
 
-    # Get data directory path - explicitly use tests/data
-    data_dir = Path(__file__).parent / "data"
+    # Get data directory path - use provided path or default to tests/data
+    if data_dir is None:
+        data_dir = Path(__file__).parent / "data"
     print(f"Using data directory: {data_dir}")
 
     # Check if files exist
@@ -394,6 +395,7 @@ def determine_current_round() -> int:
 def run_test_sequence(
     reset: bool = False,
     task_id: str = "",
+    data_dir: Path = None,
 ):
     """Run the test sequence, automatically determining where to resume from"""
     if reset:
@@ -401,7 +403,7 @@ def run_test_sequence(
         reset_databases()
 
         # Reset MongoDB
-        reset_mongodb()
+        reset_mongodb(data_dir)
 
         # Remove state file if it exists
         state_file = Path(__file__).parent / "e2e_state.json"
@@ -516,6 +518,12 @@ Example usage:
 
   # Run with specific task ID
   python -m tests.e2e --task-id 123abc
+
+  # Run with custom data directory
+  python -m tests.e2e --data-dir /path/to/data
+
+  # Run with specific test data directory
+  python -m tests.e2e --test-data-dir /path/to/test/data
 """,
     )
     parser.add_argument(
@@ -528,6 +536,12 @@ Example usage:
         type=str,
         help="Task ID to use (defaults to TASK_ID environment variable)",
     )
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        help="Directory containing MongoDB data files (issues.json, todos.json, prompts.json)",
+    )
     args = parser.parse_args()
 
-    run_test_sequence(reset=args.reset, task_id=args.task_id)
+    data_dir = Path(args.data_dir) if args.data_dir else None
+    run_test_sequence(reset=args.reset, task_id=args.task_id, data_dir=data_dir)
