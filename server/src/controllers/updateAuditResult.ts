@@ -161,17 +161,17 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
 
   console.log(`[TEST MODE] Updated ${todosResult.modifiedCount} todos from IN_REVIEW to APPROVED for round ${round}`);
 
-  // 2. Find all IN_REVIEW issues (these are issues that have been audited by the leader)
-  const inReviewIssues = await IssueModel.find({
-    status: IssueStatus.IN_REVIEW,
+  // 2. Find all IN_PROGRESS issues (these are issues that have been audited by the leader)
+  const inProgressIssues = await IssueModel.find({
+    status: IssueStatus.IN_PROGRESS,
     assignedRoundNumber: round,
     prUrl: { $exists: true, $ne: null },
   });
 
-  console.log(`[TEST MODE] Found ${inReviewIssues.length} issues in IN_REVIEW status`);
+  console.log(`[TEST MODE] Found ${inProgressIssues.length} issues in IN_PROGRESS status`);
 
-  // 3. For each IN_REVIEW issue, check if all its todos are APPROVED and have PR URLs
-  for (const issue of inReviewIssues) {
+  // 3. For each IN_PROGRESS issue, check if all its todos are APPROVED and have PR URLs
+  for (const issue of inProgressIssues) {
     console.log(`[TEST MODE] Processing issue ${issue.issueUuid}`);
     const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
     console.log(`[TEST MODE] Found ${todos.length} todos for issue ${issue.issueUuid}`);
@@ -191,45 +191,24 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
     );
 
     if (allTodosApprovedWithPRs) {
-      // Update to APPROVED if all todos are approved and have PR URLs
-      await IssueModel.updateOne({ _id: issue._id }, { $set: { status: IssueStatus.APPROVED } });
-      console.log(`[TEST MODE] Updated issue ${issue.issueUuid} to APPROVED - all todos are approved with PR URLs`);
+      // Update to ASSIGN_PENDING if all todos are approved and have PR URLs
+      await IssueModel.updateOne({ _id: issue._id }, { $set: { status: IssueStatus.ASSIGN_PENDING } });
+      console.log(
+        `[TEST MODE] Updated issue ${issue.issueUuid} to ASSIGN_PENDING - all todos are approved with PR URLs`,
+      );
     } else {
       console.log(`[TEST MODE] Issue ${issue.issueUuid} remains IN_REVIEW - not all todos are approved with PR URLs`);
     }
   }
 
-  // 4. For issues already in APPROVED, verify they should stay there
-  const approvedIssues = await IssueModel.find({ status: IssueStatus.APPROVED });
-  console.log(`[TEST MODE] Verifying ${approvedIssues.length} issues in APPROVED status`);
+  // 4. For issues IN_REVIEW, update them to APPROVED
+  const inReviewIssues = await IssueModel.find({ status: IssueStatus.IN_REVIEW });
+  console.log(`[TEST MODE] Verifying ${inReviewIssues.length} issues in IN_REVIEW status`);
 
-  for (const issue of approvedIssues) {
-    console.log(`[TEST MODE] Verifying issue ${issue.issueUuid} in APPROVED status`);
-    const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
-    console.log(`[TEST MODE] Found ${todos.length} todos for issue ${issue.issueUuid}`);
-
-    const allTodosApprovedWithPRs =
-      todos.length > 0 && todos.every((todo) => todo.status === TodoStatus.APPROVED && todo.prUrl);
-
-    console.log(`[TEST MODE] All todos approved with PRs: ${allTodosApprovedWithPRs}`);
-    console.log(
-      `[TEST MODE] Todo statuses:`,
-      todos.map((t) => ({
-        id: t._id,
-        status: t.status,
-        hasPR: !!t.prUrl,
-        assignedRoundNumber: t.assignedRoundNumber,
-      })),
-    );
-
-    if (!allTodosApprovedWithPRs) {
-      // If not all todos are approved with PR URLs, move back to IN_REVIEW
-      await IssueModel.updateOne({ _id: issue._id }, { $set: { status: IssueStatus.IN_REVIEW } });
-      console.log(
-        `[TEST MODE] Moved issue ${issue.issueUuid} back to IN_REVIEW - not all todos are approved with PR URLs`,
-      );
-    }
-  }
+  await IssueModel.updateMany(
+    { _id: { $in: inReviewIssues.map((i) => i._id) } },
+    { $set: { status: IssueStatus.APPROVED } },
+  );
 }
 
 export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
