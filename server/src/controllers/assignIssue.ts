@@ -81,7 +81,7 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
       statuscode: 409,
       data: {
         success: false,
-        message: "Issue is already in process",
+        message: "Issue is already in progress",
       },
     };
   }

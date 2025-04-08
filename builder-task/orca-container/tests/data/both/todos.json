@@ -88,7 +88,7 @@
     "repoName": "builder-test",
     "status": "initialized",
     "issueUuid": "issue-2",
-    "dependencies": []
+    "dependencyTasks": []
   },
   {
     "title": "Create Prime Factorization Function",
@@ -104,7 +104,7 @@
     "repoName": "builder-test",
     "status": "initialized",
     "issueUuid": "issue-2",
-    "dependencies": ["Implement Prime Number Checker"]
+    "dependencyTasks": ["Implement Prime Number Checker"]
   },
   {
     "title": "Implement GCD Calculator Using Prime Factors",
@@ -120,7 +120,7 @@
     "repoName": "builder-test",
     "status": "initialized",
     "issueUuid": "issue-2",
-    "dependencies": ["Create Prime Factorization Function"]
+    "dependencyTasks": ["Create Prime Factorization Function"]
   },
   {
     "title": "Create LCM Calculator Using GCD",
@@ -136,7 +136,7 @@
     "repoName": "builder-test",
     "status": "initialized",
     "issueUuid": "issue-2",
-    "dependencies": ["Implement GCD Calculator Using Prime Factors"]
+    "dependencyTasks": ["Implement GCD Calculator Using Prime Factors"]
   },
   {
     "title": "Implement Fraction Simplifier",
@@ -152,6 +152,6 @@
     "repoName": "builder-test",
     "status": "initialized",
     "issueUuid": "issue-2",
-    "dependencies": ["Implement GCD Calculator Using Prime Factors"]
+    "dependencyTasks": ["Implement GCD Calculator Using Prime Factors"]
   }
 ]

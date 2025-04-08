@@ -218,61 +218,56 @@ def reset_mongodb(data_dir: Path = None):
     db = client["todos"]
 
     try:
-        # Verify connection and database exists
-        client.server_info()
-        print("Connected to MongoDB server")
+        # Clear collections
+        print("\nClearing collections...")
+        db.issues.delete_many({})
+        db.todos.delete_many({})
+        db.systemprompts.delete_many({})
+        db.audits.delete_many({})
 
-        # Clear existing collections
-        print("\nClearing existing collections...")
-        result = db.issues.delete_many({})
-        print(f"Cleared {result.deleted_count} issues")
-        result = db.todos.delete_many({})
-        print(f"Cleared {result.deleted_count} todos")
-        result = db.systemprompts.delete_many({})
-        print(f"Cleared {result.deleted_count} system prompts")
-        # Also clear audits collection
-        result = db.audits.delete_many({})
-        print(f"Cleared {result.deleted_count} audits")
-
-        # Read issues and todos first to build dependency mappings
+        # Read and import issues
+        print(f"\nReading issues from {issues_path}")
         with open(issues_path, "r") as f:
             issues_data = json.load(f)
+            # Convert to array if it's a single object
+            if not isinstance(issues_data, list):
+                issues_data = [issues_data]
+
+            # Add UUIDs to issues
+            for issue in issues_data:
+                issue["uuid"] = str(uuid.uuid4())
+
+            result = db.issues.insert_many(issues_data)
+            print(f"Inserted {len(result.inserted_ids)} issues")
+
+        # Read and import todos
+        print(f"\nReading todos from {todos_path}")
         with open(todos_path, "r") as f:
             todos_data = json.load(f)
+            # Convert to array if it's a single object
+            if not isinstance(todos_data, list):
+                todos_data = [todos_data]
 
-        # Create UUID mappings
-        title_to_uuid = {}
-        issue_uuids = {}
+            # First pass: Add UUIDs to todos and create title to UUID mapping
+            title_to_uuid = {}
+            for todo in todos_data:
+                todo_uuid = str(uuid.uuid4())
+                todo["uuid"] = todo_uuid
+                title_to_uuid[todo["title"]] = todo_uuid
 
-        # Process issues first
-        for issue in issues_data:
-            real_uuid = str(uuid.uuid4())
-            issue_uuids[issue["issueUuid"]] = real_uuid
-            issue["issueUuid"] = real_uuid
+            # Second pass: Map dependency titles to UUIDs
+            for todo in todos_data:
+                if "dependencyTasks" in todo:
+                    # Convert dependency titles to UUIDs
+                    todo["dependencyTasks"] = [
+                        title_to_uuid[title]
+                        for title in todo["dependencyTasks"]
+                        if title in title_to_uuid
+                    ]
 
-        # First pass: generate UUIDs for all todos
-        for todo in todos_data:
-            todo_uuid = str(uuid.uuid4())
-            todo["uuid"] = todo_uuid
-            title_to_uuid[todo["title"]] = todo_uuid
-            # Update issue UUID reference
-            todo["issueUuid"] = issue_uuids[todo["issueUuid"]]
-
-        # Second pass: update dependencies to use UUIDs
-        for todo in todos_data:
-            if "dependencies" in todo:
-                todo["dependencies"] = [
-                    title_to_uuid[dep_title] for dep_title in todo["dependencies"]
-                ]
-
-        # Now insert the processed data
-        print("\nInserting issues...")
-        result = db.issues.insert_many(issues_data)
-        print(f"Inserted {len(result.inserted_ids)} issues")
-
-        print("\nInserting todos...")
-        result = db.todos.insert_many(todos_data)
-        print(f"Inserted {len(result.inserted_ids)} todos")
+            print("\nInserting todos...")
+            result = db.todos.insert_many(todos_data)
+            print(f"Inserted {len(result.inserted_ids)} todos")
 
         # Read and import system prompts
         print(f"\nReading system prompts from {prompts_path}")
@@ -508,6 +503,7 @@ Steps that will be executed:
   4. Update audit results
   5. Leader task
   6. Leader audits
+  7. Update audit results again
 
 Example usage:
   # Run or resume the sequence

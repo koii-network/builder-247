@@ -272,6 +272,7 @@ def run_todo_task(
             staking_signature=staking_signature,
             public_signature=public_signature,
             base_branch=base_branch,
+            dependency_pr_urls=todo.get("dependency_pr_urls", []),
         )
 
         # Run workflow and get PR URL

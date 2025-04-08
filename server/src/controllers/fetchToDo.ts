@@ -8,28 +8,63 @@ import { IssueModel, IssueStatus } from "../models/Issue";
 import { verifySignature } from "../utils/sign";
 import { SystemPromptModel } from "../models/SystemPrompt";
 
+// Get PR URLs for dependencies
+async function getDependencies(dependencyUuids: string[]): Promise<string[]> {
+  if (!dependencyUuids || dependencyUuids.length === 0) {
+    console.log("No dependency UUIDs provided");
+    return [];
+  }
+
+  console.log("Looking for dependencies with UUIDs:", dependencyUuids);
+
+  const dependencyTodos = await TodoModel.find({
+    uuid: { $in: dependencyUuids },
+    status: TodoStatus.APPROVED,
+  })
+    .select("prUrl uuid status")
+    .lean();
+
+  console.log("Found dependency todos:", dependencyTodos);
+
+  const prUrls = dependencyTodos
+    .filter((todo) => todo.prUrl) // Only include dependencies that have PR URLs
+    .map((todo) => todo.prUrl!)
+    .filter((url) => url !== null && url !== undefined); // Ensure we only have valid URLs
+
+  console.log("Extracted PR URLs:", prUrls);
+
+  return prUrls;
+}
+
 // Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number, taskId: string) {
   try {
-    const result = await TodoModel.findOne({
+    const todo = await TodoModel.findOne({
       assignedStakingKey: stakingKey,
       assignedRoundNumber: roundNumber,
       taskId: taskId,
     })
-      .select("title acceptanceCriteria repoOwner repoName uuid issueUuid prUrl")
+      .select("title acceptanceCriteria repoOwner repoName uuid issueUuid prUrl dependencyTasks")
       .lean();
 
-    if (!result) return null;
+    if (!todo) return null;
+
+    console.log("Found todo with dependencies:", todo.dependencyTasks);
+
+    // Get PR URLs for dependencies
+    const dependencyPrUrls = await getDependencies(todo.dependencyTasks || []);
 
     return {
-      todo: result,
-      hasPR: Boolean(result.prUrl),
+      todo: todo,
+      hasPR: Boolean(todo.prUrl),
+      dependencyPrUrls,
     };
   } catch (error) {
     console.error("Error checking assigned info:", error);
     return null;
   }
 }
+
 export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
   console.log("verifyRequestBody", req.body);
   try {
@@ -44,6 +79,7 @@ export function verifyRequestBody(req: Request): { signature: string; stakingKey
     return null;
   }
 }
+
 async function verifySignatureData(
   signature: string,
   stakingKey: string,
@@ -145,6 +181,7 @@ export const fetchTodoLogic = async (
           acceptance_criteria: existingAssignment.todo.acceptanceCriteria,
           repo_owner: existingAssignment.todo.repoOwner,
           repo_name: existingAssignment.todo.repoName,
+          dependency_pr_urls: existingAssignment.dependencyPrUrls,
         },
       },
     };
@@ -255,6 +292,11 @@ export const fetchTodoLogic = async (
       };
     }
 
+    // Get PR URLs for dependencies
+    const dependencyPrUrls = await getDependencies(updatedTodo.dependencyTasks || []);
+
+    console.log("dependencyPrUrls", dependencyPrUrls);
+
     // Get task-specific system prompt
     const systemPrompt = await SystemPromptModel.findOne({ taskId: signatureData.taskId });
     if (!systemPrompt) {
@@ -279,6 +321,7 @@ export const fetchTodoLogic = async (
           acceptance_criteria: updatedTodo.acceptanceCriteria,
           repo_owner: updatedTodo.repoOwner,
           repo_name: updatedTodo.repoName,
+          dependency_pr_urls: dependencyPrUrls,
         },
       },
     };
