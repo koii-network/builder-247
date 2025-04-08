@@ -78,146 +78,73 @@ class TaskWorkflow(Workflow):
         # Initialize GitHub client
         gh = Github(self.context["github_token"])
 
-        # If we have dependencies, we need to fork from one of them
+        # Always fork from the aggregator repo first
+        repo_url = f"https://github.com/{self.context['repo_owner']}/{self.context['repo_name']}"
+
+        result = setup_repository(
+            repo_url,
+            github_token=self.context["github_token"],
+            github_username=self.context["github_username"],
+        )
+
+        if not result["success"]:
+            raise Exception(result.get("error", "Repository setup failed"))
+
+        # Update context with setup results
+        self.context["repo_path"] = result["data"]["clone_path"]
+        self.original_dir = result["data"]["original_dir"]
+
+        # Enter repo directory
+        os.chdir(self.context["repo_path"])
+
+        # If we have dependencies, merge them in
         if self.context["dependency_pr_urls"]:
             log_section("HANDLING DEPENDENCIES")
+            repo = Repo(self.context["repo_path"])
 
-            # Get the first dependency's PR to fork from
-            dependency_prs = []
             for pr_url in self.context["dependency_pr_urls"]:
                 try:
                     # Parse PR URL to get owner, repo, and number
                     parts = pr_url.split("/")
                     owner = parts[-4]
-                    repo = parts[-3]
+                    repo_name = parts[-3]
                     pr_number = int(parts[-1])
 
                     # Get the PR
-                    repo = gh.get_repo(f"{owner}/{repo}")
-                    pr = repo.get_pull(pr_number)
+                    source_repo = gh.get_repo(f"{owner}/{repo_name}")
+                    pr = source_repo.get_pull(pr_number)
 
-                    # Verify we can access the head repository and branch
-                    head_repo_name = f"{pr.head.repo.owner.login}/{pr.head.repo.name}"
-                    log_key_value("Checking head repository", head_repo_name)
-                    try:
-                        head_repo = gh.get_repo(head_repo_name)
-                        # Try to get the branch specifically
-                        try:
-                            branch = head_repo.get_branch(pr.head.ref)
-                            dependency_prs.append(pr)
-                        except Exception as branch_e:
-                            log_error(
-                                branch_e,
-                                f"Branch {pr.head.ref} not found in head repo, trying base repo",
-                            )
-                            raise
-                    except Exception as e:
-                        log_error(
-                            e,
-                            f"Cannot access head repository {head_repo_name} or its branch, trying base repository",
-                        )
-                        # If we can't access the head repo, try using the base repo
-                        base_repo_name = (
-                            f"{pr.base.repo.owner.login}/{pr.base.repo.name}"
-                        )
-                        log_key_value("Trying base repository", base_repo_name)
-                        base_repo = gh.get_repo(base_repo_name)
-                        # Try to get the branch from base repo
-                        try:
-                            branch = base_repo.get_branch(pr.head.ref)
-                            # Use the PR branch from the base repo instead
-                            pr.head.repo = base_repo
-                            dependency_prs.append(pr)
-                        except Exception as branch_e:
-                            log_error(
-                                branch_e,
-                                f"Branch {pr.head.ref} not found in base repo either",
-                            )
-                            raise
+                    # Log PR details
+                    log_key_value("Processing dependency PR", pr_url)
+                    log_key_value(
+                        "Head repo", f"{pr.head.repo.owner.login}/{pr.head.repo.name}"
+                    )
+                    log_key_value("Head ref", pr.head.ref)
+
+                    # Add remote for the PR's repository
+                    remote_name = f"dependency_{pr.head.sha[:7]}"
+                    remote_url = pr.head.repo.clone_url
+                    repo.create_remote(remote_name, remote_url)
+
+                    # Fetch the specific branch
+                    repo.git.fetch(
+                        remote_name,
+                        f"{pr.head.ref}:refs/remotes/{remote_name}/{pr.head.ref}",
+                    )
+
+                    # Merge the dependency branch
+                    repo.git.merge(
+                        f"{remote_name}/{pr.head.ref}",
+                        "--no-ff",
+                        "-m",
+                        f"Merge dependency from {pr_url}",
+                    )
+
+                    log_key_value("Merged dependency", pr_url)
 
                 except Exception as e:
-                    log_error(e, f"Failed to get PR from URL {pr_url}")
-
-            if not dependency_prs:
-                raise Exception("Could not find PRs for dependencies")
-
-            # Fork from the first dependency's head branch
-            base_pr = dependency_prs[0]
-            repo_url = (
-                base_pr.head.repo.clone_url.replace(".git", "")
-                if base_pr.head.repo.clone_url.endswith(".git")
-                else base_pr.head.repo.clone_url
-            )
-            branch = base_pr.head.ref
-
-            log_key_value("Forking from dependency", repo_url)
-            log_key_value("Using branch", branch)
-
-            # Set up repository from the dependency's fork and branch
-            result = setup_repository(
-                repo_url,
-                github_token=self.context["github_token"],
-                github_username=self.context["github_username"],
-                branch=branch,
-            )
-
-            if not result["success"]:
-                raise Exception(result.get("error", "Repository setup failed"))
-
-            # Update context with setup results
-            self.context["repo_path"] = result["data"]["clone_path"]
-            self.original_dir = result["data"]["original_dir"]
-
-            # Enter repo directory
-            os.chdir(self.context["repo_path"])
-
-            # If we have multiple dependencies, merge them
-            if len(dependency_prs) > 1:
-                repo = Repo(self.context["repo_path"])
-                for pr in dependency_prs[1:]:
-                    try:
-                        # Add remote for the dependency repo
-                        remote_name = f"dependency_{pr.head.sha[:7]}"
-                        remote_url = pr.head.repo.clone_url
-                        repo.create_remote(remote_name, remote_url)
-
-                        # Fetch the specific branch from the dependency
-                        repo.git.fetch(
-                            remote_name,
-                            f"{pr.head.ref}:refs/remotes/{remote_name}/{pr.head.ref}",
-                        )
-
-                        # Merge the dependency branch
-                        repo.git.merge(
-                            f"{remote_name}/{pr.head.ref}",
-                            "--no-ff",
-                            "-m",
-                            f"Merge dependency from {pr.html_url}",
-                        )
-
-                        log_key_value("Merged dependency", pr.html_url)
-                    except Exception as e:
-                        log_error(e, f"Failed to merge dependency PR {pr.html_url}")
-                        raise
-        else:
-            # No dependencies, fork from the aggregator repo
-            repo_url = f"https://github.com/{self.context['repo_owner']}/{self.context['repo_name']}"
-
-            result = setup_repository(
-                repo_url,
-                github_token=self.context["github_token"],
-                github_username=self.context["github_username"],
-            )
-
-            if not result["success"]:
-                raise Exception(result.get("error", "Repository setup failed"))
-
-            # Update context with setup results
-            self.context["repo_path"] = result["data"]["clone_path"]
-            self.original_dir = result["data"]["original_dir"]
-
-            # Enter repo directory
-            os.chdir(self.context["repo_path"])
+                    log_error(e, f"Failed to merge dependency PR {pr_url}")
+                    raise
 
         # Get current files for context
         self.context["current_files"] = get_current_files()
