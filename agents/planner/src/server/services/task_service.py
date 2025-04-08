@@ -25,7 +25,13 @@ def handle_task_creation(repo_url, issue_spec):
     if not result or not result.get("success"):
         log_error(Exception(result.get("error", "No result")), "Task creation failed")
         return jsonify({"success": False, "error": result.get("error", "No result")})
-    return jsonify({"success": True, "data": result.get("data", {})})
+    return jsonify({
+        "success": True,
+        "data": {
+            "issues": result.get("data", {}).get("issues", []),
+            "tasks": result.get("data", {}).get("tasks", [])
+        }
+    })
     
 
 

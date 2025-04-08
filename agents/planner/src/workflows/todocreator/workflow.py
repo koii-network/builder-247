@@ -135,7 +135,7 @@ class TodoCreatorWorkflow(Workflow):
             "message": "Issue generation workflow completed",
             "data": {
                 "issues": generate_issues_result["data"]["issues"],
-                "tasks": tasks
+                "tasks": [[task.to_dict() for task in task_list] for task_list in tasks]
             }
         }
     def generate_issues(self):

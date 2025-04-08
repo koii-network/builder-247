@@ -16,3 +16,4 @@ tenacity>=9.0.0
 sqlmodel>=0.0.22
 openai>=0.28.0
 colorama>=0.4.6
+pymongo>=4.0.0

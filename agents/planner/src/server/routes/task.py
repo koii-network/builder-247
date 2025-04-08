@@ -23,10 +23,4 @@ def start_task(round_number):
         issue_spec=data["issueSpec"],
     )
 
-    message = task_service.record_pr(
-        repo_url=data["repoUrl"],
-        issue_spec=data["issueSpec"],
-        
-    )
-
-    return jsonify({"message": message})
+    return result

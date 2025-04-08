@@ -1,7 +1,7 @@
 """Flask application initialization."""
 
 from flask import Flask, request
-from .routes import task, submission, audit, healthz, submit_pr
+from .routes import task, submission, audit, healthz
 from src.utils.logging import configure_logging, log_section, log_key_value, log_value
 from src.database import initialize_database
 from colorama import Fore, Style
@@ -50,7 +50,7 @@ def create_app():
     app.register_blueprint(task.bp)
     app.register_blueprint(submission.bp)
     app.register_blueprint(audit.bp)
-    app.register_blueprint(submit_pr.bp)
+    # app.register_blueprint(submit_pr.bp)
 
     # Configure logging within app context
     with app.app_context():
