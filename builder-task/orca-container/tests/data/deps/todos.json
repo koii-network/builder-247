@@ -1,0 +1,82 @@
+[
+  {
+    "title": "Implement Prime Number Checker",
+    "taskId": "1112",
+    "description": "Create a function that efficiently determines if a number is prime",
+    "acceptanceCriteria": [
+      "Function should return boolean indicating if number is prime",
+      "Implement efficient primality test",
+      "Handle edge cases (negative numbers, 0, 1)",
+      "Include unit tests for various cases"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized",
+    "issueUuid": "issue-2",
+    "dependencies": []
+  },
+  {
+    "title": "Create Prime Factorization Function",
+    "taskId": "1112",
+    "description": "Implement a function that finds all prime factors of a number using the prime checker",
+    "acceptanceCriteria": [
+      "Use the prime checker function from previous todo",
+      "Return list of prime factors in ascending order",
+      "Handle edge cases (negative numbers, 0, 1)",
+      "Include frequency of each prime factor"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized",
+    "issueUuid": "issue-2",
+    "dependencies": ["Implement Prime Number Checker"]
+  },
+  {
+    "title": "Implement GCD Calculator Using Prime Factors",
+    "taskId": "1112",
+    "description": "Create a function that finds the Greatest Common Divisor using prime factorization",
+    "acceptanceCriteria": [
+      "Use prime factorization function from previous todo",
+      "Calculate GCD using prime factors",
+      "Handle multiple input numbers",
+      "Optimize for efficiency"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized",
+    "issueUuid": "issue-2",
+    "dependencies": ["Create Prime Factorization Function"]
+  },
+  {
+    "title": "Create LCM Calculator Using GCD",
+    "taskId": "1112",
+    "description": "Implement a function to find Least Common Multiple using the GCD function",
+    "acceptanceCriteria": [
+      "Use GCD function from previous todo",
+      "Calculate LCM for two or more numbers",
+      "Handle edge cases (0, negative numbers)",
+      "Optimize for large numbers"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized",
+    "issueUuid": "issue-2",
+    "dependencies": ["Implement GCD Calculator Using Prime Factors"]
+  },
+  {
+    "title": "Implement Fraction Simplifier",
+    "taskId": "1112",
+    "description": "Create a function that simplifies fractions using GCD",
+    "acceptanceCriteria": [
+      "Use GCD function from previous todo",
+      "Return numerator and denominator in simplified form",
+      "Handle improper fractions",
+      "Support negative numbers"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized",
+    "issueUuid": "issue-2",
+    "dependencies": ["Implement GCD Calculator Using Prime Factors"]
+  }
+]
