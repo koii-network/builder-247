@@ -162,11 +162,7 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
   console.log(`[TEST MODE] Updated ${todosResult.modifiedCount} todos from IN_REVIEW to APPROVED for round ${round}`);
 
   // 2. Find all IN_PROGRESS issues (these are issues that have been audited by the leader)
-  const inProgressIssues = await IssueModel.find({
-    status: IssueStatus.IN_PROGRESS,
-    assignedRoundNumber: round,
-    prUrl: { $exists: true, $ne: null },
-  });
+  const inProgressIssues = await IssueModel.find({ status: IssueStatus.IN_PROGRESS });
 
   console.log(`[TEST MODE] Found ${inProgressIssues.length} issues in IN_PROGRESS status`);
 
@@ -176,8 +172,7 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
     const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
     console.log(`[TEST MODE] Found ${todos.length} todos for issue ${issue.issueUuid}`);
 
-    const allTodosApprovedWithPRs =
-      todos.length > 0 && todos.every((todo) => todo.status === TodoStatus.APPROVED && todo.prUrl);
+    const allTodosApprovedWithPRs = todos.every((todo) => todo.status === TodoStatus.APPROVED && todo.prUrl);
 
     console.log(`[TEST MODE] All todos approved with PRs: ${allTodosApprovedWithPRs}`);
     console.log(
@@ -202,13 +197,11 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
   }
 
   // 4. For issues IN_REVIEW, update them to APPROVED
-  const inReviewIssues = await IssueModel.find({ status: IssueStatus.IN_REVIEW });
-  console.log(`[TEST MODE] Verifying ${inReviewIssues.length} issues in IN_REVIEW status`);
-
-  await IssueModel.updateMany(
-    { _id: { $in: inReviewIssues.map((i) => i._id) } },
+  const inReviewIssues = await IssueModel.updateMany(
+    { status: IssueStatus.IN_REVIEW },
     { $set: { status: IssueStatus.APPROVED } },
   );
+  console.log(`[TEST MODE] Updated ${inReviewIssues.modifiedCount} issues from IN_REVIEW to APPROVED`);
 }
 
 export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
