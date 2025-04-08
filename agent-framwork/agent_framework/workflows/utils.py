@@ -97,6 +97,7 @@ def setup_repository(
     github_token: str = None,
     github_username: str = None,
     skip_fork: bool = False,
+    branch: str = None,
 ) -> dict:
     """Set up a repository by cloning and configuring it.
 
@@ -105,6 +106,7 @@ def setup_repository(
         github_token: Optional GitHub token for authentication
         github_username: Optional GitHub username for Git config
         skip_fork: Optional flag to skip forking and clone directly
+        branch: Optional branch to clone (defaults to repository's default branch)
 
     Returns:
         dict: Result with success status, repository details, and paths
@@ -160,7 +162,11 @@ def setup_repository(
         log_key_value("Cloning repository", clone_url)
         log_key_value("Clone path", repo_path)
 
-        repo = Repo.clone_from(auth_url, repo_path)
+        # Clone specific branch if provided, otherwise clone default branch
+        if branch:
+            repo = Repo.clone_from(auth_url, repo_path, branch=branch)
+        else:
+            repo = Repo.clone_from(auth_url, repo_path)
 
         # Configure Git user info if username provided
         if github_username:
@@ -231,6 +237,8 @@ def _fork_repository(
         dict: Result with success status and fork URL if successful
     """
     try:
+        if fork_name:
+            log_key_value("Custom fork name", fork_name)
         token = github_token or os.environ["GITHUB_TOKEN"]
         gh = Github(token)
         source_repo = gh.get_repo(repo_full_name)

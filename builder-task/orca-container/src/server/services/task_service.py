@@ -895,7 +895,11 @@ def create_aggregator_repo(task_id):
             return {
                 "success": True,
                 "message": "Successfully created aggregator repository",
-                "data": {"fork_url": fork.html_url, "branch_name": branch_name},
+                "data": {
+                    "fork_url": fork.html_url,
+                    "branch_name": branch_name,
+                    "issue_uuid": issue_uuid,
+                },
                 "status": 200,
             }
 

@@ -10,7 +10,7 @@ from agent_framework.utils.logging import log_key_value, log_section
 from src.workflows.task.workflow import TaskWorkflow
 from src.workflows.task.prompts import PROMPTS
 
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 
 class TaskExecution(WorkflowExecution):
@@ -26,7 +26,7 @@ class TaskExecution(WorkflowExecution):
                 "input": {
                     "type": str,
                     "help": "Path to CSV file containing todos and acceptance criteria",
-                    "default": "test_todos_small.csv",
+                    "default": "test_todos.csv",
                 },
             },
             prompts=PROMPTS,
@@ -37,6 +37,7 @@ class TaskExecution(WorkflowExecution):
         self.source_repo = None
         self.todos_file = None
         self.base_branch = None
+        self.todo_pr_urls: Dict[str, str] = {}  # Map of todo UUID to PR URL
 
     def _setup(
         self,
@@ -76,6 +77,8 @@ class TaskExecution(WorkflowExecution):
         if not self.todos_file.exists():
             raise Exception(f"Todos file not found at {self.todos_file}")
 
+        print("Loading todos from", self.todos_file)
+
         # Parse source repo URL
         self.source_owner, self.source_repo = self._parse_github_url(self.args.repo)
 
@@ -108,13 +111,36 @@ class TaskExecution(WorkflowExecution):
             )
         log_key_value("Base branch", self.base_branch)
 
+    def _get_dependency_pr_urls(
+        self, task_uuid: str, dependency_uuids: List[str]
+    ) -> List[str]:
+        """Get PR URLs for a task's dependencies.
+
+        Args:
+            task_uuid: UUID of the current task
+            dependency_uuids: List of dependency UUIDs
+
+        Returns:
+            List of PR URLs for the dependencies
+        """
+        pr_urls = []
+        for dep_uuid in dependency_uuids:
+            if dep_uuid not in self.todo_pr_urls:
+                raise Exception(
+                    f"Dependency {dep_uuid} for task {task_uuid} has not been completed yet"
+                )
+            pr_urls.append(self.todo_pr_urls[dep_uuid])
+        return pr_urls
+
     def _run(self, **kwargs):
         """Run the task workflow."""
         try:
+            # First pass: read all todos to understand dependencies
+            todos = []
             with self.todos_file.open("r") as f:
                 reader = csv.reader(f)
                 next(reader)  # Skip header
-                for i, row in enumerate(reader):
+                for row in reader:
                     if len(row) >= 2:
                         todo, acceptance_criteria_str = row[0], row[1]
                         # Parse acceptance criteria string into list
@@ -124,41 +150,79 @@ class TaskExecution(WorkflowExecution):
                             if criterion.strip()
                         ]
 
-                        log_section(f"PROCESSING TODO {i}")
+                        # Parse task UUID and dependencies if present
+                        task_uuid = None
+                        dependency_uuids = []
+                        if len(row) >= 3 and row[2]:
+                            task_uuid = row[2]
+                        if len(row) >= 4 and row[3]:
+                            # Split on comma and strip whitespace
+                            dependency_uuids = [
+                                uuid.strip()
+                                for uuid in row[3].split(",")
+                                if uuid.strip()
+                            ]
 
-                        # Add task ID, round number, and signatures to context
-                        self._add_signature_context(
-                            additional_payload={
+                        todos.append(
+                            {
                                 "todo": todo,
                                 "acceptance_criteria": acceptance_criteria,
-                                "action": "task",
+                                "task_uuid": task_uuid,
+                                "dependency_uuids": dependency_uuids,
                             }
                         )
 
-                        # Create workflow instance
-                        self.workflow = TaskWorkflow(
-                            client=self.client,
-                            prompts=self.prompts,
-                            repo_owner=self.leader_user.login,
-                            repo_name=self.source_repo,
-                            todo=todo.strip(),
-                            acceptance_criteria=acceptance_criteria,
-                            staking_key=self.context["staking_key"],
-                            pub_key=self.context["pub_key"],
-                            staking_signature=self.context["staking_signature"],
-                            public_signature=self.context["public_signature"],
-                            round_number=self.context["round_number"],
-                            task_id=self.context["task_id"],
-                            base_branch=self.base_branch,
-                            github_token="WORKER_GITHUB_TOKEN",  # Pass env var name instead of value
-                            github_username="WORKER_GITHUB_USERNAME",  # Pass env var name instead of value
-                        )
+            # Second pass: process todos in order
+            for i, todo_data in enumerate(todos):
+                log_section(f"PROCESSING TODO {i}")
 
-                        result = self.workflow.run()
-                        if result is None:
-                            raise Exception(f"Task workflow failed for todo {i}")
-                    else:
-                        log_key_value("Skipping invalid row", row)
+                # Get PR URLs for dependencies
+                dependency_pr_urls = []
+                if todo_data["dependency_uuids"]:
+                    try:
+                        dependency_pr_urls = self._get_dependency_pr_urls(
+                            todo_data["task_uuid"], todo_data["dependency_uuids"]
+                        )
+                    except Exception as e:
+                        log_key_value("Error", str(e))
+                        continue
+
+                # Add task ID, round number, and signatures to context
+                self._add_signature_context(
+                    additional_payload={
+                        "todo": todo_data["todo"],
+                        "acceptance_criteria": todo_data["acceptance_criteria"],
+                        "action": "task",
+                    }
+                )
+
+                # Create workflow instance
+                self.workflow = TaskWorkflow(
+                    client=self.client,
+                    prompts=self.prompts,
+                    repo_owner=self.leader_user.login,
+                    repo_name=self.source_repo,
+                    todo=todo_data["todo"].strip(),
+                    acceptance_criteria=todo_data["acceptance_criteria"],
+                    staking_key=self.context["staking_key"],
+                    pub_key=self.context["pub_key"],
+                    staking_signature=self.context["staking_signature"],
+                    public_signature=self.context["public_signature"],
+                    round_number=self.context["round_number"],
+                    task_id=self.context["task_id"],
+                    base_branch=self.base_branch,
+                    github_token="WORKER_GITHUB_TOKEN",  # Pass env var name instead of value
+                    github_username="WORKER_GITHUB_USERNAME",  # Pass env var name instead of value
+                    dependency_pr_urls=dependency_pr_urls,
+                )
+
+                result = self.workflow.run()
+                if result is None:
+                    raise Exception(f"Task workflow failed for todo {i}")
+
+                # Store the PR URL for this task
+                if todo_data["task_uuid"]:
+                    self.todo_pr_urls[todo_data["task_uuid"]] = result
 
             return True
 
