@@ -138,10 +138,10 @@ class AnthropicClient(Client):
             return self.client.messages.create(**params)
         except APIStatusError as e:
             # HTTP error with status code (4xx or 5xx)
-            raise ClientAPIError(str(e), status_code=e.status_code) from e
+            raise ClientAPIError(e) from e
         except APIError as e:
-            # Any other API error - use 500 when no status code is available
-            raise ClientAPIError(str(e), status_code=e.status_code or 500) from e
+            # Any other API error
+            raise ClientAPIError(e) from e
 
     def _format_tool_response(self, response: str) -> MessageContent:
         """Format a tool response into a message.
