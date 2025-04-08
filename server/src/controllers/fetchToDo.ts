@@ -201,7 +201,7 @@ export const fetchTodoLogic = async (
 
     if (!currentIssue) {
       return {
-        statuscode: 404,
+        statuscode: 409,
         data: {
           success: false,
           message: "No active issue found",

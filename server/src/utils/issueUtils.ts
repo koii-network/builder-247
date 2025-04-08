@@ -1,24 +1,25 @@
-import { IssueModel } from "../models/Issue";
-import { TodoModel } from "../models/Todo";
+import { TodoModel, TodoStatus } from "../models/Todo";
 
 export async function getPRDict(issueUuid: string) {
-  const issue = await IssueModel.findOne({ issueUuid }).select("prUrl assignedStakingKey assignedRoundNumber").lean();
+  const todos = await TodoModel.find({ issueUuid, status: TodoStatus.APPROVED })
+    .select("prUrl assignedStakingKey")
+    .lean();
 
-  if (!issue) {
-    return null;
-  }
+  console.log("todos", todos);
 
-  const todos = await TodoModel.find({ issueUuid }).select("prUrl assignedStakingKey assignedRoundNumber").lean();
-
-  // Create a dictionary with staking keys as keys and PR URLs as values
-  const prDict: Record<string, string> = {};
+  // Create a dictionary with staking keys as keys and arrays of PR URLs as values
+  const prDict: Record<string, string[]> = {};
 
   // Add todos that have PR URLs and staking keys
   for (const todo of todos) {
     if (todo.prUrl && todo.assignedStakingKey) {
-      prDict[todo.assignedStakingKey] = todo.prUrl;
+      if (!prDict[todo.assignedStakingKey]) {
+        prDict[todo.assignedStakingKey] = [];
+      }
+      prDict[todo.assignedStakingKey].push(todo.prUrl);
     }
   }
 
+  console.log("prDict", prDict);
   return prDict;
 }

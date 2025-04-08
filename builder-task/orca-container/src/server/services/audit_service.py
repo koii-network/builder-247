@@ -208,7 +208,7 @@ def validate_pr_list(
     repo_owner: str,
     repo_name: str,
     leader_username: str,
-    pr_list: Dict[str, str],
+    pr_list: Dict[str, list[str]],
     issue_uuid: str,
 ) -> Tuple[bool, str]:
     """Audit a leader's consolidated PR submission.
@@ -300,13 +300,17 @@ def validate_pr_list(
 
         # 7. Verify merge commits against PR list
         print("\nVerifying merge commits against PR list...", flush=True)
-        print(f"PR list contains {len(pr_list)} PRs", flush=True)
+        total_prs = sum(len(urls) for urls in pr_list.values())
+        print(
+            f"PR list contains {total_prs} PRs from {len(pr_list)} staking keys",
+            flush=True,
+        )
 
         # Track processed merge commits to ensure all are valid
         valid_commits = 0
 
-        # Track used staking keys to prevent duplicates
-        used_staking_keys = set()
+        # Track used PR URLs to prevent duplicates
+        used_pr_urls = set()
 
         # Verify each merge commit corresponds to a PR from the PR list
         for commit in merge_commits:
@@ -365,23 +369,23 @@ def validate_pr_list(
                         continue
 
                     # Verify the PR URL matches what's in our PR list
-                    expected_pr_url = pr_list[worker_staking_key]
-                    if expected_pr_url.strip() != merge_pr_url.strip():
+                    expected_pr_urls = pr_list[worker_staking_key]
+                    if merge_pr_url.strip() not in [
+                        url.strip() for url in expected_pr_urls
+                    ]:
                         print(
-                            f"Warning: PR URL mismatch for staking key {worker_staking_key}"
+                            f"Warning: PR URL not found in list for staking key {worker_staking_key}"
                         )
-                        print(f"  Expected: {expected_pr_url}")
+                        print(f"  Expected one of: {expected_pr_urls}")
                         print(f"  Found: {merge_pr_url}")
                         continue
 
-                    # Check for duplicate staking keys
-                    if worker_staking_key in used_staking_keys:
-                        print(
-                            f"Warning: Duplicate PR from staking key {worker_staking_key}"
-                        )
+                    # Check for duplicate PR URLs
+                    if merge_pr_url in used_pr_urls:
+                        print(f"Warning: Duplicate PR URL: {merge_pr_url}")
                         continue
 
-                    used_staking_keys.add(worker_staking_key)
+                    used_pr_urls.add(merge_pr_url)
                     valid_commits += 1
                     print(f"✓ Valid PR from staking key {worker_staking_key}")
 
@@ -396,22 +400,26 @@ def validate_pr_list(
         print(
             f"\nFound {valid_commits} valid merge commits out of {len(merge_commits)}"
         )
-        print(f"PR list contained {len(pr_list)} entries")
+        print(f"PR list contained {total_prs} PRs from {len(pr_list)} staking keys")
 
         # Check if we have enough valid commits
         if valid_commits == 0:
             return False, "No valid PRs found in merge commits"
 
         # Require all PRs from the PR list to be merged
-        if valid_commits < len(pr_list):
-            missing_count = len(pr_list) - valid_commits
-            missing_keys = set(pr_list.keys()) - used_staking_keys
-            missing_keys_display = ", ".join(list(missing_keys)[:5])
-            if len(missing_keys) > 5:
-                missing_keys_display += " and more"
+        if valid_commits < total_prs:
+            missing_count = total_prs - valid_commits
+            missing_prs = []
+            for staking_key, urls in pr_list.items():
+                for url in urls:
+                    if url not in used_pr_urls:
+                        missing_prs.append(f"{url} ({staking_key})")
+            missing_prs_display = ", ".join(missing_prs[:5])
+            if len(missing_prs) > 5:
+                missing_prs_display += " and more"
             return (
                 False,
-                f"{missing_count} PRs from the PR list were not found in merge commits: {missing_keys_display}",
+                f"{missing_count} PRs from the PR list were not found in merge commits: {missing_prs_display}",
             )
 
         # All checks passed
