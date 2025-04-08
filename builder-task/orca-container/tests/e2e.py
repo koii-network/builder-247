@@ -233,9 +233,13 @@ def reset_mongodb(data_dir: Path = None):
             if not isinstance(issues_data, list):
                 issues_data = [issues_data]
 
-            # Add UUIDs to issues
+            # Add UUIDs to issues and create mapping
+            issue_uuid_mapping = {}
             for issue in issues_data:
-                issue["uuid"] = str(uuid.uuid4())
+                real_uuid = str(uuid.uuid4())
+                issue_uuid_mapping[issue["issueUuid"]] = real_uuid
+                issue["issueUuid"] = real_uuid
+                issue["uuid"] = real_uuid
 
             result = db.issues.insert_many(issues_data)
             print(f"Inserted {len(result.inserted_ids)} issues")
@@ -254,6 +258,9 @@ def reset_mongodb(data_dir: Path = None):
                 todo_uuid = str(uuid.uuid4())
                 todo["uuid"] = todo_uuid
                 title_to_uuid[todo["title"]] = todo_uuid
+                # Map issue UUID to the real UUID
+                if "issueUuid" in todo:
+                    todo["issueUuid"] = issue_uuid_mapping[todo["issueUuid"]]
 
             # Second pass: Map dependency titles to UUIDs
             for todo in todos_data:
