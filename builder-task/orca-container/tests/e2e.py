@@ -394,6 +394,39 @@ def determine_current_round() -> int:
         return 1
 
 
+def check_and_populate_db(data_dir: Path = None):
+    """Check if MongoDB collections are empty and populate them if needed"""
+    print("\nChecking MongoDB collections...")
+
+    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/todos")
+    client = MongoClient(mongodb_uri)
+    db = client["todos"]
+
+    try:
+        # Check if required collections are empty (excluding audits)
+        issues_count = db.issues.count_documents({})
+        todos_count = db.todos.count_documents({})
+        prompts_count = db.systemprompts.count_documents({})
+
+        print("Current collection counts (required collections):")
+        print(f"Issues: {issues_count}")
+        print(f"Todos: {todos_count}")
+        print(f"System Prompts: {prompts_count}")
+
+        # Only check required collections (issues, todos, systemprompts)
+        if issues_count == 0 or todos_count == 0 or prompts_count == 0:
+            print(
+                "\nOne or more required collections are empty. Populating database..."
+            )
+            reset_mongodb(data_dir)
+            return True
+
+        print("\nAll required collections have data. Proceeding...")
+        return False
+    finally:
+        client.close()
+
+
 def run_test_sequence(
     reset: bool = False,
     task_id: str = "",
@@ -412,6 +445,9 @@ def run_test_sequence(
         if state_file.exists():
             print(f"Removing state file: {state_file}")
             os.remove(state_file)
+    else:
+        # Check if database needs to be populated
+        check_and_populate_db(data_dir)
 
     # Get task ID from environment if not provided
     if not task_id:
