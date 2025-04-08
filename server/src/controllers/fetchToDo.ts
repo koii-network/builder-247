@@ -26,6 +26,12 @@ async function getDependencies(dependencyUuids: string[]): Promise<string[]> {
 
   console.log("Found dependency todos:", dependencyTodos);
 
+  // If we didn't find all dependencies, some are not APPROVED
+  if (dependencyTodos.length !== dependencyUuids.length) {
+    console.log("Not all dependencies are APPROVED");
+    throw new Error("Not all dependencies are APPROVED");
+  }
+
   const prUrls = dependencyTodos
     .filter((todo) => todo.prUrl) // Only include dependencies that have PR URLs
     .map((todo) => todo.prUrl!)
