@@ -44,6 +44,18 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
 
   const { taskId, round } = requestBody;
 
+  if (BYPASS_TASK_STATE_CHECK) {
+    console.log(`[TEST MODE] Update audit result in test mode for round ${round}`);
+
+    // In test mode, directly update todos and issues without checking distribution list
+    await updateTestEnvironmentStatus(round);
+    res.status(200).json({
+      success: true,
+      message: "[TEST MODE] Task processed successfully.",
+    });
+    return;
+  }
+
   // Check for existing audit
   const existingAudit = await AuditModel.findOne({
     taskId: taskId,
@@ -81,24 +93,6 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
   );
 
   try {
-    // Check if this is a test environment
-    if (BYPASS_TASK_STATE_CHECK) {
-      console.log(`[TEST MODE] Update audit result in test mode for round ${round}`);
-
-      // In test mode, directly update todos and issues without checking distribution list
-      await updateTestEnvironmentStatus(round);
-
-      await AuditModel.findByIdAndUpdate(audit._id, {
-        status: AuditStatus.COMPLETED,
-      });
-
-      res.status(200).json({
-        success: true,
-        message: "[TEST MODE] Task processed successfully.",
-      });
-      return;
-    }
-
     // Normal production flow - use distribution list
     let positiveKeys: string[] = [];
     let negativeKeys: string[] = [];
