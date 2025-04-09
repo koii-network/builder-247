@@ -46,15 +46,15 @@ task_audit_program: "dist/main.js"
 ## Round Time ##
 # Duration of task, measured in slots (with each slot approximately equal to 408ms). Should be at least 800 slots.
 # See https://www.koii.network/docs/concepts/what-are-tasks/what-are-tasks/gradual-consensus for more information on how round time, audit window, and submission window work.
-round_time: 5000
+round_time: 1500
 
 ## Audit Window ##
 # The audit window should be at least 1/3 of the round time.
-audit_window: 2200
+audit_window: 600
 
 ## Submission Window ##
 # The submission window should be at least 1/3 of the round time.
-submission_window: 2200
+submission_window: 600
 
 ## Minimum Stake Amount ##
 # The minimum amount of KOII or KPL that a user must stake in order to participate in the task.
@@ -71,12 +71,12 @@ token_type: "4qayyw53kWz6GzypcejjT1cvwMXS1qYLSMQRE8se3gTv"
 ## Total Bounty Amount ##
 # The total bounty amount that will be available for distribution over all rounds.
 # Does nothing when updating a task.
-total_bounty_amount: 12000
+total_bounty_amount: 11
 
 ## Bounty Amount per Round ##
 # The maximum amount that can be distributed per round.
 # If the actual distribution per round exceeds this amount, the distribution list will fail.
-bounty_amount_per_round: 2000
+bounty_amount_per_round: 1
 
 ## Allowed Failed Distributions ##
 # Number of retries allowed for the distribution list if it is fails audit.
@@ -88,7 +88,7 @@ allowed_failed_distributions: 8
 # Expected Task Data Size in MBs for the account size.
 # Minimums: 2 for whitelisted tasks, 1 for production, 0.1 for testing.
 # See https://www.koii.network/docs/develop/command-line-tool/create-task-cli/create-task#space for calculation details.
-space: 5
+space: 0.1
 
 ## Requirement Tags (Optional) ##
 # To add more global variables and task variables, please refer to the type, value, description format shown below.
@@ -105,6 +105,13 @@ requirementsTags:
   - type: TASK_VARIABLE
     value: "ANTHROPIC_API_KEY"
     description: "Your Anthropic API key. You can get one here: https://console.anthropic.com/settings/keys"
+  - type: TASK_VARIABLE
+    value: "GITHUB_USERNAME"
+    description: "Your GitHub username. You can sign up for an account here: https://github.com/join"
+  - type: TASK_VARIABLE
+    value: "GITHUB_TOKEN"
+    description: "Your GitHub Personal Access Token. You can create one here: https://github.com/settings/tokens"
+
 ## Tags ##
 # See https://www.koii.network/docs/develop/command-line-tool/create-task-cli/create-task#tags for available tag options.
 tags: ["AI"]
@@ -117,7 +124,7 @@ environment: "TEST"
 #################################### FOR UPDATING TASKS ONLY ####################################
 
 ## Old Task ID ##
-task_id: "62n2aAVVV42rtt53wxieotTdnKpTRjiChsHYdSxHDhAZ"
+task_id: "48h3f4r3AR7MdgCMkET4v3yh7PpPHuqGDWzqgH52rny1"
 
 ## Migration Description ##
-migrationDescription: "Error logging and Bug Fixing and Slack Notification"
+migrationDescription: "Fix audit bug"

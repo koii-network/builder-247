@@ -9,7 +9,7 @@
     "jest-test": "jest --detectOpenHandles",
     "start": "node index.js",
     "prod-debug": "nodemon --ignore 'dist/*' tests/prod-debug.js",
-    "webpack": "webpack",
+    "webpack": "rm -rf dist && rm -rf node_modules && yarn && webpack",
     "webpack:test": "webpack --config tests/test.webpack.config.js",
     "webpack:prod": "webpack --mode production",
     "webpack:dev": "webpack",
@@ -31,6 +31,9 @@
     "nodemon": "^3.1.0",
     "seedrandom": "^3.0.5",
     "tail": "^2.2.6"
+  },
+  "peerDependencies": {
+    "@_koii/namespace-wrapper": "^1.0.23"
   },
   "devDependencies": {
     "@_koii/namespace-wrapper": "^1.0.23",
