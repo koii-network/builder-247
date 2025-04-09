@@ -37,12 +37,7 @@ def audit_repo(pr_url):
         # Run workflow and get result
         result = repo_summerizer_audit_workflow.run()
         recommendation = result["data"]["recommendation"]
-        if recommendation == "APPROVE":
-            print("PR approved")
-            return True
-        else:
-            print("PR rejected")
-            return False
+        return recommendation
     except Exception as e:
         logger.error(f"PR review failed: {str(e)}")
         raise Exception("PR review failed")

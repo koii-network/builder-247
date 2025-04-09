@@ -18,7 +18,7 @@ def audit_submission(round_number: int):
     if not submission:
         return jsonify({"error": "Missing submission"}), 400
 
-    submission_round_number = submission.get("roundNumber")
+    # submission_round_number = submission.get("roundNumber")
     task_id = submission.get("taskId")
     pr_url = submission.get("prUrl")
     github_username = submission.get("githubUsername")
@@ -56,7 +56,7 @@ def audit_submission(round_number: int):
 
     try:
         is_approved = audit_repo(pr_url)
-        return jsonify(is_approved)
+        return jsonify(is_approved), 200
     except Exception as e:
         logger.error(f"Error auditing PR: {str(e)}")
-        return jsonify(True)
+        return jsonify(True), 200

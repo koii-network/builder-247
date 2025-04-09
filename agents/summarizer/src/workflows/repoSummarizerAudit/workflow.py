@@ -132,7 +132,13 @@ class repoSummarizerAuditWorkflow(Workflow):
                     Exception(check_readme_file_result.get("error", "No result")),
                     "Readme file check failed",
                 )
-                return None
+                return {
+                    "success": False,
+                    "message": "Readme file check failed",
+                    "data": {
+                        "recommendation": False,
+                    },
+                }
             log_section("Readme file check completed")
             print(check_readme_file_result)
             recommendation = check_readme_file_result["data"]["recommendation"]
@@ -140,12 +146,20 @@ class repoSummarizerAuditWorkflow(Workflow):
                 "Readme file check completed", f"Recommendation: {recommendation}"
             )
             # Star the repository
-            return check_readme_file_result
+            return {
+                "success": True,
+                "message": "Readme file check completed",
+                "data": {
+                    "recommendation": recommendation == "APPROVE",
+                },
+            }
         except Exception as e:
             log_error(e, "Readme file check workflow failed")
             print(e)
             return {
                 "success": False,
                 "message": f"Readme file check workflow failed: {str(e)}",
-                "data": None,
+                "data": {
+                    "recommendation": False,
+                },
             }

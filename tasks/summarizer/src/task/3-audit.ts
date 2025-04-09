@@ -77,7 +77,9 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     }
   } catch (error) {
     console.error("[AUDIT] Error auditing submission:", error);
-    return true;
+
+    // When Error---NO RETURN;
+    // return true;
   }
 }
 
