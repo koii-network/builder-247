@@ -3,16 +3,15 @@
 from src.workflows.base import Workflow, WorkflowPhase
 
 
-class AuditPhase(WorkflowPhase):
-    def __init__(self, workflow: Workflow):
+class TaskValidationPhase(WorkflowPhase):
+    def __init__(self, workflow: Workflow, conversation_id: str = None):
         super().__init__(
             workflow=workflow,
-            prompt_name="review_pr",
+            prompt_name="validate_subtasks",
             available_tools=[
                 "read_file",
-                "list_files",
-                "run_tests",
-                "review_pull_request",
+                "validate_tasks",
             ],
-            name="PR Review",
+            conversation_id=conversation_id,
+            name="Task Validation",
         )
