@@ -187,14 +187,19 @@ class RepoSummarizerWorkflow(Workflow):
                     }
                 log_key_value("README review result", review_result.get("data"))
                 if review_result.get("success") and review_result.get("data").get("recommendation") == "APPROVE":
-                    break
+                    result = self.create_pull_request()
+                    return result
                 else:
                     self.context["previous_review_comments_section"] = PROMPTS["previous_review_comments"] + review_result.get("data").get("comment")
 
-        # Create pull request
-        print("CONTEXT", self.context)
-        result = self.create_pull_request()
-        return result
+
+       
+        
+        return {
+            "success": False,
+            "message": "README Review Exceed Max Attempts",
+            "data": None,
+        }
 
     def classify_repository(self):
         try:
