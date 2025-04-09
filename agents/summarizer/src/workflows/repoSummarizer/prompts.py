@@ -546,7 +546,8 @@ PROMPTS = {
         "   - Link to original data sources, research papers, or related projects (if applicable)"
     ),
     "other": (
-        "Generate a complete and professional Prometheus_readme.md file for this repository.\n\n"
+        "Generate or update a complete and professional Prometheus_readme.md file for this repository.\n\n"
+        "{previous_review_comments_section}\n\n"
         "Analyze the contents of the repository to infer its intent, and format the README using Markdown with "
         "clear section headers.\n\n"
         "Include the following general sections, customizing them as needed based on the repository type:\n"
@@ -572,7 +573,22 @@ PROMPTS = {
         "- Use best judgment to tailor the content to the actual functionality and audience of the project\n"
         "- Avoid placeholder text and strive to extract real, useful information from the codebase"
     ),
+    "review_readme_file": (
+        "Review the Prometheus_readme.md file in the repository and evaluate its quality and relevance to the repository.\n\n"
+        "Please analyze:\n"
+        "1. Is the Prometheus_readme.md file related to this specific repository? (Does it describe the actual code and purpose of this repo?)\n"
+        "2. Does it correctly explain the repository's purpose, features, and functionality?\n"
+        "3. Is it comprehensive enough to help users understand and use the repository?\n"
+        "4. Does it follow best practices for README documentation?\n\n"
+                "Use the validate_implementation tool to submit your findings.\n"
+        "STOP after submitting the review report."
+    ),
+    "previous_review_comments": (
+        "Here are the comments from the previous review:\n"
+    ),
 }
+
+
 
 REPO_TYPES = [
     "library",

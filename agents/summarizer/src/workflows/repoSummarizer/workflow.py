@@ -13,6 +13,7 @@ from src.workflows.utils import (
     setup_git_user_config,
     cleanup_repo_directory,
 )
+from src.workflows.repoSummarizer.prompts import PROMPTS
 
 
 class Task:
@@ -164,14 +165,31 @@ class RepoSummarizerWorkflow(Workflow):
             }
 
         # Generate README file
-        readme_result = self.generate_readme_file(prompt_name)
-        if not readme_result or not readme_result.get("success"):
-            log_error(Exception("README generation failed"), "README generation failed")
-            return {
-                "success": False,
-                "message": "README generation failed",
-                "data": None,
-            }
+        for i in range(3):
+            if i > 0:
+                prompt_name = "other"
+            readme_result = self.generate_readme_file(prompt_name)
+            if not readme_result or not readme_result.get("success"):
+                log_error(Exception("README generation failed"), "README generation failed")
+                return {
+                    "success": False,
+                    "message": "README generation failed",
+                    "data": None,
+                }
+            if readme_result.get("success"):
+                review_result = self.review_readme_file(readme_result)
+                if not review_result or not review_result.get("success"):
+                    log_error(Exception("README review failed"), "README review failed")
+                    return {
+                        "success": False,
+                        "message": "README review failed",
+                        "data": None,
+                    }
+                log_key_value("README review result", review_result.get("data"))
+                if review_result.get("success") and review_result.get("data").get("recommendation") == "APPROVE":
+                    break
+                else:
+                    self.context["previous_review_comments_section"] = PROMPTS["previous_review_comments"] + review_result.get("data").get("comment")
 
         # Create pull request
         print("CONTEXT", self.context)
@@ -188,6 +206,19 @@ class RepoSummarizerWorkflow(Workflow):
             return {
                 "success": False,
                 "message": f"Repository classification workflow failed: {str(e)}",
+                "data": None,
+            }
+    def review_readme_file(self, readme_result):
+        """Execute the issue generation workflow."""
+        try:
+            log_section("REVIEWING README FILE")
+            review_readme_file_phase = phases.ReadmeReviewPhase(workflow=self)
+            return review_readme_file_phase.execute()
+        except Exception as e:
+            log_error(e, "Readme file review workflow failed")
+            return {
+                "success": False,
+                "message": f"Readme file review workflow failed: {str(e)}",
                 "data": None,
             }
 

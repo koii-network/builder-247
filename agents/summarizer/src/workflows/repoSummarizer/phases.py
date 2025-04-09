@@ -57,6 +57,17 @@ class ReadmeGenerationPhase(WorkflowPhase):
         )
 
 
+class ReadmeReviewPhase(WorkflowPhase):
+    def __init__(self, workflow: Workflow, conversation_id: str = None):
+        super().__init__(
+            workflow=workflow,
+            prompt_name="review_readme_file",
+            available_tools=["read_file", "list_files", "review_readme_file"],
+            conversation_id=conversation_id,
+            name="Readme Review",
+        )
+
+
 class CreatePullRequestPhase(WorkflowPhase):
     def __init__(self, workflow: Workflow, conversation_id: str = None):
         super().__init__(
