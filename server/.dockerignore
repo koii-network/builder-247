@@ -1,7 +1,5 @@
 # Tests
-tests/
-**/*.test.ts
-**/*.spec.ts
+src/tests/
 
 # Development files
 .git
