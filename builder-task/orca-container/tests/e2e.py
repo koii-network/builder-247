@@ -186,13 +186,13 @@ def get_previous_round_prs(round_number: int) -> dict:
     return all_rounds_state[round_key].get("pr_urls", {})
 
 
-def reset_mongodb(data_dir: Path = None):
+def reset_mongodb(data_dir: Path = None, task_id: str = None):
     """Reset the MongoDB database by clearing collections and importing fresh test data"""
     print("\nResetting MongoDB database...")
 
     # Get data directory path - use provided path or default to tests/data
     if data_dir is None:
-        data_dir = Path(__file__).parent / "data"
+        data_dir = os.getenv("DATA_DIR")
     print(f"Using data directory: {data_dir}")
 
     # Check if files exist
@@ -233,6 +233,12 @@ def reset_mongodb(data_dir: Path = None):
             if not isinstance(issues_data, list):
                 issues_data = [issues_data]
 
+            # Replace task ID if provided
+            if task_id:
+                for issue in issues_data:
+                    issue["taskId"] = task_id
+                print(f"Set task ID to {task_id} for all issues")
+
             # Add UUIDs to issues and create mapping
             issue_uuid_mapping = {}
             for issue in issues_data:
@@ -252,60 +258,38 @@ def reset_mongodb(data_dir: Path = None):
             if not isinstance(todos_data, list):
                 todos_data = [todos_data]
 
-            # First pass: Add UUIDs to todos and create title to UUID mapping
-            title_to_uuid = {}
+            # Replace task ID if provided
+            if task_id:
+                for todo in todos_data:
+                    todo["taskId"] = task_id
+                print(f"Set task ID to {task_id} for all todos")
+
+            # Update issue UUIDs in todos
             for todo in todos_data:
-                todo_uuid = str(uuid.uuid4())
-                todo["uuid"] = todo_uuid
-                title_to_uuid[todo["title"]] = todo_uuid
-                # Map issue UUID to the real UUID
-                if "issueUuid" in todo:
+                if todo["issueUuid"] in issue_uuid_mapping:
                     todo["issueUuid"] = issue_uuid_mapping[todo["issueUuid"]]
 
-            # Second pass: Map dependency titles to UUIDs
-            for todo in todos_data:
-                if "dependencyTasks" in todo:
-                    # Convert dependency titles to UUIDs
-                    todo["dependencyTasks"] = [
-                        title_to_uuid[title]
-                        for title in todo["dependencyTasks"]
-                        if title in title_to_uuid
-                    ]
-
-            print("\nInserting todos...")
             result = db.todos.insert_many(todos_data)
             print(f"Inserted {len(result.inserted_ids)} todos")
 
-        # Read and import system prompts
-        print(f"\nReading system prompts from {prompts_path}")
+        # Read and import prompts
+        print(f"\nReading prompts from {prompts_path}")
         with open(prompts_path, "r") as f:
             prompts_data = json.load(f)
             # Convert to array if it's a single object
             if not isinstance(prompts_data, list):
                 prompts_data = [prompts_data]
 
-            # Map each prompt to the correct document format for systemprompts collection
-            for prompt in prompts_data:
-                db.systemprompts.insert_one(
-                    {"taskId": prompt["taskId"], "prompt": prompt["prompt"]}
-                )
-            print(f"Imported {len(prompts_data)} system prompts")
+            # Replace task ID if provided
+            if task_id:
+                for prompt in prompts_data:
+                    prompt["taskId"] = task_id
+                print(f"Set task ID to {task_id} for all prompts")
 
-        # Verify final counts
-        print("\nVerifying final counts...")
-        issues_count = db.issues.count_documents({})
-        todos_count = db.todos.count_documents({})
-        prompts_count = db.systemprompts.count_documents({})
-        audits_count = db.audits.count_documents({})
-        print(f"Final issues count: {issues_count}")
-        print(f"Final todos count: {todos_count}")
-        print(f"Final prompts count: {prompts_count}")
-        print(f"Final audits count: {audits_count}")
+            result = db.systemprompts.insert_many(prompts_data)
+            print(f"Inserted {len(result.inserted_ids)} prompts")
 
-        print("\nMongoDB database reset completed successfully")
-    except Exception as e:
-        print(f"Error resetting MongoDB database: {e}")
-        raise
+        print("\nMongoDB database reset complete!")
     finally:
         client.close()
 
@@ -394,7 +378,7 @@ def determine_current_round() -> int:
         return 1
 
 
-def check_and_populate_db(data_dir: Path = None):
+def check_and_populate_db(data_dir: Path = None, task_id: str = None):
     """Check if MongoDB collections are empty and populate them if needed"""
     print("\nChecking MongoDB collections...")
 
@@ -418,7 +402,7 @@ def check_and_populate_db(data_dir: Path = None):
             print(
                 "\nOne or more required collections are empty. Populating database..."
             )
-            reset_mongodb(data_dir)
+            reset_mongodb(data_dir, task_id)
             return True
 
         print("\nAll required collections have data. Proceeding...")
@@ -438,7 +422,7 @@ def run_test_sequence(
         reset_databases()
 
         # Reset MongoDB
-        reset_mongodb(data_dir)
+        reset_mongodb(data_dir, task_id)
 
         # Remove state file if it exists
         state_file = Path(__file__).parent / "e2e_state.json"
@@ -447,7 +431,7 @@ def run_test_sequence(
             os.remove(state_file)
     else:
         # Check if database needs to be populated
-        check_and_populate_db(data_dir)
+        check_and_populate_db(data_dir, task_id)
 
     # Get task ID from environment if not provided
     if not task_id:
@@ -582,5 +566,5 @@ Example usage:
     )
     args = parser.parse_args()
 
-    data_dir = Path(args.data_dir) if args.data_dir else None
+    data_dir = Path(args.data_dir) if args.data_dir else Path(os.getenv("DATA_DIR"))
     run_test_sequence(reset=args.reset, task_id=args.task_id, data_dir=data_dir)
