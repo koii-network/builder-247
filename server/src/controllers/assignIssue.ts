@@ -33,6 +33,9 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
   console.log("Looking for issues with taskId:", taskId);
   console.log("Five minutes ago timestamp:", fiveMinutesAgo);
 
+  const issues = await IssueModel.find({});
+  console.log("Issues:", issues);
+
   const [result] = await IssueModel.aggregate([
     {
       $facet: {
