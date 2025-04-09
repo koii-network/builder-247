@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { DocumentationModel } from "../../models/Documentation";
+import { Spec, SpecModel } from "../../models/Spec";
 import { verifySignature } from "../../utils/sign";
 import { documentSummarizerTaskID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
@@ -34,7 +34,7 @@ async function checkToDoAssignment(
   roundNumber: string,
   githubUsername: string,
   prUrl: string,
-): Promise<boolean> {
+): Promise<Spec | null> {
   try {
     const data = {
       stakingKey,
@@ -45,7 +45,7 @@ async function checkToDoAssignment(
     };
     console.log("Data:", data);
 
-    const result = await DocumentationModel.findOne(
+    const result = await SpecModel.findOne(
       {
         "assignedTo": {
           $elemMatch: {
@@ -58,10 +58,10 @@ async function checkToDoAssignment(
     )
 
     console.log("Todo assignment check result:", result);
-    return result !== null;
+    return result;
   } catch (error) {
     console.error("Error checking todo assignment:", error);
-    return false;
+    return null;
   }
 }
 
@@ -74,14 +74,14 @@ export const checkRequest = async (req: Request, res: Response) => {
     });
     return;
   }
-  const isValid = await checkToDoAssignment(
+  const spec = await checkToDoAssignment(
     requestBody.stakingKey,
     requestBody.roundNumber,
     requestBody.githubUsername,
     requestBody.prUrl,
   );
 
-  if (!isValid) {
+  if (!spec) {
     res.status(404).json({
       success: false,
       message: "No matching todo assignment found",
@@ -92,6 +92,9 @@ export const checkRequest = async (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     message: "Todo assignment verified successfully",
+    data:{
+      ...spec
+    }
   });
 };
 
