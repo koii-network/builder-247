@@ -15,5 +15,11 @@ COPY . .
 
 RUN npm run build
 
+# Copy webasm_bincode_deserializer to dist
+RUN cp -r src/webasm_bincode_deserializer dist/
+
+# Clean up src directory
+RUN rm -rf src
+
 # Run the web service on container startup.
 CMD [ "node", "dist/index.js" ]
