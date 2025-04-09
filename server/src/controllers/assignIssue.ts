@@ -30,11 +30,6 @@ export const assignIssue = async (req: Request, res: Response) => {
 
 export const assignIssueLogic = async (taskId: string, githubUsername: string) => {
   const fiveMinutesAgo = new Date(Date.now() - 300000);
-  console.log("Looking for issues with taskId:", taskId);
-  console.log("Five minutes ago timestamp:", fiveMinutesAgo);
-
-  const issues = await IssueModel.find({});
-  console.log("Issues:", issues);
 
   const [result] = await IssueModel.aggregate([
     {
@@ -83,11 +78,6 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
       },
     },
   ]);
-
-  console.log("Aggregation result:", JSON.stringify(result, null, 2));
-  console.log("Active check count:", result?.activeCheckCount);
-  console.log("Next issue count:", result?.nextIssueCount);
-  console.log("Next issue:", result?.nextIssue);
 
   if (result.hasActive) {
     return {
