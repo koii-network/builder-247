@@ -1,99 +1,138 @@
-# Earn Crypto with AI Agents: Prometheus 24/7 Builder Task (Beta v0)
+# Prometheus: AI-Powered Autonomous Task Execution Framework
 
-## Overview
+![Prometheus Framework](prometheus.png)
 
-The **Prometheus 24/7 Builder Task** spins up an **AI agent** capable of continuously writing code, **earning you KOII**. Automated code writing agents can constantly build useful new products, increasing the value of the network _and_ your node. Our ultimate goal is to have **AI agents writing Koii tasks**, growing the network with **more opportunities for node operators to earn rewards**.
+## 🚀 Project Overview
 
-## Releases
+Prometheus is an advanced, extensible framework designed to enable autonomous AI agents capable of continuous task execution, code generation, and collaborative problem-solving. Built for developers and organizations seeking to leverage AI for intelligent, self-directing workflows.
 
-### Beta v0
+### Key Concepts
+- **Autonomous Execution**: AI-driven agents that can understand, plan, and complete complex tasks
+- **Modular Architecture**: Highly extensible design allowing custom workflow implementations
+- **Multi-Agent Coordination**: Support for collaborative task resolution
+- **Intelligent Conflict Resolution**: Built-in mechanisms for handling merge conflicts and workflow challenges
 
-- This is the **first beta release** of the task.
-- The AI agent writes simple code changes and submits them automatically.
-- Code is sent to the **[Prometheus Beta repository](https://github.com/koii-network/prometheus-beta)**.
-- Future versions will introduce **enhanced AI logic, more complex coding tasks, and more!**
+## 🛠 Getting Started
 
-## Task Setup
+### Prerequisites
+- Python 3.7+
+- pip
+- GitHub Account
+- AI Service API Keys (Anthropic Claude, OpenAI, etc.)
 
-**[How to set up a Claude API key and a GitHub API key for the 247 Builder Task.](https://www.koii.network/blog/Earn-Crypto-With-AI-Agent)**
+### Installation
 
-## How It Works
-
-1. The Koii Node **launches an AI agent** inside a lightweight runtime.
-2. The agent reads an active **to-do list** from the repository.
-3. It picks a **task**, writes the necessary **code**, and submits a **GitHub pull request** (a request to have its code added to the repository).
-4. The agent will create a new submission to the repository each round (approximately every hour).
-5. Koii Nodes **earn rewards** for running the AI agent and contributing code.
-
-# Merge Conflict Resolution Scripts
-
-This repository contains scripts for automatically merging pull requests and resolving merge conflicts using AI. The scripts use Claude to intelligently resolve merge conflicts.
-
-## Prerequisites
-
-Before using these scripts, make sure you have the following:
-
-1. Python 3.7 or higher
-2. Required Python packages (install with `pip install -r requirements.txt`):
-   - PyGithub
-   - python-dotenv
-   - anthropic
-3. Environment variables:
-   - `GITHUB_TOKEN`: A GitHub personal access token with repo permissions
-   - `GITHUB_USERNAME`: Your GitHub username
-   - `ANTHROPIC_API_KEY`: Your Anthropic API key for Claude
-4. GitHub CLI (`gh`) installed and authenticated
-
-## Scripts
-
-### Merge Conflicts Script
-
-The `merge_conflicts.py` script is a simplified tool that merges a source branch into a target branch, resolving any conflicts that arise using Claude AI.
-
+1. Clone the repository:
 ```bash
-python merge_conflicts.py \
-    --repo-url https://github.com/owner/repo \
-    --source-branch feature-branch \
-    --target-branch main
+git clone https://github.com/koii-network/prometheus-beta.git
+cd prometheus-beta
 ```
 
-Options:
-
-- `--repo-url`: URL of the GitHub repository (required)
-- `--source-branch`: Name of the source branch with changes to merge (required)
-- `--target-branch`: Name of the target branch to merge into (default: main)
-- `--api-key`: Anthropic API key (can also be set via ANTHROPIC_API_KEY environment variable)
-- `--dry-run`: Perform a dry run without actually resolving conflicts
-- `--clone-dir`: Directory to clone the repository into (default: ./repo_clone)
-
-## How It Works
-
-1. The script clones the repository to a local directory
-2. It fetches the source and target branches
-3. It attempts to merge the source branch into the target branch
-4. If conflicts are detected:
-   - It uses Claude to analyze and resolve each conflict
-   - It creates a new branch with the resolved conflicts
-   - It pushes the branch to GitHub
-   - It creates a pull request for the resolved conflicts
-5. If no conflicts are detected, it simply reports that the merge was successful
-
-## Example Usage
-
-### Merge a feature branch into main
-
+2. Install dependencies:
 ```bash
-python merge_conflicts.py --repo-url https://github.com/owner/repo --source-branch feature-branch
+pip install -r requirements.txt
 ```
 
-### Perform a dry run to check for conflicts
-
+3. Configure environment variables:
 ```bash
-python merge_conflicts.py --repo-url https://github.com/owner/repo --source-branch feature-branch --dry-run
+cp .env.example .env
+# Edit .env with your API keys and configuration
 ```
 
-### Specify a custom clone directory
+### Minimal Example
 
-```bash
-python merge_conflicts.py --repo-url https://github.com/owner/repo --source-branch feature-branch --clone-dir ./my_repo
+```python
+from prometheus.workflows import BaseWorkflow
+
+class MyTask(BaseWorkflow):
+    def execute(self):
+        # Define your task logic here
+        self.create_todo("Implement feature X")
+        self.submit_code_changes()
 ```
+
+## 🧩 Core Concepts
+
+### Workflow Components
+- **Workflows**: Predefined task execution strategies
+- **Agents**: Intelligent executors of tasks
+- **Tools**: Reusable operation implementations
+- **Services**: Background and coordinating services
+
+### Architecture Diagram
+```
+[Input/Todo] → [Agent Selection] → [Workflow Execution]
+      ↑                               ↓
+[Conflict Resolution] ← [Code Generation] ← [Task Planning]
+```
+
+## 🔌 Extension Points
+
+Prometheus is designed to be highly extensible:
+
+1. **Custom Workflows**: Implement `BaseWorkflow` to create unique task strategies
+2. **Middleware**: Add pre/post-processing logic to existing workflows
+3. **AI Clients**: Integrate new language models and AI services
+4. **Tools**: Develop custom operation implementations
+
+Example of extending a workflow:
+```python
+class EnhancedCodeGenWorkflow(BaseWorkflow):
+    def pre_execute(self):
+        # Add custom pre-processing logic
+    
+    def post_execute(self):
+        # Add custom validation or submission logic
+```
+
+## 📁 Project Structure
+
+```
+prometheus/
+├── agents/          # AI agent implementations
+├── tasks/           # Task definition and execution
+├── tools/           # Utility and operation tools
+├── workflows/       # Predefined workflow strategies
+└── services/        # Background and coordination services
+```
+
+## 🔧 Technologies Used
+
+- **Languages**: Python, TypeScript
+- **AI Services**: Claude, OpenAI, Ollama
+- **Version Control**: GitHub Integration
+- **Infrastructure**: Docker, Kubernetes-ready
+
+## 🌟 Best Practices
+
+1. Use descriptive, atomic TODOs
+2. Leverage predefined workflows when possible
+3. Implement comprehensive error handling
+4. Keep AI prompts clear and specific
+5. Regularly audit and validate AI-generated code
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push and create a Pull Request
+
+### Reporting Issues
+- Use GitHub Issues
+- Provide detailed context
+- Include reproduction steps
+
+## 📄 License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## 🌐 Community & Support
+
+- [Koii Network Website](https://www.koii.network)
+- [Discord Community](https://discord.gg/koii)
+- [GitHub Discussions](https://github.com/koii-network/prometheus-beta/discussions)
+
+---
+
+**Disclaimer**: Prometheus is a Beta release. Features and APIs may change.
