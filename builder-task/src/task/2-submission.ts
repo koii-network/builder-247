@@ -12,7 +12,7 @@ export async function submission(roundNumber: number) {
   console.log(`FETCH SUBMISSION FOR ROUND ${roundNumber}`);
   try {
     const orcaClient = await getOrcaClient();
-    const result = await orcaClient.podCall(`submission/${roundNumber}`);
+    const result = await orcaClient.podCall(`submission/${TASK_ID}/${roundNumber}`);
     let submission;
 
     console.log({ "submission result": result.data });

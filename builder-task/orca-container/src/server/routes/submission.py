@@ -1,28 +1,27 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 from src.database import get_db, Submission
 from agent_framework.utils.logging import logger
 
 bp = Blueprint("submission", __name__)
 
 
-@bp.get("/submission/<roundNumber>")
-def fetch_submission(roundNumber):
+@bp.get("/submission/<task_id>/<round_number>")
+def fetch_submission(task_id, round_number):
     """Fetch submission for a given round and task.
 
     Query parameters:
         taskId: The task ID to fetch submission for
     """
-    logger.info(f"Fetching submission for round: {roundNumber}")
+    logger.info(f"Fetching submission for round: {round_number}")
 
-    task_id = request.args.get("taskId")
     if not task_id:
-        return jsonify({"error": "Missing taskId parameter"}), 400
+        return jsonify({"error": "Missing task_id parameter"}), 400
 
     db = get_db()
     submission = (
         db.query(Submission)
         .filter(
-            Submission.round_number == int(roundNumber),
+            Submission.round_number == int(round_number),
             Submission.task_id == task_id,
             Submission.status == "completed",
         )

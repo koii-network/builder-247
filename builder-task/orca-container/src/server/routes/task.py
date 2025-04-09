@@ -19,10 +19,6 @@ def start_leader_task(round_number):
 def create_aggregator_repo(task_id):
     print("\n=== ROUTE HANDLER CALLED ===")
     print(f"task_id: {task_id}")
-    request_data = request.get_json()
-    print(f"request_data: {request_data}")
-    if not request_data:
-        return jsonify({"success": False, "error": "Invalid request body"}), 401
 
     # Create the aggregator repo (which now handles assign_issue internally)
     result = task_service.create_aggregator_repo(task_id)
