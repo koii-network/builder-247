@@ -66,6 +66,11 @@ const SwarmBountySchema = new Schema(
       type: String,
       required: [true, 'Transaction hash is required'],
     },
+    network: {
+      type: String,
+      required: [true, "Network is required"],
+      enum: ["mainnet", "base", "sepolia"],
+    },
   },
   {
     timestamps: true,
