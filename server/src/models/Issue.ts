@@ -23,6 +23,9 @@ class Issue {
   @prop({ required: true })
   public issueUuid!: string;
 
+  @prop({ required: true })
+  public taskId!: string;
+
   @prop({ required: false })
   public title?: string;
 
