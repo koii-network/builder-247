@@ -10,8 +10,9 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the application code
+# Copy the rest of the application code, excluding tests
 COPY . .
+RUN rm -rf tests
 
 RUN npm run build
 
