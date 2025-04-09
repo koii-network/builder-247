@@ -45,7 +45,7 @@ PROMPTS = {
         "   - The main features and value of the documentation\n"
     ),
     "library": (
-        "Generate a complete and professional README.md file for this repository, which is a software library intended"
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a software library intended"
         " for use by developers.\n\n"
         "Your README should be formatted in Markdown and include clearly defined section headers.\n\n"
         "Please include the following sections:\n"
@@ -79,7 +79,7 @@ PROMPTS = {
         "- If configuration or extension points exist, explain them clearly\n\n"
     ),
     "web_app": (
-        "Generate a complete and professional README.md file for this repository, which is a web application "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a web application "
         "project.\n\n"
         "Format the output using Markdown with clear section headers and proper formatting.\n\n"
         "Include the following sections:\n"
@@ -109,7 +109,7 @@ PROMPTS = {
         "- Keep language clear and helpful for developers new to the project"
     ),
     "api_service": (
-        "Generate a complete and professional README.md file for this repository, which is a backend service that "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a backend service that "
         "exposes an API (e.g., REST, GraphQL, or similar).\n\n"
         "Format the output using Markdown with clear section headers and developer-friendly formatting.\n\n"
         "Include the following sections:\n"
@@ -146,7 +146,7 @@ PROMPTS = {
         "- Keep the tone clear and helpful for developers using the API"
     ),
     "mobile_app": (
-        "Generate a complete and professional README.md file for this repository, which is a mobile application "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a mobile application "
         "project.\n\n"
         "Format the output using Markdown with clear section headers and mobile developer–friendly formatting.\n\n"
         "Include the following sections:\n"
@@ -181,7 +181,7 @@ PROMPTS = {
         "- Keep the tone clear and helpful for mobile developers"
     ),
     "tutorial": (
-        "Generate a complete and professional README.md file for this repository, which is designed as an educational "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is designed as an educational "
         "tutorial or learning resource.\n\n"
         "Format the output using Markdown with clear section headers and a logical, beginner-friendly structure.\n\n"
         "Include the following sections:\n"
@@ -212,10 +212,10 @@ PROMPTS = {
         "Additional Notes:\n"
         "- Use beginner-friendly language without dumbing things down\n"
         "- Include code blocks, links, and visual structure to aid readability\n"
-        "- Help users stay oriented by reminding them what they’ve done and what’s next"
+        "- Help users stay oriented by reminding them what they've done and what's next"
     ),
     "template": (
-        "Generate a complete and professional README.md file for this repository, which serves as a project starter or "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which serves as a project starter or "
         "boilerplate template.\n\n"
         "Format the output using Markdown with clear section headers and developer-friendly formatting.\n\n"
         "Include the following sections:\n"
@@ -248,7 +248,7 @@ PROMPTS = {
         "- Encourage best practices and provide defaults users can trust or extend"
     ),
     "cli_tool": (
-        "Generate a complete and professional README.md file for this repository, which is a command-line "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a command-line "
         "interface (CLI) tool.\n\n"
         "Format the output using Markdown with clear section headers and include clear command-line examples.\n\n"
         "Include the following sections:\n"
@@ -281,12 +281,12 @@ PROMPTS = {
         "- Focus on usability and real-world examples of the tool in action"
     ),
     "framework": (
-        "Generate a complete and professional README.md file for this repository, which is a software framework "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a software framework "
         "designed to be extended or used as a foundation for building applications.\n\n"
         "Format the output using Markdown with clear section headers and structured, developer-friendly formatting.\n\n"
         "Include the following sections:\n"
         "1. **Project Overview**\n"
-        "   - Describe what the framework does and the type of projects it’s built for\n"
+        "   - Describe what the framework does and the type of projects it's built for\n"
         "   - Highlight key concepts and design philosophy (e.g., convention over configuration, modularity)\n\n"
         "2. **Getting Started**\n"
         "   - Include steps for installing and initializing a new project using the framework\n"
@@ -315,7 +315,7 @@ PROMPTS = {
         "- Emphasize extensibility and conceptual clarity"
     ),
     "data_science": (
-        "Generate a complete and professional README.md file for this repository, which is a data science or "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a data science or "
         "machine learning project.\n\n"
         "Format the output using Markdown with clear section headers and helpful formatting for technical readers.\n\n"
         "Include the following sections:\n"
@@ -352,7 +352,7 @@ PROMPTS = {
         "- Keep the tone professional and geared toward data scientists or ML engineers"
     ),
     "plugin": (
-        "Generate a complete and professional README.md file for this repository, which is a plugin or extension "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a plugin or extension "
         "designed to integrate with a larger platform (such as a CMS, IDE, or framework).\n\n"
         "Format the output using Markdown with clear section headers.\n\n"
         "Include the following sections:\n"
@@ -375,7 +375,7 @@ PROMPTS = {
         "   - State the license type and link to the license file"
     ),
     "chrome_extension": (
-        "Generate a complete and professional README.md file for this repository, which is a Chrome extension "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a Chrome extension "
         "project.\n\n"
         "Format the output using Markdown with clear section headers.\n\n"
         "Include the following sections:\n"
@@ -395,7 +395,7 @@ PROMPTS = {
         "   - State the license type and link to the license file"
     ),
     "jupyter_notebook": (
-        "Generate a complete and professional README.md file for this repository, which consists of one or more "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which consists of one or more "
         "Jupyter notebooks.\n\n"
         "Format the output using Markdown with clear section headers.\n\n"
         "Include the following sections:\n"
@@ -416,7 +416,7 @@ PROMPTS = {
         "   - State the license type and link to the license file"
     ),
     "infrastructure": (
-        "Generate a complete and professional README.md file for this repository, which contains "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which contains "
         "infrastructure-as-code or deployment configuration (e.g., Docker, Terraform, Ansible).\n\n"
         "Format the output using Markdown with clear section headers.\n\n"
         "Include the following sections:\n"
@@ -437,7 +437,7 @@ PROMPTS = {
         "   - State the license type and link to the license file"
     ),
     "smart_contract": (
-        "Generate a complete and professional README.md file for this repository, which contains smart contracts "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which contains smart contracts "
         "written for a blockchain platform (e.g., Ethereum, Solana).\n\n"
         "Format the output using Markdown with clear section headers.\n\n"
         "Include the following sections:\n"
@@ -458,7 +458,7 @@ PROMPTS = {
         "   - State the license type and link to the license file"
     ),
     "dapp": (
-        "Generate a complete and professional README.md file for this repository, which is a decentralized application "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a decentralized application "
         "(dApp) that includes both smart contract(s) and a web-based frontend.\n\n"
         "Format the output using Markdown with clear section headers and examples for both on-chain and off-chain "
         "components.\n\n"
@@ -482,7 +482,7 @@ PROMPTS = {
         "   - State the license type and link to the license file"
     ),
     "game": (
-        "Generate a complete and professional README.md file for this repository, which is a game or game engine "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a game or game engine "
         "project.\n\n"
         "Format the output using Markdown with clear section headers and provide clear instructions for playing and "
         "modifying the game.\n\n"
@@ -504,18 +504,18 @@ PROMPTS = {
         "   - State the license type and link to the license file"
     ),
     "desktop_app": (
-        "Generate a complete and professional README.md file for this repository, which is a desktop application "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which is a desktop application "
         "project built with technologies like Electron, Tauri, Qt, or native frameworks.\n\n"
         "Format the output using Markdown with clear section headers and platform-aware instructions.\n\n"
         "Include the following sections:\n"
         "1. **Overview**\n"
-        "   - Describe what the desktop app does and who it’s for\n"
+        "   - Describe what the desktop app does and who it's for\n"
         "   - Mention platforms supported (e.g., Windows, macOS, Linux)\n\n"
         "2. **Installation and Setup**\n"
         "   - Provide platform-specific install/build instructions\n"
         "   - Include steps for running the app in development and building a production release\n\n"
         "3. **Usage**\n"
-        "   - Describe the app’s main features and user workflows\n"
+        "   - Describe the app's main features and user workflows\n"
         "   - Include screenshots if applicable\n\n"
         "4. **Project Structure**\n"
         "   - Describe key files and folders (e.g., main process, renderer process, assets)\n\n"
@@ -525,7 +525,7 @@ PROMPTS = {
         "   - State the license type and link to the license file"
     ),
     "dataset": (
-        "Generate a complete and professional README.md file for this repository, which contains a dataset for "
+        "Generate a complete and professional Prometheus_readme.md file for this repository, which contains a dataset for "
         "analysis, training, or research purposes.\n\n"
         "Format the output using Markdown with clear section headers and data-focused structure.\n\n"
         "Include the following sections:\n"
@@ -546,7 +546,7 @@ PROMPTS = {
         "   - Link to original data sources, research papers, or related projects (if applicable)"
     ),
     "other": (
-        "Generate a complete and professional README.md file for this repository.\n\n"
+        "Generate a complete and professional Prometheus_readme.md file for this repository.\n\n"
         "Analyze the contents of the repository to infer its intent, and format the README using Markdown with "
         "clear section headers.\n\n"
         "Include the following general sections, customizing them as needed based on the repository type:\n"
