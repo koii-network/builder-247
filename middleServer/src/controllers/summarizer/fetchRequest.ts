@@ -21,7 +21,6 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
         },
       },
     })
-      .select("assignedTo prUrl")
       .lean();
 
     if (!result) return null;

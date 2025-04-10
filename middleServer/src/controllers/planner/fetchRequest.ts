@@ -21,7 +21,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
         },
       },
     })
-      .select("assignedTo prUrl")
+
       .lean();
 
     if (!result) return null;
@@ -129,6 +129,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
           message: "Task already completed",
         }};
       }else{
+        console.log("existingAssignment", existingAssignment);
         return {statuscode: 200, data:{
             success: true,
             role: "worker",
