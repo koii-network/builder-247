@@ -232,15 +232,7 @@ def run_todo_task(
             )
 
         # Extract todo_uuid from the todo data
-        todo_uuid = todo.get("uuid")
-        if not todo_uuid:
-            # Fallback to using base_branch if todo_uuid is not available
-            todo_uuid = base_branch
-            logger.warning(
-                f"No todo_uuid found in todo data, using base_branch: {base_branch}"
-            )
-        else:
-            logger.info(f"Using todo_uuid from todo data: {todo_uuid}")
+        todo_uuid = todo.get("todo_uuid")
 
         # Create new submission with todo_uuid in the uuid column
         submission = Submission(
