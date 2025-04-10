@@ -6,6 +6,24 @@ from tests.setup import TestSetup
 from tests.data import DataManager
 from pymongo import MongoClient
 import uuid
+import requests
+
+
+# Add this near the top of the file after imports
+STEP_MAPPING = {
+    "create-aggregator": 1,
+    "worker1-task": 2,
+    "worker2-task": 3,
+    "worker1-submission": 4,
+    "worker2-submission": 5,
+    "worker1-audit": 6,
+    "worker2-audit": 7,
+    "worker-audit-results": 8,
+    "leader-task": 9,
+    "leader-submission": 10,
+    "leader-audit": 11,
+    "leader-audit-results": 12,
+}
 
 
 def log_request(method: str, url: str, payload: dict = None):
@@ -323,8 +341,15 @@ def check_remaining_work():
         client.close()
 
 
-def determine_start_step(round_number: int) -> int:
-    """Determine which step to start from based on saved state"""
+def determine_start_step(round_number: int, start_label: str = None) -> int:
+    """Determine which step to start from based on saved state or provided label"""
+    if start_label:
+        if start_label not in STEP_MAPPING:
+            raise ValueError(
+                f"Unknown step label: {start_label}. Valid labels are: {', '.join(STEP_MAPPING.keys())}"
+            )
+        return STEP_MAPPING[start_label]
+
     state_file = Path(__file__).parent / "e2e_state.json"
     if not state_file.exists():
         return 1
@@ -339,7 +364,7 @@ def determine_start_step(round_number: int) -> int:
             prev_round_key = str(round_number - 1)
             if prev_round_key in all_rounds_state:
                 prev_round_state = all_rounds_state[prev_round_key]
-                if prev_round_state["step_completed"] < 7:  # 7 is the last step
+                if prev_round_state["step_completed"] < 12:  # Last step
                     raise Exception(
                         f"Cannot start round {round_number}: Previous round {round_number - 1} "
                         f"has not been completed (stopped at step {prev_round_state['step_completed']})"
@@ -421,6 +446,7 @@ def run_test_sequence(
     reset: bool = False,
     task_id: str = "",
     data_dir: Path = None,
+    start_label: str = None,
 ):
     """Run the test sequence, automatically determining where to resume from"""
     if reset:
@@ -456,9 +482,10 @@ def run_test_sequence(
     # Initialize data manager
     data_manager = DataManager(task_id=task_id, round_number=round_number)
     pr_urls = {}
+    submission_data = {}  # Store submission data for audits
 
     # Determine which step to start from
-    start_step = determine_start_step(round_number)
+    start_step = determine_start_step(round_number, start_label)
     print(f"Resuming from step {start_step}")
 
     # Load state if we're not starting from the beginning
@@ -480,34 +507,96 @@ def run_test_sequence(
                 save_state(data_manager, pr_urls, 1)
 
             if start_step <= 2:
-                log_step(2, "Run worker task")
-                test_setup.run_worker_task(data_manager, pr_urls)
+                log_step(2, "Run worker1 task")
+                test_setup.run_worker_task(data_manager, pr_urls, "worker1")
                 save_state(data_manager, pr_urls, 2)
 
             if start_step <= 3:
-                log_step(3, "Run worker audit")
-                test_setup.run_worker_audit(data_manager, pr_urls)
+                log_step(3, "Run worker2 task")
+                test_setup.run_worker_task(data_manager, pr_urls, "worker2")
                 save_state(data_manager, pr_urls, 3)
 
             if start_step <= 4:
-                log_step(4, "Processing worker audit results")
-                test_setup.update_audit_results(data_manager)
+                log_step(4, "Get worker1 submission")
+                if "worker1" in pr_urls:
+                    submission_url = f"{test_setup.worker1_url}/submission"
+                    submission_params = {
+                        "task_id": data_manager.task_id,
+                        "round_number": data_manager.round_number,
+                        "pr_url": pr_urls["worker1"],
+                    }
+                    log_request("GET", submission_url, submission_params)
+                    response = requests.get(submission_url, params=submission_params)
+                    log_response(response)
+                    response.raise_for_status()
+                    submission_data["worker1"] = response.json()
                 save_state(data_manager, pr_urls, 4)
 
             if start_step <= 5:
-                log_step(5, "Running leader task")
-                test_setup.run_leader_task(data_manager, pr_urls)
+                log_step(5, "Get worker2 submission")
+                if "worker2" in pr_urls:
+                    submission_url = f"{test_setup.worker2_url}/submission"
+                    submission_params = {
+                        "task_id": data_manager.task_id,
+                        "round_number": data_manager.round_number,
+                        "pr_url": pr_urls["worker2"],
+                    }
+                    log_request("GET", submission_url, submission_params)
+                    response = requests.get(submission_url, params=submission_params)
+                    log_response(response)
+                    response.raise_for_status()
+                    submission_data["worker2"] = response.json()
                 save_state(data_manager, pr_urls, 5)
 
             if start_step <= 6:
-                log_step(6, "Running leader audit")
-                test_setup.run_leader_audit(data_manager, pr_urls)
+                log_step(6, "Worker1 audits Worker2")
+                test_setup.run_worker_audit(
+                    data_manager, pr_urls, submission_data, "worker1", "worker2"
+                )
                 save_state(data_manager, pr_urls, 6)
 
             if start_step <= 7:
-                log_step(7, "Processing leader audit results")
-                test_setup.update_audit_results(data_manager)
+                log_step(7, "Worker2 audits Worker1")
+                test_setup.run_worker_audit(
+                    data_manager, pr_urls, submission_data, "worker2", "worker1"
+                )
                 save_state(data_manager, pr_urls, 7)
+
+            if start_step <= 8:
+                log_step(8, "Update worker audit results")
+                test_setup.update_audit_results(data_manager, "worker")
+                save_state(data_manager, pr_urls, 8)
+
+            if start_step <= 9:
+                log_step(9, "Run leader task")
+                test_setup.run_leader_task(data_manager, pr_urls)
+                save_state(data_manager, pr_urls, 9)
+
+            if start_step <= 10:
+                log_step(10, "Get leader submission")
+                if "leader" in pr_urls:
+                    submission_url = f"{test_setup.leader_url}/submission"
+                    submission_params = {
+                        "task_id": data_manager.task_id,
+                        "round_number": data_manager.round_number,
+                        "pr_url": pr_urls["leader"],
+                    }
+                    log_request("GET", submission_url, submission_params)
+                    response = requests.get(submission_url, params=submission_params)
+                    log_response(response)
+                    response.raise_for_status()
+                    submission_data["leader"] = response.json()
+                save_state(data_manager, pr_urls, 10)
+
+            if start_step <= 11:
+                log_step(11, "Run leader audit")
+                test_setup.run_leader_audit(data_manager, pr_urls, submission_data)
+                save_state(data_manager, pr_urls, 11)
+
+            if start_step <= 12:
+                log_step(12, "Update leader audit results")
+                test_setup.update_audit_results(data_manager, "leader")
+                save_state(data_manager, pr_urls, 12)
 
             # Check if there's more work to be done
             if not check_remaining_work():
@@ -529,14 +618,19 @@ The script will automatically determine where to resume from based on the saved 
 If no state exists, or if --reset is used, it will start from the beginning.
 The current round is determined from the state file.
 
-Steps that will be executed:
-  1. Create aggregator repo
-  2. Worker tasks (Worker 1 and Worker 2)
-  3. Cross audits (Worker 2 audits Worker 1, then Worker 1 audits Worker 2)
-  4. Update audit results
-  5. Leader task
-  6. Leader audits
-  7. Update audit results again
+Available steps (use with --start-from):
+  create-aggregator      - Create aggregator repo
+  worker1-task          - Run worker1 task
+  worker2-task          - Run worker2 task
+  worker1-submission    - Get worker1 submission
+  worker2-submission    - Get worker2 submission
+  worker1-audit         - Worker1 audits Worker2
+  worker2-audit         - Worker2 audits Worker1
+  worker-audit-results  - Update worker audit results
+  leader-task           - Run leader task
+  leader-submission     - Get leader submission
+  leader-audit          - Run leader audit
+  leader-audit-results  - Update leader audit results
 
 Example usage:
   # Run or resume the sequence
@@ -545,14 +639,14 @@ Example usage:
   # Reset databases and start fresh
   python -m tests.e2e --reset
 
+  # Start from a specific step
+  python -m tests.e2e --start-from worker1-task
+
   # Run with specific task ID
   python -m tests.e2e --task-id 123abc
 
   # Run with custom data directory
   python -m tests.e2e --data-dir /path/to/data
-
-  # Run with specific test data directory
-  python -m tests.e2e --test-data-dir /path/to/test/data
 """,
     )
     parser.add_argument(
@@ -570,7 +664,17 @@ Example usage:
         type=str,
         help="Directory containing MongoDB data files (issues.json, todos.json, prompts.json)",
     )
+    parser.add_argument(
+        "--start-from",
+        type=str,
+        help="Label of the step to start from (see available steps below)",
+    )
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir) if args.data_dir else Path(os.getenv("DATA_DIR"))
-    run_test_sequence(reset=args.reset, task_id=args.task_id, data_dir=data_dir)
+    run_test_sequence(
+        reset=args.reset,
+        task_id=args.task_id,
+        data_dir=data_dir,
+        start_label=args.start_from,
+    )

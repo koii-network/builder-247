@@ -209,90 +209,63 @@ class TestSetup:
         if not result.get("success"):
             raise Exception(f"Failed to add aggregator info: {result.get('message')}")
 
-    def run_worker_task(self, data_manager, pr_urls):
-        """Run worker tasks for both workers"""
+    def run_worker_task(self, data_manager, pr_urls, worker_role: str):
+        """Run worker task for a specific worker"""
         import requests
 
-        # Worker 1 task
-        self.switch_role("worker1")
-        payload = data_manager.prepare_worker_task("worker1", data_manager.round_number)
+        self.switch_role(worker_role)
+        payload = data_manager.prepare_worker_task(
+            worker_role, data_manager.round_number
+        )
         url = f"{self.current_server.url}/worker-task/{data_manager.round_number}"
         response = requests.post(url, json=payload)
 
         result = response.json()
         if response.status_code in [401, 409]:
-            print(f"✓ {result.get('message')} for Worker 1 - continuing")
+            print(f"✓ {result.get('message')} for {worker_role} - continuing")
             return
         elif not result.get("success"):
-            raise Exception(f"Worker 1 task failed: {result.get('message')}")
+            raise Exception(f"{worker_role} task failed: {result.get('message')}")
         else:
-            pr_urls["worker1"] = result.get("pr_url")
-            print(f"✓ Worker 1 PR created: {pr_urls['worker1']}")
+            pr_urls[worker_role] = result.get("pr_url")
+            print(f"✓ {worker_role} PR created: {pr_urls[worker_role]}")
 
-        # Worker 2 task
-        self.switch_role("worker2")
-        payload = data_manager.prepare_worker_task("worker2", data_manager.round_number)
-        url = f"{self.current_server.url}/worker-task/{data_manager.round_number}"
+    def run_worker_audit(
+        self, data_manager, pr_urls, submission_data, auditor: str, auditee: str
+    ):
+        """Run worker audit for a specific worker auditing another worker"""
+        import requests
+
+        self.switch_role(auditor)
+        payload = data_manager.prepare_worker_audit(
+            auditor,
+            pr_urls[auditee],
+            data_manager.round_number,
+            submission_data.get(auditee),
+        )
+        url = f"{self.current_server.url}/worker-audit/{data_manager.round_number}"
         response = requests.post(url, json=payload)
 
         result = response.json()
         if response.status_code in [401, 409]:
-            print(f"✓ {result.get('message')} for Worker 2 - continuing")
+            print(f"✓ {result.get('message')} for {auditor} audit - continuing")
             return
         elif not result.get("success"):
-            raise Exception(f"Worker 2 task failed: {result.get('message')}")
+            raise Exception(f"{auditor} audit failed: {result.get('message')}")
         else:
-            pr_urls["worker2"] = result.get("pr_url")
-            print(f"✓ Worker 2 PR created: {pr_urls['worker2']}")
+            print(f"✓ {auditor} audit completed for {pr_urls[auditee]}")
 
-    def run_worker_audit(self, data_manager, pr_urls):
-        """Run cross audits between workers"""
+    def update_audit_results(self, data_manager, audit_type: str):
+        """Update audit results using the Flask endpoint"""
         import requests
-
-        # Only run audits if there are PRs to audit
-        if "worker1" not in pr_urls:
-            print("✓ No Worker 1 PR to audit - skipping Worker 2 audit")
-            return
-
-        # Worker 2 audits Worker 1's PR
-        self.switch_role("worker2")
-        payload = data_manager.prepare_worker_audit(
-            "worker2", pr_urls["worker1"], data_manager.round_number
-        )
-        url = f"{self.current_server.url}/worker-audit/{data_manager.round_number}"
-        response = requests.post(url, json=payload)
-
-        result = response.json()
-        if not result.get("success"):
-            raise Exception(f"Worker 2 audit failed: {result.get('message')}")
-
-        if "worker2" not in pr_urls:
-            print("✓ No Worker 2 PR to audit - skipping Worker 1 audit")
-            return
-
-        # Worker 1 audits Worker 2's PR
-        self.switch_role("worker1")
-        payload = data_manager.prepare_worker_audit(
-            "worker1", pr_urls["worker2"], data_manager.round_number
-        )
-        url = f"{self.current_server.url}/worker-audit/{data_manager.round_number}"
-        response = requests.post(url, json=payload)
-
-        result = response.json()
-        if not result.get("success"):
-            raise Exception(f"Worker 1 audit failed: {result.get('message')}")
-
-    def update_audit_results(self, data_manager):
-        """Update audit results based on the distribution list"""
-        import requests
-        import os
 
         self.switch_role("leader")
         update_payload = {
             "taskId": data_manager.task_id,
             "round": data_manager.round_number,
+            "auditType": audit_type,
         }
-        url = f"{os.getenv('MIDDLE_SERVER_URL')}/api/update-audit-result"
+        url = f"{self.current_server.url}/update-audit-result"
         response = requests.post(url, json=update_payload)
 
         result = response.json()
@@ -300,7 +273,7 @@ class TestSetup:
             raise Exception(
                 f"Update audit result failed: {result.get('message', 'Unknown error')}"
             )
-        print("✓ Audit results processed")
+        print(f"✓ {audit_type} audit results processed")
 
     def run_leader_task(self, data_manager, pr_urls):
         """Run leader task"""
@@ -326,22 +299,23 @@ class TestSetup:
         pr_urls["leader"] = result.get("pr_url")
         print(f"✓ Leader PR created: {pr_urls['leader']}")
 
-    def run_leader_audit(self, data_manager, pr_urls):
-        """Run leader audit"""
-        # Only run leader audit if there's a leader PR
-        if "leader" not in pr_urls:
-            print("✓ No leader PR to audit - skipping leader audit")
-            return
-
-        self.switch_role("worker1")
+    def run_leader_audit(self, data_manager, pr_urls, submission_data):
+        """Run leader audit and handle audit submission"""
+        self.switch_role("leader")
         payload = data_manager.prepare_leader_audit(
-            "worker1", pr_urls["leader"], data_manager.round_number
+            "leader",
+            pr_urls["leader"],
+            data_manager.round_number,
+            submission_data.get("leader"),
         )
         url = f"{self.current_server.url}/leader-audit/{data_manager.round_number}"
         response = requests.post(url, json=payload)
 
         result = response.json()
-        if not result.get("success"):
+        if response.status_code in [401, 409]:
+            print(f"✓ {result.get('message')} for Leader audit - continuing")
+            return
+        elif not result.get("success"):
             raise Exception(f"Leader audit failed: {result.get('message')}")
         else:
-            print("✓ Leader PR audited")
+            print(f"✓ Leader audit completed for {pr_urls['leader']}")

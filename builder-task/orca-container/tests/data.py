@@ -192,7 +192,11 @@ class DataManager:
             return "dummy_submitter_signature"
 
     def prepare_worker_audit(
-        self, auditor: str, pr_url: str, round_number: int
+        self,
+        auditor: str,
+        pr_url: str,
+        round_number: int,
+        submission_data: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """Prepare payload for worker-audit endpoint."""
         # Get PR info using GitHub API
@@ -219,61 +223,7 @@ class DataManager:
         # Get auditor's keys and create signatures
         auditor_keys = self.create_signature(auditor, {})  # Get keys only
 
-        # Create the actual submission that the submitter would have made
-        # This exactly matches the format in 2-submission.ts
-        submission_payload = {
-            "taskId": self.task_id,
-            "roundNumber": round_number,
-            "stakingKey": submitter_key,
-            "pubKey": submitter_pub_key,
-            "action": "audit",
-            "githubUsername": pr.user.login,
-            "prUrl": pr_url,
-            "repoOwner": pr_repo_owner,
-            "repoName": pr_repo_name,
-        }
-
-        # Determine submitter role from GitHub username
-        if pr.user.login == os.getenv("WORKER1_GITHUB_USERNAME"):
-            submitter_role = "worker1"
-        elif pr.user.login == os.getenv("WORKER2_GITHUB_USERNAME"):
-            submitter_role = "worker2"
-        elif pr.user.login == os.getenv("LEADER_GITHUB_USERNAME"):
-            submitter_role = "leader"
-        else:
-            print(
-                f"Warning: Could not determine submitter role from username {pr.user.login}"
-            )
-            # Extract the role from the staking key environment variables
-            for role in ["worker1", "worker2", "leader"]:
-                role_keypair = self.keypairs[role]["staking"]
-                if role_keypair:
-                    try:
-                        _, pub_key = self._load_keypair(role_keypair)
-                        if pub_key == submitter_key:
-                            submitter_role = role
-                            break
-                    except Exception:
-                        pass
-            else:
-                print(
-                    f"Warning: Could not match staking key {submitter_key} to any role"
-                )
-                submitter_role = None
-
-        print(f"Using {submitter_role} as submitter for PR: {pr_url}")
-
-        # Create submitter signature using the determined role
-        if submitter_role:
-            submitter_signature = self.create_submitter_signature(
-                submitter_role, submission_payload
-            )
-        else:
-            print("Warning: No submitter role determined, using dummy signature")
-            submitter_signature = "dummy_submitter_signature"
-
         # Create auditor payload which is used to generate the signature
-        # This matches what would be signed in the worker task
         auditor_payload = {
             "taskId": self.task_id,
             "roundNumber": round_number,
@@ -288,10 +238,11 @@ class DataManager:
         auditor_signatures = self.create_signature(auditor, auditor_payload)
 
         # Structure the payload according to what the server expects
-        # This matches the structure in audit.py route handler
         return {
-            "submission": submission_payload,
-            "submitterSignature": submitter_signature,
+            "submission": submission_data,
+            "submitterSignature": (
+                submission_data.get("signature") if submission_data else None
+            ),
             "submitterStakingKey": submitter_key,
             "submitterPubKey": submitter_pub_key,
             "prUrl": pr_url,
@@ -411,7 +362,11 @@ class DataManager:
         }
 
     def prepare_leader_audit(
-        self, auditor: str, pr_url: str, round_number: int
+        self,
+        auditor: str,
+        pr_url: str,
+        round_number: int,
+        submission_data: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """Prepare payload for leader-audit endpoint."""
         # Get PR info using GitHub API
@@ -438,46 +393,6 @@ class DataManager:
         # Get auditor's keys and create signatures
         auditor_keys = self.create_signature(auditor, {})  # Get keys only
 
-        # Create the submission payload (what the leader would have submitted)
-        submission_payload = {
-            "taskId": self.task_id,
-            "roundNumber": round_number,
-            "stakingKey": submitter_key,
-            "pubKey": submitter_pub_key,
-            "action": "audit",
-            "githubUsername": pr.user.login,
-            "prUrl": pr_url,
-            "repoOwner": pr_repo_owner,
-            "repoName": pr_repo_name,
-        }
-
-        # Determine the submitter role (leader in this case)
-        if pr.user.login == os.getenv("LEADER_GITHUB_USERNAME"):
-            submitter_role = "leader"
-        else:
-            print(f"Warning: PR user {pr.user.login} doesn't match leader username")
-            # Try to match by staking key
-            for role in ["leader"]:
-                role_keypair = self.keypairs[role]["staking"]
-                if role_keypair:
-                    try:
-                        _, pub_key = self._load_keypair(role_keypair)
-                        if pub_key == submitter_key:
-                            submitter_role = role
-                            break
-                    except Exception:
-                        pass
-            else:
-                print(f"Warning: Could not match leader staking key {submitter_key}")
-                submitter_role = "leader"  # Fallback
-
-        print(f"Using {submitter_role} as submitter for PR: {pr_url}")
-
-        # Create submitter signature from the submission payload
-        submitter_signature = self.create_submitter_signature(
-            submitter_role, submission_payload
-        )
-
         # Create auditor payload (what the worker would sign to audit)
         auditor_payload = {
             "taskId": self.task_id,
@@ -494,8 +409,10 @@ class DataManager:
 
         # Structure the payload according to the audit.ts implementation
         return {
-            "submission": submission_payload,
-            "submitterSignature": submitter_signature,
+            "submission": submission_data,
+            "submitterSignature": (
+                submission_data.get("signature") if submission_data else None
+            ),
             "submitterStakingKey": submitter_key,
             "submitterPubKey": submitter_pub_key,
             "prUrl": pr_url,
