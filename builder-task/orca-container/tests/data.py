@@ -16,6 +16,7 @@ class DataManager:
         self.repo_owner = None
         self.repo_name = None
         self.round_number = round_number
+        self.submission_data = {}  # Store submission data for audits
 
         # Store keypair paths for each role
         self.keypairs = {
@@ -199,38 +200,18 @@ class DataManager:
         submission_data: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """Prepare payload for worker-audit endpoint."""
+        if not submission_data:
+            raise ValueError("Submission data is required for worker audit")
+
         # Get PR info using GitHub API
         parts = pr_url.strip("/").split("/")
-        pr_number = int(parts[-1])
         pr_repo_owner = parts[-4]
         pr_repo_name = parts[-3]
-
-        gh = Github(os.getenv("GITHUB_TOKEN"))
-        repo = gh.get_repo(f"{pr_repo_owner}/{pr_repo_name}")
-        pr = repo.get_pull(pr_number)
-
-        # Extract submitter's keys from PR
-        staking_section = extract_section(pr.body, "STAKING_KEY")
-        if not staking_section:
-            raise ValueError(f"No staking key found in PR {pr_url}")
-        submitter_key = staking_section.split(":")[0].strip()
-
-        pub_section = extract_section(pr.body, "PUB_KEY")
-        if not pub_section:
-            raise ValueError(f"No public key found in PR {pr_url}")
-        submitter_pub_key = pub_section.split(":")[0].strip()
-
-        # Get auditor's keys and create signatures
-        auditor_keys = self.create_signature(auditor, {})  # Get keys only
 
         # Create auditor payload which is used to generate the signature
         auditor_payload = {
             "taskId": self.task_id,
             "roundNumber": round_number,
-            "stakingKey": auditor_keys["staking_key"],
-            "pubKey": auditor_keys["pub_key"],
-            "action": "audit",
-            "githubUsername": os.getenv(f"{auditor.upper()}_GITHUB_USERNAME"),
             "prUrl": pr_url,
         }
 
@@ -239,12 +220,19 @@ class DataManager:
 
         # Structure the payload according to what the server expects
         return {
-            "submission": submission_data,
-            "submitterSignature": (
-                submission_data.get("signature") if submission_data else None
-            ),
-            "submitterStakingKey": submitter_key,
-            "submitterPubKey": submitter_pub_key,
+            "submission": {
+                "taskId": self.task_id,
+                "roundNumber": round_number,
+                "prUrl": pr_url,
+                "githubUsername": submission_data.get("githubUsername"),
+                "repoOwner": pr_repo_owner,
+                "repoName": pr_repo_name,
+                "stakingKey": submission_data.get("stakingKey"),
+                "pubKey": submission_data.get("pubKey"),
+            },
+            "submitterSignature": submission_data.get("signature"),
+            "submitterStakingKey": submission_data.get("stakingKey"),
+            "submitterPubKey": submission_data.get("pubKey"),
             "prUrl": pr_url,
             "repoOwner": pr_repo_owner,
             "repoName": pr_repo_name,
@@ -390,17 +378,10 @@ class DataManager:
             raise ValueError(f"No public key found in PR {pr_url}")
         submitter_pub_key = pub_section.split(":")[0].strip()
 
-        # Get auditor's keys and create signatures
-        auditor_keys = self.create_signature(auditor, {})  # Get keys only
-
         # Create auditor payload (what the worker would sign to audit)
         auditor_payload = {
             "taskId": self.task_id,
             "roundNumber": round_number,
-            "stakingKey": auditor_keys["staking_key"],
-            "pubKey": auditor_keys["pub_key"],
-            "action": "audit",
-            "githubUsername": os.getenv(f"{auditor.upper()}_GITHUB_USERNAME"),
             "prUrl": pr_url,
         }
 
@@ -409,7 +390,16 @@ class DataManager:
 
         # Structure the payload according to the audit.ts implementation
         return {
-            "submission": submission_data,
+            "submission": {
+                "taskId": self.task_id,
+                "roundNumber": round_number,
+                "prUrl": pr_url,
+                "githubUsername": os.getenv(f"{auditor.upper()}_GITHUB_USERNAME"),
+                "repoOwner": pr_repo_owner,
+                "repoName": pr_repo_name,
+                "stakingKey": submitter_key,
+                "pubKey": submitter_pub_key,
+            },
             "submitterSignature": (
                 submission_data.get("signature") if submission_data else None
             ),
@@ -424,3 +414,31 @@ class DataManager:
             "stakingSignature": auditor_signatures["staking_signature"],
             "publicSignature": auditor_signatures["public_signature"],
         }
+
+    def get_keys(self, role: str) -> Dict[str, str]:
+        """Get the staking and public keys for a given role."""
+        try:
+            keypair = self.keypairs[role]
+            staking_keypair_path = keypair["staking"]
+            public_keypair_path = keypair["public"]
+
+            if not staking_keypair_path or not public_keypair_path:
+                return {
+                    "staking_key": "dummy_staking_key",
+                    "pub_key": "dummy_pub_key",
+                }
+
+            # Load keypairs
+            _, staking_key = self._load_keypair(staking_keypair_path)
+            _, pub_key = self._load_keypair(public_keypair_path)
+
+            return {
+                "staking_key": staking_key,
+                "pub_key": pub_key,
+            }
+        except Exception as e:
+            print(f"Error getting keys: {e}")
+            return {
+                "staking_key": "dummy_staking_key",
+                "pub_key": "dummy_pub_key",
+            }

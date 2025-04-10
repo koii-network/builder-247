@@ -1,0 +1,54 @@
+{
+  "1": {
+    "step_completed": 12,
+    "fork_url": "https://github.com/momstrosity/builder-test",
+    "branch_name": "f33902d4-e7ff-464a-8283-72ccba267da2",
+    "issue_uuid": "f33902d4-e7ff-464a-8283-72ccba267da2",
+    "repo_owner": "momstrosity",
+    "repo_name": "builder-test",
+    "pr_urls": {
+      "worker1": "https://github.com/momstrosity/builder-test/pull/168",
+      "worker2": "https://github.com/momstrosity/builder-test/pull/169",
+      "leader": "https://github.com/koii-network/builder-test/pull/43"
+    },
+    "round_number": 1,
+    "submission_data": {
+      "worker1": {
+        "githubUsername": "labrocadabro",
+        "nodeType": "worker",
+        "prUrl": "https://github.com/momstrosity/builder-test/pull/168",
+        "repoName": "builder-test",
+        "repoOwner": "momstrosity",
+        "roundNumber": 1,
+        "taskId": "FeEqQqnNr5TTqUaLtZz8WG1LLbqB2pgaagn8upUf8hNe",
+        "signature": "3QeyTkHUwkwpgpdkhefUZ9pTzjmvVGCc9t9tmExS4ZrdeDJhUm7jVJ7SnYeW17juL23TUkkYs9FT9EHKmoCysQypyb3byZyv17s7woARvCFUA39Kamm8gVjgMSN3NWYH8RyobQioq9iTLB5cc1xMFGKwQijvDBnPD99PTXk9VUu4AjGv3C3GPh41x9ZdWBrGsWWG2wp4gCj9ffEeZqk5o89MinLdj3rYuXcTghaoaEfqFvu4zxkRBU8JUvbBYVi3maRzDdZwxrRnKctEePjydZan82ShHL6jf4QMgMJrZuYQNQepiucxqLahvGrtiX4YsemjkHMc3kYs1N6dtHNivvLVxadvCQV68ihic4vyujtqSkbqLyT9RPz12KEBdpUGS2mV2Yc31rW2F2eBaSReLbLmwonAgZhXQGYuZD83wGaw9Ttchu7CzUd6G5jGtnH6MwRasNNhwvxu7GBM4h5BGRWNyLM51qXfQLMbtKzpQxYFu2zTn3T7j6AyuRWqFH9qCK4oe",
+        "stakingKey": "BiYiK5ioyqd6c2pPvvjaSzLAhR8MMvBordhBnh9CordT",
+        "pubKey": "7rnv8Gvvs8tbnnnddjozHRXqtmrMpW536PJRDxV4ua4t"
+      },
+      "worker2": {
+        "githubUsername": "laura-abro",
+        "nodeType": "worker",
+        "prUrl": "https://github.com/momstrosity/builder-test/pull/169",
+        "repoName": "builder-test",
+        "repoOwner": "momstrosity",
+        "roundNumber": 1,
+        "taskId": "FeEqQqnNr5TTqUaLtZz8WG1LLbqB2pgaagn8upUf8hNe",
+        "signature": "2amZMxUXVAht3JX37b832YzmgMd5VMjyyrLqQ9Doy3VUtJZ7AT3qKcvU5Lp5rLrL6nk8QqM7HnvcwPhsNL2xzETujEANW56nr1XgmxKuPZfsfprjhLdRHqFAiKex4ZWzVZwU1RMT9a9bj2iAxbqqmFasxkxYMKo9GEjBuTrdGViyAWt5tNvxXUxxEx4gu2AuU6Y8tyhDeFBhr5ybJpbmXx2iHRmj8LVz4FXyqbWH6pgZAsF4v9hnBrFZJDcb6yypMM4bzCKCmXC98ob3Xztykx2GrmHU5C4Yc7hxBFYxTeNzbdCnKynSsSLjQjYpLmX7BR6Zu7fBv5V9WSBv2omTJmUNcQDmyrHg2kJVxZD7xada8atJa4JcHfdjb69iizakDvCyQVtRCgLF5HecvHtq4YQi6P7oueLYYmAnzrkm1K9xj7a7tNPNtb3uNYwVZY4kexNdBjrobmxG2PHUsG5c6nm3mLJTCstkpN9Y5L2a2qaiTVmQAYZhcxBQPWwFGRVLqr",
+        "stakingKey": "AEghvdqmRtc3fjKXfNTMJJ6WshksgWuJ9YBExgsZu8cN",
+        "pubKey": "AwXAtX7tMhL4JyB8NfXdsrqc1UifaMyap3c9bpN9RMse"
+      },
+      "leader": {
+        "githubUsername": "momstrosity",
+        "nodeType": "leader",
+        "prUrl": "https://github.com/koii-network/builder-test/pull/43",
+        "repoName": "builder-test",
+        "repoOwner": "momstrosity",
+        "roundNumber": 1,
+        "taskId": "FeEqQqnNr5TTqUaLtZz8WG1LLbqB2pgaagn8upUf8hNe",
+        "signature": "8mD5ykYscxyECbroS5LAATxPjktUbjsBvpais7p9M9y8oJhX5odsxA357YgK86U9NtmHfCxCRVMsUPZwvzqzCWyTS3J9CLDnJNE1E3zUdacpE1RfG1kzuj8jVjTZernQP28tit92X4aG2S3AQE392ekzKnrscgEQy6fSEHVH3xsbkx6njGAbi4EqHAGAJ2HgDqgB5XrFqLEHCX9fvqQ7UAsw3g9X7Z5z2DecipxutS3o1gaZxekCgc3Ywiq2C3S7yY2VgaViaXP2Wwur4TS16VFVvXRPbEAinEFQLWnTM3Cm9KiadBzmXc4pxXdmB2g7qWMP2efAoAg9XThuoMHmBMAieWkMVD2WPTXb9FWUrgvisC1JqLeDVBtrqMePg5Gr33zqpPJRDvwUJySW9bpR51nJ6hKAEPJ5hZd37mRsruPQoWBmrm3HitTH8evJzPdaSMytZ4kekAygHxYQq9iXzCrfB8PqZsKdmsVQRHXu5N4ok4nicFXJG1cEndGTfiVhZ9E",
+        "stakingKey": "Dxcv6GfEXQ7Jq1F7iGkmcPJFkQkgrkmyTGxjQSNNron9",
+        "pubKey": "CcFDePpTczeCbUyUP5gKCP1eXHJVrfG2GBpMYYMjvaHL"
+      }
+    }
+  }
+}

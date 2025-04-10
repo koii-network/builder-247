@@ -265,7 +265,7 @@ class TestSetup:
             "round": data_manager.round_number,
             "auditType": audit_type,
         }
-        url = f"{self.current_server.url}/update-audit-result"
+        url = f"{self.current_server.url}/update-audit-result/{data_manager.task_id}/{data_manager.round_number}"
         response = requests.post(url, json=update_payload)
 
         result = response.json()

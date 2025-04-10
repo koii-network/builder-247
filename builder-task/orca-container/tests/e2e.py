@@ -67,7 +67,7 @@ def reset_databases():
             os.remove(db_path)
 
 
-def save_state(data_manager, pr_urls, step_completed):
+def save_state(data_manager, pr_urls, step_completed, submission_data=None):
     """Save the current state to a JSON file after completing a step"""
     state_file = Path(__file__).parent / "e2e_state.json"
 
@@ -89,6 +89,10 @@ def save_state(data_manager, pr_urls, step_completed):
         "round_number": data_manager.round_number,
     }
 
+    # Add submission data if provided
+    if submission_data:
+        current_round_state["submission_data"] = submission_data.copy()
+
     # Store state under the current round number
     round_key = str(data_manager.round_number)
     all_rounds_state[round_key] = current_round_state
@@ -102,7 +106,7 @@ def save_state(data_manager, pr_urls, step_completed):
     )
 
 
-def load_state(data_manager, pr_urls, starting_step):
+def load_state(data_manager, pr_urls, starting_step, submission_data=None):
     """Load state from JSON file when skipping steps"""
     state_file = Path(__file__).parent / "e2e_state.json"
 
@@ -180,12 +184,19 @@ def load_state(data_manager, pr_urls, starting_step):
     pr_urls.clear()  # Clear existing URLs
     pr_urls.update(current_round_state["pr_urls"])
 
+    # Load submission data if it exists
+    if submission_data is not None and "submission_data" in current_round_state:
+        submission_data.clear()
+        submission_data.update(current_round_state["submission_data"])
+
     print(f"\nLoaded state from {state_file} for round {data_manager.round_number}")
     print(f"Starting from step {starting_step} with:")
     print(f"Fork URL: {data_manager.fork_url}")
     print(f"Branch name: {data_manager.branch_name}")
     print(f"Round number: {data_manager.round_number}")
     print(f"PR URLs: {pr_urls}")
+    if submission_data:
+        print(f"Submission data: {submission_data}")
 
 
 def get_previous_round_prs(round_number: int) -> dict:
@@ -399,7 +410,7 @@ def determine_current_round() -> int:
         # Check if the highest round is completed
         if max_round > 0:
             last_round_state = all_rounds_state[str(max_round)]
-            if last_round_state["step_completed"] == 7:  # Last step completed
+            if last_round_state["step_completed"] == 12:  # Last step completed
                 return max_round + 1
             return max_round  # Continue with current round
 
@@ -429,11 +440,10 @@ def check_and_populate_db(data_dir: Path = None, task_id: str = None):
         print(f"System Prompts: {prompts_count}")
 
         # Only check required collections (issues, todos, systemprompts)
-        if issues_count == 0 or todos_count == 0 or prompts_count == 0:
-            print(
-                "\nOne or more required collections are empty. Populating database..."
-            )
-            reset_mongodb(data_dir, task_id)
+        # Only reset if ALL collections are empty
+        if issues_count == 0 and todos_count == 0 and prompts_count == 0:
+            print("\nAll required collections are empty. Populating database...")
+            reset_mongodb(Path(data_dir) if data_dir else None, task_id)
             return True
 
         print("\nAll required collections have data. Proceeding...")
@@ -443,27 +453,14 @@ def check_and_populate_db(data_dir: Path = None, task_id: str = None):
 
 
 def run_test_sequence(
-    reset: bool = False,
+    test_setup,
     task_id: str = "",
     data_dir: Path = None,
     start_label: str = None,
 ):
     """Run the test sequence, automatically determining where to resume from"""
-    if reset:
-        # Reset SQLite databases
-        reset_databases()
-
-        # Reset MongoDB
-        reset_mongodb(data_dir, task_id)
-
-        # Remove state file if it exists
-        state_file = Path(__file__).parent / "e2e_state.json"
-        if state_file.exists():
-            print(f"Removing state file: {state_file}")
-            os.remove(state_file)
-    else:
-        # Check if database needs to be populated
-        check_and_populate_db(data_dir, task_id)
+    # Check if database needs to be populated
+    check_and_populate_db(Path(data_dir) if data_dir else None, task_id)
 
     # Get task ID from environment if not provided
     if not task_id:
@@ -490,123 +487,175 @@ def run_test_sequence(
 
     # Load state if we're not starting from the beginning
     if start_step > 1:
-        load_state(data_manager, pr_urls, start_step)
+        load_state(data_manager, pr_urls, start_step, submission_data)
 
-    # Use TestSetup as a context manager to ensure servers are started and stopped properly
-    with TestSetup() as test_setup:
-        # Continue running rounds until all work is completed
-        while True:
-            print(f"\n{'='*80}")
-            print(f"Starting round {data_manager.round_number}")
-            print(f"{'='*80}")
+    # Continue running rounds until all work is completed
+    while True:
+        print(f"\n{'='*80}")
+        print(f"Starting round {data_manager.round_number}")
+        print(f"{'='*80}")
 
-            # Run the test steps for this round
-            if start_step <= 1:
-                log_step(1, "Create aggregator repo")
-                test_setup.create_aggregator_repo(data_manager)
-                save_state(data_manager, pr_urls, 1)
+        # Run the test steps for this round
+        if start_step <= 1:
+            log_step(1, "Create aggregator repo")
+            test_setup.create_aggregator_repo(data_manager)
+            save_state(data_manager, pr_urls, 1, submission_data)
 
-            if start_step <= 2:
-                log_step(2, "Run worker1 task")
-                test_setup.run_worker_task(data_manager, pr_urls, "worker1")
-                save_state(data_manager, pr_urls, 2)
+        if start_step <= 2:
+            log_step(2, "Run worker1 task")
+            test_setup.run_worker_task(data_manager, pr_urls, "worker1")
+            save_state(data_manager, pr_urls, 2, submission_data)
 
-            if start_step <= 3:
-                log_step(3, "Run worker2 task")
-                test_setup.run_worker_task(data_manager, pr_urls, "worker2")
-                save_state(data_manager, pr_urls, 3)
+        if start_step <= 3:
+            log_step(3, "Run worker2 task")
+            test_setup.run_worker_task(data_manager, pr_urls, "worker2")
+            save_state(data_manager, pr_urls, 3, submission_data)
 
-            if start_step <= 4:
-                log_step(4, "Get worker1 submission")
-                if "worker1" in pr_urls:
-                    submission_url = f"{test_setup.worker1_url}/submission"
-                    submission_params = {
-                        "task_id": data_manager.task_id,
-                        "round_number": data_manager.round_number,
-                        "pr_url": pr_urls["worker1"],
-                    }
-                    log_request("GET", submission_url, submission_params)
-                    response = requests.get(submission_url, params=submission_params)
-                    log_response(response)
-                    response.raise_for_status()
-                    submission_data["worker1"] = response.json()
-                save_state(data_manager, pr_urls, 4)
+        if start_step <= 4:
+            log_step(4, "Get worker1 submission")
+            if "worker1" in pr_urls:
+                submission_url = f"{test_setup.worker1_server.url}/submission/{data_manager.task_id}/{data_manager.round_number}"
+                log_request("GET", submission_url)
+                response = requests.get(submission_url)
+                log_response(response)
+                response.raise_for_status()
+                worker1_data = response.json()
 
-            if start_step <= 5:
-                log_step(5, "Get worker2 submission")
-                if "worker2" in pr_urls:
-                    submission_url = f"{test_setup.worker2_url}/submission"
-                    submission_params = {
-                        "task_id": data_manager.task_id,
-                        "round_number": data_manager.round_number,
-                        "pr_url": pr_urls["worker2"],
-                    }
-                    log_request("GET", submission_url, submission_params)
-                    response = requests.get(submission_url, params=submission_params)
-                    log_response(response)
-                    response.raise_for_status()
-                    submission_data["worker2"] = response.json()
-                save_state(data_manager, pr_urls, 5)
+                # Get keys from DataManager
+                keys = data_manager.get_keys("worker1")
 
-            if start_step <= 6:
-                log_step(6, "Worker1 audits Worker2")
-                test_setup.run_worker_audit(
-                    data_manager, pr_urls, submission_data, "worker1", "worker2"
+                # Create signature for the submission
+                submitter_payload = {
+                    "taskId": data_manager.task_id,
+                    "roundNumber": data_manager.round_number,
+                    "stakingKey": keys["staking_key"],
+                    "pubKey": keys["pub_key"],
+                    "action": "audit",
+                    "githubUsername": worker1_data.get("githubUsername"),
+                    "prUrl": worker1_data.get("prUrl"),
+                }
+                signature = data_manager.create_submitter_signature(
+                    "worker1", submitter_payload
                 )
-                save_state(data_manager, pr_urls, 6)
+                worker1_data["signature"] = signature
+                # Add staking and pub keys to submission data
+                worker1_data["stakingKey"] = keys["staking_key"]
+                worker1_data["pubKey"] = keys["pub_key"]
+                # Store worker1's submission data separately
+                submission_data["worker1"] = worker1_data
+            save_state(data_manager, pr_urls, 4, submission_data)
 
-            if start_step <= 7:
-                log_step(7, "Worker2 audits Worker1")
-                test_setup.run_worker_audit(
-                    data_manager, pr_urls, submission_data, "worker2", "worker1"
+        if start_step <= 5:
+            log_step(5, "Get worker2 submission")
+            if "worker2" in pr_urls:
+                submission_url = f"{test_setup.worker2_server.url}/submission/{data_manager.task_id}/{data_manager.round_number}"
+                log_request("GET", submission_url)
+                response = requests.get(submission_url)
+                log_response(response)
+                response.raise_for_status()
+                worker2_data = response.json()
+
+                # Get keys from DataManager
+                keys = data_manager.get_keys("worker2")
+
+                # Create signature for the submission
+                submitter_payload = {
+                    "taskId": data_manager.task_id,
+                    "roundNumber": data_manager.round_number,
+                    "stakingKey": keys["staking_key"],
+                    "pubKey": keys["pub_key"],
+                    "action": "audit",
+                    "githubUsername": worker2_data.get("githubUsername"),
+                    "prUrl": worker2_data.get("prUrl"),
+                }
+                signature = data_manager.create_submitter_signature(
+                    "worker2", submitter_payload
                 )
-                save_state(data_manager, pr_urls, 7)
+                worker2_data["signature"] = signature
+                # Add staking and pub keys to submission data
+                worker2_data["stakingKey"] = keys["staking_key"]
+                worker2_data["pubKey"] = keys["pub_key"]
+                # Store worker2's submission data separately
+                submission_data["worker2"] = worker2_data
+            save_state(data_manager, pr_urls, 5, submission_data)
 
-            if start_step <= 8:
-                log_step(8, "Update worker audit results")
-                test_setup.update_audit_results(data_manager, "worker")
-                save_state(data_manager, pr_urls, 8)
+        if start_step <= 6:
+            log_step(6, "Worker1 audits Worker2")
+            test_setup.run_worker_audit(
+                data_manager, pr_urls, submission_data, "worker1", "worker2"
+            )
+            save_state(data_manager, pr_urls, 6, submission_data)
 
-            if start_step <= 9:
-                log_step(9, "Run leader task")
-                test_setup.run_leader_task(data_manager, pr_urls)
-                save_state(data_manager, pr_urls, 9)
+        if start_step <= 7:
+            log_step(7, "Worker2 audits Worker1")
+            test_setup.run_worker_audit(
+                data_manager, pr_urls, submission_data, "worker2", "worker1"
+            )
+            save_state(data_manager, pr_urls, 7, submission_data)
 
-            if start_step <= 10:
-                log_step(10, "Get leader submission")
-                if "leader" in pr_urls:
-                    submission_url = f"{test_setup.leader_url}/submission"
-                    submission_params = {
-                        "task_id": data_manager.task_id,
-                        "round_number": data_manager.round_number,
-                        "pr_url": pr_urls["leader"],
-                    }
-                    log_request("GET", submission_url, submission_params)
-                    response = requests.get(submission_url, params=submission_params)
-                    log_response(response)
-                    response.raise_for_status()
-                    submission_data["leader"] = response.json()
-                save_state(data_manager, pr_urls, 10)
+        if start_step <= 8:
+            log_step(8, "Update worker audit results")
+            test_setup.update_audit_results(data_manager, "worker")
+            save_state(data_manager, pr_urls, 8, submission_data)
 
-            if start_step <= 11:
-                log_step(11, "Run leader audit")
-                test_setup.run_leader_audit(data_manager, pr_urls, submission_data)
-                save_state(data_manager, pr_urls, 11)
+        if start_step <= 9:
+            log_step(9, "Run leader task")
+            test_setup.run_leader_task(data_manager, pr_urls)
+            save_state(data_manager, pr_urls, 9, submission_data)
 
-            if start_step <= 12:
-                log_step(12, "Update leader audit results")
-                test_setup.update_audit_results(data_manager, "leader")
-                save_state(data_manager, pr_urls, 12)
+        if start_step <= 10:
+            log_step(10, "Get leader submission")
+            if "leader" in pr_urls:
+                submission_url = f"{test_setup.leader_server.url}/submission/{data_manager.task_id}/{data_manager.round_number}"
+                log_request("GET", submission_url)
+                response = requests.get(submission_url)
+                log_response(response)
+                response.raise_for_status()
+                leader_data = response.json()
 
-            # Check if there's more work to be done
-            if not check_remaining_work():
-                print(f"\nAll work completed after round {data_manager.round_number}!")
-                break
+                # Get keys from DataManager
+                keys = data_manager.get_keys("leader")
 
-            # Increment round number and reset start_step for next round
-            data_manager.round_number += 1
-            start_step = 1  # Always start from beginning for new rounds
-            print(f"\nMoving to round {data_manager.round_number}...")
+                # Create signature for the submission
+                submitter_payload = {
+                    "taskId": data_manager.task_id,
+                    "roundNumber": data_manager.round_number,
+                    "stakingKey": keys["staking_key"],
+                    "pubKey": keys["pub_key"],
+                    "action": "audit",
+                    "githubUsername": leader_data.get("githubUsername"),
+                    "prUrl": leader_data.get("prUrl"),
+                }
+                signature = data_manager.create_submitter_signature(
+                    "leader", submitter_payload
+                )
+                leader_data["signature"] = signature
+                # Add staking and pub keys to submission data
+                leader_data["stakingKey"] = keys["staking_key"]
+                leader_data["pubKey"] = keys["pub_key"]
+                # Store leader's submission data separately
+                submission_data["leader"] = leader_data
+            save_state(data_manager, pr_urls, 10, submission_data)
+
+        if start_step <= 11:
+            log_step(11, "Run leader audit")
+            test_setup.run_leader_audit(data_manager, pr_urls, submission_data)
+            save_state(data_manager, pr_urls, 11, submission_data)
+
+        if start_step <= 12:
+            log_step(12, "Update leader audit results")
+            test_setup.update_audit_results(data_manager, "leader")
+            save_state(data_manager, pr_urls, 12, submission_data)
+
+        # Check if there's more work to be done
+        if not check_remaining_work():
+            print(f"\nAll work completed after round {data_manager.round_number}!")
+            break
+
+        # Increment round number and reset start_step for next round
+        data_manager.round_number += 1
+        start_step = 1  # Always start from beginning for new rounds
+        print(f"\nMoving to round {data_manager.round_number}...")
 
 
 if __name__ == "__main__":
@@ -665,16 +714,48 @@ Example usage:
         help="Directory containing MongoDB data files (issues.json, todos.json, prompts.json)",
     )
     parser.add_argument(
-        "--start-from",
+        "--step",
         type=str,
         help="Label of the step to start from (see available steps below)",
     )
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir) if args.data_dir else Path(os.getenv("DATA_DIR"))
-    run_test_sequence(
-        reset=args.reset,
-        task_id=args.task_id,
-        data_dir=data_dir,
-        start_label=args.start_from,
-    )
+
+    # Get task ID from environment if not provided
+    task_id = args.task_id or os.getenv("TASK_ID")
+    if not task_id:
+        raise ValueError("No task ID provided and TASK_ID environment variable not set")
+
+    # If reset is requested, do it before anything else
+    if args.reset:
+        # Reset SQLite databases
+        reset_databases()
+        # Reset MongoDB
+        reset_mongodb(data_dir, task_id)
+        # Remove state file if it exists
+        state_file = Path(__file__).parent / "e2e_state.json"
+        if state_file.exists():
+            print(f"Removing state file: {state_file}")
+            os.remove(state_file)
+        # Force start from step 1
+        start_step = 1
+        round_number = 1
+    else:
+        # Determine current round from state
+        round_number = determine_current_round()
+        # Determine which step to start from
+        start_step = determine_start_step(round_number, args.step)
+        # Check if database needs to be populated
+        check_and_populate_db(data_dir, task_id)
+
+    print(f"Using task ID: {task_id}")
+    print(f"Starting with round {round_number}")
+    print(f"Resuming from step {start_step}")
+
+    # Initialize data manager
+    data_manager = DataManager(task_id=task_id, round_number=round_number)
+
+    # Use TestSetup as a context manager to ensure servers are started and stopped properly
+    with TestSetup() as test_setup:
+        run_test_sequence(test_setup, task_id, data_dir, args.step)
