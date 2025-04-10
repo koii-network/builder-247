@@ -203,11 +203,6 @@ class DataManager:
         if not submission_data:
             raise ValueError("Submission data is required for worker audit")
 
-        # Get PR info using GitHub API
-        parts = pr_url.strip("/").split("/")
-        pr_repo_owner = parts[-4]
-        pr_repo_name = parts[-3]
-
         # Create auditor payload which is used to generate the signature
         auditor_payload = {
             "taskId": self.task_id,
@@ -225,8 +220,8 @@ class DataManager:
                 "roundNumber": round_number,
                 "prUrl": pr_url,
                 "githubUsername": submission_data.get("githubUsername"),
-                "repoOwner": pr_repo_owner,
-                "repoName": pr_repo_name,
+                "repoOwner": self.repo_owner,
+                "repoName": self.repo_name,
                 "stakingKey": submission_data.get("stakingKey"),
                 "pubKey": submission_data.get("pubKey"),
             },
@@ -234,8 +229,8 @@ class DataManager:
             "submitterStakingKey": submission_data.get("stakingKey"),
             "submitterPubKey": submission_data.get("pubKey"),
             "prUrl": pr_url,
-            "repoOwner": pr_repo_owner,
-            "repoName": pr_repo_name,
+            "repoOwner": self.repo_owner,
+            "repoName": self.repo_name,
             "githubUsername": os.getenv(f"{auditor.upper()}_GITHUB_USERNAME"),
             "stakingKey": auditor_signatures["staking_key"],
             "pubKey": auditor_signatures["pub_key"],
@@ -360,11 +355,9 @@ class DataManager:
         # Get PR info using GitHub API
         parts = pr_url.strip("/").split("/")
         pr_number = int(parts[-1])
-        pr_repo_owner = parts[-4]
-        pr_repo_name = parts[-3]
 
         gh = Github(os.getenv("GITHUB_TOKEN"))
-        repo = gh.get_repo(f"{pr_repo_owner}/{pr_repo_name}")
+        repo = gh.get_repo(f"{self.repo_owner}/{self.repo_name}")
         pr = repo.get_pull(pr_number)
 
         # Extract submitter's keys from PR
@@ -395,8 +388,8 @@ class DataManager:
                 "roundNumber": round_number,
                 "prUrl": pr_url,
                 "githubUsername": os.getenv(f"{auditor.upper()}_GITHUB_USERNAME"),
-                "repoOwner": pr_repo_owner,
-                "repoName": pr_repo_name,
+                "repoOwner": self.repo_owner,
+                "repoName": self.repo_name,
                 "stakingKey": submitter_key,
                 "pubKey": submitter_pub_key,
             },
@@ -406,8 +399,8 @@ class DataManager:
             "submitterStakingKey": submitter_key,
             "submitterPubKey": submitter_pub_key,
             "prUrl": pr_url,
-            "repoOwner": pr_repo_owner,
-            "repoName": pr_repo_name,
+            "repoOwner": self.repo_owner,
+            "repoName": self.repo_name,
             "githubUsername": os.getenv(f"{auditor.upper()}_GITHUB_USERNAME"),
             "stakingKey": auditor_signatures["staking_key"],
             "pubKey": auditor_signatures["pub_key"],
