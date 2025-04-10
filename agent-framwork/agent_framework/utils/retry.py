@@ -1,70 +1,58 @@
 """Retry utilities for API calls."""
 
+from typing import Callable, TypeVar
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_exponential,
-    wait_fixed,
-    wait_chain,
+    retry_if_exception_type,
 )
-from agent_framework.utils.logging import log_key_value
+from agent_framework.utils.logging import log_error
 from agent_framework.utils.errors import ClientAPIError
 
-
-def is_retryable_error(e: Exception) -> bool:
-    """Check if an error is retryable.
-
-    An error is considered retryable if it has a status_code attribute >= 429
-    (rate limits and server errors).
-    """
-    return isinstance(e, ClientAPIError) and e.status_code >= 429
+T = TypeVar("T")
 
 
-def with_retry(func_name: str, max_attempts: int = 6):
-    """Decorator factory for retry logic.
+def is_retryable_error(error: Exception) -> bool:
+    """Check if an error is retryable."""
+    if isinstance(error, ClientAPIError):
+        # Check if the error has a status code >= 429 (rate limit or server error)
+        return error.status_code >= 429
+    return False
 
-    Args:
-        func_name: Name of the function being retried (for logging)
-        max_attempts: Maximum number of retry attempts
-    """
 
-    def decorator(func):
+def with_retry(
+    max_attempts: int = 5,
+    base_delay: float = 5.0,
+    max_delay: float = 60.0,
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
+    """Decorator to add retry logic to a function using tenacity."""
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @retry(
-            retry=is_retryable_error,
-            # Add a fixed 1 second delay between all API calls, then use exponential backoff for retries
-            wait=wait_chain(
-                # Always wait at least 10 seconds between calls
-                wait_fixed(10),
-                # On retries, use exponential backoff starting at 20 seconds
-                wait_exponential(multiplier=2, min=20, max=80),
-            ),
+            retry=retry_if_exception_type(ClientAPIError),
             stop=stop_after_attempt(max_attempts),
-            before_sleep=lambda retry_state: log_key_value(
-                "Retry attempt",
-                f"{func_name}: Attempt {retry_state.attempt_number} failed, "
-                f"retrying in {retry_state.next_action.sleep} seconds...",
+            wait=wait_exponential(multiplier=base_delay, max=max_delay),
+            before_sleep=lambda retry_state: log_error(
+                retry_state.outcome.exception(),
+                (
+                    f"Retry attempt {retry_state.attempt_number}/{max_attempts}: "
+                    f"{retry_state.outcome.exception().status_code} - "
+                    f"{str(retry_state.outcome.exception())}"
+                ),
+                include_traceback=False,
             ),
-            before=lambda retry_state: (
-                retry_state.kwargs.update({"is_retry": True})
-                if retry_state.attempt_number > 1
-                else None
-            ),
+            reraise=True,
         )
         def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                # Only wrap API-related errors
-                if isinstance(e, ClientAPIError):
-                    raise ClientAPIError(e)
-                raise  # Let other errors propagate normally
+            return func(*args, **kwargs)
 
         return wrapper
 
     return decorator
 
 
-@with_retry("send_message")
+@with_retry()
 def send_message_with_retry(client, *args, **kwargs):
     """Send a message with retry logic for recoverable errors.
 
@@ -74,7 +62,7 @@ def send_message_with_retry(client, *args, **kwargs):
     return client.send_message(*args, **kwargs)
 
 
-@with_retry("execute_tool")
+@with_retry()
 def execute_tool_with_retry(client, tool_use):
     """Execute tool with retry logic.
 

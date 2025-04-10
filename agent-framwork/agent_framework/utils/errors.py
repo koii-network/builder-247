@@ -1,18 +1,16 @@
-"""Error type for pre-logged errors."""
+"""Error type for API errors."""
 
 
 class ClientAPIError(Exception):
-    """Error that has already been logged at source.
-
-    Used to wrap API errors that have been logged where they occurred,
-    to prevent duplicate logging higher up the stack.
-    """
+    """Error for API calls with status code."""
 
     def __init__(self, original_error: Exception):
-        self.original_error = original_error
-        super().__init__(str(original_error))
-
-    @property
-    def status_code(self) -> int:
-        """Preserve status code from original error if it exists."""
-        return getattr(self.original_error, "status_code", None)
+        print(original_error)
+        if hasattr(original_error, "status_code"):
+            self.status_code = original_error.status_code
+        else:
+            self.status_code = 500
+        if hasattr(original_error, "message"):
+            super().__init__(original_error.message)
+        else:
+            super().__init__(str(original_error))
