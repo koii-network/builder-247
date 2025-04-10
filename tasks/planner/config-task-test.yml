@@ -5,7 +5,7 @@
 
 ## Task Name ##
 # Maximum 24 characters.
-task_name: "Prometheus Docs Agent"
+task_name: "Prometheus Planner Agent"
 
 ## Task Author ##
 author: "Prometheus"
@@ -124,7 +124,7 @@ environment: "TEST"
 #################################### FOR UPDATING TASKS ONLY ####################################
 
 ## Old Task ID ##
-task_id: "48h3f4r3AR7MdgCMkET4v3yh7PpPHuqGDWzqgH52rny1"
+task_id: ""
 
 ## Migration Description ##
-migrationDescription: "Fix audit bug"
+migrationDescription: ""
