@@ -1,6 +1,8 @@
 from flask import Blueprint, jsonify, request
 from src.server.services import task_service
 from agent_framework.utils.logging import logger
+import requests
+import os
 
 bp = Blueprint("task", __name__)
 
@@ -123,3 +125,27 @@ def start_task(round_number, node_type, request):
             "pr_url": response_data["pr_url"],
         }
     )
+
+
+@bp.post("/update-audit-result/<task_id>/<round_number>")
+def update_audit_result(task_id, round_number):
+
+    response = requests.post(
+        os.environ["MIDDLE_SERVER_URL"] + "/api/update-audit-result",
+        json={
+            "taskId": task_id,
+            "round": round_number,
+        },
+        headers={"Content-Type": "application/json"},
+    )
+    response.raise_for_status()
+
+    result = response.json()
+    if not result.get("success", False):
+        return (
+            jsonify(
+                {"success": False, "message": result.get("message", "Unknown error")}
+            ),
+            500,
+        )
+    return jsonify({"success": True, "message": "Audit results processed"}), 200

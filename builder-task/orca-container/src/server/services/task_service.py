@@ -894,6 +894,7 @@ def create_aggregator_repo(task_id):
             # It should not call the middle server directly
 
             return {
+                "status": 200,
                 "success": True,
                 "message": "Successfully created aggregator repository",
                 "data": {
@@ -901,7 +902,6 @@ def create_aggregator_repo(task_id):
                     "branch_name": branch_name,
                     "issue_uuid": issue_uuid,
                 },
-                "status": 200,
             }
 
         except Exception as e:
