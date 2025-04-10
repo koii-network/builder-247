@@ -8,7 +8,7 @@ export async function syncDB() {
     // Get all feature bounties
     // Access the endpoint to get the swarm bounties
     try {
-        const endpoint = `${process.env.PROMETHEUS_SERVER_URL}?status=${SwarmBountyStatus.IN_PROGRESS}`;
+        const endpoint = `${process.env.PROMETHEUS_SERVER_URL}/api/v1/bounty?status=${SwarmBountyStatus.IN_PROGRESS}`;
         const response = await fetch(endpoint, {
             headers: {
                 'Authorization': `Bearer ${process.env.PROMETHEUS_SERVER_X_API_KEY || ""}`
@@ -45,5 +45,3 @@ export async function syncDB() {
         console.error("Error syncing DB", error);
     }
 }
-
-syncDB();
