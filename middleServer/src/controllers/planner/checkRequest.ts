@@ -3,12 +3,12 @@ import { Spec, SpecModel } from "../../models/Spec";
 import { verifySignature } from "../../utils/sign";
 import { plannerTaskID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
+import { Document } from "mongoose";
 
 // Helper function to verify request body
 function verifyRequestBody(req: Request): {
   stakingKey: string;
   roundNumber: string;
-  githubUsername: string;
   prUrl: string;
 } | null {
   try {
@@ -16,12 +16,11 @@ function verifyRequestBody(req: Request): {
 
     const stakingKey = req.body.stakingKey as string;
     const roundNumber = req.body.roundNumber as string;
-    const githubUsername = req.body.githubUsername as string;
     const prUrl = req.body.prUrl as string;
-    if (!stakingKey || !roundNumber || !githubUsername || !prUrl) {
+    if (!stakingKey || !roundNumber || !prUrl) {
       return null;
     }
-    return {  stakingKey, roundNumber, githubUsername, prUrl };
+    return {  stakingKey, roundNumber, prUrl };
   } catch {
     return null;
   }
@@ -32,14 +31,12 @@ function verifyRequestBody(req: Request): {
 async function checkToDoAssignment(
   stakingKey: string,
   roundNumber: string,
-  githubUsername: string,
   prUrl: string,
 ): Promise<Spec | null> {
   try {
     const data = {
       stakingKey,
       roundNumber,
-      githubUsername,
       prUrl,
       taskId: plannerTaskID,
     };
@@ -55,7 +52,7 @@ async function checkToDoAssignment(
           }
         }
       }
-    )
+    ).lean();
 
     console.log("Todo assignment check result:", result);
     return result;
@@ -77,7 +74,6 @@ export const checkRequest = async (req: Request, res: Response) => {
   const spec = await checkToDoAssignment(
     requestBody.stakingKey,
     requestBody.roundNumber,
-    requestBody.githubUsername,
     requestBody.prUrl,
   );
 
@@ -92,9 +88,7 @@ export const checkRequest = async (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     message: "Todo assignment verified successfully",
-    data:{
-      ...spec
-    }
+    data: spec
   });
 };
 

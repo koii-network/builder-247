@@ -57,10 +57,11 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     const ipfsFileContent = await getFile(decodeResult.prUrl);
     const auditPayload = {
       issuesAndTasks: ipfsFileContent,
-      issueSpec: checkSummarizerJSON.issueSpec,
-      repoOwner: checkSummarizerJSON.repoOwner,
-      repoName: checkSummarizerJSON.repoName,
+      issueSpec: checkSummarizerJSON.data.description,
+      repoOwner: checkSummarizerJSON.data.repoOwner,
+      repoName: checkSummarizerJSON.data.repoName,
     }
+    console.log(`[AUDIT] Audit payload:`, auditPayload);
     const result = await orcaClient.podCall(`audit/${roundNumber}`, {
       method: "POST",
       headers: {
@@ -72,8 +73,11 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     console.log(`[AUDIT] Raw audit result:`, result);
     console.log(`[AUDIT] Audit result data type:`, typeof result.data);
     console.log(`[AUDIT] Audit result data value:`, result.data);
-    
-    if (result.data === true) {
+    if (result.data?.success === false) {
+      console.log(`[AUDIT] ❌ Audit failed for ${submitterKey}`);
+      return;
+    }
+    if (result.data?.result === true) {
       console.log(`[AUDIT] ✅ Audit passed for ${submitterKey}`);
       return true;
     } else {

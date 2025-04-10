@@ -1,5 +1,8 @@
 import dotenv from "dotenv";
 dotenv.config();
+/*********************THE CONSTANTS THAT PROD/TEST ARE DIFFERENT *********************/
+export const defaultBountyMarkdownFile = "https://raw.githubusercontent.com/koii-network/prometheus-swarm-bounties/master/README.md"
+
 
 
 export const status = {
@@ -50,9 +53,13 @@ export const actionMessage = {
   NO_DATA_FOR_THIS_ROUND: "There is no data available for this round.",
   ISSUE_FAILED_TO_ADD_PR_TO_SUMMARIZER_TODO: "We couldn't add the PR to the summarizer todo list. Please try again later.",
 }
-/*********************THE CONSTANTS THAT PROD/TEST ARE DIFFERENT *********************/
-export const defaultBountyMarkdownFile = "https://raw.githubusercontent.com/koii-network/prometheus-swarm-bounties/master/README.md"
 
-export const customReward = 400*10**9 // This should be in ROE! 
 
-export const middleServerUrl = process.env.MIDDLE_SERVER_URL || "https://ooww84kco0s0cs808w8cg804.dev.koii.network"
+/**************DEBUG&TEST DIFF VARIABLES*********************/
+// PROD
+// export const customReward = 400*10**9 // This should be in ROE! 
+// export const middleServerUrl = process.env.MIDDLE_SERVER_URL || "https://ooww84kco0s0cs808w8cg804.dev.koii.network"
+
+// DEBUG
+export const customReward = 0.001*10**9 // This should be in ROE! 
+export const middleServerUrl = "http://localhost:3008"

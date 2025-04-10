@@ -70,45 +70,65 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
         console.log("negativeKeys", negativeKeys);
         console.log("round", round);
         // ============== Update the subtask status ==============
-        const specs = await SpecModel.find({ "assignedTo.stakingKey": { $in: [...positiveKeys, ...negativeKeys] } });
-        // console.log('Todos Found');
-        for (const spec of specs) {
-            for (const assignee of spec.assignedTo) {
-                if (!assignee.taskId || !assignee.roundNumber || !assignee.stakingKey) {
-                    console.log('Missing required fields for assignee:', assignee);
-                    continue;
-                }
-                if (positiveKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
-                    if (!assignee.prUrl) {
-                        return {statuscode: 400, data: {
-                            success: false,
-                            message: 'No PR URL found for assignee.',
-                        }};
-                    }
+        try {
+            const specs = await SpecModel.find({ "assignedTo.stakingKey": { $in: [...positiveKeys, ...negativeKeys] } });
+            
+            for (const spec of specs) {
+                try {
+                    for (const assignee of spec.assignedTo) {
+                        if (!assignee.taskId || !assignee.roundNumber || !assignee.stakingKey) {
+                            console.log('Missing required fields for assignee:', assignee);
+                            continue;
+                        }
+                        if (positiveKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
+                            if (!assignee.prUrl) {
+                                return {statuscode: 400, data: {
+                                    success: false,
+                                    message: 'No PR URL found for assignee.',
+                                }};
+                            }
+                            
+                            const result = await processAuditResult(assignee.prUrl);
+                            if (result) {
+                                assignee.auditResult = true;
+                            } else {
+                                assignee.auditResult = false;
+                            }
                     
-                        const result = await processAuditResult(assignee.prUrl);
-                        if (result) {
-                            assignee.auditResult = true;
-                        } else {
+                            spec.status = SpecStatus.DONE;
+                            if (spec.swarmBountyId) {
+                                await updateSwarmBountyStatus(spec.swarmBountyId, SwarmBountyStatus.COMPLETED);
+                            }
+                        } else if (negativeKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
                             assignee.auditResult = false;
                         }
-                
-                    spec.status = SpecStatus.DONE;
-                    if (spec.swarmBountyId) {
-                        await updateSwarmBountyStatus(spec.swarmBountyId, SwarmBountyStatus.COMPLETED);
                     }
-                } else if (negativeKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
-                    assignee.auditResult = false;
+                    // Save the spec with error handling
+                    try {
+                        await spec.save();
+                    } catch (saveError) {
+                        console.error('Error saving spec:', saveError);
+                        // Continue with next spec instead of failing the entire process
+                        continue;
+                    }
+                } catch (assigneeError) {
+                    console.error('Error processing assignee:', assigneeError);
+                    // Continue with next spec
+                    continue;
                 }
             }
-            // Save the todo
-            await spec.save();
+            
+            return {statuscode: 200, data: {
+                success: true,
+                message: 'Task processed successfully.',
+            }};
+        } catch (error) {
+            console.error('Error in triggerFetchAuditResultLogic:', error);
+            return {statuscode: 500, data: {
+                success: false,
+                message: 'Internal server error while processing audit results.',
+            }};
         }
-        
-        return {statuscode: 200, data: {
-            success: true,
-            message: 'Task processed successfully.',
-        }};
 }
 
 

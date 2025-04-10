@@ -10,7 +10,7 @@
     "start": "node index.js",
     "prod-debug": "nodemon --ignore 'dist/*' tests/prod-debug.js",
     "webpack": "rm -rf dist && rm -rf node_modules && yarn && webpack",
-    "webpack:test": "webpack --config tests/test.webpack.config.js",
+    "webpack:test": "rm -rf dist && rm -rf node_modules && yarn && webpack && mv dist/main.js dist/bafybeie443dw33zhpixohiyty7ilghto7nvcyuxkzs2fdcgslmwpgjcbku.js",
     "webpack:prod": "webpack --mode production",
     "webpack:dev": "webpack",
     "rename-dist": "mv dist/main.js dist/bafybeianaylvcqh42l7pitsboznlpni3b2gqh2n6jbldmm6oty36ldisra.js"

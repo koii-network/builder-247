@@ -218,9 +218,9 @@ export async function task(roundNumber: number): Promise<void> {
 }
        */
       
-      const ipfs_cid = await storeFile(repoSummaryResponse.data.result.data);
+      const ipfs_cid = await storeFile(repoSummaryResponse.data.data);
       await namespaceWrapper.storeSet(`ipfs-cid-${roundNumber}`, ipfs_cid);
-      console.log("[TASK] repoSummaryResponse.data.result.data ", repoSummaryResponse.data.result.data);
+      console.log("[TASK] repoSummaryResponse.data.data ", repoSummaryResponse.data.data);
       const payload = {
         taskId: TASK_ID,
         action: "add",
