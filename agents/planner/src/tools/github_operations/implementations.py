@@ -849,15 +849,15 @@ def generate_issues(
             "data": None,
             "error": str(e),
         }   
-def validate_tasks(
+def audit_tasks(
     result: bool,
 ) -> dict:
-    """Validate the tasks.
+    """Audit the tasks.
     """
     try:
         return {
             "success": True,
-            "message": f"Successfully validated tasks",
+            "message": f"Successfully audited tasks",
             "data": {
                 "result": result,
             },

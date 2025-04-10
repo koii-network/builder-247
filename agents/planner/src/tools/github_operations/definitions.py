@@ -10,6 +10,7 @@ from src.tools.github_operations.implementations import (
     validate_tasks,
     regenerate_tasks,
     create_task_dependency,
+    audit_tasks,
 )
 
 DEFINITIONS = {
@@ -481,9 +482,9 @@ DEFINITIONS = {
         "final_tool": True,
         "function": generate_issues,    
     },
-    "validate_tasks": {
-        "name": "validate_tasks",
-        "description": "Validate the tasks.",
+    "audit_tasks": {
+        "name": "audit_tasks",
+        "description": "Audit the tasks.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -496,6 +497,6 @@ DEFINITIONS = {
             "additionalProperties": False,
         },
         "final_tool": True,
-        "function": validate_tasks,
+        "function": audit_tasks,
     },
 }
