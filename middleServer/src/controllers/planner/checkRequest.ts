@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Spec, SpecModel } from "../../models/Spec";
 import { verifySignature } from "../../utils/sign";
-import { documentSummarizerTaskID } from "../../config/constant";
+import { plannerTaskID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
 
 // Helper function to verify request body
@@ -41,7 +41,7 @@ async function checkToDoAssignment(
       roundNumber,
       githubUsername,
       prUrl,
-      taskId: documentSummarizerTaskID,
+      taskId: plannerTaskID,
     };
     console.log("Data:", data);
 
@@ -50,7 +50,7 @@ async function checkToDoAssignment(
         "assignedTo": {
           $elemMatch: {
             stakingKey: stakingKey,
-            taskId: documentSummarizerTaskID,
+            taskId: plannerTaskID,
             roundNumber: Number(roundNumber),
           }
         }

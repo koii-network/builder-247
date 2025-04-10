@@ -2,7 +2,7 @@ import { Spec, SpecModel } from "../../models/Spec";
 
 import { Request, Response } from "express";
 import { verifySignature } from "../../utils/sign";
-import { documentSummarizerTaskID } from "../../config/constant";
+import { plannerTaskID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
 
 function verifyRequestBody(req: Request): { signature: string; stakingKey: string } | null {
@@ -35,7 +35,7 @@ async function verifySignatureData(
     console.log("signature payload", { body, stakingKey });
     if (
       !body.taskId ||
-      body.taskId !== documentSummarizerTaskID ||
+      body.taskId !== plannerTaskID ||
       typeof body.roundNumber !== "number" ||
       body.action !== "add" ||
       !body.prUrl ||
@@ -60,7 +60,7 @@ async function updateAssignedInfoPrUrl(
     {
       assignedTo: {
         $elemMatch: {
-          taskId: documentSummarizerTaskID,
+          taskId: plannerTaskID,
           stakingKey: stakingKey,
           roundNumber: roundNumber,
         },
@@ -97,7 +97,7 @@ export const addRequest = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(documentSummarizerTaskID, requestBody.stakingKey))) {
+  if (!(await isValidStakingKey(plannerTaskID, requestBody.stakingKey))) {
     res.status(401).json({
       success: false,
       message: "Invalid staking key",
@@ -129,10 +129,3 @@ export const addPRUrlLogic = async (requestBody: {signature: string, stakingKey:
     message: "PR URL updated",
   }};
 };
-
-// async function test(){
-//     const docs = await addPRUrlLogic({signature: "0x123", stakingKey: "0x123"}, {roundNumber: 1, prUrl: "0x123"});
-//     console.log(docs);
-//   }
-  
-//   test();

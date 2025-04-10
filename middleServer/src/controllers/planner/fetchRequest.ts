@@ -2,12 +2,11 @@ import { Request, Response } from "express";
 import "dotenv/config";
 
 import { SpecModel, SpecStatus } from "../../models/Spec";
-// import { documentSummarizerTaskID } from "../../config/constant";
+
 import { isValidStakingKey } from "../../utils/taskState";
 import { verifySignature } from "../../utils/sign";
-import { documentSummarizerTaskID, taskID } from "../../config/constant";
+import { plannerTaskID } from "../../config/constant";
 import { syncDB } from "../../services/summarizer/syncDB";
-import { DocumentationStatus } from "../../models/Documentation";
 
 
 // Check if the user has already completed the task
@@ -16,7 +15,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
     const result = await SpecModel.findOne({
       assignedTo: {
         $elemMatch: {
-          taskId: documentSummarizerTaskID,
+          taskId: plannerTaskID,
           stakingKey: stakingKey,
           roundNumber: roundNumber,
         },
@@ -29,7 +28,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
 
     // Find the specific assignment entry
     const assignment = result.assignedTo.find(
-      (a: any) => a.stakingKey === stakingKey && a.roundNumber === roundNumber && a.taskId === documentSummarizerTaskID,
+      (a: any) => a.stakingKey === stakingKey && a.roundNumber === roundNumber && a.taskId === plannerTaskID,
     );
 
     return {
@@ -69,7 +68,7 @@ async function verifySignatureData(
     if (
       !body.taskId ||
       typeof body.roundNumber !== "number" ||
-      body.taskId !== documentSummarizerTaskID ||
+      body.taskId !== plannerTaskID ||
       body.action !== action ||
       !body.githubUsername ||
       !body.stakingKey ||
@@ -106,7 +105,7 @@ export const fetchRequest = async (req: Request, res: Response) => {
     return;
   }
 
-  if (!(await isValidStakingKey(documentSummarizerTaskID, requestBody.stakingKey))) {
+  if (!(await isValidStakingKey(plannerTaskID, requestBody.stakingKey))) {
     res.status(401).json({
       success: false,
       message: "Invalid staking key",
@@ -159,10 +158,10 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
                   {
                     $and: [
                       { roundNumber: { $lt: signatureData.roundNumber - 3 } },
-                      { taskId: documentSummarizerTaskID }
+                      { taskId: plannerTaskID }
                     ]
                   },
-                  { taskId: { $ne: documentSummarizerTaskID } }
+                  { taskId: { $ne: plannerTaskID } }
                 ]
               },
               { status: SpecStatus.IN_PROGRESS }
@@ -175,7 +174,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
         $push: {
           assignedTo: {
             stakingKey: requestBody.stakingKey,
-            taskId: documentSummarizerTaskID,
+            taskId: plannerTaskID,
             roundNumber: signatureData.roundNumber,
             githubUsername: signatureData.githubUsername,
             todoSignature: requestBody.signature
@@ -183,7 +182,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
         },
         $set: {
           status: SpecStatus.IN_PROGRESS,
-          taskId: documentSummarizerTaskID,
+          taskId: plannerTaskID,
           roundNumber: signatureData.roundNumber,
         }
       },
@@ -222,10 +221,3 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
     }}
   }
 }
-
-// async function test(){
-//   const docs = await fetchTodoLogic({signature: "0x123", stakingKey: "0x123"}, {roundNumber: 1, githubUsername: "0x123"});
-//   console.log(docs);
-// }
-
-// test();

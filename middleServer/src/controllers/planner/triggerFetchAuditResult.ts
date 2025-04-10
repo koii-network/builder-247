@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../../utils/taskState/getDistributionList';
-import { DocumentationModel, DocumentationStatus } from "../../models/Documentation";
+import { Spec, SpecModel, SpecStatus } from "../../models/Spec";
 import { plannerTaskID } from '../../config/constant';
 import SwarmBounty, { SwarmBountyStatus } from '../../models/SwarmBounties';
 // A simple in-memory cache to store processed task IDs and rounds
@@ -67,7 +67,7 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
         console.log("negativeKeys", negativeKeys);
         console.log("round", round);
         // ============== Update the subtask status ==============
-        const specs = await DocumentationModel.find({ "assignedTo.stakingKey": { $in: [...positiveKeys, ...negativeKeys] } });
+        const specs = await SpecModel.find({ "assignedTo.stakingKey": { $in: [...positiveKeys, ...negativeKeys] } });
         // console.log('Todos Found');
         for (const spec of specs) {
             for (const assignee of spec.assignedTo) {
@@ -77,7 +77,7 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
                 }
                 if (positiveKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
                     assignee.auditResult = true;
-                    spec.status = DocumentationStatus.DONE;
+                    spec.status = SpecStatus.DONE;
                     if (spec.swarmBountyId) {
                         await updateSwarmBountyStatus(spec.swarmBountyId, SwarmBountyStatus.COMPLETED);
                     }
@@ -94,10 +94,3 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
             message: 'Task processed successfully.',
         }};
 }
-
-// async function test(){
-//     const response = await triggerFetchAuditResultLogic(["G79TK8ccVx11JCsStBY85thohoSCm5eDwACAVju4z7bj"], ["0x456"], 13);
-//     console.log(response);
-// }
-
-// test();
