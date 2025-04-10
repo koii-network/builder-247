@@ -36,9 +36,11 @@ export async function task(roundNumber: number): Promise<void> {
 
     await createAggregatorRepo(orcaClient, roundNumber, stakingKey, pubKey, stakingKeypair.secretKey);
 
-    // Once we reach round 3, trigger the audit update for the previous round to check the distribution list
-    if (roundNumber >= 3) {
-      await triggerAuditUpdate(TASK_ID || "", roundNumber - 3, stakingKeypair, orcaClient);
+    // Once we reach round 4, trigger the audit update to check the distribution list
+    // the distribution list should be available after round 3 but sometimes it's not in the task state yet
+    // so we wait one additional round
+    if (roundNumber >= 4) {
+      await triggerAuditUpdate(TASK_ID || "", roundNumber - 4, stakingKeypair, orcaClient);
     }
 
     const leaderPrUrl = await runTask(roundNumber, "leader", orcaClient, stakingKey, pubKey, stakingKeypair.secretKey);
