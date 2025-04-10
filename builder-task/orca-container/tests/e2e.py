@@ -242,10 +242,13 @@ def reset_mongodb(data_dir: Path = None, task_id: str = None):
             # Add UUIDs to issues and create mapping
             issue_uuid_mapping = {}
             for issue in issues_data:
-                real_uuid = str(uuid.uuid4())
-                issue_uuid_mapping[issue["issueUuid"]] = real_uuid
-                issue["issueUuid"] = real_uuid
-                issue["uuid"] = real_uuid
+                # Generate a new UUID for the issue
+                new_uuid = str(uuid.uuid4())
+                # Map the original issueUuid to the new UUID
+                issue_uuid_mapping[issue["issueUuid"]] = new_uuid
+                # Update the issue with the new UUID
+                issue["issueUuid"] = new_uuid
+                issue["uuid"] = new_uuid
 
             result = db.issues.insert_many(issues_data)
             print(f"Inserted {len(result.inserted_ids)} issues")
@@ -264,10 +267,13 @@ def reset_mongodb(data_dir: Path = None, task_id: str = None):
                     todo["taskId"] = task_id
                 print(f"Set task ID to {task_id} for all todos")
 
-            # Update issue UUIDs in todos
+            # Update issue UUIDs in todos and add UUIDs to todos
             for todo in todos_data:
                 if todo["issueUuid"] in issue_uuid_mapping:
+                    # Update the todo's issueUuid to match the new issue UUID
                     todo["issueUuid"] = issue_uuid_mapping[todo["issueUuid"]]
+                # Add UUID to each todo
+                todo["uuid"] = str(uuid.uuid4())
 
             result = db.todos.insert_many(todos_data)
             print(f"Inserted {len(result.inserted_ids)} todos")
