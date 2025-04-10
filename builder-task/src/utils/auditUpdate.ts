@@ -29,7 +29,7 @@ export async function triggerAuditUpdate(
     const signature = await namespaceWrapper.payloadSigning(updatePayload, stakingKeypair.secretKey);
 
     // Make the request
-    const response = await orcaClient.podCall(`update-audit-result`, {
+    const response = await orcaClient.podCall(`update-audit-result/${taskId}/${round}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
