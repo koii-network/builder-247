@@ -206,7 +206,11 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
         message: "No available todos found",
       }};
     }
-
+    try {
+      await updateSwarmBountyStatus(updatedTodo.swarmBountyId, SwarmBountyStatus.ASSIGNED);
+    } catch (error) {
+      console.error("Error updating swarm bounty status:", error);
+    }
     // Validate required data fields
     if (!updatedTodo.repoOwner || !updatedTodo.repoName) {
       return {statuscode: 404, data:{

@@ -2,8 +2,9 @@ import { DocumentationModel } from "../../models/Documentation";
 
 import { Request, Response } from "express";
 import { verifySignature } from "../../utils/sign";
-import { documentSummarizerTaskID } from "../../config/constant";
+import { documentSummarizerTaskID, SwarmBountyStatus } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
+import { updateSwarmBountyStatus } from "../../services/swarmBounty/updateStatus";
 
 function verifyRequestBody(req: Request): { signature: string; stakingKey: string } | null {
   try {
@@ -72,7 +73,13 @@ async function updateAssignedInfoPrUrl(
   )
     .select("_id")
     .lean();
-
+    try{
+      if (result?.swarmBountyId) {
+        await updateSwarmBountyStatus(result?.swarmBountyId, SwarmBountyStatus.AUDITING);
+      }
+    } catch (error) {
+      console.error("Error updating swarm bounty status:", error);
+    }
   console.log("prUrl update result", result);
 
   return result !== null;

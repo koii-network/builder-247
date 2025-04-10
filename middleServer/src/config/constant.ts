@@ -12,7 +12,8 @@ export enum SwarmBountyStatus {
     IN_PROGRESS = "in-progress",
     // LOADING = "loading",
     ASSIGNED = "assigned",
-    FORKED = "forked"
+    // FORKED = "forked"
+    AUDITING = "auditing"
   }
 export enum SwarmBountyType {
   DOCUMENT_SUMMARIZER = "document-summarizer",
