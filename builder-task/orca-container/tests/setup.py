@@ -236,6 +236,11 @@ class TestSetup:
         """Run worker audit for a specific worker auditing another worker"""
         import requests
 
+        # Skip if there's no PR URL for the auditee
+        if auditee not in pr_urls:
+            print(f"✓ No {auditee} PR to audit - continuing")
+            return
+
         self.switch_role(auditor)
         payload = data_manager.prepare_worker_audit(
             auditor,
@@ -301,6 +306,11 @@ class TestSetup:
 
     def run_leader_audit(self, data_manager, pr_urls, submission_data):
         """Run leader audit and handle audit submission"""
+        # Skip if there's no leader PR URL
+        if "leader" not in pr_urls:
+            print("✓ No leader PR to audit - continuing")
+            return
+
         self.switch_role("leader")
         payload = data_manager.prepare_leader_audit(
             "leader",
