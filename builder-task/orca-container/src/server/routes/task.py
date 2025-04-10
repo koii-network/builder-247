@@ -129,23 +129,33 @@ def start_task(round_number, node_type, request):
 
 @bp.post("/update-audit-result/<task_id>/<round_number>")
 def update_audit_result(task_id, round_number):
+    try:
+        # Convert round_number to integer
+        round_number = int(round_number)
 
-    response = requests.post(
-        os.environ["MIDDLE_SERVER_URL"] + "/api/update-audit-result",
-        json={
-            "taskId": task_id,
-            "round": round_number,
-        },
-        headers={"Content-Type": "application/json"},
-    )
-    response.raise_for_status()
-
-    result = response.json()
-    if not result.get("success", False):
-        return (
-            jsonify(
-                {"success": False, "message": result.get("message", "Unknown error")}
-            ),
-            500,
+        response = requests.post(
+            os.environ["MIDDLE_SERVER_URL"] + "/api/update-audit-result",
+            json={
+                "taskId": task_id,
+                "round": round_number,
+            },
+            headers={"Content-Type": "application/json"},
         )
-    return jsonify({"success": True, "message": "Audit results processed"}), 200
+        response.raise_for_status()
+
+        result = response.json()
+        if not result.get("success", False):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": result.get("message", "Unknown error"),
+                    }
+                ),
+                500,
+            )
+        return jsonify({"success": True, "message": "Audit results processed"}), 200
+    except ValueError:
+        return jsonify({"success": False, "message": "Invalid round number"}), 400
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "message": str(e)}), 500
