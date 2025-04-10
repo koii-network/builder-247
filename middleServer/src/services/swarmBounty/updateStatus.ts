@@ -26,13 +26,3 @@ export async function updateSwarmBountyStatus(swarmBountyId: string, status: Swa
     }
 
 }
-
-export async function test(){
-    const swarmBountyId = "67d9aab4c9b0094618ef449c";
-    const status = SwarmBountyStatus.ASSIGNED;
-    const response = await updateSwarmBountyStatus(swarmBountyId, status);
-    console.log(response);
-}
-
-
-test();

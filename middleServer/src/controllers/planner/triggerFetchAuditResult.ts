@@ -1,14 +1,34 @@
 import { Request, Response } from 'express';
 import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../../utils/taskState/getDistributionList';
-import { Spec, SpecModel, SpecStatus } from "../../models/Spec";
+import { SpecModel, SpecStatus } from "../../models/Spec";
 import { plannerTaskID } from '../../config/constant';
 import { SwarmBountyStatus } from '../../config/constant';
 import { updateSwarmBountyStatus } from '../../services/swarmBounty/updateStatus';
 import { TodoModel } from '../../models/Todo';
 import { IssueModel } from '../../models/Issue';
 import { getFile } from '../../utils/ipfs/ipfs';
+import { initializeConnections } from '../../services/database/database';
 // A simple in-memory cache to store processed task IDs and rounds
 const cache: Record<string, Set<number>> = {};
+
+interface Issue {
+    uuid: string;
+    title: string;
+    description: string;
+}
+
+interface Task {
+    acceptanceCriteria: string;
+    assignedTo: string[];
+    dependencyTasks: string[];
+    description: string;
+    issueUuid: string;
+    repoName: string;
+    repoOwner: string;
+    status: string;
+    title: string;
+    uuid: string;
+}
 
 export async function triggerFetchAuditResult(req: Request, res: Response): Promise<void> {
     const { taskId, round } = req.body;
@@ -82,7 +102,7 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
                                 }};
                             }
 
-                            const result = await processAuditResult(assignee.prUrl, spec.swarmBountyId);
+                            const result = await processAuditResult({cid: assignee.prUrl, swarmBountyId: spec.swarmBountyId, repoName: spec.repoName, repoOwner: spec.repoOwner});
                             if (result) {
                                 assignee.auditResult = true;
                             } else {
@@ -126,8 +146,7 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
 }
 
 
-export const processAuditResult = async (cid: string, swarmBountyId: string) => {
-
+export const processAuditResult = async ({cid, swarmBountyId, repoName, repoOwner}: {cid: string, swarmBountyId: string, repoName: string, repoOwner: string}) => {
     let decodedFile = null;
     try {
         decodedFile = await decodeFile(cid);
@@ -139,48 +158,76 @@ export const processAuditResult = async (cid: string, swarmBountyId: string) => 
         return null;
     }
     console.log("decodedFile", decodedFile);
-    try{
+    try {
         const { issues, tasks } = decodedFile;
-    for (const issue of issues) {
-        const newIssue = new IssueModel({
-            swarmBountyId: swarmBountyId,
-            issueUuid: issue.issueUuid,
-            title: issue.title,
-            description: issue.description,
-        });
-        await newIssue.save();
-    }
-    for (const task of tasks) {
-        const newTask = new TodoModel({
-            swarmBountyId: swarmBountyId,
-            acceptanceCriteria: task.acceptanceCriteria,
-            assignedTo: task.assignedTo,
-            dependencyTasks: task.dependencyTasks,
-            description: task.description,
-            issueUuid: task.issueUuid,
-            repoName: task.repoName,
-            repoOwner: task.repoOwner,
-            status: task.status,
-            title: task.title,
-            uuid: task.uuid,
-        });
-        await newTask.save();
-    }
-    }catch (error) {
+        
+        // Prepare bulk operations for issues
+        const issueOperations = issues.map((issue: Issue) => ({
+            insertOne: {
+                document: {
+                    swarmBountyId: swarmBountyId,
+                    issueUuid: issue.uuid,
+                    title: issue.title,
+                    description: issue.description,
+                    repoName: repoName,
+                    repoOwner: repoOwner,
+                }
+            }
+        }));
+
+        // Prepare bulk operations for tasks
+        const taskOperations = tasks.map((task: Task) => ({
+            insertOne: {
+                document: {
+                    swarmBountyId: swarmBountyId,
+                    acceptanceCriteria: task.acceptanceCriteria,
+                    assignedTo: task.assignedTo,
+                    dependencyTasks: task.dependencyTasks,
+                    description: task.description,
+                    issueUuid: task.issueUuid,
+                    repoName: task.repoName,
+                    repoOwner: task.repoOwner,
+                    status: task.status,
+                    title: task.title,
+                    uuid: task.uuid,
+                }
+            }
+        }));
+
+        // Execute bulk operations
+        if (issueOperations.length > 0) {
+            await IssueModel.bulkWrite(issueOperations);
+        }
+        if (taskOperations.length > 0) {
+            await TodoModel.bulkWrite(taskOperations);
+        }
+
+        return true;
+    } catch (error) {
         console.error("Error processing audit result:", error);
         return null;
     }
-    return true;
 }
 export const decodeFile = async (cid: string) => {
-    const file = await getFile(cid);
-    const decodedFile = JSON.parse(file);
-    if (decodedFile.tasks&&decodedFile.issues) {
-        return {
-            issues: decodedFile.issues,
-            tasks: decodedFile.tasks,
-        };
+    try {
+        const file = await getFile(cid);
+        const decodedFile = JSON.parse(file);
+        if (decodedFile.tasks&&decodedFile.issues) {
+            return {
+                issues: decodedFile.issues,
+                tasks: decodedFile.tasks,
+            };
+        }
+    }catch (error) {
+        console.error("Error decoding file:", error);
+        return null;
     }
-    return null;
 }
 
+
+
+// export const test = async () => {
+//     await initializeConnections();
+//     await triggerFetchAuditResultLogic(["0x123"], ["0x456"], 2);
+// }
+// test();
