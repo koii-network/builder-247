@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../../utils/taskState/getDistributionList';
 import { Spec, SpecModel, SpecStatus } from "../../models/Spec";
 import { plannerTaskID } from '../../config/constant';
-import SwarmBounty, { SwarmBountyStatus } from '../../models/SwarmBounties';
+import { SwarmBountyStatus } from '../../config/constant';
+import { updateSwarmBountyStatus } from '../../services/swarmBounty/updateStatus';
 import { TodoModel } from '../../models/Todo';
 import { IssueModel } from '../../models/Issue';
 import { getFile } from '../../utils/ipfs/ipfs';
@@ -57,14 +58,7 @@ export async function triggerFetchAuditResult(req: Request, res: Response): Prom
     res.status(response.statuscode).json(response.data);
 
 }
-export async function updateSwarmBountyStatus(swarmBountyId: string, status: SwarmBountyStatus){
-    const swarmBounty = await SwarmBounty.findById(swarmBountyId);
-    if (!swarmBounty) {
-        return;
-    }
-    swarmBounty.status = status;
-    await swarmBounty.save();
-}
+
 export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
         console.log("positiveKeys", positiveKeys);
         console.log("negativeKeys", negativeKeys);

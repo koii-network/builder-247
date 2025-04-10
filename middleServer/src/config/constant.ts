@@ -6,3 +6,16 @@ export const documentSummarizerTaskID = process.env.DOCUMENT_SUMMARIZER_TASK_ID 
 export const RPCURL = "https://mainnet.koii.network";
 export const defaultBountyMarkdownFile = process.env.DEFAULT_BOUNTY_MARKDOWN_FILE || "https://raw.githubusercontent.com/HermanL02/prometheus-swarm-bounties/master/README.md"
 export const plannerTaskID = process.env.PLANNER_TASK_ID || "";
+export enum SwarmBountyStatus {
+    COMPLETED = "completed",
+    FAILED = "failed",
+    IN_PROGRESS = "in-progress",
+    // LOADING = "loading",
+    ASSIGNED = "assigned",
+    FORKED = "forked"
+  }
+export enum SwarmBountyType {
+  DOCUMENT_SUMMARIZER = "document-summarizer",
+  FIND_BUGS = "find-bugs",
+  BUILD_FEATURE = "build-feature"
+}

@@ -2,7 +2,9 @@ import { Request, Response } from 'express';
 import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../../utils/taskState/getDistributionList';
 import { DocumentationModel, DocumentationStatus } from "../../models/Documentation";
 import { documentSummarizerTaskID } from '../../config/constant';
-import SwarmBounty, { SwarmBountyStatus } from '../../models/SwarmBounties';
+import { SwarmBountyStatus } from '../../config/constant';
+import { updateSwarmBountyStatus } from '../../services/swarmBounty/updateStatus';
+// import SwarmBounty, { SwarmBountyStatus } from '../../models/SwarmBounties';
 // A simple in-memory cache to store processed task IDs and rounds
 const cache: Record<string, Set<number>> = {};
 
@@ -54,14 +56,7 @@ export async function triggerFetchAuditResult(req: Request, res: Response): Prom
     res.status(response.statuscode).json(response.data);
 
 }
-export async function updateSwarmBountyStatus(swarmBountyId: string, status: SwarmBountyStatus){
-    const swarmBounty = await SwarmBounty.findById(swarmBountyId);
-    if (!swarmBounty) {
-        return;
-    }
-    swarmBounty.status = status;
-    await swarmBounty.save();
-}
+
 export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
         console.log("positiveKeys", positiveKeys);
         console.log("negativeKeys", negativeKeys);
