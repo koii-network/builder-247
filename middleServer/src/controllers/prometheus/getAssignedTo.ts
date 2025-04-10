@@ -1,0 +1,54 @@
+import { Request, Response } from "express";
+import { DocumentationModel } from "../../models/Documentation";
+export const getAssignedTo = async (req: Request, res: Response) => {
+    const { swarmsBountyId } = req.body;
+    const assignedTo = await getAssignedToLogic(swarmsBountyId);
+    if (!assignedTo) {
+        return res.status(404).json({ error: "Assigned to not found" });
+    }
+    if (assignedTo.statuscode === 200) {
+        return res.json(assignedTo.data);
+    }
+    if (assignedTo.statuscode === 404) {
+        return res.status(404).json({ error: "Assigned to not found" });
+    }
+    if (assignedTo.statuscode === 500) {
+        return res.status(500).json({ error: "Error getting assigned to" });
+    }
+
+    return res.status(404).json({ error: "Assigned to not found" });
+};
+
+
+export const getAssignedToLogic = async (swarmsBountyId: string):Promise<{statuscode: number, data:any}> => {
+    try {
+        const assignedTo = await DocumentationModel.findOne({ swarmBountyId: swarmsBountyId });
+        console.log(assignedTo);
+        if (assignedTo&&assignedTo.assignedTo) {
+            return {
+                statuscode: 200,
+                data: {
+                    success: true,
+                    message: "Assigned to found",
+                    assignedTo: assignedTo.assignedTo,
+                }
+            };
+        }
+        return {
+            statuscode: 404,
+            data: {
+                success: false,
+                message: "Assigned to not found",
+            }
+        };
+    }catch(error){
+        return {
+            statuscode: 500,
+            data: {
+                success: false,
+                message: "Error getting assigned to",
+            }
+        };
+    }
+};
+
