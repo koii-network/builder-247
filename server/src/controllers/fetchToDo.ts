@@ -315,20 +315,24 @@ export const fetchTodoLogic = async (
       };
     }
 
+    const data = {
+      _id: updatedTodo._id,
+      title: updatedTodo.title,
+      todo_uuid: updatedTodo.uuid,
+      issue_uuid: updatedTodo.issueUuid,
+      acceptance_criteria: updatedTodo.acceptanceCriteria,
+      repo_owner: updatedTodo.repoOwner,
+      repo_name: updatedTodo.repoName,
+      dependency_pr_urls: dependencyPrUrls,
+    };
+
+    console.log("TODO DATA:", data);
+
     return {
       statuscode: 200,
       data: {
         success: true,
-        data: {
-          _id: updatedTodo._id,
-          title: updatedTodo.title,
-          todo_uuid: updatedTodo.uuid,
-          issue_uuid: updatedTodo.issueUuid,
-          acceptance_criteria: updatedTodo.acceptanceCriteria,
-          repo_owner: updatedTodo.repoOwner,
-          repo_name: updatedTodo.repoName,
-          dependency_pr_urls: dependencyPrUrls,
-        },
+        data,
       },
     };
   } catch (error) {
