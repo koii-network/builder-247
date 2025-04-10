@@ -7,7 +7,10 @@ import { prometheusDB } from '../services/database/database';
 export enum SwarmBountyStatus {
   COMPLETED = "completed",
   FAILED = "failed",
-  LOADING = "loading"
+  IN_PROGRESS = "in-progress",
+  LOADING = "loading",
+  ASSIGNED = "assigned",
+  FORKED = "forked"
 }
 export enum SwarmBountyType {
   DOCUMENT_SUMMARIZER = "document-summarizer",
@@ -19,7 +22,7 @@ const SwarmBountySchema = new Schema(
     status: {
       type: String,
       enum: Object.values(SwarmBountyStatus),
-      default: SwarmBountyStatus.LOADING,
+      default: SwarmBountyStatus.IN_PROGRESS,
     },
     email: {
       type: String,
