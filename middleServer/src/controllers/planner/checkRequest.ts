@@ -99,3 +99,9 @@ export const checkRequest = async (req: Request, res: Response) => {
 };
 
 
+// export const test = async () => {
+//   const response = await checkToDoAssignment("0x123", "1", "", "0x123");
+//   console.log(response);
+// }
+
+// test();

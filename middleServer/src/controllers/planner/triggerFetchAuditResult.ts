@@ -94,3 +94,10 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
             message: 'Task processed successfully.',
         }};
 }
+
+// export const test = async () => {
+//     const response = await triggerFetchAuditResultLogic(["0x123"], ["0x456"], 1);
+//     console.log(response);
+// }
+
+// test();
