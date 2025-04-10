@@ -481,4 +481,21 @@ DEFINITIONS = {
         "final_tool": True,
         "function": generate_issues,    
     },
+    "validate_tasks": {
+        "name": "validate_tasks",
+        "description": "Validate the tasks.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "result": {
+                    "type": "boolean",
+                    "description": "Result of the validation",
+                },
+            },
+            "required": ["result"],
+            "additionalProperties": False,
+        },
+        "final_tool": True,
+        "function": validate_tasks,
+    },
 }

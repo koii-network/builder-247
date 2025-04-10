@@ -8,20 +8,23 @@ from src.workflows.audit.prompts import PROMPTS as AUDIT_PROMPTS
 logger = logging.getLogger(__name__)
 
 
-def review_pr(pr_url):
+def audit_issues_and_tasks(issuesAndTasks, issueSpec, repo_owner, repo_name):
     """Review PR and decide if it should be accepted, revised, or rejected."""
     try:
         # Set up client and workflow
         client = setup_client("anthropic")
         workflow = AuditWorkflow(
-            client=client,
-            prompts=AUDIT_PROMPTS,
-            pr_url=pr_url,
+                client=client,
+                prompts=AUDIT_PROMPTS,
+                issuesAndTasks=issuesAndTasks,
+                issueSpec=issueSpec,
+                repo_owner=repo_owner,
+                repo_name=repo_name,
         )
 
         # Run workflow and get result
-        workflow.run()
-        return True
+        result = workflow.run()
+        return result
     except Exception as e:
         logger.error(f"PR review failed: {str(e)}")
         raise Exception("PR review failed")

@@ -52,6 +52,7 @@ def fork_repository(repo_full_name: str, repo_path: str = None) -> ToolOutput:
     """
     try:
         gh = _get_github_client()
+        log_key_value("Forking repository", repo_full_name)
         original_repo = gh.get_repo(repo_full_name)
 
         # Get authenticated user
@@ -848,3 +849,24 @@ def generate_issues(
             "data": None,
             "error": str(e),
         }   
+def validate_tasks(
+    result: bool,
+) -> dict:
+    """Validate the tasks.
+    """
+    try:
+        return {
+            "success": True,
+            "message": f"Successfully validated tasks",
+            "data": {
+                "result": result,
+            },
+            "error": None,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to validate tasks: {str(e)}",
+            "data": None,
+            "error": str(e),
+        }

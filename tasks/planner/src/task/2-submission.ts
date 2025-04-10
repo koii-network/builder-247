@@ -34,7 +34,7 @@ export async function submission(roundNumber: number) : Promise<string | void> {
     }
 
     console.log(`[SUBMISSION] Fetching submission data for round ${roundNumber}...`);
-    const result = await orcaClient.podCall(`submission/${roundNumber}`);
+
     let ipfsCid = await namespaceWrapper.storeGet(`ipfs-cid-${roundNumber}`);
     if (!ipfsCid) {
       console.error("[SUBMISSION] No IPFS CID found for this round");

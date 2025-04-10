@@ -1,6 +1,7 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { middleServerUrl, status } from "../utils/constant";
 import { submissionJSONSignatureDecode } from "../utils/submissionJSONSignatureDecode";
+import { getFile } from "../utils/ipfs";
 // import { status } from '../utils/constant'
 export async function audit(cid: string, roundNumber: number, submitterKey: string): Promise<boolean | void> {
   /**
@@ -38,7 +39,6 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
       body: JSON.stringify({ 
         stakingKey: submitterKey, 
         roundNumber, 
-        githubUsername: decodeResult.githubUsername, 
         prUrl: decodeResult.prUrl 
       }),
     });
@@ -54,14 +54,19 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     console.log(`[AUDIT] Sending audit request for submitter: ${submitterKey}`);
     console.log(`[AUDIT] Submission data being sent to audit:`, decodeResult);
     
+    const ipfsFileContent = await getFile(decodeResult.prUrl);
+    const auditPayload = {
+      issuesAndTasks: ipfsFileContent,
+      issueSpec: checkSummarizerJSON.issueSpec,
+      repoOwner: checkSummarizerJSON.repoOwner,
+      repoName: checkSummarizerJSON.repoName,
+    }
     const result = await orcaClient.podCall(`audit/${roundNumber}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        submission: decodeResult,
-      }),
+      body: JSON.stringify(auditPayload), 
     });
 
     console.log(`[AUDIT] Raw audit result:`, result);
@@ -78,7 +83,8 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     }
   } catch (error) {
     console.error("[AUDIT] Error auditing submission:", error);
-    return true;
+    // DO NOT VOTE WHEN ERROR
+    // return true;
   }
 }
 

@@ -1,18 +1,19 @@
 import { Request, Response } from "express";
 import "dotenv/config";
 
-import { DocumentationModel, DocumentationStatus } from "../../models/Documentation";
+import { SpecModel, SpecStatus } from "../../models/Spec";
 // import { documentSummarizerTaskID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
 import { verifySignature } from "../../utils/sign";
 import { documentSummarizerTaskID, taskID } from "../../config/constant";
 import { syncDB } from "../../services/summarizer/syncDB";
+import { DocumentationStatus } from "../../models/Documentation";
 
 
 // Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
   try {
-    const result = await DocumentationModel.findOne({
+    const result = await SpecModel.findOne({
       assignedTo: {
         $elemMatch: {
           taskId: documentSummarizerTaskID,
@@ -143,7 +144,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
 
   try {
     
-    const updatedTodo = await DocumentationModel.findOneAndUpdate(
+    const updatedTodo = await SpecModel.findOneAndUpdate(
       {
         // Not assigned to the current user
         $nor: [
@@ -164,10 +165,10 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
                   { taskId: { $ne: documentSummarizerTaskID } }
                 ]
               },
-              { status: DocumentationStatus.IN_PROGRESS }
+              { status: SpecStatus.IN_PROGRESS }
             ]
           },
-          { $and: [{ status: DocumentationStatus.INITIALIZED }] }
+          { $and: [{ status: SpecStatus.INITIALIZED }] }
         ]
       },
       {
@@ -181,7 +182,7 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
           }
         },
         $set: {
-          status: DocumentationStatus.IN_PROGRESS,
+          status: SpecStatus.IN_PROGRESS,
           taskId: documentSummarizerTaskID,
           roundNumber: signatureData.roundNumber,
         }
