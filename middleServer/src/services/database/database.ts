@@ -4,8 +4,15 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Create separate connections for different databases
-export const builder247DB = mongoose.createConnection(process.env.MONGODB_URI + '/builder247');
-export const prometheusDB = mongoose.createConnection(process.env.MONGODB_URI + '/prometheus');
+const mongoUri = process.env.MONGODB_URI || '';
+const [baseUri, queryString] = mongoUri.split('?');
+const options = queryString ? '?' + queryString : '';
+
+// Remove any trailing slash from the base URI
+const cleanBaseUri = baseUri.replace(/\/$/, '');
+
+export const builder247DB = mongoose.createConnection(`${cleanBaseUri}/builder247${options}`);
+export const prometheusDB = mongoose.createConnection(`${cleanBaseUri}/prometheus${options}`);
 
 // Add connection event listeners
 builder247DB.on('connected', () => {
@@ -29,18 +36,20 @@ export const checkConnections = async () => {
   try {
     // Wait for both connections to be ready
     await Promise.all([
-      new Promise((resolve) => {
+      new Promise<void>((resolve, reject) => {
         if (builder247DB.readyState === 1) {
-          resolve(true);
+          resolve();
         } else {
-          builder247DB.once('connected', () => resolve(true));
+          builder247DB.once('connected', () => resolve());
+          builder247DB.once('error', (err) => reject(err));
         }
       }),
-      new Promise((resolve) => {
+      new Promise<void>((resolve, reject) => {
         if (prometheusDB.readyState === 1) {
-          resolve(true);
+          resolve();
         } else {
-          prometheusDB.once('connected', () => resolve(true));
+          prometheusDB.once('connected', () => resolve());
+          prometheusDB.once('error', (err) => reject(err));
         }
       })
     ]);
@@ -49,6 +58,17 @@ export const checkConnections = async () => {
     return true;
   } catch (error) {
     console.error('\x1b[31m%s\x1b[0m', 'Error checking database connections:', error);
+    return false;
+  }
+};
+
+// Initialize connections
+export const initializeConnections = async () => {
+  try {
+    await checkConnections();
+    return true;
+  } catch (error) {
+    console.error('\x1b[31m%s\x1b[0m', 'Failed to initialize database connections:', error);
     return false;
   }
 }; 

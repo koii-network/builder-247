@@ -3,6 +3,9 @@ import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValu
 import { Spec, SpecModel, SpecStatus } from "../../models/Spec";
 import { plannerTaskID } from '../../config/constant';
 import SwarmBounty, { SwarmBountyStatus } from '../../models/SwarmBounties';
+import { TodoModel } from '../../models/Todo';
+import { IssueModel } from '../../models/Issue';
+import { getFile } from '../../utils/ipfs/ipfs';
 // A simple in-memory cache to store processed task IDs and rounds
 const cache: Record<string, Set<number>> = {};
 
@@ -76,7 +79,20 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
                     continue;
                 }
                 if (positiveKeys.includes(assignee.stakingKey) && assignee.roundNumber === round) {
-                    assignee.auditResult = true;
+                    if (!assignee.prUrl) {
+                        return {statuscode: 400, data: {
+                            success: false,
+                            message: 'No PR URL found for assignee.',
+                        }};
+                    }
+                    
+                        const result = await processAuditResult(assignee.prUrl);
+                        if (result) {
+                            assignee.auditResult = true;
+                        } else {
+                            assignee.auditResult = false;
+                        }
+                
                     spec.status = SpecStatus.DONE;
                     if (spec.swarmBountyId) {
                         await updateSwarmBountyStatus(spec.swarmBountyId, SwarmBountyStatus.COMPLETED);
@@ -95,9 +111,60 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
         }};
 }
 
-// export const test = async () => {
-//     const response = await triggerFetchAuditResultLogic(["0x123"], ["0x456"], 1);
-//     console.log(response);
-// }
 
-// test();
+export const processAuditResult = async (cid: string) => {
+
+    let decodedFile = null;
+    try {
+        decodedFile = await decodeFile(cid);
+        if (!decodedFile) {
+            return null;
+        }
+    } catch (error) {
+        console.error("Error decoding file:", error);
+        return null;
+    }
+    console.log("decodedFile", decodedFile);
+    try{
+        const { issues, tasks } = decodedFile;
+    for (const issue of issues) {
+        const newIssue = new IssueModel({
+            issueUuid: issue.issueUuid,
+            title: issue.title,
+            description: issue.description,
+        });
+        await newIssue.save();
+    }
+    for (const task of tasks) {
+        const newTask = new TodoModel({
+            acceptanceCriteria: task.acceptanceCriteria,
+            assignedTo: task.assignedTo,
+            dependencyTasks: task.dependencyTasks,
+            description: task.description,
+            issueUuid: task.issueUuid,
+            repoName: task.repoName,
+            repoOwner: task.repoOwner,
+            status: task.status,
+            title: task.title,
+            uuid: task.uuid,
+        });
+        await newTask.save();
+    }
+    }catch (error) {
+        console.error("Error processing audit result:", error);
+        return null;
+    }
+    return true;
+}
+export const decodeFile = async (cid: string) => {
+    const file = await getFile(cid);
+    const decodedFile = JSON.parse(file);
+    if (decodedFile.tasks&&decodedFile.issues) {
+        return {
+            issues: decodedFile.issues,
+            tasks: decodedFile.tasks,
+        };
+    }
+    return null;
+}
+
