@@ -1,22 +1,26 @@
 import { Request, Response } from "express";
 import { DocumentationModel } from "../../models/Documentation";
 export const getAssignedTo = async (req: Request, res: Response) => {
-    const { swarmsBountyId } = req.body;
-    const assignedTo = await getAssignedToLogic(swarmsBountyId);
+    const { swarmBountyId } = req.body;
+    const assignedTo = await getAssignedToLogic(swarmBountyId);
     if (!assignedTo) {
-        return res.status(404).json({ error: "Assigned to not found" });
+        res.status(404).json({ error: "Assigned to not found" });
+        return;
     }
     if (assignedTo.statuscode === 200) {
-        return res.json(assignedTo.data);
+        res.json(assignedTo.data);
+        return;
     }
     if (assignedTo.statuscode === 404) {
-        return res.status(404).json({ error: "Assigned to not found" });
+        res.status(404).json({ error: "Assigned to not found" });
+        return;
     }
     if (assignedTo.statuscode === 500) {
-        return res.status(500).json({ error: "Error getting assigned to" });
+        res.status(500).json({ error: "Error getting assigned to" });
+        return;
     }
 
-    return res.status(404).json({ error: "Assigned to not found" });
+    res.status(404).json({ error: "Assigned to not found" });
 };
 
 

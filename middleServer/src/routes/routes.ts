@@ -19,6 +19,7 @@ import { fetchRequest as fetchPlannerRequest } from "../controllers/planner/fetc
 import { addRequest as addPlannerRequest } from "../controllers/planner/addRequest";
 import { checkRequest as checkPlannerRequest } from "../controllers/planner/checkRequest";
 import { triggerFetchAuditResult as triggerFetchAuditResultPlanner } from "../controllers/planner/triggerFetchAuditResult";
+import { getAssignedTo } from "../controllers/prometheus/getAssignedTo";
 const router = Router();
 
 router.post("/fetch-to-do", fetchTodo as RequestHandler);
@@ -41,6 +42,13 @@ router.post("/planner/fetch-planner-todo", fetchPlannerRequest as RequestHandler
 router.post("/planner/add-pr-to-planner-todo", addPlannerRequest as RequestHandler);
 router.post("/planner/check-planner", checkPlannerRequest as RequestHandler);
 router.post("/planner/trigger-fetch-audit-result", triggerFetchAuditResultPlanner as RequestHandler);
+
+
+
+/*********** Prometheus Website ***********/
+router.get("/prometheus/get-assigned-nodes", getAssignedTo as RequestHandler);
+
+
 
 router.get("/hello", (req, res) => {
   res.json({ message: "Hello World!" });
