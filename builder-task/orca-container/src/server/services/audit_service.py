@@ -241,18 +241,29 @@ def validate_pr_list(
         print(f"PR base repo: {pr.base.repo.full_name}", flush=True)
         print(f"PR head repo: {pr.head.repo.full_name}", flush=True)
 
-        # Verify PR is targeting the source repo's default branch
-        if pr.base.repo.owner.login != repo_owner or pr.base.repo.name != repo_name:
+        # Get the parent repository of the source repo
+        parent_repo = source_repo.parent
+        if not parent_repo:
             return (
                 False,
-                f"PR target mismatch - expected: {repo_owner}/{repo_name}, got: {pr.base.repo.full_name}",
+                f"Source repository {repo_owner}/{repo_name} has no parent repository",
             )
 
-        # Get source repo's default branch
-        if pr.base.ref != source_repo.default_branch:
+        # Verify PR is targeting the parent repo's default branch
+        if (
+            pr.base.repo.owner.login != parent_repo.owner.login
+            or pr.base.repo.name != parent_repo.name
+        ):
             return (
                 False,
-                f"Wrong base branch - expected: {source_repo.default_branch}, got: {pr.base.ref}",
+                f"PR target mismatch - expected: {parent_repo.full_name}, got: {pr.base.repo.full_name}",
+            )
+
+        # Get parent repo's default branch
+        if pr.base.ref != parent_repo.default_branch:
+            return (
+                False,
+                f"Wrong base branch - expected: {parent_repo.default_branch}, got: {pr.base.ref}",
             )
 
         # Verify PR is coming from the leader's fork
