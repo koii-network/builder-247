@@ -807,7 +807,7 @@ def create_task_dependency(task_uuid: str, dependency_tasks: List[str]) -> dict:
             "data": dependency_tasks_dict,
         }
     except Exception as e:
-        return {"success": False, "message": f"Failed to update dependency tasks: {str(e)}", "data": None, "error": str(e)}
+        return {"success": False, "error": str(e), "message": f"Failed to update dependency tasks: {str(e)}", "data": None}
     
 def generate_issues(
     issues: List[Dict[str, Any]] = None,
