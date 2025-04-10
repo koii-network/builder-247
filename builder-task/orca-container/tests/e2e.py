@@ -9,23 +9,6 @@ import uuid
 import requests
 
 
-# Add this near the top of the file after imports
-STEP_MAPPING = {
-    "create-aggregator": 1,
-    "worker1-task": 2,
-    "worker2-task": 3,
-    "worker1-submission": 4,
-    "worker2-submission": 5,
-    "worker1-audit": 6,
-    "worker2-audit": 7,
-    "worker-audit-results": 8,
-    "leader-task": 9,
-    "leader-submission": 10,
-    "leader-audit": 11,
-    "leader-audit-results": 12,
-}
-
-
 def log_request(method: str, url: str, payload: dict = None):
     """Log request details"""
     print("\n" + "=" * 80)
@@ -50,10 +33,10 @@ def log_response(response):
     print("=" * 80)
 
 
-def log_step(step_number: int, description: str):
+def log_step(step_name: str, description: str):
     """Log a test step with clear formatting"""
     print("\n" + "#" * 80)
-    print(f"STEP {step_number}: {description}")
+    print(f"STEP {step_name}: {description}")
     print("#" * 80)
 
 
@@ -67,7 +50,7 @@ def reset_databases():
             os.remove(db_path)
 
 
-def save_state(data_manager, pr_urls, step_completed, submission_data=None):
+def save_state(data_manager, pr_urls, step_name, submission_data=None):
     """Save the current state to a JSON file after completing a step"""
     state_file = Path(__file__).parent / "e2e_state.json"
 
@@ -79,7 +62,7 @@ def save_state(data_manager, pr_urls, step_completed, submission_data=None):
 
     # Create state for current round
     current_round_state = {
-        "step_completed": step_completed,
+        "last_completed_step": step_name,
         "fork_url": data_manager.fork_url,
         "branch_name": data_manager.branch_name,
         "issue_uuid": data_manager.issue_uuid,
@@ -102,7 +85,7 @@ def save_state(data_manager, pr_urls, step_completed, submission_data=None):
         json.dump(all_rounds_state, f, indent=2)
 
     print(
-        f"\nState saved to {state_file} after completing step {step_completed} in round {data_manager.round_number}"
+        f"\nState saved to {state_file} after completing step {step_name} in round {data_manager.round_number}"
     )
 
 
@@ -126,13 +109,25 @@ def load_state(data_manager, pr_urls, starting_step, submission_data=None):
         prev_round_key = str(data_manager.round_number - 1)
         if prev_round_key in all_rounds_state:
             prev_round_state = all_rounds_state[prev_round_key]
-            if prev_round_state["step_completed"] < 7:  # 7 is the last step
+            if (
+                prev_round_state["last_completed_step"] != "leader-audit-results"
+            ):  # Last step
                 raise Exception(
                     f"Cannot start round {data_manager.round_number}: Previous round {data_manager.round_number - 1} "
-                    f"has not been completed (stopped at step {prev_round_state['step_completed']})"
+                    f"has not been completed (stopped at step {prev_round_state['last_completed_step']})"
                 )
             # Load state from previous round since it was completed
-            current_round_state = prev_round_state
+            current_round_state = {
+                "last_completed_step": None,  # Start fresh for new round
+                "fork_url": prev_round_state["fork_url"],
+                "branch_name": prev_round_state["branch_name"],
+                "issue_uuid": prev_round_state["issue_uuid"],
+                "repo_owner": prev_round_state["repo_owner"],
+                "repo_name": prev_round_state["repo_name"],
+                "pr_urls": {},  # Start with empty PR URLs
+                "round_number": data_manager.round_number,
+                "submission_data": {},  # Start with empty submission data
+            }
             # Save the loaded state back to the file
             all_rounds_state[round_key] = current_round_state
             with open(state_file, "w") as f:
@@ -149,10 +144,10 @@ def load_state(data_manager, pr_urls, starting_step, submission_data=None):
             if prev_round_key in all_rounds_state:
                 prev_round_state = all_rounds_state[prev_round_key]
                 if (
-                    prev_round_state["step_completed"] == 7
+                    prev_round_state["last_completed_step"] == "leader-audit-results"
                 ):  # Previous round was completed
                     print(f"Using values from completed round {prev_round_key}")
-                    # Only override null values
+                    # Only override null values for these specific fields
                     for key in [
                         "fork_url",
                         "branch_name",
@@ -167,10 +162,10 @@ def load_state(data_manager, pr_urls, starting_step, submission_data=None):
                         json.dump(all_rounds_state, f, indent=2)
 
     # Check if we have completed the previous step
-    if current_round_state["step_completed"] < starting_step - 1:
+    if current_round_state["last_completed_step"] != starting_step:
         raise Exception(
             f"Cannot start from step {starting_step} in round {data_manager.round_number}: "
-            f"Previous step {starting_step - 1} has not been completed"
+            f"Previous step {current_round_state['last_completed_step']} has not been completed"
         )
 
     # Load state into data_manager
@@ -352,18 +347,11 @@ def check_remaining_work():
         client.close()
 
 
-def determine_start_step(round_number: int, start_label: str = None) -> int:
-    """Determine which step to start from based on saved state or provided label"""
-    if start_label:
-        if start_label not in STEP_MAPPING:
-            raise ValueError(
-                f"Unknown step label: {start_label}. Valid labels are: {', '.join(STEP_MAPPING.keys())}"
-            )
-        return STEP_MAPPING[start_label]
-
+def determine_start_step(round_number: int) -> str:
+    """Determine which step to start from based on saved state"""
     state_file = Path(__file__).parent / "e2e_state.json"
     if not state_file.exists():
-        return 1
+        return "create-aggregator"
 
     try:
         with open(state_file, "r") as f:
@@ -375,19 +363,44 @@ def determine_start_step(round_number: int, start_label: str = None) -> int:
             prev_round_key = str(round_number - 1)
             if prev_round_key in all_rounds_state:
                 prev_round_state = all_rounds_state[prev_round_key]
-                if prev_round_state["step_completed"] < 12:  # Last step
+                if (
+                    prev_round_state["last_completed_step"] != "leader-audit-results"
+                ):  # Last step
                     raise Exception(
                         f"Cannot start round {round_number}: Previous round {round_number - 1} "
-                        f"has not been completed (stopped at step {prev_round_state['step_completed']})"
+                        f"has not been completed (stopped at step {prev_round_state['last_completed_step']})"
                     )
-            return 1  # Start new round from beginning
+            return "create-aggregator"  # Start new round from beginning
 
         # Resume from the next step after the last completed one
         current_round_state = all_rounds_state[round_key]
-        return current_round_state["step_completed"] + 1
+        last_step = current_round_state["last_completed_step"]
+
+        # Define the step sequence
+        steps = [
+            "create-aggregator",
+            "worker1-task",
+            "worker2-task",
+            "worker1-submission",
+            "worker2-submission",
+            "worker1-audit",
+            "worker2-audit",
+            "worker-audit-results",
+            "leader-task",
+            "leader-submission",
+            "leader-audit",
+            "leader-audit-results",
+        ]
+
+        if last_step in steps:
+            current_index = steps.index(last_step)
+            if current_index < len(steps) - 1:
+                return steps[current_index + 1]
+
+        return "create-aggregator"  # Default to start if we can't determine next step
     except Exception as e:
         print(f"Error reading state file: {e}")
-        return 1
+        return "create-aggregator"
 
 
 def determine_current_round() -> int:
@@ -410,7 +423,9 @@ def determine_current_round() -> int:
         # Check if the highest round is completed
         if max_round > 0:
             last_round_state = all_rounds_state[str(max_round)]
-            if last_round_state["step_completed"] == 12:  # Last step completed
+            if (
+                last_round_state["last_completed_step"] == "leader-audit-results"
+            ):  # Last step completed
                 return max_round + 1
             return max_round  # Continue with current round
 
@@ -456,7 +471,6 @@ def run_test_sequence(
     test_setup,
     task_id: str = "",
     data_dir: Path = None,
-    start_label: str = None,
 ):
     """Run the test sequence, automatically determining where to resume from"""
     # Check if database needs to be populated
@@ -482,37 +496,51 @@ def run_test_sequence(
     submission_data = {}  # Store submission data for audits
 
     # Determine which step to start from
-    start_step = determine_start_step(round_number, start_label)
+    start_step = determine_start_step(round_number)
     print(f"Resuming from step {start_step}")
 
     # Load state if we're not starting from the beginning
-    if start_step > 1:
+    if start_step != "create-aggregator":
         load_state(data_manager, pr_urls, start_step, submission_data)
+
+    # Get total number of todos from MongoDB
+    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/todos")
+    client = MongoClient(mongodb_uri)
+    db = client["todos"]
+    total_todos = db.todos.count_documents({})
+    client.close()
+    max_rounds = total_todos + 1
+    print(f"Total todos: {total_todos}, maximum rounds: {max_rounds}")
 
     # Continue running rounds until all work is completed
     while True:
+        # Check if we've exceeded the maximum number of rounds
+        if data_manager.round_number > max_rounds:
+            print(f"\nMaximum number of rounds ({max_rounds}) exceeded. Exiting...")
+            break
+
         print(f"\n{'='*80}")
         print(f"Starting round {data_manager.round_number}")
         print(f"{'='*80}")
 
         # Run the test steps for this round
-        if start_step <= 1:
-            log_step(1, "Create aggregator repo")
+        if start_step == "create-aggregator":
+            log_step("create-aggregator", "Create aggregator repo")
             test_setup.create_aggregator_repo(data_manager)
-            save_state(data_manager, pr_urls, 1, submission_data)
+            save_state(data_manager, pr_urls, "create-aggregator", submission_data)
 
-        if start_step <= 2:
-            log_step(2, "Run worker1 task")
+        if start_step == "worker1-task":
+            log_step("worker1-task", "Run worker1 task")
             test_setup.run_worker_task(data_manager, pr_urls, "worker1")
-            save_state(data_manager, pr_urls, 2, submission_data)
+            save_state(data_manager, pr_urls, "worker1-task", submission_data)
 
-        if start_step <= 3:
-            log_step(3, "Run worker2 task")
+        if start_step == "worker2-task":
+            log_step("worker2-task", "Run worker2 task")
             test_setup.run_worker_task(data_manager, pr_urls, "worker2")
-            save_state(data_manager, pr_urls, 3, submission_data)
+            save_state(data_manager, pr_urls, "worker2-task", submission_data)
 
-        if start_step <= 4:
-            log_step(4, "Get worker1 submission")
+        if start_step == "worker1-submission":
+            log_step("worker1-submission", "Get worker1 submission")
             if "worker1" in pr_urls:
                 submission_url = f"{test_setup.worker1_server.url}/submission/{data_manager.task_id}/{data_manager.round_number}"
                 log_request("GET", submission_url)
@@ -543,10 +571,10 @@ def run_test_sequence(
                 worker1_data["pubKey"] = keys["pub_key"]
                 # Store worker1's submission data separately
                 submission_data["worker1"] = worker1_data
-            save_state(data_manager, pr_urls, 4, submission_data)
+            save_state(data_manager, pr_urls, "worker1-submission", submission_data)
 
-        if start_step <= 5:
-            log_step(5, "Get worker2 submission")
+        if start_step == "worker2-submission":
+            log_step("worker2-submission", "Get worker2 submission")
             if "worker2" in pr_urls:
                 submission_url = f"{test_setup.worker2_server.url}/submission/{data_manager.task_id}/{data_manager.round_number}"
                 log_request("GET", submission_url)
@@ -577,34 +605,34 @@ def run_test_sequence(
                 worker2_data["pubKey"] = keys["pub_key"]
                 # Store worker2's submission data separately
                 submission_data["worker2"] = worker2_data
-            save_state(data_manager, pr_urls, 5, submission_data)
+            save_state(data_manager, pr_urls, "worker2-submission", submission_data)
 
-        if start_step <= 6:
-            log_step(6, "Worker1 audits Worker2")
+        if start_step == "worker1-audit":
+            log_step("worker1-audit", "Worker1 audits Worker2")
             test_setup.run_worker_audit(
                 data_manager, pr_urls, submission_data, "worker1", "worker2"
             )
-            save_state(data_manager, pr_urls, 6, submission_data)
+            save_state(data_manager, pr_urls, "worker1-audit", submission_data)
 
-        if start_step <= 7:
-            log_step(7, "Worker2 audits Worker1")
+        if start_step == "worker2-audit":
+            log_step("worker2-audit", "Worker2 audits Worker1")
             test_setup.run_worker_audit(
                 data_manager, pr_urls, submission_data, "worker2", "worker1"
             )
-            save_state(data_manager, pr_urls, 7, submission_data)
+            save_state(data_manager, pr_urls, "worker2-audit", submission_data)
 
-        if start_step <= 8:
-            log_step(8, "Update worker audit results")
+        if start_step == "worker-audit-results":
+            log_step("worker-audit-results", "Update worker audit results")
             test_setup.update_audit_results(data_manager, "worker")
-            save_state(data_manager, pr_urls, 8, submission_data)
+            save_state(data_manager, pr_urls, "worker-audit-results", submission_data)
 
-        if start_step <= 9:
-            log_step(9, "Run leader task")
+        if start_step == "leader-task":
+            log_step("leader-task", "Run leader task")
             test_setup.run_leader_task(data_manager, pr_urls)
-            save_state(data_manager, pr_urls, 9, submission_data)
+            save_state(data_manager, pr_urls, "leader-task", submission_data)
 
-        if start_step <= 10:
-            log_step(10, "Get leader submission")
+        if start_step == "leader-submission":
+            log_step("leader-submission", "Get leader submission")
             if "leader" in pr_urls:
                 submission_url = f"{test_setup.leader_server.url}/submission/{data_manager.task_id}/{data_manager.round_number}"
                 log_request("GET", submission_url)
@@ -635,17 +663,17 @@ def run_test_sequence(
                 leader_data["pubKey"] = keys["pub_key"]
                 # Store leader's submission data separately
                 submission_data["leader"] = leader_data
-            save_state(data_manager, pr_urls, 10, submission_data)
+            save_state(data_manager, pr_urls, "leader-submission", submission_data)
 
-        if start_step <= 11:
-            log_step(11, "Run leader audit")
+        if start_step == "leader-audit":
+            log_step("leader-audit", "Run leader audit")
             test_setup.run_leader_audit(data_manager, pr_urls, submission_data)
-            save_state(data_manager, pr_urls, 11, submission_data)
+            save_state(data_manager, pr_urls, "leader-audit", submission_data)
 
-        if start_step <= 12:
-            log_step(12, "Update leader audit results")
+        if start_step == "leader-audit-results":
+            log_step("leader-audit-results", "Update leader audit results")
             test_setup.update_audit_results(data_manager, "leader")
-            save_state(data_manager, pr_urls, 12, submission_data)
+            save_state(data_manager, pr_urls, "leader-audit-results", submission_data)
 
         # Check if there's more work to be done
         if not check_remaining_work():
@@ -654,7 +682,7 @@ def run_test_sequence(
 
         # Increment round number and reset start_step for next round
         data_manager.round_number += 1
-        start_step = 1  # Always start from beginning for new rounds
+        start_step = determine_start_step(data_manager.round_number)
         print(f"\nMoving to round {data_manager.round_number}...")
 
 
@@ -667,29 +695,12 @@ The script will automatically determine where to resume from based on the saved 
 If no state exists, or if --reset is used, it will start from the beginning.
 The current round is determined from the state file.
 
-Available steps (use with --start-from):
-  create-aggregator      - Create aggregator repo
-  worker1-task          - Run worker1 task
-  worker2-task          - Run worker2 task
-  worker1-submission    - Get worker1 submission
-  worker2-submission    - Get worker2 submission
-  worker1-audit         - Worker1 audits Worker2
-  worker2-audit         - Worker2 audits Worker1
-  worker-audit-results  - Update worker audit results
-  leader-task           - Run leader task
-  leader-submission     - Get leader submission
-  leader-audit          - Run leader audit
-  leader-audit-results  - Update leader audit results
-
 Example usage:
   # Run or resume the sequence
   python -m tests.e2e
 
   # Reset databases and start fresh
   python -m tests.e2e --reset
-
-  # Start from a specific step
-  python -m tests.e2e --start-from worker1-task
 
   # Run with specific task ID
   python -m tests.e2e --task-id 123abc
@@ -713,11 +724,6 @@ Example usage:
         type=str,
         help="Directory containing MongoDB data files (issues.json, todos.json, prompts.json)",
     )
-    parser.add_argument(
-        "--step",
-        type=str,
-        help="Label of the step to start from (see available steps below)",
-    )
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir) if args.data_dir else Path(os.getenv("DATA_DIR"))
@@ -739,13 +745,13 @@ Example usage:
             print(f"Removing state file: {state_file}")
             os.remove(state_file)
         # Force start from step 1
-        start_step = 1
+        start_step = "create-aggregator"
         round_number = 1
     else:
         # Determine current round from state
         round_number = determine_current_round()
         # Determine which step to start from
-        start_step = determine_start_step(round_number, args.step)
+        start_step = determine_start_step(round_number)
         # Check if database needs to be populated
         check_and_populate_db(data_dir, task_id)
 
@@ -758,4 +764,4 @@ Example usage:
 
     # Use TestSetup as a context manager to ensure servers are started and stopped properly
     with TestSetup() as test_setup:
-        run_test_sequence(test_setup, task_id, data_dir, args.step)
+        run_test_sequence(test_setup, task_id, data_dir)
