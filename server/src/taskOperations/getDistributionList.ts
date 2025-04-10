@@ -8,7 +8,9 @@ export async function getDistributionListSubmitter(taskId: string, round: string
 
   try {
     const taskStateInfo = await getTaskStateInfo(connection, taskId);
+    console.log("taskStateInfo", taskStateInfo);
     const keys = Object.keys(taskStateInfo.distribution_rewards_submission[round]);
+    console.log("keys", keys);
     return keys.length > 0 ? keys[0] : null;
   } catch (error) {
     console.error("Error in getDistributionListSubmitter", error);
