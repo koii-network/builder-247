@@ -5,8 +5,9 @@ import { SpecModel, SpecStatus } from "../../models/Spec";
 
 import { isValidStakingKey } from "../../utils/taskState";
 import { verifySignature } from "../../utils/sign";
-import { plannerTaskID } from "../../config/constant";
+import { plannerTaskID, SwarmBountyStatus } from "../../config/constant";
 import { syncDB } from "../../services/planner/syncDB";
+import { updateSwarmBountyStatus } from "../../services/swarmBounty/updateStatus";
 
 
 // Check if the user has already completed the task
@@ -118,9 +119,21 @@ export const fetchRequest = async (req: Request, res: Response) => {
  
 };
 
-
-export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey: string}, signatureData: {roundNumber: number, githubUsername: string}): Promise<{statuscode: number, data: any}> => {
+export const preProcessTodoLogic = async () => {
   await syncDB();
+  await updateFailedPlannerTask();
+}
+export const updateFailedPlannerTask = async () => {
+  const specs = await SpecModel.find({ assignedTo: { $size: 5 } });
+  for (const spec of specs) {
+    spec.status = SpecStatus.FAILED;
+
+    await updateSwarmBountyStatus(spec.swarmBountyId, SwarmBountyStatus.FAILED);
+    
+  }
+}
+export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey: string}, signatureData: {roundNumber: number, githubUsername: string}): Promise<{statuscode: number, data: any}> => {
+  await preProcessTodoLogic();
   const existingAssignment = await checkExistingAssignment(requestBody.stakingKey, signatureData.roundNumber);
   if (existingAssignment) {
     if (existingAssignment.hasPR) {

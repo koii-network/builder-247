@@ -78,6 +78,9 @@ class Issue {
   @prop({ required: true })
   public repoOwner!: string;
 
+  @prop({ required: false })
+  public swarmBountyId?: string;
+
   @prop({ required: true })
   public repoName!: string;
   

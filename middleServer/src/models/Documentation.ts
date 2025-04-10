@@ -18,13 +18,10 @@ class AssignedInfo {
 }
 
 enum DocumentationStatus {
-  // Means not assigned to any node
-  // This  can also be used when a node is audited as false, so we can reassign it to another node
   INITIALIZED = "initialized", 
-  // Means is assigned to a node, not completed
-  // This can be used when the node does not complete a task, so we can reassign it to another node
   IN_PROGRESS = "in_progress", 
-  DONE = "done", // Means a PR is audited and waiting for merge
+  DONE = "done", 
+  FAILED = "failed",
 }
 
 @modelOptions({
@@ -43,8 +40,8 @@ class Documentation {
   @prop({ required: true })
   public repoName!: string;
 
-  @prop({ required: false })
-  public swarmBountyId?: string;
+  @prop({ required: true })
+  public swarmBountyId!: string;
   
   @prop({ required: false })
   public taskId!: string;

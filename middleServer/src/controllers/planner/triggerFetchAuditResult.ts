@@ -81,8 +81,8 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
                                     message: 'No PR URL found for assignee.',
                                 }};
                             }
-                            
-                            const result = await processAuditResult(assignee.prUrl);
+
+                            const result = await processAuditResult(assignee.prUrl, spec.swarmBountyId);
                             if (result) {
                                 assignee.auditResult = true;
                             } else {
@@ -126,7 +126,7 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
 }
 
 
-export const processAuditResult = async (cid: string) => {
+export const processAuditResult = async (cid: string, swarmBountyId: string) => {
 
     let decodedFile = null;
     try {
@@ -143,6 +143,7 @@ export const processAuditResult = async (cid: string) => {
         const { issues, tasks } = decodedFile;
     for (const issue of issues) {
         const newIssue = new IssueModel({
+            swarmBountyId: swarmBountyId,
             issueUuid: issue.issueUuid,
             title: issue.title,
             description: issue.description,
@@ -151,6 +152,7 @@ export const processAuditResult = async (cid: string) => {
     }
     for (const task of tasks) {
         const newTask = new TodoModel({
+            swarmBountyId: swarmBountyId,
             acceptanceCriteria: task.acceptanceCriteria,
             assignedTo: task.assignedTo,
             dependencyTasks: task.dependencyTasks,

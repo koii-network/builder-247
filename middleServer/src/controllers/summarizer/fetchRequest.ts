@@ -5,8 +5,9 @@ import { DocumentationModel, DocumentationStatus } from "../../models/Documentat
 // import { documentSummarizerTaskID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
 import { verifySignature } from "../../utils/sign";
-import { documentSummarizerTaskID, taskID } from "../../config/constant";
+import { documentSummarizerTaskID, SwarmBountyStatus, taskID } from "../../config/constant";
 import { syncDB } from "../../services/summarizer/syncDB";
+import { updateSwarmBountyStatus } from "../../services/swarmBounty/updateStatus";
 
 
 // Check if the user has already completed the task
@@ -82,7 +83,19 @@ async function verifySignatureData(
     return null;
   }
 }
-
+export const preProcessTodoLogic = async () => {
+  await syncDB();
+  await updateFailedPlannerTask();
+}
+export const updateFailedPlannerTask = async () => {
+  const docs = await DocumentationModel.find({ assignedTo: { $size: 5 } });
+  for (const doc of docs) {
+    doc.status = DocumentationStatus.FAILED;
+    await doc.save();
+    await updateSwarmBountyStatus(doc.swarmBountyId, SwarmBountyStatus.FAILED);
+    
+  }
+}
 
 export const fetchRequest = async (req: Request, res: Response) => {
   
@@ -119,7 +132,7 @@ export const fetchRequest = async (req: Request, res: Response) => {
 
 
 export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey: string}, signatureData: {roundNumber: number, githubUsername: string}): Promise<{statuscode: number, data: any}> => {
-  await syncDB();
+  await preProcessTodoLogic();
   const existingAssignment = await checkExistingAssignment(requestBody.stakingKey, signatureData.roundNumber);
   if (existingAssignment) {
     if (existingAssignment.hasPR) {

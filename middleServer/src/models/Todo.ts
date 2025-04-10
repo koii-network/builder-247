@@ -59,6 +59,8 @@ class Todo {
   @prop({ required: true })
   public uuid!: string;
 
+  @prop({ required: false })
+  public swarmBountyId?: string;
 
   @prop({ required: true })
   public issueUuid!: string;
