@@ -111,7 +111,7 @@ export async function task(roundNumber: number): Promise<void> {
     console.log("[TASK] requiredWorkResponseData: ", requiredWorkResponseData);
     
     const jsonBody = {
-      repo_url: `https://github.com/${requiredWorkResponseData.data.repo_owner}/${requiredWorkResponseData.data.repo_name}`,
+      repoUrl: `https://github.com/${requiredWorkResponseData.data.repo_owner}/${requiredWorkResponseData.data.repo_name}`,
       issueSpec: requiredWorkResponseData.data.description
     };
     console.log("[TASK] jsonBody: ", jsonBody);
