@@ -232,7 +232,7 @@ def run_todo_task(
             )
 
         # Extract todo_uuid from the todo data
-        todo_uuid = todo.get("todo_uuid")
+        todo_uuid = todo.get("uuid")
         if not todo_uuid:
             # Fallback to using base_branch if todo_uuid is not available
             todo_uuid = base_branch
