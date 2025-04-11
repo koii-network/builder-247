@@ -37,7 +37,7 @@ export const getAssignedToLogic = async (swarmsBountyId: string):Promise<{status
                 statuscode: 200,
                 data: {
                     success: true,
-                    message: "Assigned to found",
+                    message: "Returned assignedTo",
                     assignedTo: assignedTo.assignedTo,
                 }
             };
