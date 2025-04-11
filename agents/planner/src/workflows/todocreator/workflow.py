@@ -270,11 +270,13 @@ class TodoCreatorWorkflow(Workflow):
                 self.context["target_task"] = task
                 dependency_phase = phases.TaskDependencyPhase(workflow=self)
                 dependency_result = dependency_phase.execute()
-                if not dependency_result or not dependency_result.get("success"):
+                if dependency_result is None or not dependency_result.get("success"):
                     log_error(
-                        Exception(dependency_result.get("error", "No result")),
-                        "Task dependency failed",
+                        Exception(dependency_result.get("error", "No result") if dependency_result else "No results returned from phase"),
+                        "Task dependency failed, continuing with empty dependencies",
                     )
+                    task["dependency_tasks"] = []
+                    continue
                 # save the dependency tasks in the context, prepare for the MongoDB insertion phase
                 try: 
                     task["dependency_tasks"] = dependency_result["data"][task["uuid"]]
