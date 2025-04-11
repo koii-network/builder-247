@@ -68,13 +68,12 @@ def save_state(data_manager, pr_urls, step_name, submission_data=None):
         "issue_uuid": data_manager.issue_uuid,
         "repo_owner": data_manager.repo_owner,
         "repo_name": data_manager.repo_name,
-        "pr_urls": pr_urls.copy(),  # Make a copy to avoid reference issues
+        "pr_urls": pr_urls,
         "round_number": data_manager.round_number,
     }
 
-    # Add submission data if provided
     if submission_data:
-        current_round_state["submission_data"] = submission_data.copy()
+        current_round_state["submission_data"] = submission_data
 
     # Store state under the current round number
     round_key = str(data_manager.round_number)
@@ -109,50 +108,29 @@ def load_state(data_manager, pr_urls, starting_step, submission_data=None):
         prev_round_key = str(data_manager.round_number - 1)
         if prev_round_key in all_rounds_state:
             prev_round_state = all_rounds_state[prev_round_key]
-            # Load state from previous round since it was completed
-            current_round_state = {
-                "last_completed_step": None,  # Start fresh for new round
-                "fork_url": prev_round_state["fork_url"],
-                "branch_name": prev_round_state["branch_name"],
-                "issue_uuid": prev_round_state["issue_uuid"],
-                "repo_owner": prev_round_state["repo_owner"],
-                "repo_name": prev_round_state["repo_name"],
-                "pr_urls": {},  # Start with empty PR URLs
-                "round_number": data_manager.round_number,
-                "submission_data": {},  # Start with empty submission data
-            }
-            # Save the loaded state back to the file
-            all_rounds_state[round_key] = current_round_state
-            with open(state_file, "w") as f:
-                json.dump(all_rounds_state, f, indent=2)
+            if prev_round_state["last_completed_step"] == "leader-audit-results":
+                # Previous round was completed, start new round with basic repo info
+                current_round_state = {
+                    "last_completed_step": None,
+                    "fork_url": prev_round_state["fork_url"],
+                    "branch_name": prev_round_state["branch_name"],
+                    "issue_uuid": prev_round_state["issue_uuid"],
+                    "repo_owner": prev_round_state["repo_owner"],
+                    "repo_name": prev_round_state["repo_name"],
+                    "pr_urls": {},
+                    "round_number": data_manager.round_number,
+                    "submission_data": {},
+                }
+                # Save the new round state
+                all_rounds_state[round_key] = current_round_state
+                with open(state_file, "w") as f:
+                    json.dump(all_rounds_state, f, indent=2)
+            else:
+                return  # Previous round wasn't completed, no state to load
         else:
-            return  # New round, no state to load
+            return  # No previous round, no state to load
     else:
         current_round_state = all_rounds_state[round_key]
-        # If current round's values are null, try to get them from previous round
-        if not current_round_state.get("fork_url") or not current_round_state.get(
-            "branch_name"
-        ):
-            prev_round_key = str(data_manager.round_number - 1)
-            if prev_round_key in all_rounds_state:
-                prev_round_state = all_rounds_state[prev_round_key]
-                if (
-                    prev_round_state["last_completed_step"] == "leader-audit-results"
-                ):  # Previous round was completed
-                    print(f"Using values from completed round {prev_round_key}")
-                    # Only override null values for these specific fields
-                    for key in [
-                        "fork_url",
-                        "branch_name",
-                        "issue_uuid",
-                        "repo_owner",
-                        "repo_name",
-                    ]:
-                        if not current_round_state.get(key):
-                            current_round_state[key] = prev_round_state.get(key)
-                    # Save the updated state back to the file
-                    with open(state_file, "w") as f:
-                        json.dump(all_rounds_state, f, indent=2)
 
     # Load state into data_manager
     data_manager.fork_url = current_round_state["fork_url"]
@@ -162,7 +140,7 @@ def load_state(data_manager, pr_urls, starting_step, submission_data=None):
     data_manager.repo_name = current_round_state["repo_name"]
 
     # Load PR URLs for current round
-    pr_urls.clear()  # Clear existing URLs
+    pr_urls.clear()
     pr_urls.update(current_round_state["pr_urls"])
 
     # Load submission data if it exists
@@ -550,74 +528,96 @@ def run_test_sequence(
 
             elif step == "worker1-submission":
                 log_step("worker1-submission", "Get worker1 submission")
-                if "worker1" in pr_urls:
-                    submission_url = f"{test_setup.worker1_server.url}/submission/{data_manager.task_id}/{data_manager.round_number}"
-                    log_request("GET", submission_url)
-                    response = requests.get(submission_url)
-                    log_response(response)
-                    response.raise_for_status()
-                    worker1_data = response.json()
-
-                    # Get keys from DataManager
-                    keys = data_manager.get_keys("worker1")
-
-                    # Create signature for the submission
-                    submitter_payload = {
-                        "taskId": data_manager.task_id,
-                        "roundNumber": data_manager.round_number,
-                        "stakingKey": keys["staking_key"],
-                        "pubKey": keys["pub_key"],
-                        "action": "audit",
-                        "githubUsername": worker1_data.get("githubUsername"),
-                        "prUrl": worker1_data.get("prUrl"),
-                    }
-                    signature = data_manager.create_submitter_signature(
-                        "worker1", submitter_payload
+                if "worker1" not in pr_urls:
+                    print("No PR URL for worker1, skipping submission...")
+                    save_state(
+                        data_manager, pr_urls, "worker1-submission", submission_data
                     )
-                    worker1_data["signature"] = signature
-                    # Add staking and pub keys to submission data
-                    worker1_data["stakingKey"] = keys["staking_key"]
-                    worker1_data["pubKey"] = keys["pub_key"]
-                    # Store worker1's submission data separately
-                    submission_data["worker1"] = worker1_data
+                    continue
+
+                submission_url = (
+                    f"{test_setup.worker1_server.url}/submission/"
+                    f"{data_manager.task_id}/{data_manager.round_number}"
+                )
+                log_request("GET", submission_url)
+                response = requests.get(submission_url)
+                log_response(response)
+                response.raise_for_status()
+                worker1_data = response.json()
+
+                # Get keys from DataManager
+                keys = data_manager.get_keys("worker1")
+
+                # Create signature for the submission
+                submitter_payload = {
+                    "taskId": data_manager.task_id,
+                    "roundNumber": data_manager.round_number,
+                    "stakingKey": keys["staking_key"],
+                    "pubKey": keys["pub_key"],
+                    "action": "audit",
+                    "githubUsername": worker1_data.get("githubUsername"),
+                    "prUrl": worker1_data.get("prUrl"),
+                }
+                signature = data_manager.create_submitter_signature(
+                    "worker1", submitter_payload
+                )
+                worker1_data["signature"] = signature
+                # Add staking and pub keys to submission data
+                worker1_data["stakingKey"] = keys["staking_key"]
+                worker1_data["pubKey"] = keys["pub_key"]
+                # Store worker1's submission data separately
+                submission_data["worker1"] = worker1_data
                 save_state(data_manager, pr_urls, "worker1-submission", submission_data)
 
             elif step == "worker2-submission":
                 log_step("worker2-submission", "Get worker2 submission")
-                if "worker2" in pr_urls:
-                    submission_url = f"{test_setup.worker2_server.url}/submission/{data_manager.task_id}/{data_manager.round_number}"
-                    log_request("GET", submission_url)
-                    response = requests.get(submission_url)
-                    log_response(response)
-                    response.raise_for_status()
-                    worker2_data = response.json()
-
-                    # Get keys from DataManager
-                    keys = data_manager.get_keys("worker2")
-
-                    # Create signature for the submission
-                    submitter_payload = {
-                        "taskId": data_manager.task_id,
-                        "roundNumber": data_manager.round_number,
-                        "stakingKey": keys["staking_key"],
-                        "pubKey": keys["pub_key"],
-                        "action": "audit",
-                        "githubUsername": worker2_data.get("githubUsername"),
-                        "prUrl": worker2_data.get("prUrl"),
-                    }
-                    signature = data_manager.create_submitter_signature(
-                        "worker2", submitter_payload
+                if "worker2" not in pr_urls:
+                    print("No PR URL for worker2, skipping submission...")
+                    save_state(
+                        data_manager, pr_urls, "worker2-submission", submission_data
                     )
-                    worker2_data["signature"] = signature
-                    # Add staking and pub keys to submission data
-                    worker2_data["stakingKey"] = keys["staking_key"]
-                    worker2_data["pubKey"] = keys["pub_key"]
-                    # Store worker2's submission data separately
-                    submission_data["worker2"] = worker2_data
+                    continue
+
+                submission_url = (
+                    f"{test_setup.worker2_server.url}/submission/"
+                    f"{data_manager.task_id}/{data_manager.round_number}"
+                )
+                log_request("GET", submission_url)
+                response = requests.get(submission_url)
+                log_response(response)
+                response.raise_for_status()
+                worker2_data = response.json()
+
+                # Get keys from DataManager
+                keys = data_manager.get_keys("worker2")
+
+                # Create signature for the submission
+                submitter_payload = {
+                    "taskId": data_manager.task_id,
+                    "roundNumber": data_manager.round_number,
+                    "stakingKey": keys["staking_key"],
+                    "pubKey": keys["pub_key"],
+                    "action": "audit",
+                    "githubUsername": worker2_data.get("githubUsername"),
+                    "prUrl": worker2_data.get("prUrl"),
+                }
+                signature = data_manager.create_submitter_signature(
+                    "worker2", submitter_payload
+                )
+                worker2_data["signature"] = signature
+                # Add staking and pub keys to submission data
+                worker2_data["stakingKey"] = keys["staking_key"]
+                worker2_data["pubKey"] = keys["pub_key"]
+                # Store worker2's submission data separately
+                submission_data["worker2"] = worker2_data
                 save_state(data_manager, pr_urls, "worker2-submission", submission_data)
 
             elif step == "worker1-audit":
                 log_step("worker1-audit", "Worker1 audits Worker2")
+                if "worker2" not in pr_urls:
+                    print("No PR URL for worker2, skipping worker1 audit...")
+                    save_state(data_manager, pr_urls, "worker1-audit", submission_data)
+                    continue
                 test_setup.run_worker_audit(
                     data_manager, pr_urls, submission_data, "worker1", "worker2"
                 )
@@ -625,6 +625,10 @@ def run_test_sequence(
 
             elif step == "worker2-audit":
                 log_step("worker2-audit", "Worker2 audits Worker1")
+                if "worker1" not in pr_urls:
+                    print("No PR URL for worker1, skipping worker2 audit...")
+                    save_state(data_manager, pr_urls, "worker2-audit", submission_data)
+                    continue
                 test_setup.run_worker_audit(
                     data_manager, pr_urls, submission_data, "worker2", "worker1"
                 )
@@ -644,40 +648,53 @@ def run_test_sequence(
 
             elif step == "leader-submission":
                 log_step("leader-submission", "Get leader submission")
-                if "leader" in pr_urls:
-                    submission_url = f"{test_setup.leader_server.url}/submission/{data_manager.task_id}/{data_manager.round_number}"
-                    log_request("GET", submission_url)
-                    response = requests.get(submission_url)
-                    log_response(response)
-                    response.raise_for_status()
-                    leader_data = response.json()
-
-                    # Get keys from DataManager
-                    keys = data_manager.get_keys("leader")
-
-                    # Create signature for the submission
-                    submitter_payload = {
-                        "taskId": data_manager.task_id,
-                        "roundNumber": data_manager.round_number,
-                        "stakingKey": keys["staking_key"],
-                        "pubKey": keys["pub_key"],
-                        "action": "audit",
-                        "githubUsername": leader_data.get("githubUsername"),
-                        "prUrl": leader_data.get("prUrl"),
-                    }
-                    signature = data_manager.create_submitter_signature(
-                        "leader", submitter_payload
+                if "leader" not in pr_urls:
+                    print("No PR URL for leader, skipping submission...")
+                    save_state(
+                        data_manager, pr_urls, "leader-submission", submission_data
                     )
-                    leader_data["signature"] = signature
-                    # Add staking and pub keys to submission data
-                    leader_data["stakingKey"] = keys["staking_key"]
-                    leader_data["pubKey"] = keys["pub_key"]
-                    # Store leader's submission data separately
-                    submission_data["leader"] = leader_data
+                    continue
+
+                submission_url = (
+                    f"{test_setup.leader_server.url}/submission/"
+                    f"{data_manager.task_id}/{data_manager.round_number}"
+                )
+                log_request("GET", submission_url)
+                response = requests.get(submission_url)
+                log_response(response)
+                response.raise_for_status()
+                leader_data = response.json()
+
+                # Get keys from DataManager
+                keys = data_manager.get_keys("leader")
+
+                # Create signature for the submission
+                submitter_payload = {
+                    "taskId": data_manager.task_id,
+                    "roundNumber": data_manager.round_number,
+                    "stakingKey": keys["staking_key"],
+                    "pubKey": keys["pub_key"],
+                    "action": "audit",
+                    "githubUsername": leader_data.get("githubUsername"),
+                    "prUrl": leader_data.get("prUrl"),
+                }
+                signature = data_manager.create_submitter_signature(
+                    "leader", submitter_payload
+                )
+                leader_data["signature"] = signature
+                # Add staking and pub keys to submission data
+                leader_data["stakingKey"] = keys["staking_key"]
+                leader_data["pubKey"] = keys["pub_key"]
+                # Store leader's submission data separately
+                submission_data["leader"] = leader_data
                 save_state(data_manager, pr_urls, "leader-submission", submission_data)
 
             elif step == "leader-audit":
                 log_step("leader-audit", "Run leader audit")
+                if "leader" not in pr_urls:
+                    print("No PR URL for leader, skipping leader audit...")
+                    save_state(data_manager, pr_urls, "leader-audit", submission_data)
+                    continue
                 test_setup.run_leader_audit(data_manager, pr_urls, submission_data)
                 save_state(data_manager, pr_urls, "leader-audit", submission_data)
 
