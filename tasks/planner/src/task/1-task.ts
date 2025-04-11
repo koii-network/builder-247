@@ -95,6 +95,7 @@ export async function task(roundNumber: number): Promise<void> {
     // const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues(existingIssues);
 
     console.log(`[TASK] Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
+    console.log(`[TASK] request body: ${JSON.stringify({ signature: signature, stakingKey: stakingKey })}`);
     const requiredWorkResponse = await fetch(`${middleServerUrl}/api/planner/fetch-planner-todo`, {
       method: "POST",
       headers: {
