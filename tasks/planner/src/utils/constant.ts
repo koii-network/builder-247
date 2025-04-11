@@ -62,4 +62,4 @@ export const actionMessage = {
 
 // DEBUG
 export const customReward = 0.001*10**9 // This should be in ROE! 
-export const middleServerUrl = "http://localhost:3008"
+export const middleServerUrl = "https://ywk8k4ow8gkc08s4gs84w8w8.dev.koii.network"

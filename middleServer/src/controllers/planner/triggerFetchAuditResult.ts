@@ -246,8 +246,8 @@ export const decodeFile = async (cid: string) => {
 
 
 
-export const test = async () => {
-    await initializeConnections();
-    await triggerFetchAuditResultLogic(["0x123"], ["0x456"], 2);
-}
-test();
+// export const test = async () => {
+//     await initializeConnections();
+//     await triggerFetchAuditResultLogic(["0x123"], ["0x456"], 2);
+// }
+// test();
