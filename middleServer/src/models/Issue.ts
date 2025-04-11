@@ -1,15 +1,6 @@
 import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typegoose";
 import { builder247DB } from "../services/database/database";
 
-modelOptions({
-  schemaOptions: {
-    timestamps: true,
-  },
-  options: {
-    allowMixed: Severity.ALLOW,
-  },
-  existingConnection: builder247DB
-})
 class AssignedInfo {
   @prop({ required: true })
   public stakingKey!: string;
@@ -62,6 +53,15 @@ enum IssueStatus {
   MERGED = "merged",// Means a PR is merged manually
 }
 
+@modelOptions({
+  schemaOptions: {
+    timestamps: true,
+  },
+  options: {
+    allowMixed: Severity.ALLOW,
+  },
+  existingConnection: builder247DB
+})
 class Issue {
   @prop({ required: true })
   public issueUuid!: string;
@@ -95,4 +95,4 @@ class Issue {
 }
 
 const IssueModel = getModelForClass(Issue);
-export { Issue, IssueModel, IssueStatus };
+export { Issue, IssueModel, IssueStatus, AssignedInfo, AggregatorInfo };
