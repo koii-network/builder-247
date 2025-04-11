@@ -247,20 +247,20 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
   }
 
   // Now update the has PR issues
-  const auditableIssues = await IssueModel.find({
+  const auditedIssues = await IssueModel.find({
     assignedStakingKey: { $in: allKeys },
     assignedRoundNumber: round,
     prUrl: { $exists: true },
   });
 
-  console.log(`Found ${auditableIssues.length} auditable issues`);
+  console.log(`Found ${auditedIssues.length} audited issues`);
 
-  for (const issue of auditableIssues) {
+  for (const issue of auditedIssues) {
     if (positiveKeys.includes(issue.assignedStakingKey!)) {
-      issue.status = IssueStatus.ASSIGN_PENDING;
-      console.log(`Setting issue ${issue.issueUuid} to ASSIGN_PENDING`);
+      issue.status = IssueStatus.APPROVED;
+      await issue.save();
+      console.log(`Setting issue ${issue.issueUuid} to APPROVED`);
       await TodoModel.updateMany({ issueUuid: issue.issueUuid }, { $set: { status: TodoStatus.MERGED } });
     }
-    await issue.save();
   }
 };
