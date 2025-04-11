@@ -34,7 +34,7 @@ def audit_worker_submission(round_number: str):
     repo_name = submission.get("repoName")
     submitter_staking_key = submission.get("stakingKey")
     submitter_pub_key = submission.get("pubKey")
-
+    uuid = submission.get("uuid")
     if round_number != submission_round_number:
         return jsonify({"error": "Round number mismatch"}), 400
 
@@ -51,14 +51,14 @@ def audit_worker_submission(round_number: str):
         or not submitter_pub_key
         or not staking_signature
         or not public_signature
+        or not uuid
     ):
         return jsonify({"error": "Missing submission data"}), 400
 
     verify_response = verify_pr_ownership(
         pr_url=pr_url,
         expected_username=github_username,
-        expected_owner=repo_owner,
-        expected_repo=repo_name,
+        uuid=uuid,
         task_id=task_id,
         round_number=round_number,
         staking_key=submitter_staking_key,
@@ -116,6 +116,8 @@ def audit_leader_submission(round_number: int):
     data = request.get_json()
     submission = data.get("submission")
 
+    print("submission", submission)
+
     if not submission:
         return jsonify({"error": "Missing submission"}), 400
 
@@ -126,7 +128,7 @@ def audit_leader_submission(round_number: int):
     repo_owner = submission.get("repoOwner")
     repo_name = submission.get("repoName")
     github_username = submission.get("githubUsername")
-
+    uuid = submission.get("uuid")
     # Extract signature data from top level
     submitter_signature = data.get("submitterSignature")
     submitter_staking_key = data.get("submitterStakingKey")
@@ -154,14 +156,14 @@ def audit_leader_submission(round_number: int):
         or not pub_key
         or not staking_signature
         or not public_signature
+        or not uuid
     ):
         return jsonify({"error": "Missing submission data"}), 400
 
     verify_response = verify_pr_ownership(
         pr_url=pr_url,
         expected_username=github_username,
-        expected_owner=repo_owner,
-        expected_repo=repo_name,
+        uuid=uuid,
         task_id=task_id,
         round_number=round_number,
         staking_key=submitter_staking_key,

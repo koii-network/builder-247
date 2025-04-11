@@ -18,8 +18,7 @@ import json
 def verify_pr_ownership(
     pr_url: str,
     expected_username: str,
-    expected_owner: str,
-    expected_repo: str,
+    uuid: str,
     task_id: str,
     round_number: int,
     staking_key: str,
@@ -43,6 +42,37 @@ def verify_pr_ownership(
     Returns:
         bool: True if PR ownership and signature are valid
     """
+
+    response = requests.get(
+        os.environ["MIDDLE_SERVER_URL"] + f"/api/get-source-repo/{node_type}/{uuid}",
+        headers={"Content-Type": "application/json"},
+    )
+
+    response_data = response.json()
+    if not response_data.get("success"):
+        log_error(
+            Exception("Failed to get source repo"),
+            context=f"Failed to get source repo: {response_data.get('message')}",
+        )
+        return {
+            "valid": False,
+            "pr_list": {},
+        }
+
+    data = response_data.get("data", {})
+    expected_owner = data.get("repoOwner")
+    expected_repo = data.get("repoName")
+
+    if not expected_owner or not expected_repo:
+        log_error(
+            Exception("Missing repo info"),
+            context="Missing repoOwner or repoName in response",
+        )
+        return {
+            "valid": False,
+            "pr_list": {},
+        }
+
     print("\n=== VERIFY PR OWNERSHIP ===")
     print(f"PR URL: {pr_url}")
     print(f"Expected username: {expected_username}")
@@ -241,29 +271,18 @@ def validate_pr_list(
         print(f"PR base repo: {pr.base.repo.full_name}", flush=True)
         print(f"PR head repo: {pr.head.repo.full_name}", flush=True)
 
-        # Get the parent repository of the source repo
-        parent_repo = source_repo.parent
-        if not parent_repo:
+        # Verify PR is targeting the source repo's default branch
+        if pr.base.repo.owner.login != repo_owner or pr.base.repo.name != repo_name:
             return (
                 False,
-                f"Source repository {repo_owner}/{repo_name} has no parent repository",
+                f"PR target mismatch - expected: {repo_owner}/{repo_name}, got: {pr.base.repo.full_name}",
             )
 
-        # Verify PR is targeting the parent repo's default branch
-        if (
-            pr.base.repo.owner.login != parent_repo.owner.login
-            or pr.base.repo.name != parent_repo.name
-        ):
+        # Get source repo's default branch
+        if pr.base.ref != source_repo.default_branch:
             return (
                 False,
-                f"PR target mismatch - expected: {parent_repo.full_name}, got: {pr.base.repo.full_name}",
-            )
-
-        # Get parent repo's default branch
-        if pr.base.ref != parent_repo.default_branch:
-            return (
-                False,
-                f"Wrong base branch - expected: {parent_repo.default_branch}, got: {pr.base.ref}",
+                f"Wrong base branch - expected: {source_repo.default_branch}, got: {pr.base.ref}",
             )
 
         # Verify PR is coming from the leader's fork

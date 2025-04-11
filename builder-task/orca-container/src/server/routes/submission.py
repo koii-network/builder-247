@@ -38,6 +38,7 @@ def fetch_submission(task_id, round_number):
                 "repoOwner": submission.repo_owner,
                 "repoName": submission.repo_name,
                 "nodeType": submission.node_type,
+                "uuid": submission.uuid,
             }
         )
     else:

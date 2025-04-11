@@ -9,7 +9,7 @@ import { addIssuePR } from "./controllers/addIssuePR";
 import { assignIssue } from "./controllers/assignIssue";
 import { fetchIssue } from "./controllers/fetchIssue";
 import { checkIssue } from "./controllers/checkIssue";
-
+import { getSourceRepo } from "./controllers/getSourceRepo";
 const router = Router();
 
 router.post("/fetch-to-do", fetchTodo as RequestHandler);
@@ -22,4 +22,5 @@ router.post("/update-audit-result", updateAuditResult as RequestHandler);
 // router.get("/get-issue-pr-urls/:issueUuid", getIssuePrUrls as RequestHandler);
 router.post("/fetch-issue", fetchIssue as RequestHandler);
 router.post("/check-issue", checkIssue as RequestHandler);
+router.get("/get-source-repo/:nodeType/:uuid", getSourceRepo as RequestHandler);
 export default router;
