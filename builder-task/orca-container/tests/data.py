@@ -224,6 +224,8 @@ class DataManager:
                 "repoName": self.repo_name,
                 "stakingKey": submission_data.get("stakingKey"),
                 "pubKey": submission_data.get("pubKey"),
+                "uuid": submission_data.get("uuid"),
+                "nodeType": submission_data.get("nodeType"),
             },
             "submitterSignature": submission_data.get("signature"),
             "submitterStakingKey": submission_data.get("stakingKey"),

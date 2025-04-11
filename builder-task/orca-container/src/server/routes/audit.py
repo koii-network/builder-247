@@ -116,8 +116,6 @@ def audit_leader_submission(round_number: int):
     data = request.get_json()
     submission = data.get("submission")
 
-    print("submission", submission)
-
     if not submission:
         return jsonify({"error": "Missing submission"}), 400
 
