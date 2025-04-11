@@ -228,11 +228,8 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
     await todo.save();
   }
 
-  // Get all the issue's for this round changed todos
-  const issueUuids = auditableTodos.map((todo) => todo.issueUuid);
-
-  // Check if all subtasks of an issue are completed and have PR URLs
-  const issues = await IssueModel.find({ issueUuid: { $in: issueUuids } });
+  // Check all in progress issues
+  const issues = await IssueModel.find({ status: IssueStatus.IN_PROGRESS });
   console.log(`Found ${issues.length} issues related to updated todos`);
 
   for (const issue of issues) {
