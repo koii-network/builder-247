@@ -8,6 +8,7 @@ import { TodoModel } from '../../models/Todo';
 import { IssueModel } from '../../models/Issue';
 import { getFile } from '../../utils/ipfs/ipfs';
 import { initializeConnections } from '../../services/database/database';
+import { IssueStatus } from '../../models/Issue';
 // A simple in-memory cache to store processed task IDs and rounds
 const cache: Record<string, Set<number>> = {};
 
@@ -161,22 +162,25 @@ export const processAuditResult = async ({cid, swarmBountyId, repoName, repoOwne
     try {
         const { issues, tasks } = decodedFile;
         
-        // Prepare bulk operations for issues
-        const issueOperations = issues.map((issue: Issue) => ({
-            insertOne: {
-                document: {
-                    swarmBountyId: swarmBountyId,
-                    issueUuid: issue.uuid,
-                    title: issue.title,
-                    description: issue.description,
-                    repoName: repoName,
-                    repoOwner: repoOwner,
-                }
-            }
-        }));
+
 
         // Prepare bulk operations for tasks
-        const taskOperations = tasks.map((task: Task) => ({
+
+        const taskOperations = tasks.map((task: Task) => (
+            console.log({
+                swarmBountyId: swarmBountyId,
+                acceptanceCriteria: task.acceptanceCriteria,
+                assignedTo: task.assignedTo,
+                dependencyTasks: task.dependencyTasks,
+                description: task.description,
+                issueUuid: task.issueUuid,
+                repoName: task.repoName,
+                repoOwner: task.repoOwner,
+                status: task.status,
+                title: task.title,
+                uuid: task.uuid,
+            }),
+            {
             insertOne: {
                 document: {
                     swarmBountyId: swarmBountyId,
@@ -193,15 +197,29 @@ export const processAuditResult = async ({cid, swarmBountyId, repoName, repoOwne
                 }
             }
         }));
-
+        // // Prepare bulk operations for issues
+        const issueOperations = issues.map((issue: Issue) => ({
+            insertOne: {
+                document: {
+                    swarmBountyId: swarmBountyId,
+                    issueUuid: issue.uuid,
+                    title: issue.title,
+                    description: issue.description,
+                    repoName: repoName,
+                    repoOwner: repoOwner,
+                    status: IssueStatus.INITIALIZED,
+                    assignedTo: []
+                }
+            }
+        }));
         // Execute bulk operations
-        if (issueOperations.length > 0) {
-            await IssueModel.bulkWrite(issueOperations);
-        }
+   
         if (taskOperations.length > 0) {
             await TodoModel.bulkWrite(taskOperations);
         }
-
+        if (issueOperations.length > 0) {
+            await IssueModel.bulkWrite(issueOperations);
+        }
         return true;
     } catch (error) {
         console.error("Error processing audit result:", error);
@@ -212,13 +230,15 @@ export const decodeFile = async (cid: string) => {
     try {
         const file = await getFile(cid);
         const decodedFile = JSON.parse(file);
-        if (decodedFile.tasks&&decodedFile.issues) {
+        if (decodedFile.tasks && decodedFile.issues) {
+            // Flatten the nested tasks array if it exists
+            const flattenedTasks = Array.isArray(decodedFile.tasks[0]) ? decodedFile.tasks[0] : decodedFile.tasks;
             return {
                 issues: decodedFile.issues,
-                tasks: decodedFile.tasks,
+                tasks: flattenedTasks,
             };
         }
-    }catch (error) {
+    } catch (error) {
         console.error("Error decoding file:", error);
         return null;
     }
@@ -226,8 +246,8 @@ export const decodeFile = async (cid: string) => {
 
 
 
-// export const test = async () => {
-//     await initializeConnections();
-//     await triggerFetchAuditResultLogic(["0x123"], ["0x456"], 2);
-// }
-// test();
+export const test = async () => {
+    await initializeConnections();
+    await triggerFetchAuditResultLogic(["0x123"], ["0x456"], 2);
+}
+test();
