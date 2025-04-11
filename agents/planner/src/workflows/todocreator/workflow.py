@@ -285,18 +285,23 @@ class TodoCreatorWorkflow(Workflow):
             # ==================== MongoDB Insertion Phase ====================
             # Insert into MongoDB
             for task in tasks_data:
-                if decisions[task["uuid"]]["decision"] == True:
-                    task_model = TaskModel(
-                        title=task["title"],
-                        description=task["description"],
-                        acceptanceCriteria="\n".join(task["acceptance_criteria"]),
-                        repoOwner=self.context["repo_owner"],
-                        repoName=self.context["repo_name"],
-                        dependencyTasks=task["dependency_tasks"],
-                        uuid=task["uuid"],
-                        issueUuid=issue_uuid
-                    )
-                    tasks.append(task_model)
+                try:    
+                    # Check if task UUID exists in decisions and has a decision value
+                    if task["uuid"] in decisions and decisions[task["uuid"]].get("decision", False):
+                        task_model = TaskModel(
+                            title=task["title"],
+                            description=task["description"],
+                            acceptanceCriteria="\n".join(task["acceptance_criteria"]),
+                            repoOwner=self.context["repo_owner"],
+                            repoName=self.context["repo_name"],
+                            dependencyTasks=task["dependency_tasks"],
+                            uuid=task["uuid"],
+                            issueUuid=issue_uuid
+                        )
+                        tasks.append(task_model)
+                except Exception as e:
+                    log_error(e, f"Failed to process task {task.get('title', 'unknown')} with UUID {task.get('uuid', 'unknown')}")
+                    continue
 
             # Return the final result
             return {
