@@ -255,13 +255,26 @@ def reset_mongodb(data_dir: Path = None, task_id: str = None):
                     todo["taskId"] = task_id
                 print(f"Set task ID to {task_id} for all todos")
 
-            # Update issue UUIDs in todos and add UUIDs to todos
+            # First pass: Create mapping of todo titles to their new UUIDs
+            todo_title_to_uuid = {}
+            for todo in todos_data:
+                # Add UUID to each todo
+                todo["uuid"] = str(uuid.uuid4())
+                todo_title_to_uuid[todo["title"]] = todo["uuid"]
+
+            # Second pass: Update dependencyTasks to use UUIDs instead of titles
+            for todo in todos_data:
+                if "dependencyTasks" in todo:
+                    todo["dependencyTasks"] = [
+                        todo_title_to_uuid.get(title, title)
+                        for title in todo["dependencyTasks"]
+                    ]
+
+            # Update issue UUIDs in todos
             for todo in todos_data:
                 if todo["issueUuid"] in issue_uuid_mapping:
                     # Update the todo's issueUuid to match the new issue UUID
                     todo["issueUuid"] = issue_uuid_mapping[todo["issueUuid"]]
-                # Add UUID to each todo
-                todo["uuid"] = str(uuid.uuid4())
 
             result = db.todos.insert_many(todos_data)
             print(f"Inserted {len(result.inserted_ids)} todos")
