@@ -1,8 +1,12 @@
 import { Request, Response } from "express";
 import { DocumentationModel } from "../../models/Documentation";
 export const getAssignedTo = async (req: Request, res: Response) => {
-    const { swarmBountyId } = req.body;
-    const assignedTo = await getAssignedToLogic(swarmBountyId);
+    const { swarmBountyId } = req.query;
+    if (!swarmBountyId) {
+        res.status(400).json({ error: "swarmBountyId is required" });
+        return;
+    }
+    const assignedTo = await getAssignedToLogic(swarmBountyId as string);
     if (!assignedTo) {
         res.status(404).json({ error: "Assigned to not found" });
         return;

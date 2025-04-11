@@ -140,9 +140,10 @@ class AnthropicClient(Client):
         except Exception as e:
             # Handle overloaded error (529)
             if hasattr(e, 'response') and hasattr(e.response, 'status_code') and e.response.status_code == 529:
-                error = ClientAPIError(e)
-                error.status_code = 529  # Set the status code explicitly
-                raise error
+                # Set the status code on the original error
+                e.status_code = 529
+                # Wrap in ClientAPIError
+                raise ClientAPIError(e)
             
             # For other errors, wrap in ClientAPIError
             log_error(
