@@ -9,6 +9,11 @@ export async function getDistributionListSubmitter(taskId: string, round: string
   try {
     const taskStateInfo = await getTaskStateInfo(connection, taskId);
     console.log("taskStateInfo", taskStateInfo);
+    // Add null checks
+    if (!taskStateInfo?.distribution_rewards_submission?.[round]) {
+      console.log(`No distribution rewards found for round ${round}`);
+      return null;
+    }
     const keys = Object.keys(taskStateInfo.distribution_rewards_submission[round]);
     console.log("keys", keys);
     return keys.length > 0 ? keys[0] : null;
