@@ -125,99 +125,6 @@ export async function task(roundNumber: number): Promise<void> {
         body: JSON.stringify(jsonBody),
       });
       console.log("[TASK] repoSummaryResponse: ", repoSummaryResponse);
-      /***
-       * {
-    "data": {
-        "issues": [
-            {
-                "description": "Add robust input validation for the Easy Refine functionality to ensure data integrity and prevent potential errors. \n\nSpecific validation requirements:\n- Validate input parameters for type, range, and format\n- Implement error handling for invalid inputs\n- Create clear error messages for different validation scenarios\n- Ensure validation is performed before processing any refine operations\n\nAcceptance Criteria:\n- All input parameters are checked for validity before processing\n- Invalid inputs are rejected with informative error messages\n- No unhandled exceptions can occur during the input validation process\n- Unit tests cover various input validation scenarios",
-                "title": "Implement Input Validation for Easy Refine Parameters",
-                "uuid": "d4d9c02e-3cdb-410d-85fd-60f5c94e01d5"
-            }
-        ],
-        "tasks": [
-            [
-                {
-                    "acceptanceCriteria": "Create a JSON or YAML schema document detailing validation rules for each parameter\nValidation schema must cover all input parameters used in Easy Refine\nSchema must include type, range, and format constraints\n100% coverage of parameter validation rules documented",
-                    "assignedTo": [],
-                    "dependencyTasks": [],
-                    "description": "Create a comprehensive validation schema that defines the expected types, ranges, and formats for all input parameters used in the Easy Refine functionality. This task involves:\n- Identifying all input parameters\n- Defining type constraints (e.g., string, integer, boolean)\n- Establishing valid ranges and formats\n- Documenting validation rules for each parameter",
-                    "issueUuid": "d4d9c02e-3cdb-410d-85fd-60f5c94e01d5",
-                    "repoName": "NSOutage",
-                    "repoOwner": "HermanL02",
-                    "status": "initialized",
-                    "title": "Design Input Validation Schema for Easy Refine Parameters",
-                    "uuid": "e0291bd7-f84c-4466-9e47-63db4f78432e"
-                },
-                {
-                    "acceptanceCriteria": "Develop a type validation function that returns clear error messages\nImplement type validation for all input parameters\nEnsure 100% branch coverage for type validation logic\nCreate unit tests covering valid and invalid input type scenarios",
-                    "assignedTo": [],
-                    "dependencyTasks": [
-                        "e0291bd7-f84c-4466-9e47-63db4f78432e",
-                        "773ee93c-81ad-4dbd-ad4a-cb5ea5ac8f8d"
-                    ],
-                    "description": "Develop a robust middleware or validation function that checks input parameter types before processing any Easy Refine operations. This task includes:\n- Creating type checking logic for each parameter\n- Implementing type conversion where appropriate\n- Handling type mismatch scenarios\n- Generating clear error messages for type validation failures",
-                    "issueUuid": "d4d9c02e-3cdb-410d-85fd-60f5c94e01d5",
-                    "repoName": "NSOutage",
-                    "repoOwner": "HermanL02",
-                    "status": "initialized",
-                    "title": "Implement Input Type Validation Middleware",
-                    "uuid": "8e9fdebb-47de-459e-86de-6d1077442766"
-                },
-                {
-                    "acceptanceCriteria": "Implement validation functions for numeric range constraints\nCreate regex-based format validation for string inputs\nGenerate descriptive error messages for range and format violations\nAchieve 90% test coverage for range and format validation logic",
-                    "assignedTo": [],
-                    "dependencyTasks": [
-                        "e0291bd7-f84c-4466-9e47-63db4f78432e",
-                        "8e9fdebb-47de-459e-86de-6d1077442766"
-                    ],
-                    "description": "Implement detailed validation for input parameter ranges and formats. This includes:\n- Creating validation functions for numeric ranges\n- Implementing regex or pattern matching for string formats\n- Handling date/time format validations\n- Generating specific error messages for range and format violations",
-                    "issueUuid": "d4d9c02e-3cdb-410d-85fd-60f5c94e01d5",
-                    "repoName": "NSOutage",
-                    "repoOwner": "HermanL02",
-                    "status": "initialized",
-                    "title": "Develop Range and Format Validation Logic",
-                    "uuid": "773ee93c-81ad-4dbd-ad4a-cb5ea5ac8f8d"
-                },
-                {
-                    "acceptanceCriteria": "Create a standardized error response format with detailed error information\nMap validation errors to appropriate HTTP status codes (e.g., 400 Bad Request)\nImplement error logging for all validation failures\nEnsure 100% exception handling coverage\nVerify no unhandled exceptions can occur during input validation",
-                    "assignedTo": [],
-                    "dependencyTasks": [
-                        "e0291bd7-f84c-4466-9e47-63db4f78432e",
-                        "8e9fdebb-47de-459e-86de-6d1077442766",
-                        "773ee93c-81ad-4dbd-ad4a-cb5ea5ac8f8d"
-                    ],
-                    "description": "Develop a structured error handling mechanism for input validation failures. This task involves:\n- Creating a custom error response structure\n- Mapping validation errors to appropriate HTTP status codes\n- Implementing detailed error logging\n- Ensuring no unhandled exceptions occur during validation",
-                    "issueUuid": "d4d9c02e-3cdb-410d-85fd-60f5c94e01d5",
-                    "repoName": "NSOutage",
-                    "repoOwner": "HermanL02",
-                    "status": "initialized",
-                    "title": "Implement Comprehensive Error Handling for Input Validation",
-                    "uuid": "6fb33c70-a9d5-4a23-8354-51b3113079f2"
-                },
-                {
-                    "acceptanceCriteria": "Develop unit tests covering 100% of validation logic\nCreate integration tests simulating various input scenarios\nTest all edge cases and boundary conditions\nVerify error messages are clear and informative\nAchieve 95% overall test coverage for input validation system",
-                    "assignedTo": [],
-                    "dependencyTasks": [
-                        "e0291bd7-f84c-4466-9e47-63db4f78432e",
-                        "8e9fdebb-47de-459e-86de-6d1077442766",
-                        "773ee93c-81ad-4dbd-ad4a-cb5ea5ac8f8d",
-                        "6fb33c70-a9d5-4a23-8354-51b3113079f2"
-                    ],
-                    "description": "Develop a comprehensive test suite to verify the input validation implementation. This includes:\n- Writing unit tests for individual validation functions\n- Creating integration tests that validate the entire validation workflow\n- Testing edge cases and boundary conditions\n- Verifying error handling and message generation",
-                    "issueUuid": "d4d9c02e-3cdb-410d-85fd-60f5c94e01d5",
-                    "repoName": "NSOutage",
-                    "repoOwner": "HermanL02",
-                    "status": "initialized",
-                    "title": "Create Unit and Integration Tests for Input Validation",
-                    "uuid": "74d729e6-ff21-4ae1-8478-68c95b5f8c16"
-                }
-            ]
-        ]
-    },
-    "success": true
-}
-       */
       
       const ipfs_cid = await storeFile(repoSummaryResponse.data.data);
       await namespaceWrapper.storeSet(`ipfs-cid-${roundNumber}`, ipfs_cid);
@@ -252,29 +159,16 @@ export async function task(roundNumber: number): Promise<void> {
         }
         
       } else {
+        console.error("[TASK] Error adding PR to summarizer todo:", repoSummaryResponse.status);
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
       }
     } catch (error) {
+      console.error("[TASK] Error in task:", JSON.stringify(error, null, 2));
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
 
-      // try{
-      //   const slackResponse = await fetch('https://hooks.slack.com/services', {
-      //     method: "POST",
-      //     headers: {
-      //       "Content-Type": "application/json",
-      //     },
-      //     body: JSON.stringify({ 
-      //       text: `[TASK] Error summarizing issue:\n ${JSON.stringify(error)}`
-      //     }),
-      //   });
-      //   console.log("[TASK] slackResponse: ", slackResponse);
-      // }catch(error){
-      //   console.error("[TASK] Error posting to slack:", error);
-      // }
-      console.error("[TASK] EXECUTE TASK ERROR:", error);
     }
   } catch (error) {
     await namespaceWrapper.storeSet(`result-${roundNumber}`, status.UNKNOWN_ERROR);
-    console.error("[TASK] EXECUTE TASK ERROR:", error);
+    console.error("[TASK] EXECUTE TASK ERROR:", JSON.stringify(error, null, 2));
   }
 }
