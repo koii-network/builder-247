@@ -12,6 +12,7 @@ from src.workflows.mergeconflict.prompts import PROMPTS as CONFLICT_PROMPTS
 from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 
@@ -881,6 +882,25 @@ def create_aggregator_repo(task_id):
                 default_branch_sha = fork.get_branch(default_branch).commit.sha
                 fork.create_git_ref(f"refs/heads/{branch_name}", default_branch_sha)
                 logger.info(f"Created new branch: {branch_name}")
+
+                # Add retry mechanism to ensure branch is available
+                max_retries = 5
+                retry_delay = 2  # seconds
+                for attempt in range(max_retries):
+                    try:
+                        fork.get_branch(branch_name)
+                        logger.info(f"Branch {branch_name} is now available")
+                        break
+                    except Exception as e:
+                        if attempt == max_retries - 1:
+                            raise Exception(
+                                f"Branch {branch_name} not available after "
+                                f"{max_retries} attempts: {str(e)}"
+                            )
+                        logger.info(
+                            f"Branch {branch_name} not yet available, retrying in {retry_delay} seconds..."
+                        )
+                        time.sleep(retry_delay)
 
             # The create-aggregator-repo endpoint should only create the fork and branch
             # It should not call the middle server directly
