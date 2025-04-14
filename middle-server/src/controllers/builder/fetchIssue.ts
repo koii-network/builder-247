@@ -1,0 +1,213 @@
+import { Request, Response } from "express";
+import "dotenv/config";
+
+import { taskIDs } from "../../config/constant";
+import { isValidStakingKey } from "../../utils/taskState";
+import { IssueModel, IssueStatus } from "../../models/Issue";
+import { verifySignature } from "../../utils/sign";
+import { getPRDict } from "../../utils/issueUtils";
+
+// Check if the user has already completed the task
+async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
+  try {
+    const result = await IssueModel.findOne({
+      assignedStakingKey: stakingKey,
+      assignedRoundNumber: roundNumber,
+    })
+      .select("title acceptanceCriteria repoName issueUuid prUrl aggregatorOwner")
+      .lean();
+
+    if (!result) return null;
+
+    return {
+      issue: result,
+      hasPR: Boolean(result.prUrl),
+    };
+  } catch (error) {
+    console.error("Error checking assigned info:", error);
+    return null;
+  }
+}
+export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
+  console.log("verifyRequestBody", req.body);
+  try {
+    const signature = req.body.signature as string;
+    const stakingKey = req.body.stakingKey as string;
+    const pubKey = req.body.pubKey as string;
+    if (!signature || !stakingKey || !pubKey) {
+      return null;
+    }
+    return { signature, stakingKey, pubKey };
+  } catch {
+    return null;
+  }
+}
+async function verifySignatureData(
+  signature: string,
+  stakingKey: string,
+  pubKey: string,
+  action: string,
+): Promise<{ roundNumber: number; githubUsername: string; taskId: string } | null> {
+  try {
+    const { data, error } = await verifySignature(signature, stakingKey);
+    if (error || !data) {
+      console.log("bad signature");
+      return null;
+    }
+    const body = JSON.parse(data);
+    console.log({ signature_payload: body });
+    if (
+      !body.taskId ||
+      typeof body.roundNumber !== "number" ||
+      !taskIDs.includes(body.taskId) ||
+      body.action !== action ||
+      !body.githubUsername ||
+      !body.pubKey ||
+      body.pubKey !== pubKey ||
+      !body.stakingKey ||
+      body.stakingKey !== stakingKey
+    ) {
+      console.log("bad signature data");
+      return null;
+    }
+    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername, taskId: body.taskId };
+  } catch (error) {
+    console.log("unexpected signature error", error);
+    return null;
+  }
+}
+
+export const fetchIssue = async (req: Request, res: Response) => {
+  const requestBody = verifyRequestBody(req);
+  if (!requestBody) {
+    res.status(401).json({
+      success: false,
+      message: "Invalid request body",
+    });
+    return;
+  }
+
+  const signatureData = await verifySignatureData(
+    requestBody.signature,
+    requestBody.stakingKey,
+    requestBody.pubKey,
+    "fetch-issue",
+  );
+  if (!signatureData) {
+    res.status(401).json({
+      success: false,
+      message: "Failed to verify signature",
+    });
+    return;
+  }
+
+  if (!(await isValidStakingKey(requestBody.stakingKey, signatureData.taskId))) {
+    res.status(401).json({
+      success: false,
+      message: "Invalid staking key",
+    });
+    return;
+  }
+
+  const response = await fetchIssueLogic(requestBody, signatureData);
+  res.status(response.statuscode).json(response.data);
+};
+
+export const fetchIssueLogic = async (
+  requestBody: { signature: string; stakingKey: string; pubKey: string },
+  signatureData: { roundNumber: number; githubUsername: string; taskId: string },
+) => {
+  // 1. Check if user already has an assignment
+  const existingAssignment = await checkExistingAssignment(requestBody.stakingKey, signatureData.roundNumber);
+
+  if (existingAssignment) {
+    if (existingAssignment.hasPR) {
+      return {
+        statuscode: 409,
+        data: {
+          success: false,
+          message: "Issue already completed",
+        },
+      };
+    }
+
+    console.log("existingAssignment", existingAssignment);
+
+    // Get PR dict for the existing assignment
+    const prDict = await getPRDict(existingAssignment.issue.issueUuid);
+
+    // Return consistent response format with snake_case
+    return {
+      statuscode: 200,
+      data: {
+        success: true,
+        data: {
+          // Use aggregatorOwner if it exists, otherwise fallback to repoOwner
+          repo_owner: existingAssignment.issue.aggregatorOwner,
+          repo_name: existingAssignment.issue.repoName,
+          issue_uuid: existingAssignment.issue.issueUuid,
+          pr_list: prDict || {},
+        },
+      },
+    };
+  }
+
+  try {
+    const eligibleIssue = await IssueModel.findOneAndUpdate(
+      { status: IssueStatus.ASSIGN_PENDING },
+      {
+        $set: {
+          status: IssueStatus.ASSIGNED,
+          assignedStakingKey: requestBody.stakingKey,
+          assignedGithubUsername: signatureData.githubUsername,
+          assignedRoundNumber: signatureData.roundNumber,
+          updatedAt: new Date(),
+        },
+      },
+      { new: true, sort: { createdAt: 1 } },
+    );
+
+    if (!eligibleIssue) {
+      return {
+        statuscode: 409,
+        data: {
+          success: false,
+          message: "No eligible issues found",
+        },
+      };
+    }
+
+    const prDict = await getPRDict(eligibleIssue.issueUuid);
+    if (!prDict) {
+      return {
+        statuscode: 409,
+        data: {
+          success: false,
+          message: "Issue not found",
+        },
+      };
+    }
+
+    return {
+      statuscode: 200,
+      data: {
+        success: true,
+        data: {
+          repo_owner: eligibleIssue.aggregatorOwner,
+          repo_name: eligibleIssue.repoName,
+          issue_uuid: eligibleIssue.issueUuid,
+          pr_list: prDict,
+        },
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching issue:", error);
+    return {
+      statuscode: 500,
+      data: {
+        success: false,
+        message: "Failed to fetch issue",
+      },
+    };
+  }
+};
