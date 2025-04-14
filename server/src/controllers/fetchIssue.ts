@@ -153,17 +153,8 @@ export const fetchIssueLogic = async (
   }
 
   try {
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
     const eligibleIssue = await IssueModel.findOneAndUpdate(
-      {
-        $or: [
-          { status: IssueStatus.ASSIGN_PENDING },
-          {
-            status: IssueStatus.ASSIGNED,
-            updatedAt: { $lt: fifteenMinutesAgo },
-          },
-        ],
-      },
+      { status: IssueStatus.ASSIGN_PENDING },
       {
         $set: {
           status: IssueStatus.ASSIGNED,

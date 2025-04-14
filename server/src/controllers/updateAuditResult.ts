@@ -99,11 +99,33 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
 
     const submitter = await getDistributionListSubmitter(taskId, String(round));
     if (!submitter) {
+      await TodoModel.updateMany(
+        { assignedRoundNumber: round },
+        {
+          $set: {
+            status: TodoStatus.INITIALIZED,
+            assignedStakingKey: undefined,
+            assignedGithubUsername: undefined,
+            assignedRoundNumber: undefined,
+          },
+        },
+      );
       throw new Error("No Distribution List Submitter found");
     }
 
     const distributionList = await getDistributionListWrapper(taskId, String(round));
     if (!distributionList) {
+      await TodoModel.updateMany(
+        { assignedRoundNumber: round },
+        {
+          $set: {
+            status: TodoStatus.INITIALIZED,
+            assignedStakingKey: undefined,
+            assignedGithubUsername: undefined,
+            assignedRoundNumber: undefined,
+          },
+        },
+      );
       throw new Error("No Distribution List found");
     }
 
@@ -199,17 +221,11 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
 }
 
 export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
-  const allKeys = [...positiveKeys, ...negativeKeys];
-
   console.log(`Processing audit results for round ${round}`);
   console.log(`Positive keys: ${positiveKeys.length}, Negative keys: ${negativeKeys.length}`);
 
   // Update the subtask status
-  const auditableTodos = await TodoModel.find({
-    assignedStakingKey: { $in: allKeys },
-    assignedRoundNumber: round,
-    prUrl: { $exists: true },
-  });
+  const auditableTodos = await TodoModel.find({ assignedRoundNumber: round });
 
   console.log(`Found ${auditableTodos.length} auditable todos`);
 
@@ -217,7 +233,7 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
     if (positiveKeys.includes(todo.assignedStakingKey!)) {
       todo.status = TodoStatus.APPROVED;
       console.log(`Approving todo ${todo._id} with key ${todo.assignedStakingKey}`);
-    } else if (negativeKeys.includes(todo.assignedStakingKey!)) {
+    } else {
       todo.status = TodoStatus.INITIALIZED;
       todo.prUrl = undefined;
       todo.assignedStakingKey = undefined;
@@ -247,11 +263,7 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
   }
 
   // Now update the has PR issues
-  const auditedIssues = await IssueModel.find({
-    assignedStakingKey: { $in: allKeys },
-    assignedRoundNumber: round,
-    prUrl: { $exists: true },
-  });
+  const auditedIssues = await IssueModel.find({ assignedRoundNumber: round });
 
   console.log(`Found ${auditedIssues.length} audited issues`);
 
@@ -261,6 +273,13 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
       await issue.save();
       console.log(`Setting issue ${issue.issueUuid} to APPROVED`);
       await TodoModel.updateMany({ issueUuid: issue.issueUuid }, { $set: { status: TodoStatus.MERGED } });
+    } else {
+      issue.status = IssueStatus.ASSIGN_PENDING;
+      issue.assignedStakingKey = undefined;
+      issue.assignedGithubUsername = undefined;
+      issue.assignedRoundNumber = undefined;
+      await issue.save();
+      console.log(`Setting issue back to ${issue.issueUuid} to ASSIGN_PENDING`);
     }
   }
 };

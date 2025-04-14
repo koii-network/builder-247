@@ -167,6 +167,7 @@ export const fetchTodoLogic = async (
     signatureData.taskId,
   );
   if (existingAssignment) {
+    console.log(`Found existing assignment ${existingAssignment.todo.uuid}`);
     if (existingAssignment.hasPR) {
       return {
         statuscode: 409,
@@ -215,19 +216,7 @@ export const fetchTodoLogic = async (
       {
         $match: {
           issueUuid: currentIssue.issueUuid,
-          $nor: [
-            { assignedStakingKey: requestBody.stakingKey },
-            { assignedGithubUsername: signatureData.githubUsername },
-          ],
-          $or: [
-            { status: TodoStatus.INITIALIZED },
-            {
-              $and: [
-                { status: TodoStatus.IN_PROGRESS },
-                { assignedRoundNumber: { $lt: signatureData.roundNumber - 4 } },
-              ],
-            },
-          ],
+          status: TodoStatus.INITIALIZED,
         },
       },
       // Lookup dependencies
@@ -278,7 +267,10 @@ export const fetchTodoLogic = async (
 
     // 3. Assign the eligible todo to the worker
     const updatedTodo = await TodoModel.findOneAndUpdate(
-      { _id: eligibleTodos[0]._id, status: TodoStatus.INITIALIZED },
+      {
+        _id: eligibleTodos[0]._id,
+        status: TodoStatus.INITIALIZED,
+      },
       {
         assignedStakingKey: requestBody.stakingKey,
         assignedGithubUsername: signatureData.githubUsername,
