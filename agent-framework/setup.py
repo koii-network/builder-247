@@ -1,0 +1,43 @@
+from setuptools import setup, find_packages
+
+setup(
+    name="prometheus-swarm",
+    version="0.1.0",
+    packages=find_packages(),
+    install_requires=[
+        # We'll get these from requirements.txt
+        "openai>=1.0.0",
+        "python-dotenv>=0.19.0",
+        "pydantic>=2.0.0",
+        "sqlalchemy>=2.0.0",
+        "pytest>=7.0.0",
+        "requests>=2.0.0",
+        "python-jose>=3.0.0",
+        "passlib>=1.7.0",
+        "python-multipart>=0.0.5",
+        "bcrypt>=3.2.0",
+        "aiohttp>=3.8.0",
+        "fastapi>=0.68.0",
+        "uvicorn>=0.15.0",
+        "pytest-asyncio>=0.18.0",
+        "httpx>=0.24.0",
+        "pytest-cov>=3.0.0",
+        "alembic>=1.7.0",
+        "psycopg2-binary>=2.9.0",
+        "redis>=4.0.0",
+        "celery>=5.2.0",
+        "flower>=1.0.0",
+    ],
+    python_requires=">=3.8",
+    author="Your Name",
+    description="A framework for building AI agents",
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+    ],
+)
