@@ -1,5 +1,5 @@
 import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typegoose";
-
+import { builder247DB } from "../services/database/database";
 @modelOptions({
   schemaOptions: {
     timestamps: true,
@@ -7,6 +7,7 @@ import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typeg
   options: {
     allowMixed: Severity.ALLOW,
   },
+  existingConnection: builder247DB,
 })
 class SystemPrompt {
   @prop({ required: true, unique: true })

@@ -1,4 +1,5 @@
 import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typegoose";
+import { builder247DB } from "../services/database/database";
 
 enum AuditStatus {
   PENDING = "pending",
@@ -6,7 +7,6 @@ enum AuditStatus {
   COMPLETED = "completed",
   FAILED = "failed",
 }
-
 @modelOptions({
   schemaOptions: {
     timestamps: true,
@@ -14,6 +14,7 @@ enum AuditStatus {
   options: {
     allowMixed: Severity.ALLOW,
   },
+  existingConnection: builder247DB,
 })
 class Audit {
   @prop({ required: true })
