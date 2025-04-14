@@ -1,3 +1,4 @@
+<<<<<<< HEAD:server/.dockerignore
 # Tests
 src/tests/
 
@@ -24,3 +25,21 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
+=======
+**/.env
+**/.env.*
+
+**/node_modules
+**/dist
+**/build
+**/*.log
+**/Dockerfile
+**/docker-compose.yml
+**/venv
+**/.venv
+**/*__pycache__
+**/.pytest_cache
+**/*.db
+**/*.egg-info
+**/*/repos/
+>>>>>>> @planner-refine-task:agents/planner/.dockerignore
