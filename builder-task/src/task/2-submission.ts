@@ -18,11 +18,7 @@ export async function submission(roundNumber: number) {
     console.log({ "submission result": result.data });
 
     if (result.data === "No submission") {
-      submission = {
-        githubUsername: process.env.GITHUB_USERNAME,
-        prUrl: "none",
-        roundNumber,
-      };
+      return "submission";
     } else {
       submission = result.data;
     }
