@@ -27,7 +27,7 @@
 		/* Modules */
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
-		"rootDir": "./src" /* Specify the root folder within your source files. */,
+		"rootDir": "." /* Specify the root folder within your source files. */,
 		// "baseUrl": "./",                                  /* Specify the base directory to resolve non-relative module names. */
 		// "paths": {},                                      /* Specify a set of entries that re-map imports to additional lookup locations. */
 		// "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */

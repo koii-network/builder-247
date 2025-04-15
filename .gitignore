@@ -10,7 +10,7 @@ signature.js
 git-filter-repo
 task/orca/
 **/dist/
-yarn.lock
+# yarn.lock
 package-lock.json
 node_modules
 build
