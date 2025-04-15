@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from functools import wraps
 import uuid
 import json
-from agent_framework.types import ToolResponse, PhaseResult
-from agent_framework.utils.retry import send_message_with_retry
-from agent_framework.utils.logging import log_section, log_error, configure_logging
-from agent_framework.clients import clients, setup_client
+from prometheus_swarm.types import ToolResponse, PhaseResult
+from prometheus_swarm.utils.retry import send_message_with_retry
+from prometheus_swarm.utils.logging import log_section, log_error, configure_logging
+from prometheus_swarm.clients import clients, setup_client
 import argparse
 import sys
 import os

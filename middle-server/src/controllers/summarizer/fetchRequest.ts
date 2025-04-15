@@ -205,7 +205,7 @@ export const fetchTodoLogic = async (
 
     if (!updatedTodo) {
       return {
-        statuscode: 404,
+        statuscode: 409,
         data: {
           success: false,
           message: "No available todos found",
@@ -220,7 +220,7 @@ export const fetchTodoLogic = async (
     // Validate required data fields
     if (!updatedTodo.repoOwner || !updatedTodo.repoName) {
       return {
-        statuscode: 404,
+        statuscode: 409,
         data: {
           success: false,
           message: "Todo data is incomplete",

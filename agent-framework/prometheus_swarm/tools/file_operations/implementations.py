@@ -3,9 +3,9 @@
 import os
 import shutil
 from pathlib import Path
-from agent_framework.tools.git_operations.implementations import commit_and_push
+from prometheus_swarm.tools.git_operations.implementations import commit_and_push
 from git import Repo
-from agent_framework.types import ToolOutput
+from prometheus_swarm.types import ToolOutput
 
 
 def _normalize_path(path: str) -> str:

@@ -223,6 +223,9 @@ class TestSetup:
         result = response.json()
         if response.status_code in [401, 409]:
             print(f"✓ {result.get('message')} for {worker_role} - continuing")
+            # Remove any old PR URL from previous rounds if no work this round
+            if worker_role in pr_urls:
+                del pr_urls[worker_role]
             return
         elif not result.get("success"):
             raise Exception(f"{worker_role} task failed: {result.get('message')}")

@@ -2,7 +2,7 @@ import { TodoModel, TodoStatus } from "../models/Todo";
 
 export async function getPRDict(issueUuid: string) {
   const todos = await TodoModel.find({ issueUuid, status: TodoStatus.APPROVED })
-    .select("prUrl assignedStakingKey")
+    .select("assignees")
     .lean();
 
   console.log("todos", todos);
@@ -12,11 +12,15 @@ export async function getPRDict(issueUuid: string) {
 
   // Add todos that have PR URLs and staking keys
   for (const todo of todos) {
-    if (todo.prUrl && todo.assignedStakingKey) {
-      if (!prDict[todo.assignedStakingKey]) {
-        prDict[todo.assignedStakingKey] = [];
+    if (todo.assignees) {
+      for (const assignee of todo.assignees) {
+        if (assignee.prUrl && assignee.stakingKey) {
+          if (!prDict[assignee.stakingKey]) {
+            prDict[assignee.stakingKey] = [];
+          }
+          prDict[assignee.stakingKey].push(assignee.prUrl);
+        }
       }
-      prDict[todo.assignedStakingKey].push(todo.prUrl);
     }
   }
 

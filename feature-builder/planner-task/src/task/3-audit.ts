@@ -30,21 +30,21 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     console.log(`[AUDIT] ✅ Signature decoded successfully`);
 
     console.log(`[AUDIT] Checking summarizer status for submitter ${submitterKey}`);
-    
-    const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/planner/check-planner`, {
+
+    const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/builder/planner/check-planner`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ 
-        stakingKey: submitterKey, 
-        roundNumber, 
-        prUrl: decodeResult.prUrl 
+      body: JSON.stringify({
+        stakingKey: submitterKey,
+        roundNumber,
+        prUrl: decodeResult.prUrl
       }),
     });
     const checkSummarizerJSON = await checkSummarizerResponse.json();
     console.log(`[AUDIT] Summarizer check response:`, checkSummarizerJSON);
-    
+
     if (!checkSummarizerJSON.success) {
       console.log(`[AUDIT] ❌ Audit failed for ${submitterKey}`);
       return false;
@@ -53,7 +53,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
 
     console.log(`[AUDIT] Sending audit request for submitter: ${submitterKey}`);
     console.log(`[AUDIT] Submission data being sent to audit:`, decodeResult);
-    
+
     const ipfsFileContent = await getFile(decodeResult.prUrl);
     const auditPayload = {
       issuesAndTasks: ipfsFileContent,
@@ -67,7 +67,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(auditPayload), 
+      body: JSON.stringify(auditPayload),
     });
 
     console.log(`[AUDIT] Raw audit result:`, result);
@@ -91,5 +91,3 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     // return true;
   }
 }
-
-

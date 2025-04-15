@@ -12,9 +12,9 @@ from ..types import (
     ToolChoice,
     ToolCallContent,
 )
-from agent_framework.utils.logging import log_section, log_key_value, log_error
-from agent_framework.utils.errors import ClientAPIError
-from agent_framework.utils.retry import (
+from prometheus_swarm.utils.logging import log_section, log_key_value, log_error
+from prometheus_swarm.utils.errors import ClientAPIError
+from prometheus_swarm.utils.retry import (
     is_retryable_error,
     send_message_with_retry,
     execute_tool_with_retry,

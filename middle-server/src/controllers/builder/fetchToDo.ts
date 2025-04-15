@@ -21,7 +21,7 @@ async function getDependencies(dependencyUuids: string[]): Promise<string[]> {
     uuid: { $in: dependencyUuids },
     status: TodoStatus.APPROVED,
   })
-    .select("prUrl uuid status")
+    .select("uuid status assignees")
     .lean();
 
   console.log("Found dependency todos:", dependencyTodos);
@@ -33,9 +33,11 @@ async function getDependencies(dependencyUuids: string[]): Promise<string[]> {
   }
 
   const prUrls = dependencyTodos
-    .filter((todo) => todo.prUrl) // Only include dependencies that have PR URLs
-    .map((todo) => todo.prUrl!)
-    .filter((url) => url !== null && url !== undefined); // Ensure we only have valid URLs
+    .map((todo) => {
+      const assignee = todo.assignees?.find((a) => a.approved);
+      return assignee?.prUrl;
+    })
+    .filter((url): url is string => url !== null && url !== undefined);
 
   console.log("Extracted PR URLs:", prUrls);
 
@@ -46,11 +48,15 @@ async function getDependencies(dependencyUuids: string[]): Promise<string[]> {
 async function checkExistingAssignment(stakingKey: string, roundNumber: number, taskId: string) {
   try {
     const todo = await TodoModel.findOne({
-      assignedStakingKey: stakingKey,
-      assignedRoundNumber: roundNumber,
       taskId: taskId,
+      assignees: {
+        $elemMatch: {
+          stakingKey: stakingKey,
+          roundNumber: roundNumber,
+        },
+      },
     })
-      .select("title acceptanceCriteria repoOwner repoName uuid issueUuid prUrl dependencyTasks")
+      .select("title acceptanceCriteria repoOwner repoName uuid issueUuid assignees dependencyTasks")
       .lean();
 
     if (!todo) return null;
@@ -60,9 +66,12 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number, 
     // Get PR URLs for dependencies
     const dependencyPrUrls = await getDependencies(todo.dependencyTasks || []);
 
+    const assignee = todo.assignees?.find((a) => a.stakingKey === stakingKey && a.roundNumber === roundNumber);
+    const hasPR = Boolean(assignee?.prUrl);
+
     return {
       todo: todo,
-      hasPR: Boolean(todo.prUrl),
+      hasPR,
       dependencyPrUrls,
     };
   } catch (error) {
@@ -272,10 +281,16 @@ export const fetchTodoLogic = async (
         status: TodoStatus.INITIALIZED,
       },
       {
-        assignedStakingKey: requestBody.stakingKey,
-        assignedGithubUsername: signatureData.githubUsername,
-        assignedRoundNumber: signatureData.roundNumber,
-        status: TodoStatus.IN_PROGRESS,
+        $push: {
+          assignees: {
+            stakingKey: requestBody.stakingKey,
+            githubUsername: signatureData.githubUsername,
+            roundNumber: signatureData.roundNumber,
+          },
+        },
+        $set: {
+          status: TodoStatus.IN_PROGRESS,
+        },
       },
       { new: true },
     );

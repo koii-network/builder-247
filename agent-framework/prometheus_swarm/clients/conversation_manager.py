@@ -3,7 +3,7 @@
 import uuid
 import json
 from typing import Dict, Optional, List, Any
-from agent_framework.database import (
+from prometheus_swarm.database import (
     get_session,
     Conversation,
     Message,

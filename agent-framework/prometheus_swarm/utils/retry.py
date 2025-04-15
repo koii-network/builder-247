@@ -7,8 +7,8 @@ from tenacity import (
     wait_exponential,
     retry_if_exception_type,
 )
-from agent_framework.utils.logging import log_error
-from agent_framework.utils.errors import ClientAPIError
+from prometheus_swarm.utils.logging import log_error
+from prometheus_swarm.utils.errors import ClientAPIError
 
 T = TypeVar("T")
 

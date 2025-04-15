@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify
 from src.database import get_db, Submission
 import logging
 import os
+
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("submission", __name__)
@@ -33,4 +34,4 @@ def fetch_submission(roundNumber):
             }
         )
     else:
-        return jsonify({"error": "Submission not found"}), 404
+        return jsonify({"error": "Submission not found"}), 409

@@ -24,7 +24,7 @@ export async function task(roundNumber: number): Promise<void> {
 // No submission on Round 0 so no need to trigger fetch audit result before round 3
 // Changed from 3 to 4 to have more time
   if (roundNumber >= 4) {
-    const triggerFetchAuditResult = await fetch(`${middleServerUrl}/api/planner/trigger-fetch-audit-result`, {
+    const triggerFetchAuditResult = await fetch(`${middleServerUrl}/api/builder/planner/trigger-fetch-audit-result`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -96,7 +96,7 @@ export async function task(roundNumber: number): Promise<void> {
 
     console.log(`[TASK] Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
     console.log(`[TASK] request body: ${JSON.stringify({ signature: signature, stakingKey: stakingKey })}`);
-    const requiredWorkResponse = await fetch(`${middleServerUrl}/api/planner/fetch-planner-todo`, {
+    const requiredWorkResponse = await fetch(`${middleServerUrl}/api/builder/planner/fetch-planner-todo`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -110,7 +110,7 @@ export async function task(roundNumber: number): Promise<void> {
     }
     const requiredWorkResponseData = await requiredWorkResponse.json();
     console.log("[TASK] requiredWorkResponseData: ", requiredWorkResponseData);
-    
+
     const jsonBody = {
       repoUrl: `https://github.com/${requiredWorkResponseData.data.repo_owner}/${requiredWorkResponseData.data.repo_name}`,
       issueSpec: requiredWorkResponseData.data.description
@@ -218,7 +218,7 @@ export async function task(roundNumber: number): Promise<void> {
     "success": true
 }
        */
-      
+
       const ipfs_cid = await storeFile(repoSummaryResponse.data.data);
       await namespaceWrapper.storeSet(`ipfs-cid-${roundNumber}`, ipfs_cid);
       console.log("[TASK] repoSummaryResponse.data.data ", repoSummaryResponse.data.data);
@@ -237,7 +237,7 @@ export async function task(roundNumber: number): Promise<void> {
             stakingKeypair.secretKey,
           );
           console.log("[TASK] signature: ", signature);
-          const addPrToSummarizerTodoResponse = await fetch(`${middleServerUrl}/api/planner/add-pr-to-planner-todo`, {
+          const addPrToSummarizerTodoResponse = await fetch(`${middleServerUrl}/api/builder/planner/add-pr-to-planner-todo`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -250,7 +250,7 @@ export async function task(roundNumber: number): Promise<void> {
           await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_ADD_PR_TO_SUMMARIZER_TODO);
           console.error("[TASK] Error adding PR to summarizer todo:", error);
         }
-        
+
       } else {
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
       }
@@ -263,7 +263,7 @@ export async function task(roundNumber: number): Promise<void> {
       //     headers: {
       //       "Content-Type": "application/json",
       //     },
-      //     body: JSON.stringify({ 
+      //     body: JSON.stringify({
       //       text: `[TASK] Error summarizing issue:\n ${JSON.stringify(error)}`
       //     }),
       //   });

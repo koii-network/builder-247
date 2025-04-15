@@ -1,4 +1,4 @@
-import { addIssuePRLogic } from "../controllers/builder/addIssuePR";
+import { addIssuePRLogic } from "../controllers/api/builder/addIssuePR";
 import { Keypair } from "@_koii/web3.js";
 import { signData } from "../utils/sign";
 import mongoose from "mongoose";

@@ -10,9 +10,9 @@ from ..types import (
     ToolCallContent,
     ToolChoice,
 )
-from agent_framework.utils.retry import is_retryable_error
-from agent_framework.utils.logging import log_error
-from agent_framework.utils.errors import ClientAPIError
+from prometheus_swarm.utils.retry import is_retryable_error
+from prometheus_swarm.utils.logging import log_error
+from prometheus_swarm.utils.errors import ClientAPIError
 import json
 
 

@@ -99,11 +99,14 @@ export const addIssuePRLogic = async (
       issueUuid: signatureData.issueUuid,
     },
     {
+      $push: {
+        assignees: {
+          stakingKey: requestBody.stakingKey,
+          roundNumber: signatureData.roundNumber,
+          prUrl: signatureData.prUrl,
+        },
+      },
       $set: {
-        assignedStakingKey: requestBody.stakingKey,
-        assignedPubKey: requestBody.pubKey,
-        assignedRoundNumber: signatureData.roundNumber,
-        prUrl: signatureData.prUrl,
         status: IssueStatus.IN_REVIEW,
       },
     },
@@ -112,7 +115,7 @@ export const addIssuePRLogic = async (
 
   if (!issue) {
     return {
-      statuscode: 404,
+      statuscode: 409,
       data: {
         success: false,
         message: "Issue not found",

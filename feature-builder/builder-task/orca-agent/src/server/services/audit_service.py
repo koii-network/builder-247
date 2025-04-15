@@ -44,7 +44,8 @@ def verify_pr_ownership(
     """
 
     response = requests.get(
-        os.environ["MIDDLE_SERVER_URL"] + f"/api/get-source-repo/{node_type}/{uuid}",
+        os.environ["MIDDLE_SERVER_URL"]
+        + f"/api/builder/get-source-repo/{node_type}/{uuid}",
         headers={"Content-Type": "application/json"},
     )
 
@@ -177,7 +178,8 @@ def verify_pr_ownership(
         print(f"Middleware payload: {json.dumps(middleware_payload, indent=2)}")
 
         middleware_url = (
-            os.environ["MIDDLE_SERVER_URL"] + f"/api/{node_endpoints[node_type]}"
+            os.environ["MIDDLE_SERVER_URL"]
+            + f"/api/builder/{node_endpoints[node_type]}"
         )
         print(f"Middleware URL: {middleware_url}")
 

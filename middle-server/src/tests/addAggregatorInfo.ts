@@ -1,4 +1,4 @@
-import { addAggregatorInfoLogic } from "../controllers/builder/addAggregatorInfo";
+import { addAggregatorInfoLogic } from "../controllers/api/builder/addAggregatorInfo";
 import { Keypair } from "@_koii/web3.js";
 import { signData } from "../utils/sign";
 import mongoose from "mongoose";

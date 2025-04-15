@@ -114,7 +114,7 @@ export const checkIssue = async (req: Request, res: Response) => {
 
   if (!issueUuid) {
     console.log("No matching issue assignment found");
-    res.status(404).json({
+    res.status(409).json({
       success: false,
       message: "No matching issue assignment found",
     });
@@ -124,7 +124,7 @@ export const checkIssue = async (req: Request, res: Response) => {
   // Get the PR dictionary
   const prDict = await getPRDict(issueUuid);
   if (!prDict) {
-    res.status(404).json({
+    res.status(409).json({
       success: false,
       message: "Issue not found",
     });

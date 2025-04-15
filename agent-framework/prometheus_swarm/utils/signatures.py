@@ -4,7 +4,7 @@ import base58
 import nacl.signing
 import json
 from typing import Dict, Optional, Any, Union
-from agent_framework.utils.logging import log_error
+from prometheus_swarm.utils.logging import log_error
 
 
 def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:

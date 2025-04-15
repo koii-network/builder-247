@@ -29,21 +29,21 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     console.log(`[AUDIT] ✅ Signature decoded successfully`);
 
     console.log(`[AUDIT] Checking summarizer status for submitter ${submitterKey}`);
-    const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/summarizer/check-summarizer`, {
+    const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/builder/summarizer/check-summarizer`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ 
-        stakingKey: submitterKey, 
-        roundNumber, 
-        githubUsername: decodeResult.githubUsername, 
-        prUrl: decodeResult.prUrl 
+      body: JSON.stringify({
+        stakingKey: submitterKey,
+        roundNumber,
+        githubUsername: decodeResult.githubUsername,
+        prUrl: decodeResult.prUrl
       }),
     });
     const checkSummarizerJSON = await checkSummarizerResponse.json();
     console.log(`[AUDIT] Summarizer check response:`, checkSummarizerJSON);
-    
+
     if (!checkSummarizerJSON.success) {
       console.log(`[AUDIT] ❌ Audit failed for ${submitterKey}`);
       return false;
@@ -52,7 +52,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
 
     console.log(`[AUDIT] Sending audit request for submitter: ${submitterKey}`);
     console.log(`[AUDIT] Submission data being sent to audit:`, decodeResult);
-    
+
     const result = await orcaClient.podCall(`audit/${roundNumber}`, {
       method: "POST",
       headers: {
@@ -66,7 +66,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     console.log(`[AUDIT] Raw audit result:`, result);
     console.log(`[AUDIT] Audit result data type:`, typeof result.data);
     console.log(`[AUDIT] Audit result data value:`, result.data);
-    
+
     if (result.data === true) {
       console.log(`[AUDIT] ✅ Audit passed for ${submitterKey}`);
       return true;
@@ -82,5 +82,3 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     // return true;
   }
 }
-
-

@@ -68,12 +68,13 @@ def save_state(data_manager, pr_urls, step_name, submission_data=None):
         "issue_uuid": data_manager.issue_uuid,
         "repo_owner": data_manager.repo_owner,
         "repo_name": data_manager.repo_name,
-        "pr_urls": pr_urls,
-        "round_number": data_manager.round_number,
     }
 
-    if submission_data:
-        current_round_state["submission_data"] = submission_data
+    # Only include pr_urls and submission_data if we're not at the start of a round
+    if step_name != "create-aggregator":
+        current_round_state["pr_urls"] = pr_urls
+        if submission_data:
+            current_round_state["submission_data"] = submission_data
 
     # Store state under the current round number
     round_key = str(data_manager.round_number)
@@ -109,17 +110,15 @@ def load_state(data_manager, pr_urls, starting_step, submission_data=None):
         if prev_round_key in all_rounds_state:
             prev_round_state = all_rounds_state[prev_round_key]
             if prev_round_state["last_completed_step"] == "leader-audit-results":
-                # Previous round was completed, start new round with basic repo info
+                # Previous round was completed, start new round with only essential repo info
                 current_round_state = {
                     "last_completed_step": None,
+                    # Only carry over essential repository information
                     "fork_url": prev_round_state["fork_url"],
                     "branch_name": prev_round_state["branch_name"],
                     "issue_uuid": prev_round_state["issue_uuid"],
                     "repo_owner": prev_round_state["repo_owner"],
                     "repo_name": prev_round_state["repo_name"],
-                    "pr_urls": {},
-                    "round_number": data_manager.round_number,
-                    "submission_data": {},
                 }
                 # Save the new round state
                 all_rounds_state[round_key] = current_round_state
@@ -139,23 +138,24 @@ def load_state(data_manager, pr_urls, starting_step, submission_data=None):
     data_manager.repo_owner = current_round_state["repo_owner"]
     data_manager.repo_name = current_round_state["repo_name"]
 
-    # Load PR URLs for current round
-    pr_urls.clear()
-    pr_urls.update(current_round_state["pr_urls"])
+    # Only load PR URLs and submission data if we're in the middle of a round
+    if current_round_state["last_completed_step"] is not None:
+        pr_urls.clear()
+        pr_urls.update(current_round_state["pr_urls"])
 
-    # Load submission data if it exists
-    if submission_data is not None and "submission_data" in current_round_state:
-        submission_data.clear()
-        submission_data.update(current_round_state["submission_data"])
+        if submission_data is not None and "submission_data" in current_round_state:
+            submission_data.clear()
+            submission_data.update(current_round_state["submission_data"])
 
     print(f"\nLoaded state from {state_file} for round {data_manager.round_number}")
     print(f"Starting from step {starting_step} with:")
     print(f"Fork URL: {data_manager.fork_url}")
     print(f"Branch name: {data_manager.branch_name}")
     print(f"Round number: {data_manager.round_number}")
-    print(f"PR URLs: {pr_urls}")
-    if submission_data:
-        print(f"Submission data: {submission_data}")
+    if current_round_state["last_completed_step"] is not None:
+        print(f"PR URLs: {pr_urls}")
+        if submission_data:
+            print(f"Submission data: {submission_data}")
 
 
 def get_previous_round_prs(round_number: int) -> dict:
@@ -199,11 +199,11 @@ def reset_mongodb(data_dir: Path = None, task_id: str = None):
         return
 
     # Connect to MongoDB
-    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/todos")
+    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
     print(f"Connecting to MongoDB at: {mongodb_uri}")
 
     client = MongoClient(mongodb_uri)
-    db = client["todos"]
+    db = client["builder247"]
 
     try:
         # Clear collections
@@ -304,9 +304,9 @@ def reset_mongodb(data_dir: Path = None, task_id: str = None):
 def check_remaining_work():
     """Check if there are any remaining issues or todos that need to be completed"""
     # Connect to MongoDB
-    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/todos")
+    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/builder247")
     client = MongoClient(mongodb_uri)
-    db = client["todos"]
+    db = client["builder247"]
 
     try:
         # Check for unapproved todos
@@ -419,9 +419,9 @@ def check_and_populate_db(data_dir: Path = None, task_id: str = None):
     """Check if MongoDB collections are empty and populate them if needed"""
     print("\nChecking MongoDB collections...")
 
-    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/todos")
+    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/builder247")
     client = MongoClient(mongodb_uri)
-    db = client["todos"]
+    db = client["builder247"]
 
     try:
         # Check if required collections are empty (excluding audits)
@@ -474,13 +474,13 @@ def run_test_sequence(
 
     # Initialize data manager with the determined round number
     data_manager = DataManager(task_id=task_id, round_number=round_number)
-    pr_urls = {}
+    pr_urls = {}  # Clear PR URLs at the start of each round
     submission_data = {}  # Store submission data for audits
 
     # Get total number of todos from MongoDB
-    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/todos")
+    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/builder247")
     client = MongoClient(mongodb_uri)
-    db = client["todos"]
+    db = client["builder247"]
     total_todos = db.todos.count_documents({})
     client.close()
     max_rounds = total_todos + 1

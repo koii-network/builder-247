@@ -20,6 +20,6 @@
     "noEmit": false,
     "allowImportingTsExtensions": false
   },
-  "include": ["src/**/*", "tests/**/*", "../builder/src/orcaSettings.js"],
+  "include": ["src/**/*", "tests/**/*", "../api/builder/src/orcaSettings.js"],
   "exclude": ["node_modules", "dist", "build"]
 }

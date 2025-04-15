@@ -72,13 +72,17 @@ async function updateTodoWithPRUrl(
   const result = await TodoModel.findOneAndUpdate(
     {
       uuid: todo_uuid,
+      assignees: {
+        $elemMatch: {
+          stakingKey: stakingKey,
+          roundNumber: roundNumber,
+        },
+      },
     },
     {
       $set: {
-        prUrl: prUrl,
         status: TodoStatus.IN_REVIEW,
-        assignedStakingKey: stakingKey,
-        assignedRoundNumber: roundNumber,
+        "assignees.$.prUrl": prUrl,
       },
     },
   )
@@ -139,7 +143,7 @@ export const addPRLogic = async (
   );
   if (!result) {
     return {
-      statuscode: 404,
+      statuscode: 409,
       data: {
         success: false,
         message: "Todo not found",

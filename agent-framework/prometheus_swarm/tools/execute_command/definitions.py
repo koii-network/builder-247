@@ -1,4 +1,4 @@
-from agent_framework.tools.execute_command.implementations import (
+from prometheus_swarm.tools.execute_command.implementations import (
     execute_command,
     run_tests,
     install_dependency,

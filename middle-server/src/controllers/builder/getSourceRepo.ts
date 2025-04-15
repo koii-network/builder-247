@@ -7,7 +7,7 @@ export const getSourceRepo = async (req: Request, res: Response) => {
     if (nodeType === "leader") {
       const issue = await IssueModel.findOne({ issueUuid: uuid }).select("repoOwner repoName");
       if (!issue) {
-        return res.status(404).json({
+        return res.status(409).json({
           success: false,
           message: "Issue not found",
           data: null,
@@ -21,7 +21,7 @@ export const getSourceRepo = async (req: Request, res: Response) => {
     } else {
       const todo = await TodoModel.findOne({ uuid }).select("repoOwner repoName");
       if (!todo) {
-        return res.status(404).json({
+        return res.status(409).json({
           success: false,
           message: "Todo not found",
           data: null,

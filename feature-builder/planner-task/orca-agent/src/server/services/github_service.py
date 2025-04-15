@@ -42,7 +42,7 @@ def verify_pr_ownership(
             return False
 
         response = requests.post(
-            os.environ.get("MIDDLE_SERVER_URL") + "/api/check-to-do",
+            os.environ.get("MIDDLE_SERVER_URL") + "/api/builder/check-to-do",
             json={
                 "stakingKey": staking_key,
                 "pubKey": pub_key,

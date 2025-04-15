@@ -134,7 +134,7 @@ def update_audit_result(task_id, round_number):
         round_number = int(round_number)
 
         response = requests.post(
-            os.environ["MIDDLE_SERVER_URL"] + "/api/update-audit-result",
+            os.environ["MIDDLE_SERVER_URL"] + "/api/builder/update-audit-result",
             json={
                 "taskId": task_id,
                 "round": round_number,

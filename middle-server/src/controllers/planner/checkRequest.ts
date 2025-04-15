@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { Spec, SpecModel } from "../../models/Spec";
 import { plannerTaskID } from "../../config/constant";
 
-
 // Helper function to verify request body
 function verifyRequestBody(req: Request): {
   stakingKey: string;
@@ -18,19 +17,13 @@ function verifyRequestBody(req: Request): {
     if (!stakingKey || !roundNumber || !prUrl) {
       return null;
     }
-    return {  stakingKey, roundNumber, prUrl };
+    return { stakingKey, roundNumber, prUrl };
   } catch {
     return null;
   }
 }
 
-
-
-async function checkToDoAssignment(
-  stakingKey: string,
-  roundNumber: string,
-  prUrl: string,
-): Promise<Spec | null> {
+async function checkToDoAssignment(stakingKey: string, roundNumber: string, prUrl: string): Promise<Spec | null> {
   try {
     const data = {
       stakingKey,
@@ -40,17 +33,15 @@ async function checkToDoAssignment(
     };
     console.log("Data:", data);
 
-    const result = await SpecModel.findOne(
-      {
-        "assignedTo": {
-          $elemMatch: {
-            stakingKey: stakingKey,
-            taskId: plannerTaskID,
-            roundNumber: Number(roundNumber),
-          }
-        }
-      }
-    ).lean();
+    const result = await SpecModel.findOne({
+      assignedTo: {
+        $elemMatch: {
+          stakingKey: stakingKey,
+          taskId: plannerTaskID,
+          roundNumber: Number(roundNumber),
+        },
+      },
+    }).lean();
 
     console.log("Todo assignment check result:", result);
     return result;
@@ -69,14 +60,10 @@ export const checkRequest = async (req: Request, res: Response) => {
     });
     return;
   }
-  const spec = await checkToDoAssignment(
-    requestBody.stakingKey,
-    requestBody.roundNumber,
-    requestBody.prUrl,
-  );
+  const spec = await checkToDoAssignment(requestBody.stakingKey, requestBody.roundNumber, requestBody.prUrl);
 
   if (!spec) {
-    res.status(404).json({
+    res.status(409).json({
       success: false,
       message: "No matching todo assignment found",
     });
@@ -86,10 +73,9 @@ export const checkRequest = async (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     message: "Todo assignment verified successfully",
-    data: spec
+    data: spec,
   });
 };
-
 
 // export const test = async () => {
 //   const response = await checkToDoAssignment("0x123", "1", "", "0x123");

@@ -126,7 +126,7 @@ export const addAggregatorInfoLogic = async (
   );
   if (!issue) {
     return {
-      statuscode: 404,
+      statuscode: 409,
       data: {
         success: false,
         message: "Issue not found",

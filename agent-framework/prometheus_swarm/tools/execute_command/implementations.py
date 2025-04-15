@@ -1,6 +1,6 @@
 import subprocess
 import os
-from agent_framework.types import ToolOutput
+from prometheus_swarm.types import ToolOutput
 
 
 def execute_command(command: str, **kwargs) -> ToolOutput:

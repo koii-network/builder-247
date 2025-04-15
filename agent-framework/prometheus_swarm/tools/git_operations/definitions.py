@@ -1,4 +1,4 @@
-from agent_framework.tools.git_operations.implementations import (
+from prometheus_swarm.tools.git_operations.implementations import (
     init_repository,
     clone_repository,
     create_branch,

@@ -4,16 +4,16 @@ import os
 from typing import Dict, List, Any
 from github import Github, Auth, GithubException
 from dotenv import load_dotenv
-from agent_framework.tools.git_operations.implementations import (
+from prometheus_swarm.tools.git_operations.implementations import (
     fetch_remote,
     pull_remote,
 )
-from agent_framework.utils.logging import log_key_value, log_error
-from agent_framework.types import ToolOutput
-from agent_framework.workflows.utils import get_fork_name
+from prometheus_swarm.utils.logging import log_key_value, log_error
+from prometheus_swarm.types import ToolOutput
+from prometheus_swarm.workflows.utils import get_fork_name
 
 from git import Repo, GitCommandError
-from agent_framework.tools.github_operations.templates import TEMPLATES
+from prometheus_swarm.tools.github_operations.templates import TEMPLATES
 from github.PullRequest import PullRequest
 
 import csv

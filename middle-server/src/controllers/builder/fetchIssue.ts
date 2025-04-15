@@ -14,14 +14,14 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
       assignedStakingKey: stakingKey,
       assignedRoundNumber: roundNumber,
     })
-      .select("title acceptanceCriteria repoName issueUuid prUrl aggregatorOwner")
+      .select("title acceptanceCriteria repoName issueUuid assignees aggregatorOwner")
       .lean();
 
     if (!result) return null;
 
     return {
       issue: result,
-      hasPR: Boolean(result.prUrl),
+      hasPR: Boolean(result.assignees?.find((a) => a.prUrl && a.approved)),
     };
   } catch (error) {
     console.error("Error checking assigned info:", error);

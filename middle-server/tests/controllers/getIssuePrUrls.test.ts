@@ -39,10 +39,10 @@ describe("getIssuePrUrls", () => {
             roundNumber: 1,
             githubUsername: "user1",
             prUrl: "https://github.com/test/pr/1",
-            auditResult: true
-          }
+            auditResult: true,
+          },
         ],
-        status: "in_progress"
+        status: "in_progress",
       },
       {
         title: "Todo 2",
@@ -60,34 +60,29 @@ describe("getIssuePrUrls", () => {
             roundNumber: 1,
             githubUsername: "user2",
             prUrl: "https://github.com/test/pr/2",
-            auditResult: true
-          }
+            auditResult: true,
+          },
         ],
-        status: "in_progress"
-      }
+        status: "in_progress",
+      },
     ];
 
     await TodoModel.insertMany(sampleTodos);
 
     // Make the request
-    const response = await request(app)
-      .get(`/api/get-issue-pr-urls/${issueUuid}`);
+    const response = await request(app).get(`/api/builder/get-issue-pr-urls/${issueUuid}`);
 
     // Assertions
     expect(response.status).toBe(200);
-    expect(response.body).toEqual([
-      "https://github.com/test/pr/1",
-      "https://github.com/test/pr/2"
-    ]);
+    expect(response.body).toEqual(["https://github.com/test/pr/1", "https://github.com/test/pr/2"]);
   });
 
   it("should return empty array when no todos found", async () => {
     const nonExistentIssueUuid = "non-existent-issue";
-    
-    const response = await request(app)
-      .get(`/api/get-issue-pr-urls/${nonExistentIssueUuid}`);
+
+    const response = await request(app).get(`/api/builder/get-issue-pr-urls/${nonExistentIssueUuid}`);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual([]);
   });
-}); 
+});

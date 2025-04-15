@@ -9,7 +9,6 @@ import { plannerTaskID, SwarmBountyStatus } from "../../config/constant";
 import { syncDB } from "../../services/planner/syncDB";
 import { updateSwarmBountyStatus } from "../../services/swarmBounty/updateStatus";
 
-
 // Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
   try {
@@ -85,10 +84,8 @@ async function verifySignatureData(
   }
 }
 
-
 export const fetchRequest = async (req: Request, res: Response) => {
-  
-  const requestBody: {signature: string, stakingKey: string} | null = verifyRequestBody(req);
+  const requestBody: { signature: string; stakingKey: string } | null = verifyRequestBody(req);
   if (!requestBody) {
     res.status(401).json({
       success: false,
@@ -115,74 +112,76 @@ export const fetchRequest = async (req: Request, res: Response) => {
   }
   const response = await fetchTodoLogic(requestBody, signatureData);
   res.status(response.statuscode).json(response.data);
-
- 
 };
 
 export const preProcessTodoLogic = async () => {
   await syncDB();
   await updateFailedPlannerTask();
-}
+};
 export const updateFailedPlannerTask = async () => {
   const specs = await SpecModel.find({ assignedTo: { $size: 5 } });
   for (const spec of specs) {
     spec.status = SpecStatus.FAILED;
 
     await updateSwarmBountyStatus(spec.swarmBountyId, SwarmBountyStatus.FAILED);
-    
   }
-}
-export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey: string}, signatureData: {roundNumber: number, githubUsername: string}): Promise<{statuscode: number, data: any}> => {
+};
+export const fetchTodoLogic = async (
+  requestBody: { signature: string; stakingKey: string },
+  signatureData: { roundNumber: number; githubUsername: string },
+): Promise<{ statuscode: number; data: any }> => {
   await preProcessTodoLogic();
   const existingAssignment = await checkExistingAssignment(requestBody.stakingKey, signatureData.roundNumber);
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
-        return {statuscode: 401, data:{
+      return {
+        statuscode: 401,
+        data: {
           success: false,
           message: "Task already completed",
-        }};
-      }else{
-        console.log("existingAssignment", existingAssignment);
-        return {statuscode: 200, data:{
-            success: true,
-            role: "worker",
-            data: {
-              repo_owner: existingAssignment.spec.repoOwner,
-              repo_name: existingAssignment.spec.repoName,
-              description: existingAssignment.spec.description,
-            },
-          }};
-      }
+        },
+      };
+    } else {
+      console.log("existingAssignment", existingAssignment);
+      return {
+        statuscode: 200,
+        data: {
+          success: true,
+          role: "worker",
+          data: {
+            repo_owner: existingAssignment.spec.repoOwner,
+            repo_name: existingAssignment.spec.repoName,
+            description: existingAssignment.spec.description,
+          },
+        },
+      };
+    }
   }
 
   try {
-    
     const updatedTodo = await SpecModel.findOneAndUpdate(
       {
         // Not assigned to the current user
         $nor: [
           { "assignedTo.stakingKey": requestBody.stakingKey },
-          { "assignedTo.githubUsername": signatureData.githubUsername }
+          { "assignedTo.githubUsername": signatureData.githubUsername },
         ],
         $or: [
-          { 
+          {
             $and: [
               {
                 $or: [
                   {
-                    $and: [
-                      { roundNumber: { $lt: signatureData.roundNumber - 3 } },
-                      { taskId: plannerTaskID }
-                    ]
+                    $and: [{ roundNumber: { $lt: signatureData.roundNumber - 3 } }, { taskId: plannerTaskID }],
                   },
-                  { taskId: { $ne: plannerTaskID } }
-                ]
+                  { taskId: { $ne: plannerTaskID } },
+                ],
               },
-              { status: SpecStatus.IN_PROGRESS }
-            ]
+              { status: SpecStatus.IN_PROGRESS },
+            ],
           },
-          { $and: [{ status: SpecStatus.INITIALIZED }] }
-        ]
+          { $and: [{ status: SpecStatus.INITIALIZED }] },
+        ],
       },
       {
         $push: {
@@ -191,51 +190,64 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
             taskId: plannerTaskID,
             roundNumber: signatureData.roundNumber,
             githubUsername: signatureData.githubUsername,
-            todoSignature: requestBody.signature
-          }
+            todoSignature: requestBody.signature,
+          },
         },
         $set: {
           status: SpecStatus.IN_PROGRESS,
           taskId: plannerTaskID,
           roundNumber: signatureData.roundNumber,
-        }
+        },
       },
-      { new: true }
-    ).sort({ createdAt: 1 }).exec();
-    
+      { new: true },
+    )
+      .sort({ createdAt: 1 })
+      .exec();
+
     if (!updatedTodo) {
-      return {statuscode: 404, data:{
-        success: false,
-        message: "No available todos found",
-      }};
+      return {
+        statuscode: 409,
+        data: {
+          success: false,
+          message: "No available todos found",
+        },
+      };
     }
 
     // Validate required data fields
     if (!updatedTodo.repoOwner || !updatedTodo.repoName) {
-      return {statuscode: 404, data:{
-        success: false,
-        message: "Todo data is incomplete",
-      }};
+      return {
+        statuscode: 409,
+        data: {
+          success: false,
+          message: "Todo data is incomplete",
+        },
+      };
     }
 
-    return {statuscode: 200, data:{
-      success: true,
-      role: "worker",
+    return {
+      statuscode: 200,
       data: {
-        repo_owner: updatedTodo.repoOwner,
-        repo_name: updatedTodo.repoName,
-        description: updatedTodo.description,
+        success: true,
+        role: "worker",
+        data: {
+          repo_owner: updatedTodo.repoOwner,
+          repo_name: updatedTodo.repoName,
+          description: updatedTodo.description,
+        },
       },
-    }};
+    };
   } catch (error) {
     console.error("Error fetching todos:", error);
-    return {statuscode: 500, data:{
-      success: false,
-      message: "Failed to fetch todos",
-    }}
+    return {
+      statuscode: 500,
+      data: {
+        success: false,
+        message: "Failed to fetch todos",
+      },
+    };
   }
-}
-
+};
 
 // export const test = async () => {
 //   const response = await fetchTodoLogic({signature: "0x123", stakingKey: "0x123"}, {roundNumber: 2, githubUsername: "0x123"});

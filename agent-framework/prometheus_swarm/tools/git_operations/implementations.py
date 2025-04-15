@@ -4,8 +4,8 @@ import os
 import shutil
 from pathlib import Path
 from git import Repo, GitCommandError
-from agent_framework.utils.logging import log_key_value, log_error
-from agent_framework.types import ToolOutput
+from prometheus_swarm.utils.logging import log_key_value, log_error
+from prometheus_swarm.types import ToolOutput
 
 import time
 

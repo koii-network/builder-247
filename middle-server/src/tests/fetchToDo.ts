@@ -1,4 +1,4 @@
-import { fetchTodo, fetchTodoLogic } from "../controllers/builder/fetchToDo";
+import { fetchTodo, fetchTodoLogic } from "../controllers/api/builder/fetchToDo";
 import { Keypair } from "@_koii/web3.js";
 import { signData } from "../utils/sign";
 import mongoose from "mongoose";

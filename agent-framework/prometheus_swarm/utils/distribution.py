@@ -4,8 +4,8 @@ import re
 from typing import Dict, Tuple
 from github import Github
 import os
-from agent_framework.workflows.utils import verify_pr_signatures
-from agent_framework.tools.github_operations.parser import extract_section
+from prometheus_swarm.workflows.utils import verify_pr_signatures
+from prometheus_swarm.tools.github_operations.parser import extract_section
 
 
 def remove_leaders(

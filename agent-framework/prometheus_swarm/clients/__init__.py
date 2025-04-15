@@ -2,14 +2,14 @@
 from dotenv import load_dotenv
 import os
 from pathlib import Path
-from agent_framework.clients.base_client import Client
-from agent_framework.clients.anthropic_client import AnthropicClient
-from agent_framework.clients.xai_client import XAIClient
-from agent_framework.clients.openai_client import OpenAIClient
-from agent_framework.clients.openrouter_client import OpenRouterClient
+from prometheus_swarm.clients.base_client import Client
+from prometheus_swarm.clients.anthropic_client import AnthropicClient
+from prometheus_swarm.clients.xai_client import XAIClient
+from prometheus_swarm.clients.openai_client import OpenAIClient
+from prometheus_swarm.clients.openrouter_client import OpenRouterClient
 
 
-# from agent_framework.clients.ollama_client import OllamaClient
+# from prometheus_swarm.clients.ollama_client import OllamaClient
 
 
 def setup_client(client: str, model: str = None) -> Client:

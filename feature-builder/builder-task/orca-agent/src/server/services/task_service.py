@@ -137,8 +137,8 @@ def get_task_details(signature, staking_key, pub_key, task_type):
     """Get task details from middle server."""
 
     tasks_urls = {
-        "worker": "/api/fetch-to-do",
-        "leader": "/api/fetch-issue",
+        "worker": "/api/builder/fetch-to-do",
+        "leader": "/api/builder/fetch-issue",
     }
     try:
         logger.info(f"Fetching {task_type} task")
@@ -354,8 +354,8 @@ def _store_pr_remotely(
     """Store PR URL in middle server.
 
     Uses different endpoints based on node_type:
-    - worker: /api/add-pr-to-to-do
-    - leader: /api/add-issue-pr
+    - worker: /api/builder/add-pr-to-to-do
+    - leader: /api/builder/add-issue-pr
 
     For leader tasks, the uuid must be included in the request body as issueUuid.
     For worker tasks, the uuid must be included as todo_uuid.
@@ -364,7 +364,9 @@ def _store_pr_remotely(
     try:
         # Determine the endpoint based on node type
         endpoint = (
-            "/api/add-pr-to-to-do" if node_type == "worker" else "/api/add-issue-pr"
+            "/api/builder/add-pr-to-to-do"
+            if node_type == "worker"
+            else "/api/builder/add-issue-pr"
         )
 
         # Base payload used by both endpoints
@@ -483,7 +485,7 @@ def _store_pr_locally(
                 Exception("Submission not found"),
                 context=error_msg,
             )
-            return {"success": False, "status": 404, "error": error_msg}
+            return {"success": False, "status": 409, "error": error_msg}
     except Exception as e:
         log_error(e, "Failed to store PR locally")
         return {"success": False, "status": 500, "error": str(e)}
@@ -941,7 +943,7 @@ def create_aggregator_repo(task_id):
 #     """Fetch the source repo for a given task."""
 #     try:
 #         response = requests.post(
-#             os.environ["MIDDLE_SERVER_URL"] + "/api/source-repo",
+#             os.environ["MIDDLE_SERVER_URL"] + "/api/builder/source-repo",
 #             json={
 #                 "taskId": task_id,
 #             },
@@ -958,14 +960,14 @@ def create_aggregator_repo(task_id):
 def assign_issue(task_id):
     try:
         logger.info(
-            f"Making assign_issue request to {os.environ['MIDDLE_SERVER_URL']}/api/assign-issue"
+            f"Making assign_issue request to {os.environ['MIDDLE_SERVER_URL']}/api/builder/assign-issue"
         )
         logger.info(
             f"Request payload: {{'taskId': {task_id}, 'githubUsername': {os.environ['GITHUB_USERNAME']}}}"
         )
 
         response = requests.post(
-            os.environ["MIDDLE_SERVER_URL"] + "/api/assign-issue",
+            os.environ["MIDDLE_SERVER_URL"] + "/api/builder/assign-issue",
             json={"taskId": task_id, "githubUsername": os.environ["GITHUB_USERNAME"]},
             headers={"Content-Type": "application/json"},
         )
@@ -1036,7 +1038,7 @@ def add_aggregator_info(task_id, staking_key, pub_key, signature):
 
         # Send the request to the middle server
         response = requests.post(
-            os.environ["MIDDLE_SERVER_URL"] + "/api/add-aggregator-info",
+            os.environ["MIDDLE_SERVER_URL"] + "/api/builder/add-aggregator-info",
             json=payload,
             headers={"Content-Type": "application/json"},
         )

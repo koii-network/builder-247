@@ -1,4 +1,4 @@
-from agent_framework.tools.github_operations.implementations import (
+from prometheus_swarm.tools.github_operations.implementations import (
     create_worker_pull_request,
     create_leader_pull_request,
     generate_issues,

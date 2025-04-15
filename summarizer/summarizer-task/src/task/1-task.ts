@@ -23,7 +23,7 @@ export async function task(roundNumber: number): Promise<void> {
 // No submission on Round 0 so no need to trigger fetch audit result before round 3
 // Changed from 3 to 4 to have more time
   if (roundNumber >= 4) {
-    const triggerFetchAuditResult = await fetch(`${middleServerUrl}/api/summarizer/trigger-fetch-audit-result`, {
+    const triggerFetchAuditResult = await fetch(`${middleServerUrl}/api/builder/summarizer/trigger-fetch-audit-result`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -110,7 +110,7 @@ export async function task(roundNumber: number): Promise<void> {
     // const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues(existingIssues);
 
     console.log(`[TASK] Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
-    const requiredWorkResponse = await fetch(`${middleServerUrl}/api/summarizer/fetch-summarizer-todo`, {
+    const requiredWorkResponse = await fetch(`${middleServerUrl}/api/builder/summarizer/fetch-summarizer-todo`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -124,7 +124,7 @@ export async function task(roundNumber: number): Promise<void> {
     }
     const requiredWorkResponseData = await requiredWorkResponse.json();
     console.log("[TASK] requiredWorkResponseData: ", requiredWorkResponseData);
-    
+
     const jsonBody = {
       taskId: TASK_ID,
       round_number: String(roundNumber),
@@ -156,7 +156,7 @@ export async function task(roundNumber: number): Promise<void> {
             stakingKeypair.secretKey,
           );
           console.log("[TASK] signature: ", signature);
-          const addPrToSummarizerTodoResponse = await fetch(`${middleServerUrl}/api/summarizer/add-pr-to-summarizer-todo`, {
+          const addPrToSummarizerTodoResponse = await fetch(`${middleServerUrl}/api/builder/summarizer/add-pr-to-summarizer-todo`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -171,14 +171,14 @@ export async function task(roundNumber: number): Promise<void> {
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_SUCCESSFULLY_SUMMARIZED);
       } else {
         // post this summary response to slack` to notify the team
-        // THE HOOK IS ALREADY DISABLED 
+        // THE HOOK IS ALREADY DISABLED
         // try{
         //   const slackResponse = await fetch('https://hooks.slack.com/services/', {
         //     method: "POST",
         //     headers: {
         //     "Content-Type": "application/json",
         //   },
-        //   body: JSON.stringify({ 
+        //   body: JSON.stringify({
         //     text: `[TASK] Error summarizing issue:\nStatus: ${repoSummaryResponse.status}\nData: ${JSON.stringify(repoSummaryResponse.data, null, 2)}`
         //   }),
         // });
@@ -198,7 +198,7 @@ export async function task(roundNumber: number): Promise<void> {
       //     headers: {
       //       "Content-Type": "application/json",
       //     },
-      //     body: JSON.stringify({ 
+      //     body: JSON.stringify({
       //       text: `[TASK] Error summarizing issue:\n ${JSON.stringify(error)}`
       //     }),
       //   });

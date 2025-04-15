@@ -76,7 +76,7 @@ export const checkRequest = async (req: Request, res: Response) => {
   );
 
   if (!isValid) {
-    res.status(404).json({
+    res.status(409).json({
       success: false,
       message: "No matching todo assignment found",
     });

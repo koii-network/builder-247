@@ -4,10 +4,10 @@ import os
 import shutil
 from github import Github
 from git import Repo
-from agent_framework.utils.logging import log_key_value, log_error
-from agent_framework.tools.file_operations.implementations import list_files
-from agent_framework.tools.github_operations.parser import extract_section
-from agent_framework.utils.signatures import verify_and_parse_signature
+from prometheus_swarm.utils.logging import log_key_value, log_error
+from prometheus_swarm.tools.file_operations.implementations import list_files
+from prometheus_swarm.tools.github_operations.parser import extract_section
+from prometheus_swarm.utils.signatures import verify_and_parse_signature
 from typing import Optional, Tuple
 
 
