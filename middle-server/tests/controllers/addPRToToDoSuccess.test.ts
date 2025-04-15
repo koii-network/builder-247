@@ -67,7 +67,7 @@ jest.mock("../../src/utils/sign", () => ({
 }));
 
 it("should return 200 and the first todo if everything is valid", async () => {
-  let encodedData = "encodedData";
+  const encodedData = "encodedData";
   const mockTodo = [
     {
       _id: "todoId",

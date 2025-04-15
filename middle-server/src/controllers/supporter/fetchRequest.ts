@@ -2,10 +2,11 @@ import { Request, Response } from "express";
 import "dotenv/config";
 import { StarFollowModel } from "../../models/StarFollow";
 import { verifySignature } from "../../utils/sign";
-import { SUPPORTER_TASK_ID } from "../../config/constant";
+import { SUPPORTER_TASK_ID, SwarmBountyStatus } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
 import { getSwarmBounty } from "../../utils/prometheus/api";
 import { Bounty } from "../../types/bounty";
+// import { updateSwarmBountyStatus } from "../../services/swarmBounty/updateStatus";
 
 // Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
@@ -153,26 +154,11 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
         message: "No available todos found",
       }};
     }
-    try {
-      await updateSwarmBountyStatus(updatedTodo.swarmBountyId, SwarmBountyStatus.ASSIGNED);
-    } catch (error) {
-      console.error("Error updating swarm bounty status:", error);
-    }
-    // Validate required data fields
-    if (!updatedTodo.repoOwner || !updatedTodo.repoName) {
-      return {statuscode: 404, data:{
-        success: false,
-        message: "Todo data is incomplete",
-      }};
-    }
+
 
     return {statuscode: 200, data:{
       success: true,
-      role: "worker",
-      data: {
-        repo_owner: updatedTodo.repoOwner,
-        repo_name: updatedTodo.repoName,
-      },
+      
     }};
   } catch (error) {
     console.error("Error fetching todos:", error);
