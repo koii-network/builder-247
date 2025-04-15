@@ -9,14 +9,24 @@ from prometheus_swarm.tools.github_operations.parser import extract_section
 
 class DataManager:
     def __init__(self, task_id=None, round_number=None):
+        # Task info
         self.task_id = task_id
+        self.round_number = round_number
+
+        # Repository info
         self.fork_url = None
-        self.branch_name = None
-        self.issue_uuid = None
         self.repo_owner = None
         self.repo_name = None
-        self.round_number = round_number
-        self.submission_data = {}  # Store submission data for audits
+        self.branch_name = None
+
+        # All rounds data
+        self.rounds = {}
+
+        # Current round data
+        self.issue_uuid = None
+        self.pr_urls = {}
+        self.submission_data = {}
+        self.last_completed_step = None
 
         # Store keypair paths for each role
         self.keypairs = {
@@ -33,6 +43,47 @@ class DataManager:
                 "public": os.getenv("WORKER2_PUBLIC_KEYPAIR"),
             },
         }
+
+    def _parse_repo_info(self):
+        """Parse repository owner and name from fork URL"""
+        if not self.fork_url:
+            return None, None
+        parts = self.fork_url.strip("/").split("/")
+        if len(parts) >= 2:
+            return parts[-2], parts[-1]
+        return None, None
+
+    def set_fork_url(self, url):
+        """Set fork URL and update repo info"""
+        self.fork_url = url
+        self.repo_owner, self.repo_name = self._parse_repo_info()
+
+    def get_round_data(self):
+        """Get the current round's data as a dictionary"""
+        data = {
+            "last_completed_step": self.last_completed_step,
+            "issue_uuid": self.issue_uuid,
+        }
+        if self.pr_urls:
+            data["pr_urls"] = self.pr_urls
+        if self.submission_data:
+            data["submission_data"] = self.submission_data
+        return data
+
+    def set_round_data(self, round_data):
+        """Set the current round's data from a dictionary"""
+        self.last_completed_step = round_data.get("last_completed_step")
+        self.issue_uuid = round_data.get("issue_uuid")
+        self.pr_urls = round_data.get("pr_urls", {})
+        self.submission_data = round_data.get("submission_data", {})
+        # Store in rounds data too
+        self.rounds[str(self.round_number)] = round_data
+
+    def clear_round_data(self):
+        """Clear round-specific data when starting a new round"""
+        self.pr_urls = {}
+        self.submission_data = {}
+        self.last_completed_step = None
 
     def _load_keypair(self, keypair_path: str) -> tuple[SigningKey, str]:
         """Load a keypair from file and return signing key and public key."""

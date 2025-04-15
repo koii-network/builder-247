@@ -187,16 +187,10 @@ class TestSetup:
                 f"Failed to create aggregator repo: {result.get('message')}"
             )
 
-        # Store the fork URL and branch name for use in subsequent steps
-        data_manager.fork_url = result.get("data", {}).get("fork_url")
-        data_manager.branch_name = result.get("data", {}).get("branch_name")
+        # Store the fork URL and issue UUID
+        data_manager.set_fork_url(result.get("data", {}).get("fork_url"))
         data_manager.issue_uuid = result.get("data", {}).get("issue_uuid")
-
-        # Extract repository info from fork URL
-        repo_parts = data_manager.fork_url.strip("/").split("/")
-        if len(repo_parts) >= 2:
-            data_manager.repo_owner = repo_parts[-2]
-            data_manager.repo_name = repo_parts[-1]
+        data_manager.branch_name = data_manager.issue_uuid
 
         # Update aggregator info
         aggregator_payload = data_manager.prepare_aggregator_info(
@@ -209,7 +203,7 @@ class TestSetup:
         if not result.get("success"):
             raise Exception(f"Failed to add aggregator info: {result.get('message')}")
 
-    def run_worker_task(self, data_manager, pr_urls, worker_role: str):
+    def run_worker_task(self, data_manager, worker_role: str):
         """Run worker task for a specific worker"""
         import requests
 
@@ -223,18 +217,18 @@ class TestSetup:
         result = response.json()
         if response.status_code in [401, 409]:
             print(f"✓ {result.get('message')} for {worker_role} - continuing")
-            # Remove any old PR URL from previous rounds if no work this round
-            if worker_role in pr_urls:
-                del pr_urls[worker_role]
             return
         elif not result.get("success"):
             raise Exception(f"{worker_role} task failed: {result.get('message')}")
         else:
-            pr_urls[worker_role] = result.get("pr_url")
-            print(f"✓ {worker_role} PR created: {pr_urls[worker_role]}")
+            data_manager.pr_urls[worker_role] = result.get("pr_url")
+            print(f"✓ {worker_role} PR created: {data_manager.pr_urls[worker_role]}")
 
     def run_worker_audit(
-        self, data_manager, pr_urls, submission_data, auditor: str, auditee: str
+        self,
+        data_manager,
+        auditor: str,
+        auditee: str,
     ):
         """Run worker audit for a specific worker auditing another worker"""
         import requests
@@ -242,9 +236,9 @@ class TestSetup:
         self.switch_role(auditor)
         payload = data_manager.prepare_worker_audit(
             auditor,
-            pr_urls[auditee],
+            data_manager.pr_urls[auditee],
             data_manager.round_number,
-            submission_data.get(auditee),
+            data_manager.submission_data.get(auditee),
         )
         url = f"{self.current_server.url}/worker-audit/{data_manager.round_number}"
         response = requests.post(url, json=payload)
@@ -256,7 +250,7 @@ class TestSetup:
         elif not result.get("success"):
             raise Exception(f"{auditor} audit failed: {result.get('message')}")
         else:
-            print(f"✓ {auditor} audit completed for {pr_urls[auditee]}")
+            print(f"✓ {auditor} audit completed for {data_manager.pr_urls[auditee]}")
 
     def update_audit_results(self, data_manager, audit_type: str):
         """Update audit results using the Flask endpoint"""
@@ -278,7 +272,7 @@ class TestSetup:
             )
         print(f"✓ {audit_type} audit results processed")
 
-    def run_leader_task(self, data_manager, pr_urls):
+    def run_leader_task(self, data_manager):
         """Run leader task"""
         import requests
 
@@ -299,17 +293,17 @@ class TestSetup:
         if not result.get("success"):
             raise Exception(f"Leader task failed: {result.get('message')}")
 
-        pr_urls["leader"] = result.get("pr_url")
-        print(f"✓ Leader PR created: {pr_urls['leader']}")
+        data_manager.pr_urls["leader"] = result.get("pr_url")
+        print(f"✓ Leader PR created: {data_manager.pr_urls['leader']}")
 
-    def run_leader_audit(self, data_manager, pr_urls, submission_data):
+    def run_leader_audit(self, data_manager):
         """Run leader audit and handle audit submission"""
         self.switch_role("leader")
         payload = data_manager.prepare_leader_audit(
             "leader",
-            pr_urls["leader"],
+            data_manager.pr_urls["leader"],
             data_manager.round_number,
-            submission_data.get("leader"),
+            data_manager.submission_data.get("leader"),
         )
         url = f"{self.current_server.url}/leader-audit/{data_manager.round_number}"
         response = requests.post(url, json=payload)
@@ -321,4 +315,4 @@ class TestSetup:
         elif not result.get("success"):
             raise Exception(f"Leader audit failed: {result.get('message')}")
         else:
-            print(f"✓ Leader audit completed for {pr_urls['leader']}")
+            print(f"✓ Leader audit completed for {data_manager.pr_urls['leader']}")
