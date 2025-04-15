@@ -3,7 +3,7 @@ import { StarFollowModel } from "../../models/StarFollow";
 
 export const bindRequest = async (req: Request, res: Response) => {
     try {
-        const { swarmBountyId, stakingKey, githubId, githubUsername, issue } = req.body;
+        const { stakingKey, githubId, githubUsername, issue } = req.body;
 
         // Initialize Octokit
         const { Octokit } = await import('@octokit/rest');
@@ -49,7 +49,6 @@ export const bindRequest = async (req: Request, res: Response) => {
             gitHubId: githubId,
             stakingKey: stakingKey,
             gitHubUsername: githubUsername,
-            swarmBountyId: swarmBountyId,
             status: "initialized"
         });
 
