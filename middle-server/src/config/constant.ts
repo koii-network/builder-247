@@ -1,5 +1,5 @@
 import "dotenv/config";
-export const supporterTaskID = process.env.SUPPORTER_TASK_ID || "";
+export const SUPPORTER_TASK_ID = process.env.SUPPORTER_TASK_ID || "";
 export const documentSummarizerTaskID =
   process.env.DOCUMENT_SUMMARIZER_TASK_ID || "H5CKDzSi2qWs7y7JGMX8sGvAZnWcUDx8k1mCMVWyJf1M";
 export const RPCURL = "https://mainnet.koii.network";
