@@ -2,23 +2,14 @@ import { SpecModel } from "../../models/Spec";
 // import SwarmBounty from "../../models/SwarmBounties";
 import { SwarmBountyType, SwarmBountyStatus } from "../../config/constant";
 import { createFork } from "../../utils/gitHub/gitHub";
+import { getSwarmBounty } from "../../utils/prometheus/api";
 export async function syncDB() {
     // Get all feature bounties
-    const endpoint = `${process.env.PROMETHEUS_SERVER_URL}/api/v1/bounty?status=${SwarmBountyStatus.IN_PROGRESS}`;
-    const response = await fetch(endpoint, {
-        headers: {
-            'Authorization': `Bearer ${process.env.PROMETHEUS_SERVER_X_API_KEY || ""}`
-        }
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API Error: ${response.status} ${response.statusText}`);
-        console.error('Response body:', errorText);
-        throw new Error(`API request failed with status ${response.status}`);
+    const data = await getSwarmBounty();
+    if (!data) {
+        console.log("No data found");
+        return;
     }
-
-    const data = await response.json();
     const swarmBounties = data.data.filter((bounty: any) => bounty.swarmType === SwarmBountyType.BUILD_FEATURE);
     const specs = await SpecModel.find();
 

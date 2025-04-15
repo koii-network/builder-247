@@ -4,7 +4,7 @@
     "target": "es2020",
 
     /* Modules */
-    "module": "CommonJS",
+    "module": "ES2020",
     "rootDir": "./",
     "outDir": "./build",
     "esModuleInterop": true,

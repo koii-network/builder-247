@@ -1,9 +1,17 @@
 // Initialize Octokit with token
 import dotenv from "dotenv";
 dotenv.config();
+
+// Debug: Print all environment variables
+// console.log('All environment variables:', process.env);
+
 let octokit: any;
 
 async function initializeOctokit() {
+  if (!process.env.GITHUB_TOKEN) {
+    throw new Error('GitHub token is not configured. Please set GITHUB_TOKEN in your .env file');
+  }
+  // console.log("token", process.env.GITHUB_TOKEN);
   const { Octokit } = await import("@octokit/rest");
   octokit = new Octokit({
     auth: process.env.GITHUB_TOKEN,
@@ -30,15 +38,22 @@ async function starRepo(owner: string, repoName: string) {
   return response.status;
 }
 
-async function checkStarred(owner: string, repoName: string) {
+async function checkStarred(owner: string, repoName: string, username: string) {
   if (!octokit) await initializeOctokit();
   try {
-    await octokit.rest.activity.checkRepoIsStarredByAuthenticatedUser({
-      owner: owner,
-      repo: repoName,
+    const response = await octokit.rest.activity.listReposStarredByUser({
+      username: username,
+      sort: 'created',
+      per_page: 100,
     });
-    return true;
+    
+    // Check if the target repo is in the list of starred repos
+    const isStarred = response.data.some((repo: { owner: { login: string }, name: string }) => 
+      repo.owner.login === owner && repo.name === repoName
+    );
+    return isStarred;
   } catch (error) {
+    console.log("error", error);
     return false;
   }
 }
@@ -51,11 +66,11 @@ async function followUser(owner: string) {
   return response.status === 204;
 }
 
-async function checkFollowed(owner: string) {
+async function checkFollowed(username: string, owner: string) {
   if (!octokit) await initializeOctokit();
   try {
     await octokit.rest.users.checkFollowingForUser({
-      username: owner,
+      username: username,
       target_user: owner,
     });
     return true;

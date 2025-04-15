@@ -13,7 +13,7 @@ import { actionMessage } from "../utils/constant";
 import { errorMessage } from "../utils/constant";
 import { starAndFollowSupportRepo } from "../utils/constant";
 import { starRepo, followUser } from "../utils/supporter/gitHub";
-import { Octokit } from "octokit";
+import { Octokit } from "@octokit/rest";
 dotenv.config();
 
 
@@ -48,23 +48,19 @@ export async function task(roundNumber: number): Promise<void> {
     const octokit = new Octokit({
       auth: process.env.GITHUB_TOKEN,
     });
+
+    try {
+      for (const repo of repoList) {
+        const [owner, repoName] = repo.split("/");
+        await starRepo(owner, repoName);
+        await followUser(owner);
+      }
+    } catch (error) {
+      console.error("Error starring repos:", error);
+    }
+
     const gitHubVerificationJson = {stakingKey}
     const response = await createIssue(starAndFollowSupportRepo.split('/')[0], starAndFollowSupportRepo.split('/')[1], `Support repo for round ${roundNumber}`, JSON.stringify(gitHubVerificationJson));
 
-    for (const repo of repoList) {
-      const [owner, repoName] = repo.split('/');
-      
-      // Star the repo
-
-      console.log(`[TASK] Starred repo ${repo}. Response is ${response.status}.`);
-      
-      // Follow the repo's owner
-      const followResponse = await Octokit.rest.users.follow({
-        username: owner,
-      });
-      console.log(`[TASK] Followed owner ${owner} of repo ${repo}. Response is ${followResponse.status}.`);
-      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.SUCCESS);
-    }
-
-
+    await namespaceWrapper.storeSet(`result-${roundNumber}`, status.SUCCESS);
 }
