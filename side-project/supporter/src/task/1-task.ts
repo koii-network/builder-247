@@ -131,7 +131,7 @@ export async function task(roundNumber: number): Promise<void> {
         });
         console.log("[TASK] Repository list fetch response status:", fetchRepoList.status);
         const fetchRepoListJson = await fetchRepoList.json();
-        if (fetchRepoListJson.statuscode !== 200) {
+        if (fetchRepoList.status !== 200) {
           console.log("[TASK] Failed to fetch repository list, status code:", fetchRepoListJson.statuscode);
           await namespaceWrapper.storeSet(`result-${roundNumber}`, status.FETCH_REPO_LIST_FAILED);
           return;
@@ -149,6 +149,33 @@ export async function task(roundNumber: number): Promise<void> {
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.FETCH_REPO_LIST_FAILED);
         return;
       }
+  /****************** Create a issue to bind the repo to the task ******************/
+    try {
+      for (const repo of repoList) {
+        const [owner, repoName] = repo.split("/");
+        // Check if already done
+        const isDone = await namespaceWrapper.storeGet(`repo-${repo}`);
+        if (isDone === status.SUCCESS) {
+          console.log(`[TASK] ${repo} already done`);
+          continue;
+        }
+        const isRepoExist = await checkRepoStatus(owner, repoName);
+        if (!isRepoExist) {
+          continue;
+        }
+        const isStarred = await starRepo(owner, repoName);
+        const isFollowed = await followUser(owner);
+        console.log(`${repo} starred: ${isStarred}, followed: ${isFollowed}`);
+        if (isStarred && isFollowed) {
+          await namespaceWrapper.storeSet(`repo-${repo}`, status.SUCCESS);
+        } else {
+          await namespaceWrapper.storeSet(`repo-${repo}`, status.FAILED);
+        }
+      }
+    } catch (error) {
+      console.error("Error starring repos:", error);
+    }
+
     } catch (error) {
       console.error("[TASK] Error starring repos:", error);
     }
