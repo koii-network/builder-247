@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { v4 as uuidv4 } from 'uuid';
 import {
   getDistributionListSubmitter,
   getDistributionListWrapper,
@@ -187,7 +188,7 @@ export const processAuditResult = async ({
     const { issues, tasks } = decodedFile;
 
     // Prepare bulk operations for tasks
-
+    const taskId = uuidv4();
     const taskOperations = tasks.map(
       (task: Task) => (
         console.log({
@@ -217,6 +218,7 @@ export const processAuditResult = async ({
               status: task.status,
               title: task.title,
               uuid: task.uuid,
+              taskId: taskId,
             },
           },
         }
@@ -234,6 +236,7 @@ export const processAuditResult = async ({
           repoOwner: repoOwner,
           status: IssueStatus.INITIALIZED,
           assignedTo: [],
+          taskId: taskId,
         },
       },
     }));
