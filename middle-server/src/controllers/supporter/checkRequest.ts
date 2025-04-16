@@ -7,21 +7,15 @@ import { isValidStakingKey } from "../../utils/taskState";
 // Helper function to verify request body
 function verifyRequestBody(req: Request): {
   stakingKey: string;
-  roundNumber: string;
-  githubUsername: string;
-  prUrl: string;
 } | null {
   try {
     console.log("Request body:", req.body);
 
     const stakingKey = req.body.stakingKey as string;
-    const roundNumber = req.body.roundNumber as string;
-    const githubUsername = req.body.githubUsername as string;
-    const prUrl = req.body.prUrl as string;
-    if (!stakingKey || !roundNumber || !githubUsername || !prUrl) {
+    if (!stakingKey) {
       return null;
     }
-    return {  stakingKey, roundNumber, githubUsername, prUrl };
+    return {  stakingKey };
   } catch {
     return null;
   }
@@ -29,24 +23,7 @@ function verifyRequestBody(req: Request): {
 
 
 
-async function checkStarFollowAssignment(
-  stakingKey: string,
-  roundNumber: string,
-): Promise<boolean> {
-  try {
-    const result = await StarFollowModel.findOne({
-      stakingKey,
-      taskId: SUPPORTER_TASK_ID,
-      roundNumber,
-      pendingRepos: { $ne: [] }
-    });
 
-    return result !== null;
-  } catch (error) {
-    console.error("Error checking star follow assignment:", error);
-    return false;
-  }
-}
 
 export const checkRequest = async (req: Request, res: Response) => {
   const requestBody = verifyRequestBody(req);
@@ -57,12 +34,12 @@ export const checkRequest = async (req: Request, res: Response) => {
     });
     return;
   }
-  const isValid = await checkStarFollowAssignment(
-    requestBody.stakingKey,
-    requestBody.roundNumber,
-  );
+  const result = await StarFollowModel.findOne({
+    stakingKey: requestBody.stakingKey,
+    pendingRepos: { $ne: [] }
+  });
 
-  if (!isValid) {
+  if (!result) {
     res.status(404).json({
       success: false,
       message: "No matching todo assignment found",
@@ -73,6 +50,10 @@ export const checkRequest = async (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     message: "Todo assignment verified successfully",
+    data: {
+      githubUsername: result.gitHubUsername,
+      pendingRepos: result.pendingRepos,
+    }
   });
 };
 

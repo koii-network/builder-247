@@ -11,6 +11,8 @@ export const bindRequest = async (req: Request, res: Response) => {
             auth: process.env.GITHUB_TOKEN,
         });
 
+        // Check if stakin
+
         // 1. Verify GitHub username matches GitHub ID
         try {
             const { data: user } = await octokit.users.getByUsername({ username: githubUsername });
@@ -51,11 +53,19 @@ export const bindRequest = async (req: Request, res: Response) => {
 
         // 3. Check if GitHub ID already exists in the database
         const existingStarFollow = await StarFollowModel.findOne({ gitHubId: githubId });
-        if (existingStarFollow) {
-            return res.status(400).json({
-                success: false,
-                message: "GitHub ID already exists in the database"
-            });
+        if (existingStarFollow ) {
+            if (existingStarFollow.stakingKey === stakingKey) {
+                return res.status(201).json({
+                    success: true,
+                    message: "Successfully bound request",
+                    data: existingStarFollow
+                });
+            }else{
+                return res.status(400).json({
+                    success: false,
+                    message: "GitHub ID already exists in the database"
+                });
+            }
         }
 
         // Create new entry in the database

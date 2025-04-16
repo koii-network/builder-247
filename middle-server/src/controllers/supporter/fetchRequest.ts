@@ -6,6 +6,7 @@ import { SUPPORTER_TASK_ID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
 import { getSwarmBounty } from "../../utils/prometheus/api";
 import { Bounty } from "../../types/bounty";
+import { getCurrentRound } from "../../utils/taskState/getSubmissionRound";
 // import { updateSwarmBountyStatus } from "../../services/swarmBounty/updateStatus";
 
 // Check if the user has already completed the task
@@ -13,7 +14,6 @@ async function checkExistingAssignment(stakingKey: string) {
   try {
     const result = await StarFollowModel.findOne({
         stakingKey: stakingKey,
-        taskId: process.env.SUPPORTER_TASK_ID,
         pendingRepos: { $ne: [] }
       },
     );
@@ -43,27 +43,31 @@ async function verifySignatureData(
   signature: string,
   stakingKey: string,
   action: string,
-): Promise<{ roundNumber: number } | null> {
+  taskId: string,
+  roundNumber: number,
+): Promise<boolean> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
       console.log("bad signature");
-      return null;
+      return false;
     }
     const body = JSON.parse(data);
     console.log({ signature_payload: body });
     if (
       body.action !== action ||
       !body.stakingKey ||
-      body.stakingKey !== stakingKey
+      body.stakingKey !== stakingKey ||
+      body.taskId !== taskId ||
+      body.roundNumber !== roundNumber
     ) {
       console.log("bad signature data");
-      return null;
+      return false;
     }
-    return { roundNumber: body.roundNumber };
+    return true;
   } catch (error) {
     console.log("unexpected signature error", error);
-    return null;
+    return false;
   }
 }
 
@@ -77,8 +81,15 @@ export const fetchRequest = async (req: Request, res: Response) => {
     });
     return;
   }
-
-  const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey, "fetch");
+  const roundNumber = await getCurrentRound(SUPPORTER_TASK_ID);
+  if (!roundNumber) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to get current round",
+    });
+    return;
+  }
+  const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey, "fetch", SUPPORTER_TASK_ID, roundNumber);
   if (!signatureData) {
     res.status(401).json({
       success: false,
@@ -94,14 +105,14 @@ export const fetchRequest = async (req: Request, res: Response) => {
     });
     return;
   }
-  const response = await fetchTodoLogic(requestBody);
+  const response = await fetchStarFollowAssignment(requestBody);
   res.status(response.statuscode).json(response.data);
 
  
 };
 
 
-export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey: string}): Promise<{statuscode: number, data: any}> => {
+export const fetchStarFollowAssignment = async (requestBody: {signature: string, stakingKey: string}): Promise<{statuscode: number, data: any}> => {
   const existingAssignment = await checkExistingAssignment(requestBody.stakingKey);
   if (existingAssignment) {
     return {statuscode: 200, data:{
@@ -121,58 +132,32 @@ export const fetchTodoLogic = async (requestBody: {signature: string, stakingKey
       }}
     }
     const repoUrls = swarmBountyData.data.map((bounty: Bounty) => bounty.githubUrl);
-    // If there are pending repos, no need to fetch new repos, just update task id and round number
-    const existingPendingDoc = await StarFollowModel.findOne({ 
-      stakingKey: requestBody.stakingKey,
-      taskId: SUPPORTER_TASK_ID,
-      pendingRepos: { $ne: [] }
-    });
-    if (existingPendingDoc) {
-      return {statuscode: 200, data:{
-        success: true,
-        data: {
-          pendingRepos: existingPendingDoc.pendingRepos
-        }
-      }}
-    }
-    // Find existing document
-    const nonPendingDoc = await StarFollowModel.findOne({
-      stakingKey: requestBody.stakingKey,
-      $or: [
-        {
-          $and: [
-            { taskId: SUPPORTER_TASK_ID }
-          ]
-        },
-        { taskId: { $ne: SUPPORTER_TASK_ID } }
-      ]
-    }).sort({ createdAt: 1 });
 
-    if (!nonPendingDoc) {
+
+    const existingAssignment = await StarFollowModel.findOne({
+      stakingKey: requestBody.stakingKey,
+    });
+    if (!existingAssignment) {
       return {statuscode: 404, data:{
         success: false,
-        message: "No existing document found",
-      }};
+        message: "No existing assignment found",
+      }}
     }
 
-    // Get existing pending and completed repos
-    const existingPendingRepos = nonPendingDoc.pendingRepos || [];
-    const existingCompletedRepos = nonPendingDoc.completedRepos || [];
+    const existingCompletedRepos = existingAssignment.completedRepos || [];
 
     // Filter out repos that are already in pending or completed lists
     const newRepos = repoUrls.filter(
       (url: string) => 
-        !existingPendingRepos.includes(url) && 
         !existingCompletedRepos.includes(url)
     );
 
     // Update the document with new repos and task info
     const updatedDoc = await StarFollowModel.findOneAndUpdate(
-      { _id: nonPendingDoc._id },
+      { _id: existingAssignment._id },
       {
         $set: {
-          taskId: SUPPORTER_TASK_ID,
-          pendingRepos: [...existingPendingRepos, ...newRepos]
+          pendingRepos: [newRepos]
         }
       },
       { new: true }

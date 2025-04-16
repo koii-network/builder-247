@@ -24,9 +24,6 @@ class StarFollow {
   public gitHubUsername!: string;
 
   @prop({ required: false })
-  public taskId!: string;
-
-  @prop({ required: false })
   public pendingRepos!: string[];
 
   @prop({ required: false })
