@@ -1,4 +1,3 @@
-import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { middleServerUrl, status } from "../utils/constant";
 import { checkStarred, checkFollowed, checkRepoStatus } from "../utils/supporter/gitHub";
 // import { status } from '../utils/constant'

@@ -1,5 +1,4 @@
 import { storeFile } from "../utils/ipfs";
-import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import { status } from "../utils/constant";
 export async function submission(roundNumber: number) : Promise<string | void> {

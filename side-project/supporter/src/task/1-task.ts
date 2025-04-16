@@ -1,12 +1,8 @@
-
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
-import { getRandomNodes } from "../utils/leader";
-import { getExistingIssues } from "../utils/existingIssues";
 import { status, middleServerUrl } from "../utils/constant";
 import { checkRepoStatus, createIssue, getUserInfo } from "../utils/supporter/gitHub";
 import dotenv from "dotenv";
-import { checkAnthropicAPIKey, isValidAnthropicApiKey } from "../utils/anthropicCheck";
 import { checkGitHub } from "../utils/githubCheck";
 import { LogLevel } from "@_koii/namespace-wrapper/dist/types";
 import { actionMessage } from "../utils/constant";
@@ -14,24 +10,29 @@ import { errorMessage } from "../utils/constant";
 import { starAndFollowSupportRepo } from "../utils/constant";
 import { starRepo, followUser } from "../utils/supporter/gitHub";
 
-
 dotenv.config();
 
-
 export async function task(roundNumber: number): Promise<void> {
+    console.log("[TASK] Starting task execution for round:", roundNumber);
  
     if (!process.env.GITHUB_TOKEN) {
+      console.log("[TASK] GitHub token is missing in environment variables");
       await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.GITHUB_CHECK_FAILED, actionMessage.GITHUB_CHECK_FAILED);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.GITHUB_CHECK_FAILED);
       return;
     }
+    console.log("[TASK] GitHub token found, proceeding with validation");
+    console.log("[TASK] GITHUB_TOKEN", process.env.GITHUB_TOKEN);
     const isGitHubValid = await checkGitHub(process.env.GITHUB_TOKEN!);
+    console.log("[TASK] GitHub validation result:", isGitHubValid);
+    
     if (!isGitHubValid) {
+      console.log("[TASK] GitHub validation failed");
       await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.GITHUB_CHECK_FAILED, actionMessage.GITHUB_CHECK_FAILED);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.GITHUB_CHECK_FAILED);
       return;
     }
-
+    console.log("[TASK] GitHub validation successful");
 
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
