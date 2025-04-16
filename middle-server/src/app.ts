@@ -1,5 +1,4 @@
 import express from 'express';
-import mongoose from 'mongoose';
 import http from 'http';
 import morgan from 'morgan';
 import { checkConnections } from './services/database/database';
@@ -8,12 +7,14 @@ import { checkConnections } from './services/database/database';
 import builderRoutes from './routes/builder.routes';
 import plannerRoutes from './routes/planner.routes';
 import summarizerRoutes from './routes/summarizer.routes';
+import prometheusRoutes from './routes/prometheus.routes';
+import supporterRoutes from './routes/supporter.routes';
 
 export const app = express();
 const port = process.env.PORT || 3000;
 
 // Define custom morgan token for colored status
-morgan.token('status-colored', (req, res) => {
+morgan.token('status-colored', (_req, res) => {
   const status = res.statusCode;
   const color =
     status >= 500
@@ -27,7 +28,7 @@ morgan.token('status-colored', (req, res) => {
 });
 
 // Add this middleware before morgan to capture response body
-app.use((req, res, next) => {
+app.use((_req, res, next) => {
   const originalJson = res.json;
   res.json = function (body) {
     res.locals.responseBody = body;
@@ -79,10 +80,14 @@ app.get('/', (req: express.Request, res: express.Response) => {
   res.send('Hello World!');
 });
 
-// Use separate route files
 app.use('/api/builder', builderRoutes);
 app.use('/api/planner', plannerRoutes);
 app.use('/api/summarizer', summarizerRoutes);
+app.use('/api/prometheus', prometheusRoutes);
+app.use('/api/supporter', supporterRoutes);
+app.get('/api/hello', (_req, res) => {
+  res.json({ message: 'Hello World!' });
+});
 
 export async function connectToDatabase() {
   try {

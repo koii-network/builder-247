@@ -12,21 +12,12 @@ from prometheus_swarm.workflows.utils import (
     cleanup_repository,
     get_current_files,
 )
-from src.server.services.task_service import report_task_failure
 from src.workflows.mergeconflict.phases import (
     ConflictResolutionPhase,
     CreatePullRequestPhase,
     TestVerificationPhase,
 )
-
-
-class WorkflowError(Exception):
-    """Base error class for workflow errors."""
-
-    def __init__(self, reason: str, details: str):
-        self.reason = reason
-        self.details = details
-        super().__init__(f"{reason}: {details}")
+from src.workflows.exceptions import WorkflowError
 
 
 class MergeConflictWorkflow(Workflow):
@@ -366,11 +357,15 @@ class MergeConflictWorkflow(Workflow):
     def run(self):
         """Execute the merge conflict workflow."""
         try:
-            if not self.setup():
+            # Check TEST_MODE environment variable
+            if os.getenv("TEST_MODE") == "true":
                 raise WorkflowError(
-                    reason="Setup failed",
-                    details="Failed to set up repository for merging PRs",
+                    reason="Test mode failure",
+                    details="This is an artificial failure for testing purposes",
                 )
+
+            if not self.setup():
+                raise Exception("Failed to set up repository for merging PRs")
 
             # Get list of PRs to process
             gh = Github(self.context["github_token"])
@@ -390,9 +385,7 @@ class MergeConflictWorkflow(Workflow):
                 print(f"Found PR #{pr.number}: {pr.title} from {pr.user.login}")
 
             if not open_prs:
-                raise WorkflowError(
-                    reason="No PRs to process", details="No open PRs found for merging"
-                )
+                raise Exception("No open PRs found for merging")
 
             # Process each PR in chronological order
             failed_prs = []
@@ -433,7 +426,7 @@ class MergeConflictWorkflow(Workflow):
                     )
                 else:
                     details = "No PRs were successfully merged"
-                raise WorkflowError(reason="No PRs were merged", details=details)
+                raise Exception(details)
 
             # Run tests and fix any issues
             print("\nRunning test verification phase")
@@ -456,64 +449,21 @@ class MergeConflictWorkflow(Workflow):
             pr_phase = CreatePullRequestPhase(
                 workflow=self, conversation_id=self.conversation_id
             )
-            try:
-                pr_result = pr_phase.execute()
-                if not pr_result:
-                    raise WorkflowError(
-                        reason="PR creation failed",
-                        details="PR creation phase returned no result",
-                    )
+            pr_result = pr_phase.execute()
+            if not pr_result:
+                raise Exception("PR creation phase returned no result")
 
-                if pr_result.get("success"):
-                    pr_url = pr_result.get("data", {}).get("pr_url")
-                    if not pr_url:
-                        raise WorkflowError(
-                            reason="PR creation failed",
-                            details="PR creation succeeded but no URL returned",
-                        )
-                    log_key_value("PR created successfully", pr_url)
-                    return pr_url
-                else:
-                    raise WorkflowError(
-                        reason="PR creation failed",
-                        details=pr_result.get("error", "Unknown error"),
-                    )
-            except Exception as e:
-                if not isinstance(e, WorkflowError):
-                    e = WorkflowError(reason="PR creation failed", details=str(e))
-                raise e
-
-        except Exception as e:
-            if not isinstance(e, WorkflowError):
-                e = WorkflowError(
-                    reason="Merge conflict workflow failed", details=str(e)
-                )
-            raise e
+            if pr_result.get("success"):
+                pr_url = pr_result.get("data", {}).get("pr_url")
+                if not pr_url:
+                    raise Exception("PR creation succeeded but no URL returned")
+                log_key_value("PR created successfully", pr_url)
+                return pr_url
+            else:
+                raise Exception(pr_result.get("error", "Unknown error"))
 
         finally:
             self.cleanup()
-
-    def _report_failure(self, reason: str, feedback: str):
-        """Report a task failure to the middle server.
-
-        Args:
-            reason: Short reason for the failure
-            feedback: Detailed feedback about what went wrong
-        """
-        try:
-            report_task_failure(
-                task_id=self.task_id,
-                round_number=self.context.get("round_number"),
-                staking_key=self.context["staking_key"],
-                staking_signature=self.context["staking_signature"],
-                pub_key=self.context["pub_key"],
-                failure_reason=reason,
-                failure_feedback=feedback,
-                node_type="leader",
-                issue_uuid=self.context.get("issue_uuid"),
-            )
-        except Exception as e:
-            log_error(e, "Failed to report task failure")
 
     def cleanup(self):
         """Clean up repository."""

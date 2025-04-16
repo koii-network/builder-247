@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { TodoModel } from '../../models/Todo';
 import { IssueModel } from '../../models/Issue';
 import { verifySignature } from '../../utils/sign';
+import { taskIDs } from '../../config/constant';
 
 interface RecordFailureRequest {
   taskId: string;
@@ -32,7 +33,6 @@ export const recordTaskFailure = async (req: Request, res: Response): Promise<vo
     } = req.body as RecordFailureRequest;
 
     // Verify the signature
-    const message = `${taskId}:${roundNumber}:${failureReason}`;
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
       res.status(401).json({
@@ -47,13 +47,14 @@ export const recordTaskFailure = async (req: Request, res: Response): Promise<vo
       const body = JSON.parse(data);
       if (
         !body.taskId ||
-        !body.roundNumber ||
-        !body.failureReason ||
+        typeof body.roundNumber !== 'number' ||
+        !taskIDs.includes(body.taskId) ||
+        !body.pubKey ||
+        body.pubKey !== pubKey ||
         !body.stakingKey ||
         body.stakingKey !== stakingKey ||
         body.taskId !== taskId ||
-        body.roundNumber !== roundNumber ||
-        body.failureReason !== failureReason
+        body.roundNumber !== roundNumber
       ) {
         res.status(401).json({
           success: false,

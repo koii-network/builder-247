@@ -473,3 +473,29 @@ class DataManager:
                 "staking_key": "dummy_staking_key",
                 "pub_key": "dummy_pub_key",
             }
+
+    def prepare_worker_failure(self, role: str, round_number: int) -> Dict[str, Any]:
+        """Prepare payload for worker-task endpoint that will cause a failure."""
+        # Start with a normal worker task payload
+        payload = self.prepare_worker_task(role, round_number)
+
+        # Modify the payload to cause a failure
+        # Use invalid signature that will be rejected by the server
+        payload["stakingSignature"] = "invalid_signature"
+        payload["publicSignature"] = "invalid_signature"
+        payload["addPRSignature"] = "invalid_signature"
+
+        return payload
+
+    def prepare_leader_failure(self, role: str, round_number: int) -> Dict[str, Any]:
+        """Prepare payload for leader-task endpoint that will cause a failure."""
+        # Start with a normal leader task payload
+        payload = self.prepare_leader_task(role, round_number)
+
+        # Modify the payload to cause a failure
+        # Use invalid signature that will be rejected by the server
+        payload["stakingSignature"] = "invalid_signature"
+        payload["publicSignature"] = "invalid_signature"
+        payload["addPRSignature"] = "invalid_signature"
+
+        return payload

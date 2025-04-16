@@ -274,7 +274,48 @@ def run_todo_task(
         )
 
         # Run workflow and get PR URL
-        pr_url = workflow.run()
+        try:
+            pr_url = workflow.run()
+
+        # recoverable errors
+        except WorkflowError as e:
+            print(f"WorkflowError: {e}")
+            submission.status = "failed"
+            db.commit()
+            logger.info(
+                f"Updated status to failed for task {task_id}, round {round_number}"
+            )
+
+            # Only report failures that can be recovered by other agents
+            report_task_failure(
+                task_id=task_id,
+                round_number=round_number,
+                staking_key=staking_key,
+                staking_signature=staking_signature,
+                pub_key=pub_key,
+                failure_reason=e.reason,
+                failure_feedback=e.details,
+                node_type="worker",
+                todo_uuid=todo.get("todo_uuid"),
+            )
+            return {
+                "success": False,
+                "error": f"{e.reason}: {e.details}",
+            }
+
+        # non-recoverable errors
+        except Exception as e:
+            print(f"Inner exception: {e}")
+            submission.status = "failed"
+            db.commit()
+            logger.info(
+                f"Updated status to failed for task {task_id}, round {round_number}"
+            )
+
+            return {
+                "success": False,
+                "error": str(e),
+            }
 
         # Store PR URL in local DB immediately
         submission.pr_url = pr_url
@@ -292,42 +333,18 @@ def run_todo_task(
         }
 
     except Exception as e:
-        log_error(e, context="PR creation failed")
-        if "db" in locals():
-            # Update submission status
-            submission = (
-                db.query(Submission)
-                .filter(
-                    Submission.task_id == task_id,
-                    Submission.round_number == round_number,
-                )
-                .first()
+        # Handle database errors or setup failures
+        print(f"Outer exception: {e}")
+        if "submission" in locals() and "db" in locals():
+            submission.status = "failed"
+            db.commit()
+            logger.info(
+                f"Updated status to failed for task {task_id}, round {round_number}"
             )
-            if submission:
-                submission.status = "failed"
-                db.commit()
-                logger.info(
-                    f"Updated status to failed for task {task_id}, round {round_number}"
-                )
-
-        # Extract reason and details - use WorkflowError fields if available
-        failure_reason = getattr(e, "reason", "Task failed")
-        failure_feedback = getattr(e, "details", str(e))
-
-        # Report failure to middle server
-        report_task_failure(
-            task_id=task_id,
-            round_number=round_number,
-            staking_key=staking_key,
-            staking_signature=staking_signature,
-            pub_key=pub_key,
-            failure_reason=failure_reason,
-            failure_feedback=failure_feedback,
-            node_type="worker",
-            todo_uuid=todo.get("todo_uuid"),
-        )
-
-        return {"success": False, "status": 500, "error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+        }
 
 
 def _check_existing_pr(round_number: int, task_id: str) -> dict:
@@ -754,23 +771,59 @@ def consolidate_prs(
                 expected_branch=source_branch,
             )
 
-            # Run workflow
-            pr_url = workflow.run()
-            if not pr_url:
-                raise WorkflowError(
-                    reason="PR consolidation failed",
-                    details="Workflow completed but no PR URL returned",
+            try:
+                # Run workflow
+                pr_url = workflow.run()
+                if not pr_url:
+                    raise WorkflowError(
+                        reason="PR consolidation failed",
+                        details="Workflow completed but no PR URL returned",
+                    )
+
+                # Store PR URL in local DB
+                submission.pr_url = pr_url
+                submission.status = (
+                    "pending_record"  # Will be updated to completed by record_pr
+                )
+                db.commit()
+                logger.info(
+                    f"Stored PR URL {pr_url} locally for task {task_id}, round {round_number}"
                 )
 
-            # Store PR URL in local DB
-            submission.pr_url = pr_url
-            submission.status = (
-                "pending_record"  # Will be updated to completed by record_pr
-            )
-            db.commit()
-            logger.info(
-                f"Stored PR URL {pr_url} locally for task {task_id}, round {round_number}"
-            )
+            except WorkflowError as e:
+                # Only report recoverable workflow errors
+                submission.status = "failed"
+                db.commit()
+                logger.info(
+                    f"Updated status to failed for task {task_id}, round {round_number}"
+                )
+
+                report_task_failure(
+                    task_id=task_id,
+                    round_number=round_number,
+                    staking_key=staking_key,
+                    staking_signature=staking_signature,
+                    pub_key=pub_key,
+                    failure_reason=e.reason,
+                    failure_feedback=e.details,
+                    node_type="leader",
+                    issue_uuid=issue_uuid,
+                )
+                return {
+                    "success": False,
+                    "error": f"{e.reason}: {e.details}",
+                }
+            except Exception as e:
+                # Non-recoverable errors are just returned as errors
+                submission.status = "failed"
+                db.commit()
+                logger.info(
+                    f"Updated status to failed for task {task_id}, round {round_number}"
+                )
+                return {
+                    "success": False,
+                    "error": str(e),
+                }
 
         # Use record_pr to handle both local and remote recording
         record_result = record_pr(
@@ -793,9 +846,9 @@ def consolidate_prs(
         }
 
     except Exception as e:
+        # Handle setup/configuration errors without reporting as task failures
         log_error(e, context="PR consolidation failed")
         if "db" in locals():
-            # Update submission status
             submission = (
                 db.query(Submission)
                 .filter(
@@ -811,26 +864,11 @@ def consolidate_prs(
                     f"Updated status to failed for task {task_id}, round {round_number}"
                 )
 
-        # Extract reason and details - use WorkflowError fields if available
-        failure_reason = getattr(e, "reason", "Task consolidation failed")
-        failure_feedback = getattr(e, "details", str(e))
-
-        # Report failure to middle server
-        report_task_failure(
-            task_id=task_id,
-            round_number=round_number,
-            staking_key=staking_key,
-            staking_signature=staking_signature,
-            pub_key=pub_key,
-            failure_reason=failure_reason,
-            failure_feedback=failure_feedback,
-            node_type="leader",
-            issue_uuid=(
-                submission.uuid if "submission" in locals() and submission else None
-            ),
-        )
-
-        return {"success": False, "status": 500, "error": str(e)}
+        return {
+            "success": False,
+            "status": 500,
+            "error": str(e),
+        }
 
 
 def create_aggregator_repo(task_id):
@@ -1158,6 +1196,8 @@ def report_task_failure(
             "roundNumber": round_number,
             "nodeType": node_type,
         }
+
+        print("Failure Payload: ", payload)
 
         if todo_uuid:
             payload["todoUuid"] = todo_uuid
