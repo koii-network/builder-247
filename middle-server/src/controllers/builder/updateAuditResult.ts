@@ -164,62 +164,58 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
   console.log(`[TEST MODE] Starting audit results processing for round ${round}`);
 
   // 1. Update IN_REVIEW todos to APPROVED if they have PR URLs
-  const todosResult = await TodoModel.updateMany(
-    {
-      status: TodoStatus.IN_REVIEW,
-      "assignees.roundNumber": round,
-      "assignees.prUrl": { $exists: true, $ne: null },
-    },
-    {
-      $set: { status: TodoStatus.APPROVED },
-    },
-  );
+  const inReviewTodos = await TodoModel.find({
+    status: TodoStatus.IN_REVIEW,
+    "assignees.roundNumber": round,
+    "assignees.prUrl": { $exists: true, $ne: null },
+  });
 
-  console.log(`[TEST MODE] Updated ${todosResult.modifiedCount} todos from IN_REVIEW to APPROVED for round ${round}`);
+  for (const todo of inReviewTodos) {
+    todo.status = TodoStatus.APPROVED;
+    const assignee = todo.assignees?.find((a) => a.roundNumber === round);
+    if (assignee) {
+      assignee.approved = true;
+    }
+    await todo.save();
+  }
+
+  console.log(`[TEST MODE] Updated ${inReviewTodos.length} todos from IN_REVIEW to APPROVED for round ${round}`);
 
   // 2. Find all IN_PROGRESS issues (these are issues that have been audited by the leader)
   const inProgressIssues = await IssueModel.find({ status: IssueStatus.IN_PROGRESS });
 
   console.log(`[TEST MODE] Found ${inProgressIssues.length} issues in IN_PROGRESS status`);
 
-  // 3. For each IN_PROGRESS issue, check if all its todos are APPROVED and have PR URLs
+  // 3. For each IN_PROGRESS issue, check if all its todos are APPROVED
   for (const issue of inProgressIssues) {
     console.log(`[TEST MODE] Processing issue ${issue.issueUuid}`);
     const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
     console.log(`[TEST MODE] Found ${todos.length} todos for issue ${issue.issueUuid}`);
 
-    const allTodosApprovedWithPRs = todos.every((todo) => {
-      const assignee = todo.assignees?.find((a) => a.roundNumber === round);
-      return todo.status === TodoStatus.APPROVED && assignee?.prUrl;
-    });
+    const allTodosApproved = todos.every((todo) => todo.status === TodoStatus.APPROVED);
 
-    console.log(`[TEST MODE] All todos approved with PRs: ${allTodosApprovedWithPRs}`);
-    console.log(
-      `[TEST MODE] Todo statuses:`,
-      todos.map((t) => ({
-        id: t._id,
-        status: t.status,
-        hasPR: !!t.assignees?.find((a) => a.roundNumber === round)?.prUrl,
-      })),
-    );
+    console.log(`[TEST MODE] All todos approved: ${allTodosApproved}`);
 
-    if (allTodosApprovedWithPRs) {
-      // Update to ASSIGN_PENDING if all todos are approved and have PR URLs
+    if (allTodosApproved) {
+      // Update to ASSIGN_PENDING if all todos are approved
       await IssueModel.updateOne({ _id: issue._id }, { $set: { status: IssueStatus.ASSIGN_PENDING } });
-      console.log(
-        `[TEST MODE] Updated issue ${issue.issueUuid} to ASSIGN_PENDING - all todos are approved with PR URLs`,
-      );
+      console.log(`[TEST MODE] Updated issue ${issue.issueUuid} to ASSIGN_PENDING - all todos are approved`);
     } else {
-      console.log(`[TEST MODE] Issue ${issue.issueUuid} remains IN_REVIEW - not all todos are approved with PR URLs`);
+      console.log(`[TEST MODE] Issue ${issue.issueUuid} remains IN_PROGRESS - not all todos are approved`);
     }
   }
 
-  // 4. For issues IN_REVIEW, update them to APPROVED
-  const inReviewIssues = await IssueModel.updateMany(
-    { status: IssueStatus.IN_REVIEW },
-    { $set: { status: IssueStatus.APPROVED } },
-  );
-  console.log(`[TEST MODE] Updated ${inReviewIssues.modifiedCount} issues from IN_REVIEW to APPROVED`);
+  // 4. For issues IN_REVIEW, update them to APPROVED and set assignee.approved
+  const inReviewIssues = await IssueModel.find({ status: IssueStatus.IN_REVIEW });
+  for (const issue of inReviewIssues) {
+    issue.status = IssueStatus.APPROVED;
+    const assignee = issue.assignees?.find((a) => a.roundNumber === round);
+    if (assignee) {
+      assignee.approved = true;
+    }
+    await issue.save();
+  }
+  console.log(`[TEST MODE] Updated ${inReviewIssues.length} issues from IN_REVIEW to APPROVED`);
 }
 
 export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
@@ -254,21 +250,15 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
 
   for (const issue of issues) {
     const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
-    if (
-      todos.every((todo) => {
-        const assignee = todo.assignees?.find((a) => a.roundNumber === round);
-        return todo.status === TodoStatus.APPROVED && assignee?.prUrl;
-      })
-    ) {
+    if (todos.every((todo) => todo.status === TodoStatus.APPROVED)) {
       issue.status = IssueStatus.ASSIGN_PENDING;
-      console.log(`Setting issue ${issue.issueUuid} to ASSIGN_PENDING - all todos approved with PR URLs`);
+      console.log(`Setting issue ${issue.issueUuid} to ASSIGN_PENDING - all todos approved`);
     } else {
       console.log(
-        `Issue ${issue.issueUuid} remains in current status - not all todos are approved with PR URLs:`,
+        `Issue ${issue.issueUuid} remains in current status - not all todos are approved:`,
         todos.map((t) => ({
           id: t._id,
           status: t.status,
-          hasPR: !!t.assignees?.find((a) => a.roundNumber === round)?.prUrl,
         })),
       );
     }

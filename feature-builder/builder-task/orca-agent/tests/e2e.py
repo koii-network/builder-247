@@ -338,6 +338,7 @@ def run_test_sequence(
     test_setup,
     task_id: str = "",
     data_dir: Path = None,
+    max_rounds: int = None,
 ):
     """Run the test sequence, automatically determining where to resume from"""
     # Check if database needs to be populated
@@ -420,14 +421,16 @@ def run_test_sequence(
     print(f"Starting with round {data_manager.round_number}")
     print(f"Resuming from step {start_step}")
 
-    # Get total number of todos from MongoDB
-    mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-    client = MongoClient(mongodb_uri)
-    db = client["builder247"]
-    total_todos = db.todos.count_documents({})
-    client.close()
-    max_rounds = total_todos + 1
-    print(f"Total todos: {total_todos}, maximum rounds: {max_rounds}")
+    # Get total number of todos from MongoDB if max_rounds not provided
+    if max_rounds is None:
+        mongodb_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+        client = MongoClient(mongodb_uri)
+        db = client["builder247"]
+        total_todos = db.todos.count_documents({})
+        client.close()
+        max_rounds = total_todos + 1
+
+    print(f"Maximum rounds: {max_rounds}")
 
     # Continue running rounds until all work is completed
     while True:
@@ -676,6 +679,9 @@ Example usage:
 
   # Run with custom data directory
   python -m tests.e2e --data-dir /path/to/data
+
+  # Run with maximum number of rounds
+  python -m tests.e2e --max-rounds 5
 """,
     )
     parser.add_argument(
@@ -692,6 +698,11 @@ Example usage:
         "--data-dir",
         type=str,
         help="Directory containing MongoDB data files (issues.json, todos.json, prompts.json)",
+    )
+    parser.add_argument(
+        "--max-rounds",
+        type=int,
+        help="Maximum number of rounds to run (overrides automatic calculation)",
     )
     args = parser.parse_args()
 
@@ -724,4 +735,4 @@ Example usage:
 
     # Use TestSetup as a context manager to ensure servers are started and stopped properly
     with TestSetup() as test_setup:
-        run_test_sequence(test_setup, task_id, data_dir)
+        run_test_sequence(test_setup, task_id, data_dir, args.max_rounds)

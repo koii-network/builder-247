@@ -40,7 +40,7 @@
       }
     },
     "2": {
-      "last_completed_step": "worker2-submission",
+      "last_completed_step": "leader-audit-results",
       "pr_urls": {
         "worker1": "https://github.com/momstrosity/builder-test/pull/234",
         "worker2": "https://github.com/momstrosity/builder-test/pull/235"
@@ -73,6 +73,67 @@
           "pubKey": "AwXAtX7tMhL4JyB8NfXdsrqc1UifaMyap3c9bpN9RMse"
         }
       }
+    },
+    "3": {
+      "last_completed_step": "leader-audit-results",
+      "pr_urls": {
+        "worker1": "https://github.com/momstrosity/builder-test/pull/236",
+        "leader": "https://github.com/koii-network/builder-test/pull/50"
+      },
+      "submission_data": {
+        "worker1": {
+          "githubUsername": "labrocadabro",
+          "nodeType": "worker",
+          "prUrl": "https://github.com/momstrosity/builder-test/pull/236",
+          "repoName": "builder-test",
+          "repoOwner": "momstrosity",
+          "roundNumber": 3,
+          "taskId": "1112",
+          "uuid": "a6024865-d980-4138-905a-990735cdf8e5",
+          "signature": "AzXEb1H54eZRUHbYNmAqpXmsvugAf5heSHU7XkpKBNWh3ZypoTVYDLDJs9qGCaBdKqvFiWLSTo2PfhXZcwpAFpJ6sKk8qNfDRb3N724rpV7A5duQbmtQBH7PXuBN2zSVTZ2YBZ8Y1Lja9kBRPJ5642ZYHJSwxNJCBTfT1FtpVZ8bk2hoSe9nLjs1hHZuQoPizMk8YufViL2NR841QRJih63GnF9saJnvdcVngdb5v69UohQveQHXFCeHN7KL22rChGdhmT4Zg6MC7HZFYsYbzbGVVBfsBJbAWpppN4NXhPLcJZEka62BmL64wi8MmbzB5xD2r2KJzRn79SvL4BJhKku28QeqTTjUdc2nWvhNXQCVoaL2FBGW79qgCapWYSQ7ifXg5ReBCfcFrPcjs4QnkuiAfgGnChBENTACErpfW8hvKszF9B4YN5KJZp6PdsVDf1hj6aYSGbuG12",
+          "stakingKey": "BiYiK5ioyqd6c2pPvvjaSzLAhR8MMvBordhBnh9CordT",
+          "pubKey": "7rnv8Gvvs8tbnnnddjozHRXqtmrMpW536PJRDxV4ua4t"
+        },
+        "leader": {
+          "githubUsername": "momstrosity",
+          "nodeType": "leader",
+          "prUrl": "https://github.com/koii-network/builder-test/pull/50",
+          "repoName": "builder-test",
+          "repoOwner": "momstrosity",
+          "roundNumber": 3,
+          "taskId": "1112",
+          "uuid": "ca7618b0-18dd-43a4-bb59-4fc24d7f0377",
+          "signature": "eaRXC5zwXoAtnefncznP9iDS6h7sSWYGAUDXeJF66vUySWFfQAWczjzi9PtU2BcfJYo4gutFYxoSybP52Efnh76CRGuCpW68dq4nVKjhWMCLuuoNF664ZVjdVTiAu96EFhBao3epHrqSdittsWFkiZXZ5dFKY7Hwa37kdReGfFqxYxubRV8D1gZmJfTBwQPSJueraqzXC8TGR3xJp6J8vyE25pz83m1iAW5sV4vWMGrSEAVXQfwT1Fn18pJJFzs4k34E6Tke3seGvyvtLNefAdt7zajBQv3hUzQM1b7dMtA91DePjGXrza1Cyy4ERwzQZCukt3jHYCynW35jc4d49tWF8ChtnCBbTtQRG2P55CnRe7ZbLefgsesQHPfUwEa9WUVjdemeKWZKCgPdGcd5ywSU4vSVsKSU59bGQ7e8DyXZRoe411qCBwNn6Bc5xRaxuPPwcMuoYSrg",
+          "stakingKey": "Dxcv6GfEXQ7Jq1F7iGkmcPJFkQkgrkmyTGxjQSNNron9",
+          "pubKey": "CcFDePpTczeCbUyUP5gKCP1eXHJVrfG2GBpMYYMjvaHL"
+        }
+      }
+    },
+    "4": {
+      "last_completed_step": "leader-audit-results",
+      "pr_urls": {
+        "worker1": "https://github.com/momstrosity/builder-test/pull/237"
+      },
+      "submission_data": {
+        "worker1": {
+          "githubUsername": "labrocadabro",
+          "nodeType": "worker",
+          "prUrl": "https://github.com/momstrosity/builder-test/pull/237",
+          "repoName": "builder-test",
+          "repoOwner": "momstrosity",
+          "roundNumber": 4,
+          "taskId": "1112",
+          "uuid": "ec3ab697-048f-4b94-8d19-d2f58fb981b1",
+          "signature": "6jVSDRP1riL43DobUkUVGdQDZHv5ihmiiRyfCV7Rr2okY6msFsJYNAiA1ZqVqDThikYggbPomKxXRAo9RrreYR4d5qpPG1c387foxBdGyAcPartQ1URfU4JPsqqqKDihW87uvnCV5PPZMMA5UqBb43Hahk8F2aNV9UUSzwMaWb2kJFimAQRYUCNuUccF1y18T2RtxaZkkr99YppdAG6azWGsUSX9SEJRTDUuMDSu4Tc7chSt3VMFU1cUSgCgkMS9psT4M6kwzRxYx5KB5tt4wUri3AtByDBdAatgqovCwqTG8HT9kaCRryD285EEuyfww7fPDhXF6RuBiuT84Rc9y6sZuDNF66G71WAkssx8ruSNMfdtrE6f5Kg2STH8axZL6DQ5RzHifst4TRRExfhkhGEd1FaKB3A1C1zNPwE2hm5kpXZn6TjcBY9ptuRwgWJJJNv6k3dGQFTmw2",
+          "stakingKey": "BiYiK5ioyqd6c2pPvvjaSzLAhR8MMvBordhBnh9CordT",
+          "pubKey": "7rnv8Gvvs8tbnnnddjozHRXqtmrMpW536PJRDxV4ua4t"
+        }
+      }
+    },
+    "5": {
+      "last_completed_step": "create-aggregator",
+      "pr_urls": {},
+      "submission_data": {}
     }
   }
 }

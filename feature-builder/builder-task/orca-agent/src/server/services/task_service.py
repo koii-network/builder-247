@@ -273,7 +273,9 @@ def run_todo_task(
 
         # Store PR URL in local DB immediately
         submission.pr_url = pr_url
-        submission.status = "pending_record"  # New status to indicate PR exists but not recorded with middle server
+        submission.status = (
+            "pending_record"  # PR exists but not recorded with middle server
+        )
         db.commit()
         logger.info(
             f"Stored PR URL {pr_url} locally for task {task_id}, round {round_number}"
