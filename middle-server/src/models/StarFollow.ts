@@ -27,9 +27,6 @@ class StarFollow {
   public taskId!: string;
 
   @prop({ required: false })
-  public roundNumber!: number;
-
-  @prop({ required: false })
   public pendingRepos!: string[];
 
   @prop({ required: false })
