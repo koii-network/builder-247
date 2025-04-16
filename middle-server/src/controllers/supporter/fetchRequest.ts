@@ -46,6 +46,7 @@ async function verifySignatureData(
   taskId: string,
   roundNumber: number,
 ): Promise<boolean> {
+  console.log(`round number: ${roundNumber}`);
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
@@ -157,7 +158,7 @@ export const fetchStarFollowAssignment = async (requestBody: {signature: string,
       { _id: existingAssignment._id },
       {
         $set: {
-          pendingRepos: [newRepos]
+          pendingRepos: newRepos
         }
       },
       { new: true }

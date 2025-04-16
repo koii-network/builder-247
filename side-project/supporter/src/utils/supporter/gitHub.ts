@@ -60,6 +60,9 @@ async function checkStarred(owner: string, repoName: string, username: string) {
       sort: 'created',
       per_page: 100,
     });
+    if (response.status != 200) {
+      return true;
+    }
     
     // Check if the target repo is in the list of starred repos
     const isStarred = response.data.some((repo: { owner: { login: string }, name: string }) => 
@@ -68,7 +71,7 @@ async function checkStarred(owner: string, repoName: string, username: string) {
     return isStarred;
   } catch (error) {
     console.log("error", error);
-    return false;
+    return true;
   }
 }
 
@@ -88,14 +91,18 @@ async function followUser(owner: string) : Promise<boolean> {
 async function checkFollowed(username: string, owner: string) {
   if (!octokit) await initializeOctokit();
   try {
-    await octokit.rest.users.checkFollowingForUser({
+    const response = await octokit.rest.users.checkFollowingForUser({
       username: username,
       target_user: owner,
     });
+    if (response.status == 404) {
+      // All other status code is not user's fault
+      return false;
+    }
     return true;
   } catch (error) {
     console.log("error", error);
-    return false;
+    return true;
   }
 }
 
@@ -106,7 +113,7 @@ async function checkRepoStatus(owner: string, repoName: string) {
     owner: owner,
     repo: repoName,
   });
-  return response.status >= 200 && response.status < 300;
+  return response.status == 200;
 }
 
 async function getUserInfo() {

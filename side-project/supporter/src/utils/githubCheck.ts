@@ -4,6 +4,7 @@ export async function checkGitHub(token: string) {
         Authorization: `token ${token}`,
       },
     });
-    const isTokenValid = tokenRes.status === 200;
+    const isTokenValid = tokenRes.status >= 200 && tokenRes.status < 300;
+    console.log("[UTILS] Token valid:", tokenRes);
     return isTokenValid
 }

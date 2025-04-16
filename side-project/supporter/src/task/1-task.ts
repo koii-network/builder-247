@@ -53,7 +53,20 @@ export async function task(roundNumber: number): Promise<void> {
       return;
     }
     const issueNumber = issueCreateData.number;
-    const userInfo = await getUserInfo();
+    // Try to get cached user info first
+    const cachedUserInfo = await namespaceWrapper.storeGet('user-info');
+    let userInfo;
+    if (cachedUserInfo) {
+      console.log("[TASK] Using cached user info");
+      userInfo = JSON.parse(cachedUserInfo);
+    } else {
+      console.log("[TASK] Fetching fresh user info from GitHub");
+      userInfo = await getUserInfo();
+      if (userInfo) {
+        // Cache the user info for future use
+        await namespaceWrapper.storeSet('user-info', JSON.stringify(userInfo));
+      }
+    }
     if (!userInfo) {
       // await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.GITHUB_CHECK_FAILED, actionMessage.GITHUB_CHECK_FAILED);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.FETCH_USER_INFO_FAILED);
@@ -63,19 +76,25 @@ export async function task(roundNumber: number): Promise<void> {
     const bindStatusInDB = await namespaceWrapper.storeGet(`bind-status-${userInfo.id}`);
     if (!bindStatusInDB) {
       console.log("[TASK] Bind status in DB not found, proceeding with binding");
-      const bindRepo = await fetch(`${middleServerUrl}/api/supporter/bind-key-to-github`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({stakingKey: stakingKey, githubId: userInfo.id, githubUsername: userInfo.username, issueNumber: issueNumber}),
-      });
-      const bindRepoJson = await bindRepo.json();
-      if (bindRepoJson.statuscode >= 200 && bindRepoJson.statuscode < 300) {
+      try {
+        const bindRepo = await fetch(`${middleServerUrl}/api/supporter/bind-key-to-github`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({stakingKey: stakingKey, githubId: userInfo.id, githubUsername: userInfo.username, issueNumber: issueNumber}),
+        });
+        const bindRepoJson = await bindRepo.json();
+        if (bindRepoJson.statuscode >= 200 && bindRepoJson.statuscode < 300) {
+          await namespaceWrapper.storeSet(`bind-status-${userInfo.id}`, status.SUCCESS);
+        } else {
+          await namespaceWrapper.storeSet(`result-${roundNumber}`, status.BIND_REPO_FAILED);
+          return;
+        }
+      } catch (error) {
+        console.error("[TASK] Error binding repo:", error);
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.BIND_REPO_FAILED);
         return;
-      } else {
-        await namespaceWrapper.storeSet(`bind-status-${userInfo.id}`, status.SUCCESS);
       }
     } else {
       console.log("[TASK] Bind status already exists in DB, skipping bind request");
@@ -93,28 +112,37 @@ export async function task(roundNumber: number): Promise<void> {
       },
       stakingKeypair.secretKey,
     );
-    const fetchRepoList = await fetch(`${middleServerUrl}/api/supporter/fetch-repo-list`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        stakingKey: stakingKey,
-        signature: signature,
-      }),
-    });
-    const fetchRepoListJson = await fetchRepoList.json();
-    if (fetchRepoListJson.statuscode !== 200) {
-      // await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.FETCH_REPO_LIST_FAILED, actionMessage.FETCH_REPO_LIST_FAILED);
+    let repoList: string[] = [];
+    try {
+      const fetchRepoList = await fetch(`${middleServerUrl}/api/supporter/fetch-repo-list`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stakingKey: stakingKey,
+          signature: signature,
+        }),
+      });
+      const fetchRepoListJson = await fetchRepoList.json();
+      if (fetchRepoListJson.statuscode !== 200) {
+        await namespaceWrapper.storeSet(`result-${roundNumber}`, status.FETCH_REPO_LIST_FAILED);
+        return;
+      }
+      console.log("[TASK] Fetch repo list json:", fetchRepoListJson);
+      const repoUrlList = fetchRepoListJson.data.pendingRepos;
+      console.log("[TASK] Repo url list:", repoUrlList);
+      repoList = repoUrlList.map((repo: string) => {
+        const [,, , owner, repoName] = repo.split("/");
+        return `${owner}/${repoName}`;
+      });
+      console.log("[TASK] Repo list:", repoList);
+    } catch (error) {
+      console.error("[TASK] Error fetching repo list:", error);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.FETCH_REPO_LIST_FAILED);
       return;
     }
-    const repoUrlList = fetchRepoListJson.data.pendingRepos;
-    const repoList = repoUrlList.map((repo: string) => {
-      const [,, , owner, repoName] = repo.split("/");
-      return `${owner}/${repoName}`;
-    });
-    
+    console.log("[TASK] Repo list:", repoList);
     /****************** Create a issue to bind the repo to the task ******************/
     try {
       for (const repo of repoList) {
