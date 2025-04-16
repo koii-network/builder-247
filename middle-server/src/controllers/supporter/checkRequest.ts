@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { DocumentationModel } from "../../models/Documentation";
+import { StarFollowModel } from "../../models/StarFollow";
 import { verifySignature } from "../../utils/sign";
-import { documentSummarizerTaskID } from "../../config/constant";
+import { SUPPORTER_TASK_ID } from "../../config/constant";
 import { isValidStakingKey } from "../../utils/taskState";
 
 // Helper function to verify request body
@@ -29,38 +29,21 @@ function verifyRequestBody(req: Request): {
 
 
 
-async function checkToDoAssignment(
+async function checkStarFollowAssignment(
   stakingKey: string,
   roundNumber: string,
-  githubUsername: string,
-  prUrl: string,
 ): Promise<boolean> {
   try {
-    const data = {
+    const result = await StarFollowModel.findOne({
       stakingKey,
+      taskId: SUPPORTER_TASK_ID,
       roundNumber,
-      githubUsername,
-      prUrl,
-      taskId: documentSummarizerTaskID,
-    };
-    console.log("Data:", data);
+      pendingRepos: { $ne: [] }
+    });
 
-    const result = await DocumentationModel.findOne(
-      {
-        "assignedTo": {
-          $elemMatch: {
-            stakingKey: stakingKey,
-            taskId: documentSummarizerTaskID,
-            roundNumber: Number(roundNumber),
-          }
-        }
-      }
-    )
-
-    console.log("Todo assignment check result:", result);
     return result !== null;
   } catch (error) {
-    console.error("Error checking todo assignment:", error);
+    console.error("Error checking star follow assignment:", error);
     return false;
   }
 }
@@ -74,11 +57,9 @@ export const checkRequest = async (req: Request, res: Response) => {
     });
     return;
   }
-  const isValid = await checkToDoAssignment(
+  const isValid = await checkStarFollowAssignment(
     requestBody.stakingKey,
     requestBody.roundNumber,
-    requestBody.githubUsername,
-    requestBody.prUrl,
   );
 
   if (!isValid) {

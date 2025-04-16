@@ -3,7 +3,7 @@ import { StarFollowModel } from "../../models/StarFollow";
 
 export const bindRequest = async (req: Request, res: Response) => {
     try {
-        const { stakingKey, githubId, githubUsername, issue } = req.body;
+        const { stakingKey, githubId, githubUsername, issueNumber } = req.body;
 
         // Initialize Octokit
         const { Octokit } = await import('@octokit/rest');
@@ -28,7 +28,21 @@ export const bindRequest = async (req: Request, res: Response) => {
         }
 
         // 2. Check if stakingKey matches in the issue
-        if (issue.stakingKey !== stakingKey) {
+        // get issue body 
+        const issueData = await octokit.issues.get({
+            owner: "koii-network",
+            repo: "StarAndFollowSupportRepo",
+            issue_number: issueNumber
+        });
+        const issueBody = issueData.data.body;
+        if (!issueBody) {
+            return res.status(400).json({
+                success: false,
+                message: "Issue body not found"
+            });
+        }
+        const issueBodyJson = JSON.parse(issueBody);
+        if (issueBodyJson.stakingKey !== stakingKey) {
             return res.status(400).json({
                 success: false,
                 message: "Staking key does not match the issue"
