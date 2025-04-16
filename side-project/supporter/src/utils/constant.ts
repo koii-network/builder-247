@@ -9,9 +9,11 @@ export const status = {
   FOLLOW_FAILED: "Follow failed",
   STAR_FAILED: "Star failed",
   NO_DATA_FOR_THIS_ROUND: "No data for this round",
+  FETCH_REPO_LIST_FAILED: "We couldn't fetch the repo list. Please try again later.",
 }
 
 export const errorMessage = {
+  FETCH_REPO_LIST_FAILED: "We couldn't fetch the repo list. Please try again later.",
   ISSUE_FAILED_TO_BE_SUMMARIZED: "We couldn't summarize this issue. Please try again later.",
   ISSUE_SUCCESSFULLY_SUMMARIZED: "The issue was successfully summarized.",
   NO_ISSUES_PENDING_TO_BE_SUMMARIZED: "There are no issues waiting to be summarized at this time.",

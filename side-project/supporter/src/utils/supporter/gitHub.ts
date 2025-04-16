@@ -12,6 +12,7 @@ async function initializeOctokit() {
     throw new Error('GitHub token is not configured. Please set GITHUB_TOKEN in your .env file');
   }
   // console.log("token", process.env.GITHUB_TOKEN);
+  // @ts-ignore
   const { Octokit } = await import("@octokit/rest");
   octokit = new Octokit({
     auth: process.env.GITHUB_TOKEN,
@@ -79,4 +80,14 @@ async function checkFollowed(username: string, owner: string) {
   }
 }
 
-export { starRepo, createIssue, checkStarred, followUser, checkFollowed };
+async function checkRepoStatus(owner: string, repoName: string) {
+  if (!octokit) await initializeOctokit();
+  // Check if the repo exist and if it is public
+  const response = await octokit.rest.repos.get({
+    owner: owner,
+    repo: repoName,
+  });
+  return response.status === 200;
+}
+
+export { starRepo, createIssue, checkStarred, followUser, checkFollowed, checkRepoStatus };

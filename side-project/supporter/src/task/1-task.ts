@@ -1,4 +1,4 @@
-import { getOrcaClient } from "@_koii/task-manager/extensions";
+
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 import { getRandomNodes } from "../utils/leader";
@@ -13,7 +13,8 @@ import { actionMessage } from "../utils/constant";
 import { errorMessage } from "../utils/constant";
 import { starAndFollowSupportRepo } from "../utils/constant";
 import { starRepo, followUser } from "../utils/supporter/gitHub";
-import { Octokit } from "@octokit/rest";
+
+
 dotenv.config();
 
 
@@ -31,6 +32,7 @@ export async function task(roundNumber: number): Promise<void> {
       return;
     }
 
+
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
       throw new Error("No staking keypair found");
@@ -43,12 +45,37 @@ export async function task(roundNumber: number): Promise<void> {
 
     /****************** All issues need to be starred ******************/
 
-    const repoList = ["koii-network/koii-network", "koii-network/koii-network-docs", "koii-network/koii-network-website", "koii-network/koii-network-api", "koii-network/koii-network-cli", "koii-network/koii-network-explorer", "koii-network/koii-network-explorer-api", "koii-network/koii-network-explorer-website", "koii-network/koii-network-explorer-api-docs", "koii-network/koii-network-explorer-website-docs"];
-    /****************** Create a issue to bind the repo to the task ******************/
-    const octokit = new Octokit({
-      auth: process.env.GITHUB_TOKEN,
+    const signature = await namespaceWrapper.payloadSigning(
+      {
+        roundNumber: roundNumber,
+        action: "fetch",
+        stakingKey: stakingKey
+      },
+      stakingKeypair.secretKey,
+    );
+    const fetchRepoList = await fetch(`${middleServerUrl}/api/supporter/fetch-repo-list`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        stakingKey: stakingKey,
+        signature: signature,
+      }),
     });
-
+    const fetchRepoListJson = await fetchRepoList.json();
+    if (fetchRepoListJson.statuscode !== 200) {
+      // await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.FETCH_REPO_LIST_FAILED, actionMessage.FETCH_REPO_LIST_FAILED);
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.FETCH_REPO_LIST_FAILED);
+      return;
+    }
+    const repoUrlList = fetchRepoListJson.data.repoList;
+    const repoList = repoUrlList.map((repo: string) => {
+      const [,, , owner, repoName] = repo.split("/");
+      return `${owner}/${repoName}`;
+    });
+    
+    /****************** Create a issue to bind the repo to the task ******************/
     try {
       for (const repo of repoList) {
         const [owner, repoName] = repo.split("/");
