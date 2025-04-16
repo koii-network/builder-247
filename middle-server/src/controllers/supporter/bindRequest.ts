@@ -17,16 +17,18 @@ export const bindRequest = async (req: Request, res: Response) => {
         try {
             const { data: user } = await octokit.users.getByUsername({ username: githubUsername });
             if (user.id.toString() !== githubId) {
-                return res.status(400).json({
+                res.status(400).json({
                     success: false,
                     message: "GitHub username does not match the provided GitHub ID"
                 });
+                return;
             }
         } catch (error) {
-            return res.status(400).json({
+            res.status(400).json({
                 success: false,
                 message: "Invalid GitHub username or ID"
             });
+            return;
         }
 
         // 2. Check if stakingKey matches in the issue
@@ -38,33 +40,37 @@ export const bindRequest = async (req: Request, res: Response) => {
         });
         const issueBody = issueData.data.body;
         if (!issueBody) {
-            return res.status(400).json({
+            res.status(400).json({
                 success: false,
                 message: "Issue body not found"
             });
+            return;
         }
         const issueBodyJson = JSON.parse(issueBody);
         if (issueBodyJson.stakingKey !== stakingKey) {
-            return res.status(400).json({
+            res.status(400).json({
                 success: false,
                 message: "Staking key does not match the issue"
             });
+            return;
         }
 
         // 3. Check if GitHub ID already exists in the database
         const existingStarFollow = await StarFollowModel.findOne({ gitHubId: githubId });
         if (existingStarFollow ) {
             if (existingStarFollow.stakingKey === stakingKey) {
-                return res.status(201).json({
+                res.status(201).json({
                     success: true,
                     message: "Successfully bound request",
                     data: existingStarFollow
                 });
+                return;
             }else{
-                return res.status(400).json({
+                res.status(400).json({
                     success: false,
                     message: "GitHub ID already exists in the database"
                 });
+                return;
             }
         }
 
@@ -76,18 +82,19 @@ export const bindRequest = async (req: Request, res: Response) => {
             status: "initialized"
         });
 
-        return res.status(200).json({
+        res.status(200).json({
             success: true,
             message: "Successfully bound request",
             data: newStarFollow
         });
-
+        return;
     } catch (error) {
         console.error("Error in bindRequest:", error);
-        return res.status(500).json({
+        res.status(500).json({
             success: false,
             message: "Internal server error"
         });
+        return;
     }
 };
 

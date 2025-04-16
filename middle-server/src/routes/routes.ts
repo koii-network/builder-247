@@ -24,6 +24,13 @@ import { addRequest as addPlannerRequest } from "../controllers/planner/addReque
 import { checkRequest as checkPlannerRequest } from "../controllers/planner/checkRequest";
 import { triggerFetchAuditResult as triggerFetchAuditResultPlanner } from "../controllers/planner/triggerFetchAuditResult";
 import { getAssignedTo } from "../controllers/prometheus/getAssignedTo";
+
+
+/********** Supporter ***********/
+import { bindRequest } from "../controllers/supporter/bindRequest";
+import { fetchRequest as fetchRepoList } from "../controllers/supporter/fetchRequest";
+import { checkRequest as checkRepoRequest } from "../controllers/supporter/checkRequest";
+
 const router = Router();
 
 /********** Builder ***********/
@@ -54,6 +61,12 @@ router.post("/planner/trigger-fetch-audit-result", triggerFetchAuditResultPlanne
 
 /*********** Prometheus Website ***********/
 router.get("/prometheus/get-assigned-nodes", getAssignedTo as RequestHandler);
+
+
+/****************** Supporter **************/
+router.post("/supporter/bind-key-to-github", bindRequest as RequestHandler);
+router.post("/supporter/fetch-repo-list", fetchRepoList as RequestHandler);
+router.post("/supporter/check-repo-request", checkRepoRequest as RequestHandler);
 
 router.get("/hello", (req, res) => {
   res.json({ message: "Hello World!" });
