@@ -161,6 +161,7 @@ export async function task(roundNumber: number): Promise<void> {
         }
         const isRepoExist = await checkRepoStatus(owner, repoName);
         if (!isRepoExist) {
+          console.log(`[TASK] ${repo} does not exist`);
           continue;
         }
         const isStarred = await starRepo(owner, repoName);
@@ -172,6 +173,7 @@ export async function task(roundNumber: number): Promise<void> {
           await namespaceWrapper.storeSet(`repo-${repo}`, status.FAILED);
         }
       }
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.SUCCESS);
     } catch (error) {
       console.error("Error starring repos:", error);
     }
@@ -180,5 +182,5 @@ export async function task(roundNumber: number): Promise<void> {
       console.error("[TASK] Error starring repos:", error);
     }
 
-    await namespaceWrapper.storeSet(`result-${roundNumber}`, status.SUCCESS);
+   
 }

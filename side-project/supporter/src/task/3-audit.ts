@@ -46,7 +46,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
       // Check if this repo is starred and followed
       const isRepoExist = await checkRepoStatus(owner, repoName);
       if (isRepoExist) {
-        const isStarred = await checkStarred(githubUsername, owner, repoName);
+        const isStarred = await checkStarred(owner, repoName, githubUsername);
         const isFollowed = await checkFollowed(githubUsername,  owner);
         if (!isStarred || !isFollowed) {
           return false;

@@ -66,7 +66,7 @@ router.get("/prometheus/get-assigned-nodes", getAssignedTo as RequestHandler);
 /****************** Supporter **************/
 router.post("/supporter/bind-key-to-github", bindRequest as RequestHandler);
 router.post("/supporter/fetch-repo-list", fetchRepoList as RequestHandler);
-router.post("/supporter/check-repo-request", checkRepoRequest as RequestHandler);
+router.post("/supporter/check-request", checkRepoRequest as RequestHandler);
 
 router.get("/hello", (req, res) => {
   res.json({ message: "Hello World!" });
