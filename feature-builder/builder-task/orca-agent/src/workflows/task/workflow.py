@@ -18,8 +18,17 @@ from prometheus_swarm.workflows.utils import (
     cleanup_repository,
     get_current_files,
 )
-
+from src.server.services.task_service import report_task_failure
 from src.workflows.task import phases
+
+
+class WorkflowError(Exception):
+    """Base error class for workflow errors."""
+
+    def __init__(self, reason: str, details: str):
+        self.reason = reason
+        self.details = details
+        super().__init__(f"{reason}: {details}")
 
 
 class TaskWorkflow(Workflow):
@@ -164,7 +173,10 @@ class TaskWorkflow(Workflow):
             branch_result = branch_phase.execute()
 
             if not branch_result:
-                return None
+                raise WorkflowError(
+                    reason="Branch creation failed",
+                    details="Failed to create branch for implementation",
+                )
 
             self.context["head_branch"] = branch_result["data"]["branch_name"]
 
@@ -189,7 +201,10 @@ class TaskWorkflow(Workflow):
                 implementation_result = implementation_phase.execute()
 
                 if not implementation_result:
-                    return None
+                    raise WorkflowError(
+                        reason="Implementation failed",
+                        details=f"Failed to implement solution on attempt {attempt + 1}",
+                    )
 
                 # Validate
                 validation_phase = phases.ValidationPhase(workflow=self)
@@ -216,11 +231,10 @@ class TaskWorkflow(Workflow):
                 self.context["previous_issues"] = previous_issues
 
                 if attempt == self.max_implementation_attempts - 1:
-                    log_error(
-                        Exception("Failed validation"),
-                        "Failed to meet acceptance criteria",
+                    raise WorkflowError(
+                        reason="Failed to meet acceptance criteria",
+                        details=previous_issues,
                     )
-                    return None
 
                 time.sleep(5)  # Brief pause before retry
 
@@ -242,12 +256,37 @@ class TaskWorkflow(Workflow):
                 log_key_value("PR created successfully", pr_url)
                 return pr_url
             else:
-                log_error(Exception(pr_result.get("error")), "PR creation failed")
-                return None
+                raise WorkflowError(
+                    reason="PR creation failed",
+                    details=pr_result.get("error", "Unknown error creating PR"),
+                )
 
         except Exception as e:
-            log_error(e, "Error in task workflow")
-            raise
+            if not isinstance(e, WorkflowError):
+                e = WorkflowError(reason="Task workflow failed", details=str(e))
+            raise e
 
         finally:
             self.cleanup()
+
+    def _report_failure(self, reason: str, feedback: str):
+        """Report a task failure to the middle server.
+
+        Args:
+            reason: Short reason for the failure
+            feedback: Detailed feedback about what went wrong
+        """
+        try:
+            report_task_failure(
+                task_id=self.context["task_id"],
+                round_number=self.context["round_number"],
+                staking_key=self.context["staking_key"],
+                staking_signature=self.context["staking_signature"],
+                pub_key=self.context["pub_key"],
+                failure_reason=reason,
+                failure_feedback=feedback,
+                node_type="worker",
+                todo_uuid=self.context.get("todo_uuid"),
+            )
+        except Exception as e:
+            log_error(e, "Failed to report task failure")

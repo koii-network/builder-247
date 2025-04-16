@@ -13,6 +13,7 @@ from src.workflows.task.prompts import PROMPTS as TASK_PROMPTS
 
 from dotenv import load_dotenv
 import time
+from src.workflows.exceptions import WorkflowError
 
 load_dotenv()
 
@@ -124,7 +125,11 @@ def complete_todo(
                 },
             }
         except Exception as e:
-            return {"success": False, "status": 500, "error": str(e)}
+            return {
+                "success": False,
+                "status": 500,
+                "error": f"Failed to check base branch: {str(e)}",
+            }
     except Exception as e:
         return {
             "success": False,
@@ -304,6 +309,24 @@ def run_todo_task(
                 logger.info(
                     f"Updated status to failed for task {task_id}, round {round_number}"
                 )
+
+        # Extract reason and details - use WorkflowError fields if available
+        failure_reason = getattr(e, "reason", "Task failed")
+        failure_feedback = getattr(e, "details", str(e))
+
+        # Report failure to middle server
+        report_task_failure(
+            task_id=task_id,
+            round_number=round_number,
+            staking_key=staking_key,
+            staking_signature=staking_signature,
+            pub_key=pub_key,
+            failure_reason=failure_reason,
+            failure_feedback=failure_feedback,
+            node_type="worker",
+            todo_uuid=todo.get("todo_uuid"),
+        )
+
         return {"success": False, "status": 500, "error": str(e)}
 
 
@@ -734,17 +757,10 @@ def consolidate_prs(
             # Run workflow
             pr_url = workflow.run()
             if not pr_url:
-                log_error(
-                    Exception("No PR URL returned from workflow"),
-                    context="Merge workflow failed to create PR",
+                raise WorkflowError(
+                    reason="PR consolidation failed",
+                    details="Workflow completed but no PR URL returned",
                 )
-                submission.status = "failed"
-                db.commit()
-                return {
-                    "success": False,
-                    "status": 500,
-                    "error": "Merge workflow failed to create PR",
-                }
 
             # Store PR URL in local DB
             submission.pr_url = pr_url
@@ -794,6 +810,26 @@ def consolidate_prs(
                 logger.info(
                     f"Updated status to failed for task {task_id}, round {round_number}"
                 )
+
+        # Extract reason and details - use WorkflowError fields if available
+        failure_reason = getattr(e, "reason", "Task consolidation failed")
+        failure_feedback = getattr(e, "details", str(e))
+
+        # Report failure to middle server
+        report_task_failure(
+            task_id=task_id,
+            round_number=round_number,
+            staking_key=staking_key,
+            staking_signature=staking_signature,
+            pub_key=pub_key,
+            failure_reason=failure_reason,
+            failure_feedback=failure_feedback,
+            node_type="leader",
+            issue_uuid=(
+                submission.uuid if "submission" in locals() and submission else None
+            ),
+        )
+
         return {"success": False, "status": 500, "error": str(e)}
 
 
@@ -1082,4 +1118,89 @@ def add_aggregator_info(task_id, staking_key, pub_key, signature):
             "success": False,
             "error": f"Failed to add aggregator info: {str(e)}",
             "status": 500,
+        }
+
+
+def report_task_failure(
+    task_id: str,
+    round_number: int,
+    staking_key: str,
+    staking_signature: str,
+    pub_key: str,
+    failure_reason: str,
+    failure_feedback: str,
+    node_type: str = "worker",
+    todo_uuid: str = None,
+    issue_uuid: str = None,
+) -> dict:
+    """Report a task failure to the middle server.
+
+    Args:
+        task_id: Task ID
+        round_number: Round number
+        staking_key: Node's staking key
+        staking_signature: Node's signature
+        pub_key: Node's public key
+        failure_reason: Short reason for failure
+        failure_feedback: Detailed feedback about the failure
+        node_type: Type of node ("worker" or "leader")
+        todo_uuid: UUID of the todo (for worker tasks)
+        issue_uuid: UUID of the issue (for leader tasks)
+    """
+    try:
+        payload = {
+            "taskId": task_id,
+            "stakingKey": staking_key,
+            "signature": staking_signature,
+            "pubKey": pub_key,
+            "failureReason": failure_reason,
+            "failureFeedback": failure_feedback,
+            "roundNumber": round_number,
+            "nodeType": node_type,
+        }
+
+        if todo_uuid:
+            payload["todoUuid"] = todo_uuid
+        if issue_uuid:
+            payload["issueUuid"] = issue_uuid
+
+        response = requests.post(
+            os.environ["MIDDLE_SERVER_URL"] + "/api/builder/record-task-failure",
+            json=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        if not result.get("success", False):
+            logger.error(f"Failed to record task failure: {result.get('message')}")
+            return {
+                "success": False,
+                "status": response.status_code,
+                "error": result.get("message", "Unknown error from middle server"),
+            }
+
+        return {
+            "success": True,
+            "data": {"message": "Task failure recorded successfully"},
+        }
+
+    except requests.exceptions.RequestException as e:
+        if not hasattr(e, "response"):
+            return {
+                "success": False,
+                "status": 500,
+                "error": "No response from middle server",
+            }
+        return {
+            "success": False,
+            "status": e.response.status_code,
+            "error": e.response.text,
+        }
+    except Exception as e:
+        logger.error(f"Error recording task failure: {str(e)}")
+        return {
+            "success": False,
+            "status": 500,
+            "error": str(e),
         }

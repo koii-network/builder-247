@@ -12,11 +12,21 @@ from prometheus_swarm.workflows.utils import (
     cleanup_repository,
     get_current_files,
 )
+from src.server.services.task_service import report_task_failure
 from src.workflows.mergeconflict.phases import (
     ConflictResolutionPhase,
     CreatePullRequestPhase,
     TestVerificationPhase,
 )
+
+
+class WorkflowError(Exception):
+    """Base error class for workflow errors."""
+
+    def __init__(self, reason: str, details: str):
+        self.reason = reason
+        self.details = details
+        super().__init__(f"{reason}: {details}")
 
 
 class MergeConflictWorkflow(Workflow):
@@ -357,8 +367,10 @@ class MergeConflictWorkflow(Workflow):
         """Execute the merge conflict workflow."""
         try:
             if not self.setup():
-                log_error(Exception("Setup failed"), "Repository setup failed")
-                return None
+                raise WorkflowError(
+                    reason="Setup failed",
+                    details="Failed to set up repository for merging PRs",
+                )
 
             # Get list of PRs to process
             gh = Github(self.context["github_token"])
@@ -378,10 +390,12 @@ class MergeConflictWorkflow(Workflow):
                 print(f"Found PR #{pr.number}: {pr.title} from {pr.user.login}")
 
             if not open_prs:
-                log_error(Exception("No open PRs found"), "No PRs to process")
-                return None
+                raise WorkflowError(
+                    reason="No PRs to process", details="No open PRs found for merging"
+                )
 
             # Process each PR in chronological order
+            failed_prs = []
             for pr in open_prs:
                 log_section(f"Processing PR #{pr.number}")
 
@@ -397,21 +411,29 @@ class MergeConflictWorkflow(Workflow):
                     # If we get here, validation passed and we should merge
                     result = self.merge_pr(pr_url=pr.html_url, pr_title=pr.title)
                     if not result["success"]:
-                        log_error(
-                            Exception(result.get("message", "Unknown error")),
-                            f"Failed to merge PR #{pr.number}",
+                        failed_prs.append(
+                            {
+                                "number": pr.number,
+                                "url": pr.html_url,
+                                "error": result.get("message", "Unknown error"),
+                            }
                         )
-                        return None
+                        continue
 
                 except ValueError as e:
-                    log_error(e, f"Validation failed for PR #{pr.number}")
-                    return None
+                    failed_prs.append(
+                        {"number": pr.number, "url": pr.html_url, "error": str(e)}
+                    )
+                    continue
 
             if not self.context["merged_prs"]:
-                log_error(
-                    Exception("No PRs were merged"), "No PRs were successfully merged"
-                )
-                return None
+                if failed_prs:
+                    details = "Failed to merge PRs:\n" + "\n".join(
+                        f"- PR #{pr['number']}: {pr['error']}" for pr in failed_prs
+                    )
+                else:
+                    details = "No PRs were successfully merged"
+                raise WorkflowError(reason="No PRs were merged", details=details)
 
             # Run tests and fix any issues
             print("\nRunning test verification phase")
@@ -421,11 +443,10 @@ class MergeConflictWorkflow(Workflow):
             )
             test_result = test_phase.execute()
             if not test_result or not test_result.get("success"):
-                log_error(
-                    Exception(test_result.get("error", "Test verification failed")),
-                    "Tests failed after merging PRs",
+                raise WorkflowError(
+                    reason="Test verification failed",
+                    details=test_result.get("error", "Tests failed after merging PRs"),
                 )
-                return None
 
             # Store the conversation ID from test phase
             self.conversation_id = test_phase.conversation_id
@@ -438,38 +459,61 @@ class MergeConflictWorkflow(Workflow):
             try:
                 pr_result = pr_phase.execute()
                 if not pr_result:
-                    log_error(
-                        Exception("PR creation phase returned None"),
-                        "PR creation failed - no result returned",
+                    raise WorkflowError(
+                        reason="PR creation failed",
+                        details="PR creation phase returned no result",
                     )
-                    return None
 
                 if pr_result.get("success"):
                     pr_url = pr_result.get("data", {}).get("pr_url")
                     if not pr_url:
-                        log_error(
-                            Exception("No PR URL in successful result"),
-                            "PR creation succeeded but no URL returned",
+                        raise WorkflowError(
+                            reason="PR creation failed",
+                            details="PR creation succeeded but no URL returned",
                         )
-                        return None
                     log_key_value("PR created successfully", pr_url)
                     return pr_url
                 else:
-                    error = pr_result.get("error", "Unknown error")
-                    log_error(Exception(error), "PR creation failed with error")
-                    return None
+                    raise WorkflowError(
+                        reason="PR creation failed",
+                        details=pr_result.get("error", "Unknown error"),
+                    )
             except Exception as e:
-                log_error(e, "PR creation phase failed with exception")
-                return None
-
-            return None
+                if not isinstance(e, WorkflowError):
+                    e = WorkflowError(reason="PR creation failed", details=str(e))
+                raise e
 
         except Exception as e:
-            log_error(e, "Error in merge conflict workflow")
-            raise
+            if not isinstance(e, WorkflowError):
+                e = WorkflowError(
+                    reason="Merge conflict workflow failed", details=str(e)
+                )
+            raise e
 
         finally:
             self.cleanup()
+
+    def _report_failure(self, reason: str, feedback: str):
+        """Report a task failure to the middle server.
+
+        Args:
+            reason: Short reason for the failure
+            feedback: Detailed feedback about what went wrong
+        """
+        try:
+            report_task_failure(
+                task_id=self.task_id,
+                round_number=self.context.get("round_number"),
+                staking_key=self.context["staking_key"],
+                staking_signature=self.context["staking_signature"],
+                pub_key=self.context["pub_key"],
+                failure_reason=reason,
+                failure_feedback=feedback,
+                node_type="leader",
+                issue_uuid=self.context.get("issue_uuid"),
+            )
+        except Exception as e:
+            log_error(e, "Failed to report task failure")
 
     def cleanup(self):
         """Clean up repository."""
