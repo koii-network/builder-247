@@ -88,7 +88,8 @@ export async function task(roundNumber: number): Promise<void> {
       {
         roundNumber: roundNumber,
         action: "fetch",
-        stakingKey: stakingKey
+        stakingKey: stakingKey,
+        taskId: TASK_ID,
       },
       stakingKeypair.secretKey,
     );

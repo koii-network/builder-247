@@ -94,8 +94,6 @@ space: 5
 # To add more global variables and task variables, please refer to the type, value, description format shown below.
 # The ORCA_TASK addon is REQUIRED
 requirementsTags:
-  - type: ADDON
-    value: "ORCA_TASK"
   - type: CPU
     value: "4-core"
   - type: RAM
