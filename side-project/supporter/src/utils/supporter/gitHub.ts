@@ -19,24 +19,37 @@ async function initializeOctokit() {
   });
 }
 
+
+
 async function createIssue(owner: string, repo: string, title: string, body: string) {
   if (!octokit) await initializeOctokit();
-  const response = await octokit.rest.issues.create({
-    owner: owner,
-    repo: repo,
-    title: title,
-    body: body,
-  });   
-  return response.status;
+  try {
+    const response = await octokit.rest.issues.create({
+      owner: owner,
+      repo: repo,
+      title: title,
+      body: body,
+    });   
+    // Check if status code is in the 2xx range (success)
+    return response.data;
+  } catch (error) {
+    console.error("Error creating issue:", error);
+    return null;
+  }
 }
 
-async function starRepo(owner: string, repoName: string) {
+async function starRepo(owner: string, repoName: string) : Promise<boolean> {
   if (!octokit) await initializeOctokit();
-  const response = await octokit.rest.activity.starRepoForAuthenticatedUser({
-    owner: owner,
-    repo: repoName,
-  });
-  return response.status;
+  try {
+    const response = await octokit.rest.activity.starRepoForAuthenticatedUser({
+      owner: owner,
+      repo: repoName,
+    });
+    return response.status >= 200 && response.status < 300;
+  } catch (error) {
+    console.log("error", error);
+    return false;
+  }
 }
 
 async function checkStarred(owner: string, repoName: string, username: string) {
@@ -59,12 +72,17 @@ async function checkStarred(owner: string, repoName: string, username: string) {
   }
 }
 
-async function followUser(owner: string) {
+async function followUser(owner: string) : Promise<boolean> {
   if (!octokit) await initializeOctokit();
-  const response = await octokit.rest.users.follow({
-    username: owner,
-  });
-  return response.status === 204;
+  try {
+    const response = await octokit.rest.users.follow({
+      username: owner,
+    });
+    return response.status >= 200 && response.status < 300;
+  } catch (error) {
+    console.log("error", error);
+    return false;
+  }
 }
 
 async function checkFollowed(username: string, owner: string) {
@@ -76,6 +94,7 @@ async function checkFollowed(username: string, owner: string) {
     });
     return true;
   } catch (error) {
+    console.log("error", error);
     return false;
   }
 }
@@ -87,7 +106,21 @@ async function checkRepoStatus(owner: string, repoName: string) {
     owner: owner,
     repo: repoName,
   });
-  return response.status === 200;
+  return response.status >= 200 && response.status < 300;
 }
 
-export { starRepo, createIssue, checkStarred, followUser, checkFollowed, checkRepoStatus };
+async function getUserInfo() {
+  if (!octokit) await initializeOctokit();
+  try {
+    const response = await octokit.rest.users.getAuthenticated();
+    return {
+      id: response.data.id,
+      username: response.data.login
+    };
+  } catch (error) {
+    console.error("Error getting user info:", error);
+    return null;
+  }
+}
+
+export { starRepo, createIssue, checkStarred, followUser, checkFollowed, checkRepoStatus, getUserInfo };

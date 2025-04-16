@@ -3,16 +3,21 @@ dotenv.config();
 
 export const starAndFollowSupportRepo = "koii-network/StarAndFollowSupportRepo"
 export const status = {
+  ISSUE_CREATED_FAILED: "Issue created failed",
+  FETCH_USER_INFO_FAILED: "Fetch user info failed",
+  BIND_REPO_FAILED: "Bind repo failed",
   SUCCESS: "Success",
   FAILED: "Failed",
   GITHUB_CHECK_FAILED: "GitHub check failed",
   FOLLOW_FAILED: "Follow failed",
   STAR_FAILED: "Star failed",
   NO_DATA_FOR_THIS_ROUND: "No data for this round",
-  FETCH_REPO_LIST_FAILED: "We couldn't fetch the repo list. Please try again later.",
+  FETCH_REPO_LIST_FAILED: "No or failed repo list",
 }
 
 export const errorMessage = {
+  STAR_FAILED: "We couldn't star the repo. Please try again later.",
+  FOLLOW_FAILED: "We couldn't follow the user. Please try again later.",
   FETCH_REPO_LIST_FAILED: "We couldn't fetch the repo list. Please try again later.",
   ISSUE_FAILED_TO_BE_SUMMARIZED: "We couldn't summarize this issue. Please try again later.",
   ISSUE_SUCCESSFULLY_SUMMARIZED: "The issue was successfully summarized.",

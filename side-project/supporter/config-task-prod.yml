@@ -106,9 +106,6 @@ requirementsTags:
     value: "ANTHROPIC_API_KEY"
     description: "Your Anthropic API key. You can get one here: https://console.anthropic.com/settings/keys"
   - type: TASK_VARIABLE
-    value: "GITHUB_USERNAME"
-    description: "Your GitHub username. You can sign up for an account here: https://github.com/join"
-  - type: TASK_VARIABLE
     value: "GITHUB_TOKEN"
     description: "Your GitHub Personal Access Token. You can create one here: https://github.com/settings/tokens"
 

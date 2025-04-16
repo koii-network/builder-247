@@ -17,8 +17,6 @@ spec:
       env:
       - name: GITHUB_TOKEN
         value: "${process.env.GITHUB_TOKEN}"
-      - name: GITHUB_USERNAME
-        value: "${process.env.GITHUB_USERNAME}"
       - name: ANTHROPIC_API_KEY
         value: "${process.env.ANTHROPIC_API_KEY}"
       volumeMounts:

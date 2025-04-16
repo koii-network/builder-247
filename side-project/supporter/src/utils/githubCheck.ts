@@ -1,17 +1,11 @@
-export async function checkGitHub(username: string, token: string) {
-    // 1. Check username
-    const userRes = await fetch(`https://api.github.com/users/${username}`);
-    const isUsernameValid = userRes.status === 200;
-  
-    // 2. Check token
+export async function checkGitHub(token: string) {
     const tokenRes = await fetch('https://api.github.com/user', {
       headers: {
         Authorization: `token ${token}`,
       },
     });
     const isTokenValid = tokenRes.status === 200;
-    const isIdentityValid = await checkGitHubIdentity(username, token);
-    return isIdentityValid&&isUsernameValid&&isTokenValid
+    return isTokenValid
 }
 
 async function checkGitHubIdentity(username: string, token: string) {
