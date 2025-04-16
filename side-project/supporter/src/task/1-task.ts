@@ -49,6 +49,7 @@ export async function task(roundNumber: number): Promise<void> {
     if (!issueCreateData) {
       // await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.ISSUE_FAILED_TO_BE_SUMMARIZED, actionMessage.ISSUE_FAILED_TO_BE_SUMMARIZED);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_CREATED_FAILED);
+      console.log("[TASK] Issue creation failed");
       return;
     }
     const issueNumber = issueCreateData.number;
@@ -56,10 +57,12 @@ export async function task(roundNumber: number): Promise<void> {
     if (!userInfo) {
       // await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.GITHUB_CHECK_FAILED, actionMessage.GITHUB_CHECK_FAILED);
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.FETCH_USER_INFO_FAILED);
+      console.log("[TASK] Fetch user info failed");
       return;
     }
     const bindStatusInDB = await namespaceWrapper.storeGet(`bind-status-${userInfo.id}`);
     if (!bindStatusInDB) {
+      console.log("[TASK] Bind status in DB not found, proceeding with binding");
       const bindRepo = await fetch(`${middleServerUrl}/api/supporter/bind-key-to-github`, {
         method: "POST",
         headers: {
@@ -68,12 +71,14 @@ export async function task(roundNumber: number): Promise<void> {
         body: JSON.stringify({stakingKey: stakingKey, githubId: userInfo.id, githubUsername: userInfo.username, issueNumber: issueNumber}),
       });
       const bindRepoJson = await bindRepo.json();
-      if (bindRepoJson.statuscode !== 200) {
+      if (bindRepoJson.statuscode >= 200 && bindRepoJson.statuscode < 300) {
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.BIND_REPO_FAILED);
         return;
-      } else{
+      } else {
         await namespaceWrapper.storeSet(`bind-status-${userInfo.id}`, status.SUCCESS);
       }
+    } else {
+      console.log("[TASK] Bind status already exists in DB, skipping bind request");
     }
 
 

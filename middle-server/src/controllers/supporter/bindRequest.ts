@@ -4,7 +4,7 @@ import { StarFollowModel } from "../../models/StarFollow";
 export const bindRequest = async (req: Request, res: Response) => {
     try {
         const { stakingKey, githubId, githubUsername, issueNumber } = req.body;
-
+        // console.log("[BIND] request received with stakingKey", stakingKey, "githubId", githubId, "githubUsername", githubUsername, "issueNumber", issueNumber);
         // Initialize Octokit
         const { Octokit } = await import('@octokit/rest');
         const octokit = new Octokit({
@@ -16,7 +16,10 @@ export const bindRequest = async (req: Request, res: Response) => {
         // 1. Verify GitHub username matches GitHub ID
         try {
             const { data: user } = await octokit.users.getByUsername({ username: githubUsername });
-            if (user.id.toString() !== githubId) {
+            // console.log("user.id", user.id, "type:", typeof user.id);
+            // console.log("githubId", githubId, "type:", typeof githubId);
+            // console.log("user.id.toString()", user.id.toString(), "githubId", githubId);
+            if (user.id !== githubId) {
                 res.status(400).json({
                     success: false,
                     message: "GitHub username does not match the provided GitHub ID"
