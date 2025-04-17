@@ -12,6 +12,7 @@ from prometheus_swarm.workflows.utils import (
     setup_repository,
     get_current_files,
 )
+from prometheus_swarm.workflows.utils import cleanup_repository
 # from src.workflows.todocreator.utils import TaskModel, IssueModel, insert_issue_to_mongodb
 
 class Task:
@@ -113,7 +114,7 @@ class AuditWorkflow(Workflow):
             os.chdir(self.original_dir)
 
         # Clean up the repository directory
-        cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
+        cleanup_repository(self.original_dir, self.context.get("repo_path", ""))
         # Clean up the MongoDB
     def run(self):
         validate_tasks_result = self.validate_tasks()

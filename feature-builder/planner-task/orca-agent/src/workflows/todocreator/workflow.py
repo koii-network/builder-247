@@ -13,6 +13,7 @@ from prometheus_swarm.workflows.utils import (
     setup_repository,
     get_current_files,
 )
+from prometheus_swarm.workflows.utils import cleanup_repository
 from src.workflows.todocreator.utils import TaskModel, insert_task_to_mongodb, IssueModel, insert_issue_to_mongodb
 
 class Task:
@@ -82,15 +83,20 @@ class TodoCreatorWorkflow(Workflow):
             self.context["base_branch"] = "main"
 
         # Set up repository directory
-        repo_path, original_dir = setup_repository(self.context["repo_url"], github_token=os.getenv("GITHUB_TOKEN"), github_username=os.getenv("GITHUB_USERNAME"))
-        self.context["repo_path"] = repo_path
-        self.original_dir = original_dir
+        setup_result = setup_repository(self.context["repo_url"], github_token=os.getenv("GITHUB_TOKEN"), github_username=os.getenv("GITHUB_USERNAME"))
+        if not setup_result["success"]:
+            raise Exception(f"Failed to set up repository: {setup_result['message']}")
+            
+        self.context["repo_path"] = setup_result["data"]["clone_path"]
+        self.original_dir = setup_result["data"]["original_dir"]
+        self.context["fork_url"] = setup_result["data"]["fork_url"]
+        self.context["fork_owner"] = setup_result["data"]["fork_owner"]
+        self.context["fork_name"] = setup_result["data"]["fork_name"]
 
         # Enter repo directory
         os.chdir(self.context["repo_path"])
 
-        # Configure Git user info
-        setup_git_user_config(self.context["repo_path"])
+  
 
         # Get current files for context
         self.context["current_files"] = get_current_files()
@@ -103,10 +109,6 @@ class TodoCreatorWorkflow(Workflow):
         """Cleanup workspace."""
         # Make sure we're not in the repo directory before cleaning up
         cleanup_repository(self.original_dir, self.context.get("repo_path", ""))
-
-        # Clean up the repository directory
-        cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
-        # Clean up the MongoDB
     def run(self):
         generate_issues_result = self.generate_issues()
         tasks = []

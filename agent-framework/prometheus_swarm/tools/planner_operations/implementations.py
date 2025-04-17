@@ -8,6 +8,7 @@ import uuid
 
 def generate_tasks(
     tasks: List[Dict[str, Any]] = None,
+    **kwargs,
 ) -> dict:
     """Generate a Task List for the repository.
 
@@ -49,6 +50,7 @@ def generate_tasks(
 
 def regenerate_tasks(
     tasks: List[Dict[str, Any]] = None,
+    **kwargs,
 ) -> dict:
     """Regenerate the tasks.
 
@@ -86,7 +88,7 @@ def regenerate_tasks(
             "error": str(e),
         }   
     
-def validate_tasks(decisions: List[Dict[str, Any]]) -> dict:
+def validate_tasks(decisions: List[Dict[str, Any]], **kwargs) -> dict:
     """Validate the tasks.
 
     Args:
@@ -128,7 +130,7 @@ def validate_tasks(decisions: List[Dict[str, Any]]) -> dict:
         }
 
 
-def create_task_dependency(task_uuid: str, dependency_tasks: List[str]) -> dict:
+def create_task_dependency(task_uuid: str, dependency_tasks: List[str], **kwargs) -> dict:
     """Create the task dependency for a task.
 
     Args:
@@ -156,6 +158,7 @@ def create_task_dependency(task_uuid: str, dependency_tasks: List[str]) -> dict:
     
 def generate_issues(
     issues: List[Dict[str, Any]] = None,
+     **kwargs,
 ) -> dict:
     """Generate issues for the repository.
 
@@ -196,6 +199,7 @@ def generate_issues(
         }   
 def audit_tasks(
     result: bool,
+     **kwargs,
 ) -> dict:
     """Audit the tasks.
     """

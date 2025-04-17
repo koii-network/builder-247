@@ -3,6 +3,7 @@ from prometheus_swarm.tools.planner_operations.implementations import (
     validate_tasks,
     regenerate_tasks,
     create_task_dependency,
+    generate_issues,
     audit_tasks,
 )
 
