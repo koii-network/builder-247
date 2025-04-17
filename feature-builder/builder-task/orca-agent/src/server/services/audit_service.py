@@ -217,14 +217,13 @@ def report_audit_failure(
     task_id: str,
     round_number: int,
     staking_key: str,
-    staking_signature: str,
+    signature: str,
     pub_key: str,
     failure_reason: str,
     failure_feedback: str,
     node_type: str,
     todo_uuid: str = None,
     issue_uuid: str = None,
-    submission_signature: str = None,
     is_recoverable: bool = True,
 ) -> dict:
     """Report an audit failure to the middle server.
@@ -233,7 +232,7 @@ def report_audit_failure(
         task_id: Task ID
         round_number: Round number
         staking_key: Node's staking key
-        staking_signature: Node's signature
+        staking_signature: Node's signature (not used for validation)
         pub_key: Node's public key
         failure_reason: Short reason for failure
         failure_feedback: Detailed feedback about the failure
@@ -244,17 +243,17 @@ def report_audit_failure(
         is_recoverable: Whether this failure is recoverable
     """
     try:
+
         payload = {
             "taskId": task_id,
             "stakingKey": staking_key,
-            "signature": staking_signature,
+            "signature": signature,  # Use submission signature for validation
             "pubKey": pub_key,
             "failureReason": failure_reason,
             "failureFeedback": failure_feedback,
             "roundNumber": round_number,
             "nodeType": node_type,
             "isRecoverable": is_recoverable,
-            "submissionSignature": submission_signature,
         }
 
         if todo_uuid:
@@ -334,7 +333,7 @@ def review_pr(pr_url, staking_key, pub_key, staking_signature, public_signature)
                 task_id=workflow.task_id,
                 round_number=workflow.round_number,
                 staking_key=staking_key,
-                staking_signature=staking_signature,
+                signature=workflow.submission_signature,
                 pub_key=pub_key,
                 failure_reason=e.reason,
                 failure_feedback=e.details,
@@ -344,11 +343,6 @@ def review_pr(pr_url, staking_key, pub_key, staking_signature, public_signature)
                 ),
                 issue_uuid=(
                     workflow.issue_uuid if hasattr(workflow, "issue_uuid") else None
-                ),
-                submission_signature=(
-                    workflow.submission_signature
-                    if hasattr(workflow, "submission_signature")
-                    else None
                 ),
                 is_recoverable=True,
             )
@@ -362,7 +356,7 @@ def review_pr(pr_url, staking_key, pub_key, staking_signature, public_signature)
                     workflow.round_number if hasattr(workflow, "round_number") else None
                 ),
                 staking_key=staking_key,
-                staking_signature=staking_signature,
+                signature=workflow.submission_signature,
                 pub_key=pub_key,
                 failure_reason="Non-recoverable audit error",
                 failure_feedback=str(e),
@@ -373,28 +367,11 @@ def review_pr(pr_url, staking_key, pub_key, staking_signature, public_signature)
                 issue_uuid=(
                     workflow.issue_uuid if hasattr(workflow, "issue_uuid") else None
                 ),
-                submission_signature=(
-                    workflow.submission_signature
-                    if hasattr(workflow, "submission_signature")
-                    else None
-                ),
                 is_recoverable=False,
             )
             raise
 
     except Exception as e:
-        # Report setup errors as non-recoverable
-        report_audit_failure(
-            task_id=None,  # We don't have workflow context here
-            round_number=None,
-            staking_key=staking_key,
-            staking_signature=staking_signature,
-            pub_key=pub_key,
-            failure_reason="Setup error",
-            failure_feedback=str(e),
-            node_type="worker",  # or "leader" depending on context
-            is_recoverable=False,
-        )
         log_error(e, context="PR review failed")
         raise Exception("PR review failed")
 
