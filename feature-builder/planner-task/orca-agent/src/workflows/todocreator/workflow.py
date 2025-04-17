@@ -2,16 +2,15 @@
 
 import os
 from github import Github
-from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository
-from src.utils.logging import log_section, log_key_value, log_error
+from prometheus_swarm.workflows.base import Workflow
+from prometheus_swarm.tools.planner_operations.implementations import generate_tasks
+from prometheus_swarm.utils.logging import log_section, log_key_value, log_error
 from src.workflows.todocreator import phases
-from src.workflows.utils import (
+from prometheus_swarm.workflows.utils import (
     check_required_env_vars,
+    cleanup_repository,
     validate_github_auth,
-    setup_repo_directory,
-    setup_git_user_config,
-    cleanup_repo_directory,
+    setup_repository,
     get_current_files,
 )
 from src.workflows.todocreator.utils import TaskModel, insert_task_to_mongodb, IssueModel, insert_issue_to_mongodb
@@ -46,7 +45,6 @@ class TodoCreatorWorkflow(Workflow):
         client,
         prompts,
         repo_url,
-        # feature_spec,
         issue_spec,
     ):
         # Extract owner and repo name from URL
@@ -84,20 +82,9 @@ class TodoCreatorWorkflow(Workflow):
             self.context["base_branch"] = "main"
 
         # Set up repository directory
-        repo_path, original_dir = setup_repo_directory()
+        repo_path, original_dir = setup_repository(self.context["repo_url"], github_token=os.getenv("GITHUB_TOKEN"), github_username=os.getenv("GITHUB_USERNAME"))
         self.context["repo_path"] = repo_path
         self.original_dir = original_dir
-
-        # Fork and clone repository
-        log_section("FORKING AND CLONING REPOSITORY")
-        fork_result = fork_repository(
-            f"{self.context['repo_owner']}/{self.context['repo_name']}",
-            self.context["repo_path"],
-        )
-        if not fork_result["success"]:
-            error = fork_result.get("error", "Unknown error")
-            log_error(Exception(error), "Fork failed")
-            raise Exception(error)
 
         # Enter repo directory
         os.chdir(self.context["repo_path"])
@@ -115,8 +102,7 @@ class TodoCreatorWorkflow(Workflow):
     def cleanup(self):
         """Cleanup workspace."""
         # Make sure we're not in the repo directory before cleaning up
-        if os.getcwd() == self.context.get("repo_path", ""):
-            os.chdir(self.original_dir)
+        cleanup_repository(self.original_dir, self.context.get("repo_path", ""))
 
         # Clean up the repository directory
         cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))

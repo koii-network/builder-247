@@ -10,8 +10,8 @@ import sys
 import argparse
 from dotenv import load_dotenv
 from github import Github
-from src.clients.anthropic_client import AnthropicClient
-from src.workflows.mergeconflict import MergeConflictWorkflow, PROMPTS
+from prometheus_swarm.clients.anthropic_client import AnthropicClient
+from prometheus_swarm.workflows.mergeconflict import MergeConflictWorkflow, PROMPTS
 
 
 def parse_args():

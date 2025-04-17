@@ -1,6 +1,6 @@
 """Audit phase definitions."""
 
-from src.workflows.base import Workflow, WorkflowPhase
+from prometheus_swarm.workflows.base import Workflow, WorkflowPhase
 
 
 class TaskValidationPhase(WorkflowPhase):

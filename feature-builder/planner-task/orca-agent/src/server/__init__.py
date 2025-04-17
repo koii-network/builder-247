@@ -2,8 +2,8 @@
 
 from flask import Flask, request
 from .routes import task, submission, audit, healthz
-from src.utils.logging import configure_logging, log_section, log_key_value, log_value
-from src.database import initialize_database
+from prometheus_swarm.utils.logging import configure_logging, log_section, log_key_value, log_value
+from prometheus_swarm.database import initialize_database
 from colorama import Fore, Style
 import uuid
 import os
@@ -48,7 +48,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(healthz.bp)
     app.register_blueprint(task.bp)
-    app.register_blueprint(submission.bp)
+    # app.register_blueprint(submission.bp)
     app.register_blueprint(audit.bp)
     # app.register_blueprint(submit_pr.bp)
 

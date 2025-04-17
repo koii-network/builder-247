@@ -1,7 +1,7 @@
 import sys
 from src.workflows.audit.workflow import AuditWorkflow
-from src.utils.logging import configure_logging, log_error
-from src.clients import setup_client
+from prometheus_swarm.utils.logging import configure_logging, log_error
+from prometheus_swarm.clients import setup_client
 from src.workflows.audit.prompts import PROMPTS
 
 

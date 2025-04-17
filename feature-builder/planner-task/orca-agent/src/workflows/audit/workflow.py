@@ -2,16 +2,14 @@
 
 import os
 from github import Github
-from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository
-from src.utils.logging import log_section, log_key_value, log_error
+from prometheus_swarm.workflows.base import Workflow
+from prometheus_swarm.tools.planner_operations.implementations import audit_tasks
+from prometheus_swarm.utils.logging import log_section, log_key_value, log_error
 from src.workflows.audit import phases
-from src.workflows.utils import (
+from prometheus_swarm.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
-    setup_repo_directory,
-    setup_git_user_config,
-    cleanup_repo_directory,
+    setup_repository,
     get_current_files,
 )
 # from src.workflows.todocreator.utils import TaskModel, IssueModel, insert_issue_to_mongodb
@@ -88,32 +86,24 @@ class AuditWorkflow(Workflow):
             self.context["base_branch"] = "main"
 
         # Set up repository directory
-        repo_path, original_dir = setup_repo_directory()
-        self.context["repo_path"] = repo_path
-        self.original_dir = original_dir
-
-        # Fork and clone repository
-        log_section("FORKING AND CLONING REPOSITORY")
-        fork_result = fork_repository(
-            f"{self.context['repo_owner']}/{self.context['repo_name']}",
-            self.context["repo_path"],
-        )
-        if not fork_result["success"]:
-            error = fork_result.get("error", "Unknown error")
-            log_error(Exception(error), "Fork failed")
-            raise Exception(error)
+        setup_result = setup_repository(self.context["repo_url"], github_token=os.getenv("GITHUB_TOKEN"), github_username=os.getenv("GITHUB_USERNAME"))
+        if not setup_result["success"]:
+            raise Exception(f"Failed to set up repository: {setup_result['message']}")
+            
+        self.context["repo_path"] = setup_result["data"]["clone_path"]
+        self.original_dir = setup_result["data"]["original_dir"]
+        self.context["fork_url"] = setup_result["data"]["fork_url"]
+        self.context["fork_owner"] = setup_result["data"]["fork_owner"]
+        self.context["fork_name"] = setup_result["data"]["fork_name"]
 
         # Enter repo directory
         os.chdir(self.context["repo_path"])
 
-        # Configure Git user info
-        setup_git_user_config(self.context["repo_path"])
 
         # Get current files for context
         self.context["current_files"] = get_current_files()
 
         # Add feature spec to context
-        # self.context["feature_spec"] = self.feature_spec
         self.context["issue_spec"] = self.issueSpec
 
     def cleanup(self):

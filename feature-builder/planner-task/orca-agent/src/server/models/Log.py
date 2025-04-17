@@ -1,7 +1,7 @@
 """Database model for logging."""
 
 from datetime import datetime
-from src.database import get_db
+from prometheus_swarm.database import get_db
 
 
 def init_logs_table():
@@ -42,7 +42,7 @@ def save_log(
     """
     try:
         db = get_db()
-        from src.database import Log
+        from prometheus_swarm.database import Log
 
         log = Log(
             timestamp=datetime.utcnow(),

@@ -1,7 +1,7 @@
 """Audit service module."""
 
 import logging
-from src.clients import setup_client
+from prometheus_swarm.clients import setup_client
 from src.workflows.audit.workflow import AuditWorkflow
 from src.workflows.audit.prompts import PROMPTS as AUDIT_PROMPTS
 

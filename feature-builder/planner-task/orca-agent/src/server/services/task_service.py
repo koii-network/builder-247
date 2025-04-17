@@ -3,11 +3,10 @@
 import requests
 import os
 from flask import jsonify
-from src.database import get_db, Submission
-from src.clients import setup_client
+from prometheus_swarm.clients import setup_client
 from src.workflows.todocreator.workflow import TodoCreatorWorkflow
 from src.workflows.todocreator.prompts import PROMPTS
-from src.utils.logging import logger, log_error
+from prometheus_swarm.utils.logging import logger, log_error
 from dotenv import load_dotenv
 
 load_dotenv()

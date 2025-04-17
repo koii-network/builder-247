@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from src.utils.logging import log_key_value
+from prometheus_swarm.utils.logging import log_key_value
 from src.server.services.audit_service import audit_issues_and_tasks
 import logging
 
