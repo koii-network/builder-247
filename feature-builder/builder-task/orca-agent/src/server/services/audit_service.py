@@ -13,6 +13,7 @@ from typing import Tuple, Dict
 from prometheus_swarm.tools.github_operations.parser import extract_section
 from src.workflows.utils import verify_pr_signatures
 import json
+from src.workflows.exceptions import WorkflowError
 
 
 def verify_pr_ownership(
@@ -212,6 +213,99 @@ def verify_pr_ownership(
         }
 
 
+def report_audit_failure(
+    task_id: str,
+    round_number: int,
+    staking_key: str,
+    staking_signature: str,
+    pub_key: str,
+    failure_reason: str,
+    failure_feedback: str,
+    node_type: str,
+    todo_uuid: str = None,
+    issue_uuid: str = None,
+    submission_signature: str = None,
+    is_recoverable: bool = True,
+) -> dict:
+    """Report an audit failure to the middle server.
+
+    Args:
+        task_id: Task ID
+        round_number: Round number
+        staking_key: Node's staking key
+        staking_signature: Node's signature
+        pub_key: Node's public key
+        failure_reason: Short reason for failure
+        failure_feedback: Detailed feedback about the failure
+        node_type: Type of node ("worker" or "leader")
+        todo_uuid: UUID of the todo (for worker tasks)
+        issue_uuid: UUID of the issue (for leader tasks)
+        submission_signature: Signature from the original submission being audited
+        is_recoverable: Whether this failure is recoverable
+    """
+    try:
+        payload = {
+            "taskId": task_id,
+            "stakingKey": staking_key,
+            "signature": staking_signature,
+            "pubKey": pub_key,
+            "failureReason": failure_reason,
+            "failureFeedback": failure_feedback,
+            "roundNumber": round_number,
+            "nodeType": node_type,
+            "isRecoverable": is_recoverable,
+            "submissionSignature": submission_signature,
+        }
+
+        if todo_uuid:
+            payload["todoUuid"] = todo_uuid
+        if issue_uuid:
+            payload["issueUuid"] = issue_uuid
+
+        response = requests.post(
+            os.environ["MIDDLE_SERVER_URL"] + "/api/builder/record-audit-failure",
+            json=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        if not result.get("success", False):
+            log_error(
+                Exception(f"Failed to record audit failure: {result.get('message')}")
+            )
+            return {
+                "success": False,
+                "status": response.status_code,
+                "error": result.get("message", "Unknown error from middle server"),
+            }
+
+        return {
+            "success": True,
+            "data": {"message": "Audit failure recorded successfully"},
+        }
+
+    except requests.exceptions.RequestException as e:
+        if not hasattr(e, "response"):
+            return {
+                "success": False,
+                "status": 500,
+                "error": "No response from middle server",
+            }
+        return {
+            "success": False,
+            "status": e.response.status_code,
+            "error": e.response.text,
+        }
+    except Exception as e:
+        log_error(Exception(f"Error recording audit failure: {str(e)}"))
+        return {
+            "success": False,
+            "status": 500,
+            "error": str(e),
+        }
+
+
 def review_pr(pr_url, staking_key, pub_key, staking_signature, public_signature):
     """Review PR and decide if it should be accepted, revised, or rejected."""
     try:
@@ -228,11 +322,79 @@ def review_pr(pr_url, staking_key, pub_key, staking_signature, public_signature)
         )
 
         # Run workflow and get result
-        result = workflow.run()
-        return result.get(
-            "recommendation", "REJECT"
-        )  # Default to REJECT if no recommendation
+        try:
+            result = workflow.run()
+            return result.get(
+                "recommendation", "REJECT"
+            )  # Default to REJECT if no recommendation
+
+        except WorkflowError as e:
+            # Report workflow errors as recoverable
+            report_audit_failure(
+                task_id=workflow.task_id,
+                round_number=workflow.round_number,
+                staking_key=staking_key,
+                staking_signature=staking_signature,
+                pub_key=pub_key,
+                failure_reason=e.reason,
+                failure_feedback=e.details,
+                node_type="worker",  # or "leader" depending on context
+                todo_uuid=(
+                    workflow.todo_uuid if hasattr(workflow, "todo_uuid") else None
+                ),
+                issue_uuid=(
+                    workflow.issue_uuid if hasattr(workflow, "issue_uuid") else None
+                ),
+                submission_signature=(
+                    workflow.submission_signature
+                    if hasattr(workflow, "submission_signature")
+                    else None
+                ),
+                is_recoverable=True,
+            )
+            raise
+
+        except Exception as e:
+            # Report non-workflow errors as non-recoverable
+            report_audit_failure(
+                task_id=workflow.task_id if hasattr(workflow, "task_id") else None,
+                round_number=(
+                    workflow.round_number if hasattr(workflow, "round_number") else None
+                ),
+                staking_key=staking_key,
+                staking_signature=staking_signature,
+                pub_key=pub_key,
+                failure_reason="Non-recoverable audit error",
+                failure_feedback=str(e),
+                node_type="worker",  # or "leader" depending on context
+                todo_uuid=(
+                    workflow.todo_uuid if hasattr(workflow, "todo_uuid") else None
+                ),
+                issue_uuid=(
+                    workflow.issue_uuid if hasattr(workflow, "issue_uuid") else None
+                ),
+                submission_signature=(
+                    workflow.submission_signature
+                    if hasattr(workflow, "submission_signature")
+                    else None
+                ),
+                is_recoverable=False,
+            )
+            raise
+
     except Exception as e:
+        # Report setup errors as non-recoverable
+        report_audit_failure(
+            task_id=None,  # We don't have workflow context here
+            round_number=None,
+            staking_key=staking_key,
+            staking_signature=staking_signature,
+            pub_key=pub_key,
+            failure_reason="Setup error",
+            failure_feedback=str(e),
+            node_type="worker",  # or "leader" depending on context
+            is_recoverable=False,
+        )
         log_error(e, context="PR review failed")
         raise Exception("PR review failed")
 

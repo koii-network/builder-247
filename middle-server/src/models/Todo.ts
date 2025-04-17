@@ -1,12 +1,12 @@
-import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typegoose";
-import { builder247DB } from "../services/database/database";
+import { prop, getModelForClass, modelOptions, Severity } from '@typegoose/typegoose';
+import { builder247DB } from '../services/database/database';
 
 enum TodoStatus {
-  INITIALIZED = "initialized", // Not yet assigned to a node. Reset to this if anything goes wrong
-  IN_PROGRESS = "in_progress", // Is assigned to a node, not completed
-  IN_REVIEW = "in_review", // PR has been submitted but no audit yet
-  APPROVED = "approved", // PR passed audit and appeared on the distribution list
-  MERGED = "merged", // PR is merged by leader node
+  INITIALIZED = 'initialized', // Not yet assigned to a node. Reset to this if anything goes wrong
+  IN_PROGRESS = 'in_progress', // Is assigned to a node, not completed
+  IN_REVIEW = 'in_review', // PR has been submitted but no audit yet
+  APPROVED = 'approved', // PR passed audit and appeared on the distribution list
+  MERGED = 'merged', // PR is merged by leader node
 }
 
 class AssignedInfo {
@@ -26,6 +26,9 @@ class AssignedInfo {
 
   @prop({ required: false })
   public failedFeedback?: string;
+
+  @prop({ required: false })
+  public recoverableFailure?: boolean;
 
   @prop({ required: false })
   public prUrl?: string;

@@ -4,7 +4,7 @@ import { IssueModel, IssueStatus } from '../../models/Issue';
 import { verifySignature } from '../../utils/sign';
 import { taskIDs } from '../../config/constant';
 
-interface RecordFailureRequest {
+interface RecordAuditFailureRequest {
   taskId: string;
   stakingKey: string;
   signature: string;
@@ -15,10 +15,11 @@ interface RecordFailureRequest {
   nodeType: 'worker' | 'leader';
   todoUuid?: string;
   issueUuid?: string;
-  isRecoverable?: boolean; // Optional for backward compatibility
+  submissionSignature: string; // Signature from the original submission
+  isRecoverable: boolean; // Whether this is a recoverable failure
 }
 
-export const recordTaskFailure = async (req: Request, res: Response): Promise<void> => {
+export const recordAuditFailure = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       taskId,
@@ -31,22 +32,23 @@ export const recordTaskFailure = async (req: Request, res: Response): Promise<vo
       nodeType,
       todoUuid,
       issueUuid,
-      isRecoverable = true, // Default to true for backward compatibility
-    } = req.body as RecordFailureRequest;
+      submissionSignature,
+      isRecoverable,
+    } = req.body as RecordAuditFailureRequest;
 
-    // Verify the signature
-    const { data, error } = await verifySignature(signature, stakingKey);
-    if (error || !data) {
+    // Verify the audit signature
+    const { data: auditData, error: auditError } = await verifySignature(signature, stakingKey);
+    if (auditError || !auditData) {
       res.status(401).json({
         success: false,
-        message: 'Invalid signature',
+        message: 'Invalid audit signature',
       });
       return;
     }
 
-    // Parse and validate signature data
+    // Parse and validate audit signature data
     try {
-      const body = JSON.parse(data);
+      const body = JSON.parse(auditData);
       if (
         !body.taskId ||
         typeof body.roundNumber !== 'number' ||
@@ -60,15 +62,55 @@ export const recordTaskFailure = async (req: Request, res: Response): Promise<vo
       ) {
         res.status(401).json({
           success: false,
-          message: 'Invalid signature payload',
+          message: 'Invalid audit signature payload',
         });
         return;
       }
     } catch (error) {
-      console.error('Error parsing signature data:', error);
+      console.error('Error parsing audit signature data:', error);
       res.status(401).json({
         success: false,
-        message: 'Invalid signature data format',
+        message: 'Invalid audit signature data format',
+      });
+      return;
+    }
+
+    // Verify the submission signature to ensure we're failing the right work
+    const { data: submissionData, error: submissionError } = await verifySignature(
+      submissionSignature,
+      stakingKey
+    );
+    if (submissionError || !submissionData) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid submission signature',
+      });
+      return;
+    }
+
+    // Parse and validate submission signature data
+    try {
+      const body = JSON.parse(submissionData);
+      if (
+        !body.taskId ||
+        typeof body.roundNumber !== 'number' ||
+        !taskIDs.includes(body.taskId) ||
+        body.taskId !== taskId ||
+        body.roundNumber !== roundNumber ||
+        !body.action ||
+        body.action !== 'audit'
+      ) {
+        res.status(401).json({
+          success: false,
+          message: 'Invalid submission signature payload',
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error parsing submission signature data:', error);
+      res.status(401).json({
+        success: false,
+        message: 'Invalid submission signature data format',
       });
       return;
     }
@@ -144,13 +186,13 @@ export const recordTaskFailure = async (req: Request, res: Response): Promise<vo
 
     res.json({
       success: true,
-      message: 'Task failure recorded successfully',
+      message: 'Audit failure recorded successfully',
     });
   } catch (error) {
-    console.error('Error recording task failure:', error);
+    console.error('Error recording audit failure:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error while recording task failure',
+      message: 'Internal server error while recording audit failure',
     });
   }
 };

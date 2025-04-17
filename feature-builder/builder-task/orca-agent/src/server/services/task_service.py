@@ -286,7 +286,7 @@ def run_todo_task(
                 f"Updated status to failed for task {task_id}, round {round_number}"
             )
 
-            # Only report failures that can be recovered by other agents
+            # Report all workflow errors as recoverable
             report_task_failure(
                 task_id=task_id,
                 round_number=round_number,
@@ -297,6 +297,7 @@ def run_todo_task(
                 failure_feedback=e.details,
                 node_type="worker",
                 todo_uuid=todo.get("todo_uuid"),
+                is_recoverable=True,
             )
             return {
                 "success": False,
@@ -310,6 +311,20 @@ def run_todo_task(
             db.commit()
             logger.info(
                 f"Updated status to failed for task {task_id}, round {round_number}"
+            )
+
+            # Report non-workflow errors as non-recoverable
+            report_task_failure(
+                task_id=task_id,
+                round_number=round_number,
+                staking_key=staking_key,
+                staking_signature=staking_signature,
+                pub_key=pub_key,
+                failure_reason="Non-recoverable error",
+                failure_feedback=str(e),
+                node_type="worker",
+                todo_uuid=todo.get("todo_uuid"),
+                is_recoverable=False,
             )
 
             return {
@@ -341,6 +356,21 @@ def run_todo_task(
             logger.info(
                 f"Updated status to failed for task {task_id}, round {round_number}"
             )
+
+        # Report setup/database errors as non-recoverable
+        report_task_failure(
+            task_id=task_id,
+            round_number=round_number,
+            staking_key=staking_key,
+            staking_signature=staking_signature,
+            pub_key=pub_key,
+            failure_reason="Setup/database error",
+            failure_feedback=str(e),
+            node_type="worker",
+            todo_uuid=todo.get("todo_uuid") if "todo" in locals() else None,
+            is_recoverable=False,
+        )
+
         return {
             "success": False,
             "error": str(e),
@@ -1170,6 +1200,7 @@ def report_task_failure(
     node_type: str = "worker",
     todo_uuid: str = None,
     issue_uuid: str = None,
+    is_recoverable: bool = True,
 ) -> dict:
     """Report a task failure to the middle server.
 
@@ -1184,6 +1215,7 @@ def report_task_failure(
         node_type: Type of node ("worker" or "leader")
         todo_uuid: UUID of the todo (for worker tasks)
         issue_uuid: UUID of the issue (for leader tasks)
+        is_recoverable: Whether this failure is recoverable
     """
     try:
         payload = {
@@ -1195,6 +1227,7 @@ def report_task_failure(
             "failureFeedback": failure_feedback,
             "roundNumber": round_number,
             "nodeType": node_type,
+            "isRecoverable": is_recoverable,
         }
 
         print("Failure Payload: ", payload)
