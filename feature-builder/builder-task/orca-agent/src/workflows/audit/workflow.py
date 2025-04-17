@@ -11,6 +11,7 @@ from prometheus_swarm.workflows.utils import (
     cleanup_repository,
     get_current_files,
 )
+from src.workflows.exceptions import WorkflowError
 
 from src.workflows.audit import phases
 
@@ -110,6 +111,13 @@ class AuditWorkflow(Workflow):
     def run(self):
         """Execute the audit workflow."""
         try:
+            if os.getenv("FORCE_FAILURE") == "true":
+                print("Raising WorkflowError for forced failure")
+                raise WorkflowError(
+                    reason="Forced failure",
+                    details="This is an artificial failure for testing audit functionality",
+                )
+
             self.setup()
 
             # Run audit

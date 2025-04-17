@@ -358,10 +358,11 @@ class MergeConflictWorkflow(Workflow):
         """Execute the merge conflict workflow."""
         try:
             # Check TEST_MODE environment variable
-            if os.getenv("TEST_MODE") == "true":
+            if os.getenv("FORCE_FAILURE") == "true":
+                print("Raising WorkflowError for forced failure")
                 raise WorkflowError(
-                    reason="Test mode failure",
-                    details="This is an artificial failure for testing purposes",
+                    reason="Forced failure",
+                    details="This is an artificial failure for testing merge conflict functionality",
                 )
 
             if not self.setup():

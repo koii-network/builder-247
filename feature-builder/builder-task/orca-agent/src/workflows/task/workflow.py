@@ -158,11 +158,11 @@ class TaskWorkflow(Workflow):
     def run(self):
         """Execute the task workflow."""
         try:
-            if os.getenv("TEST_MODE") == "true":
-                print("Raising WorkflowError for test mode")
+            if os.getenv("FORCE_FAILURE") == "true":
+                print("Raising WorkflowError for forced failure")
                 raise WorkflowError(
-                    reason="Test mode failure",
-                    details="This is an artificial failure for testing purposes",
+                    reason="Forced failure",
+                    details="This is an artificial failure for testing task functionality",
                 )
 
             self.setup()

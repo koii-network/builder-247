@@ -228,8 +228,10 @@ def review_pr(pr_url, staking_key, pub_key, staking_signature, public_signature)
         )
 
         # Run workflow and get result
-        workflow.run()
-        return True
+        result = workflow.run()
+        return result.get(
+            "recommendation", "REJECT"
+        )  # Default to REJECT if no recommendation
     except Exception as e:
         log_error(e, context="PR review failed")
         raise Exception("PR review failed")
