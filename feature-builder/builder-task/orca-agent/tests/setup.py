@@ -37,6 +37,13 @@ class ServerInstance:
             }
         )
 
+    def update_env(self, **kwargs):
+        """Update environment variables and restart server if running."""
+        self.env.update(kwargs)
+        if self.process:
+            self.stop()
+            self.start()
+
     def _print_output(self, stream, prefix):
         """Print output from a stream with a prefix"""
         for line in stream:
@@ -316,3 +323,10 @@ class TestSetup:
             raise Exception(f"Leader audit failed: {result.get('message')}")
         else:
             print(f"✓ Leader audit completed for {data_manager.pr_urls['leader']}")
+
+    def set_force_failure(self, value: bool):
+        """Set FORCE_FAILURE across all server instances."""
+        print(f"\nSetting FORCE_FAILURE={value} across all servers...")
+        for server in [self.leader_server, self.worker1_server, self.worker2_server]:
+            server.update_env(FORCE_FAILURE="true" if value else "false")
+        print("Environment updated and servers restarted.")
