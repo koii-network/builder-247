@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from src.database import get_db
+from prometheus_swarm.database import get_db
 import logging
 
 logger = logging.getLogger(__name__)

@@ -1,4 +1,4 @@
-from src.utils.logging import log_key_value
+from prometheus_swarm.utils.logging import log_key_value
 from flask import Blueprint, jsonify, request
 from src.server.services import star_service
 

@@ -2,8 +2,8 @@
 
 from flask import Flask, request
 from .routes import repo_summary, star, audit, healthz, submission  
-from src.utils.logging import configure_logging, log_section, log_key_value, log_value
-from src.database import initialize_database
+from prometheus_swarm.utils.logging import configure_logging, log_section, log_key_value, log_value
+from prometheus_swarm.database import initialize_database
 from colorama import Fore, Style
 import uuid
 import os

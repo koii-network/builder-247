@@ -5,7 +5,7 @@ import argparse
 from dotenv import load_dotenv
 from src.workflows.repoSummarizerAudit.workflow import repoSummarizerAuditWorkflow
 from src.workflows.repoSummarizerAudit.prompts import PROMPTS
-from src.clients import setup_client
+from prometheus_swarm.clients import setup_client
 
 # Load environment variables
 load_dotenv()

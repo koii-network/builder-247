@@ -1,7 +1,7 @@
 """Audit service module."""
 
 import logging
-from src.clients import setup_client
+from prometheus_swarm.clients import setup_client
 from src.workflows.starRepoAudit.workflow import StarRepoAuditWorkflow
 from src.workflows.starRepoAudit.prompts import PROMPTS as STAR_REPO_AUDIT_PROMPTS
 from src.workflows.repoSummarizerAudit.workflow import repoSummarizerAuditWorkflow
