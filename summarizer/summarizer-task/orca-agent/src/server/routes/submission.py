@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from prometheus_swarm.database import get_db, Submission
+from prometheus_swarm.database import get_db
 import logging
 import os
 

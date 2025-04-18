@@ -788,3 +788,89 @@ def get_pull_request(
     except Exception as e:
         print(f"Failed to get pull request: {str(e)}")
         return None
+
+def star_repository(owner: str, repo_name: str, **kwargs) -> ToolOutput:
+    """
+    Star a repository using the GitHub API.
+
+    Args:
+        owner: Owner of the repository
+        repo_name: Name of the repository
+
+    Returns:
+        ToolOutput: Standardized tool output with success status and error message if any
+    """
+    try:
+        repo_full_name = f"{owner}/{repo_name}"
+        log_key_value("Starring repository", repo_full_name)
+
+        gh = _get_github_client()
+        repo = gh.get_repo(repo_full_name)
+
+        # Star the repository
+        user = gh.get_user()
+        user.add_to_starred(repo)
+
+        log_key_value("Successfully starred", repo_full_name)
+
+        return {
+            "success": True,
+            "message": f"Successfully starred repository {repo_full_name}",
+            "data": {"repo_name": repo_full_name},
+        }
+    except GithubException as e:
+        log_error(e, "Repository star failed")
+        return {
+            "success": False,
+            "message": f"GitHub API error: {str(e)}",
+            "data": {"error": str(e)},
+        }
+    except Exception as e:
+        log_error(e, "Repository star failed")
+        return {
+            "success": False,
+            "message": f"Failed to star repository: {str(e)}",
+            "data": None,
+        }
+
+
+def get_user_starred_repos(username: str = None, **kwargs) -> ToolOutput:
+    """
+    Get list of repositories starred by a user.
+    If username is None, gets starred repos for authenticated user.
+
+    Args:
+        username: GitHub username (optional)
+
+    Returns:
+        ToolOutput: Standardized tool output with list of starred repos
+    """
+    try:
+        gh = _get_github_client()
+
+        # Get user object
+        user = gh.get_user(username) if username else gh.get_user()
+
+        # Get starred repos
+        starred_repos = list(user.get_starred())
+
+        return {
+            "success": True,
+            "message": f"Found {len(starred_repos)} starred repositories",
+            "data": {
+                "starred_repos": [
+                    {
+                        "full_name": repo.full_name,
+                        "url": repo.html_url,
+                        "description": repo.description,
+                    }
+                    for repo in starred_repos
+                ]
+            },
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to get starred repositories: {str(e)}",
+            "data": None,
+        }

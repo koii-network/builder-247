@@ -3,15 +3,12 @@
 import os
 from github import Github
 from prometheus_swarm.workflows.base import Workflow
-from prometheus_swarm.tools.github_operations.implementations import fork_repository, star_repository
+from prometheus_swarm.tools.github_operations.implementations import star_repository
 from prometheus_swarm.utils.logging import log_section, log_key_value, log_error
 from src.workflows.repoSummarizer import phases
 from prometheus_swarm.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
-    setup_repo_directory,
-    setup_git_user_config,
-    cleanup_repo_directory,
 )
 
 
@@ -105,6 +102,7 @@ class StarRepoWorkflow(Workflow):
 
     def cleanup(self):
         """Cleanup workspace."""
+            # cleanup_repository(self.original_dir, self.context.get("repo_path", ""))
         # Make sure we're not in the repo directory before cleaning up
         # if os.getcwd() == self.context.get("repo_path", ""):
         #     os.chdir(self.original_dir)
