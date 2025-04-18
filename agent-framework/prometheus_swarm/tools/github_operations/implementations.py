@@ -15,7 +15,7 @@ from prometheus_swarm.workflows.utils import get_fork_name
 from git import Repo, GitCommandError
 from prometheus_swarm.tools.github_operations.templates import TEMPLATES
 from github.PullRequest import PullRequest
-
+from prometheus_swarm.tools.github_operations.templates_legacy import TEMPLATES as TEMPLATES_LEGACY
 import csv
 import uuid
 
@@ -75,7 +75,7 @@ def create_pull_request_legacy(
         # Ensure base branch is just the name without owner
         base = base.split(":")[-1]  # Remove owner prefix if present
 
-        body = TEMPLATES["pr_template"].format(
+        body = TEMPLATES_LEGACY["pr_template"].format(
             title=title,
             description=description,
         )
@@ -810,6 +810,7 @@ def create_github_issue(
     repo_full_name: str,
     title: str,
     description: str,
+    github_token: str,
 ) -> ToolOutput:
     """Create a GitHub issue.
 
@@ -822,7 +823,7 @@ def create_github_issue(
         ToolOutput: Standardized tool output with success status and error message if any
     """
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(github_token)
         repo = gh.get_repo(repo_full_name)
         issue = repo.create_issue(title=title, body=description)
         return {
@@ -874,7 +875,7 @@ def get_pull_request(
         print(f"Failed to get pull request: {str(e)}")
         return None
 
-def star_repository(owner: str, repo_name: str, **kwargs) -> ToolOutput:
+def star_repository(owner: str, repo_name: str, github_token: str, **kwargs) -> ToolOutput:
     """
     Star a repository using the GitHub API.
 
@@ -889,7 +890,7 @@ def star_repository(owner: str, repo_name: str, **kwargs) -> ToolOutput:
         repo_full_name = f"{owner}/{repo_name}"
         log_key_value("Starring repository", repo_full_name)
 
-        gh = _get_github_client()
+        gh = _get_github_client(github_token)
         repo = gh.get_repo(repo_full_name)
 
         # Star the repository
@@ -959,3 +960,85 @@ def get_user_starred_repos(username: str = None, **kwargs) -> ToolOutput:
             "message": f"Failed to get starred repositories: {str(e)}",
             "data": None,
         }
+    
+def review_pull_request_legacy(
+    repo_full_name: str,
+    pr_number: int,
+    title: str,
+    description: str,
+    recommendation: str,
+    recommendation_reason: List[str],
+    github_token: str,
+    **kwargs,
+) -> ToolOutput:
+    """
+    Post a structured review comment on a pull request.
+
+    Args:
+        repo_full_name (str): Full name of the repository (owner/repo)
+        pr_number (int): Pull request number
+        title (str): Title of the PR
+        description (str): Description of the changes
+        requirements (Dict[str, List[str]]): Dictionary with 'met' and 'not_met' requirements
+        test_evaluation (Dict[str, List[str]]): Dictionary with test evaluation details
+        recommendation (str): APPROVE/REVISE/REJECT
+        recommendation_reason (List[str]): List of reasons for the recommendation
+        action_items (List[str]): List of required changes or improvements
+
+    Returns:
+        ToolOutput: Standardized tool output with review status and details
+    """
+    try:
+        gh = _get_github_client(github_token)
+        repo = gh.get_repo(repo_full_name)
+        # Convert pr_number to integer
+        pr = repo.get_pull(int(pr_number))
+
+        # Format lists into markdown bullet points
+        def format_list(items: List[str], empty_message: str = "None", **kwargs) -> str:
+            if not items:
+                return f"*{empty_message}*"
+            return "- " + "\n- ".join(items)
+
+        # Format the review body using the template
+        review_body = TEMPLATES_LEGACY["review_template"].format(
+            title=title,
+            description=description,
+            recommendation=recommendation,
+            recommendation_reasons=format_list(
+                recommendation_reason, "No specific reasons provided"
+            ),
+        )
+
+        # Post the review
+        pr.create_issue_comment(review_body)
+        validated = recommendation.upper() == "APPROVE"
+        return {
+            "success": True,
+            "message": f"Successfully posted review on PR #{pr_number}",
+            "data": {
+                "validated": validated,
+                "review_body": review_body,
+                "recommendation": recommendation,
+            },
+        }
+    except GithubException as e:
+        error_msg = f"GitHub API Error posting review on PR #{pr_number}: {str(e)}"
+        log_error(e, error_msg)
+        return {
+            "success": False,
+            "message": f"Failed to post review: {error_msg}",
+            "data": {"error_code": e.status, "error_data": e.data},
+        }
+    except Exception as e:
+        import traceback
+
+        error_msg = f"Error posting review on PR #{pr_number}: {str(e)}"
+        tb = traceback.format_exc()
+        log_error(e, f"{error_msg}\n{tb}")
+        return {
+            "success": False,
+            "message": f"Failed to post review: {error_msg}",
+            "data": {"traceback": tb},
+        }
+

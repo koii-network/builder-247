@@ -51,7 +51,7 @@ class repoSummarizerAuditWorkflow(Workflow):
         parts = pr_url.strip("/").split("/")
         repo_owner = parts[-4]
         repo_name = parts[-3]
-        pr_number = parts[-1]
+        pr_number = int(parts[-1])  # Convert to integer
         super().__init__(
             client=client,
             prompts=prompts,
@@ -70,7 +70,7 @@ class repoSummarizerAuditWorkflow(Workflow):
         # Check required environment variables and validate GitHub auth
         check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
         validate_github_auth(os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_USERNAME"))
-
+        self.context["repo_url"] = f"https://github.com/{self.context['repo_owner']}/{self.context['repo_name']}"
         # Set up repository directory
         setup_result = setup_repository(self.context["repo_url"], github_token=os.getenv("GITHUB_TOKEN"), github_username=os.getenv("GITHUB_USERNAME"))
         if not setup_result["success"]:
@@ -81,33 +81,23 @@ class repoSummarizerAuditWorkflow(Workflow):
         self.context["fork_url"] = setup_result["data"]["fork_url"]
         self.context["fork_owner"] = setup_result["data"]["fork_owner"]
         self.context["fork_name"] = setup_result["data"]["fork_name"]
-
+        self.context["github_token"] = os.getenv("GITHUB_TOKEN")
         # Enter repo directory
         os.chdir(self.context["repo_path"])
-
-        # Clone repository
-        log_section("CLONING REPOSITORY")
-        gh = Github(os.environ["GITHUB_TOKEN"])
-        log_key_value(
-            "Getting repository",
-            f"{self.context['repo_owner']}/{self.context['repo_name']}",
+        gh = Github(self.context["github_token"])
+        repo = gh.get_repo(
+            f"{self.context['repo_owner']}/{self.context['repo_name']}"
         )
-        repo = gh.get_repo(f"{self.context['repo_owner']}/{self.context['repo_name']}")
-
-        log_key_value("Cloning repository to", self.context["repo_path"])
-        git_repo = Repo.clone_from(repo.clone_url, self.context["repo_path"])
-
-        # Fetch PR
-        log_key_value("Fetching PR", f"#{self.context['pr_number']}")
-        git_repo.remote().fetch(
-            f"pull/{self.context['pr_number']}/head:pr_{self.context['pr_number']}"
+        pr = repo.get_pull(self.context["pr_number"])
+        self.context["pr"] = pr
+        # Add remote for PR's repository and fetch the branch
+        os.system(
+            f"git remote add pr_source https://github.com/{pr.head.repo.full_name}"
         )
+        os.system(f"git fetch pr_source {pr.head.ref}")
+        os.system("git checkout FETCH_HEAD")
 
-        # Checkout PR branch
-        log_key_value("Checking out PR branch", f"pr_{self.context['pr_number']}")
-        git_repo.git.checkout(f"pr_{self.context['pr_number']}")
-
-
+        # Get current files for context
         self.context["current_files"] = get_current_files()
 
     def cleanup(self):

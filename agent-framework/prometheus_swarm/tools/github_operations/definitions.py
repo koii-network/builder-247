@@ -2,6 +2,7 @@ from prometheus_swarm.tools.github_operations.implementations import (
     create_worker_pull_request,
     create_leader_pull_request,
     review_pull_request,
+    review_pull_request_legacy,
     validate_implementation,
     generate_analysis,
     merge_pull_request,
@@ -71,6 +72,7 @@ DEFINITIONS = {
         "final_tool": True,
         "function": create_pull_request_legacy,
     },
+    
     "create_leader_pull_request": {
         "name": "create_leader_pull_request",
         "description": "Create a pull request for a leader node consolidating multiple worker PRs.",
@@ -346,5 +348,38 @@ DEFINITIONS = {
             "required": ["owner", "repo_name"],
         },
         "function": star_repository,
-    }
+    },
+
+    "review_pull_request_legacy": {
+        "name": "review_pull_request_legacy",
+        "description": "Review a pull request and post a structured review comment.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Title of the PR"},
+                "description": {
+                    "type": "string",
+                    "description": "Description of changes",
+                },
+                "recommendation": {
+                    "type": "string",
+                    "description": "Decision to approve, revise, or reject the PR",
+                    "enum": ["APPROVE", "REVISE", "REJECT"],
+                },
+                "recommendation_reason": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Reasons for recommendation",
+                },
+            },
+            "required": [
+                "title",
+                "description",
+                "recommendation",
+                "recommendation_reason",
+            ],
+        },
+        "final_tool": True,
+        "function": review_pull_request_legacy,
+    },
 }

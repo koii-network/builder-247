@@ -129,11 +129,4 @@ Reasons:
 {pub_key}: {public_signature}
 <!-- END_PUB_KEY -->
 """,
-    "pr_template": """
-# {title}
-
-## Summary of Changes
-{description}
-
-""",
 }

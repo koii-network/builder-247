@@ -58,6 +58,7 @@ class StarRepoWorkflow(Workflow):
         )
         self.context["repo_owner"] = repo_owner
         self.context["repo_name"] = repo_name
+        self.context["github_token"] = os.getenv("GITHUB_TOKEN")
 
     def setup(self):
         """Set up repository and workspace."""
@@ -121,7 +122,7 @@ class StarRepoWorkflow(Workflow):
             self.setup()
             # ==================== Generate issues ====================
             star_repo_result = star_repository(
-                self.context["repo_owner"], self.context["repo_name"]
+                self.context["repo_owner"], self.context["repo_name"], self.context["github_token"]
             )
             if not star_repo_result or not star_repo_result.get("success"):
                 log_error(
