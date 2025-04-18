@@ -24,7 +24,7 @@ class RepoClassificationPhase(WorkflowPhase):
             prompt_name="classify_repository",
             available_tools=["read_file", "list_files", "classify_repository"],
             conversation_id=conversation_id,
-            name="Repository Classification",
+            name="Repository Classificati on",
         )
 
 
@@ -42,7 +42,6 @@ class ReadmeGenerationPhase(WorkflowPhase):
             ],
             conversation_id=conversation_id,
             name="Readme Generation",
-            max_tokens=8192,
         )
 
 
@@ -62,7 +61,7 @@ class CreatePullRequestPhase(WorkflowPhase):
         super().__init__(
             workflow=workflow,
             prompt_name="create_pr",
-            available_tools=["read_file", "list_files", "create_pull_request"],
+            available_tools=["read_file", "list_files", "create_pull_request_legacy"],
             conversation_id=conversation_id,
             name="Create Pull Request",
         )

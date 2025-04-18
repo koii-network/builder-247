@@ -2,8 +2,6 @@
 
 import logging
 from prometheus_swarm.clients import setup_client
-from src.workflows.starRepoAudit.workflow import StarRepoAuditWorkflow
-from src.workflows.starRepoAudit.prompts import PROMPTS as STAR_REPO_AUDIT_PROMPTS
 from src.workflows.repoSummarizerAudit.workflow import repoSummarizerAuditWorkflow
 from src.workflows.repoSummarizerAudit.prompts import (
     PROMPTS as REPO_SUMMARIZER_AUDIT_PROMPTS,

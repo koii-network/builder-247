@@ -6,7 +6,8 @@ from prometheus_swarm.tools.github_operations.implementations import (
     generate_analysis,
     merge_pull_request,
     create_github_issue,
-    star_repository
+    star_repository,
+    create_pull_request_legacy
 )
 
 DEFINITIONS = {
@@ -48,6 +49,27 @@ DEFINITIONS = {
             ],
         },
         "function": create_worker_pull_request,
+    },
+    "create_pull_request_legacy": {
+        "name": "create_pull_request_legacy",
+        "description": "Create a pull request with formatted description.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Title of the pull request"},
+                "description": {
+                    "type": "string",
+                    "description": "A brief summary of the changes made",
+                },
+                "github_token": {
+                    "type": "string",
+                    "description": "GitHub token for authentication",
+                },
+            },
+            "required": ["title", "description", "github_token"],
+        },
+        "final_tool": True,
+        "function": create_pull_request_legacy,
     },
     "create_leader_pull_request": {
         "name": "create_leader_pull_request",

@@ -41,6 +41,91 @@ def _get_github_client(github_token: str) -> Github:
     return Github(auth=Auth.Token(github_token))
 
 
+def create_pull_request_legacy(
+    repo_full_name: str,
+    title: str,
+    head: str,
+    description: str,
+    base: str = "main",
+    github_token: str = None,
+    **kwargs,
+) -> ToolOutput:
+    """Create PR with formatted description.
+
+    Args:
+        repo_full_name: Full name of repository (owner/repo)
+        title: PR title
+        head: Head branch name
+        description: PR description
+        tests: List of test descriptions
+        todo: Original todo task
+        acceptance_criteria: Task acceptance criteria
+        base: Base branch name (default: main)
+
+    Returns:
+        ToolOutput: Standardized tool output with PR URL on success
+    """
+    try:
+        gh = _get_github_client(github_token)
+
+        # Auto-format head branch if needed
+        if ":" not in head:
+            head = f"{os.environ['GITHUB_USERNAME']}:{head}"
+
+        # Ensure base branch is just the name without owner
+        base = base.split(":")[-1]  # Remove owner prefix if present
+
+        body = TEMPLATES["pr_template"].format(
+            title=title,
+            description=description,
+        )
+
+        log_key_value(
+            "Creating PR", f"repo: {repo_full_name}, head: {head}, base: {base}"
+        )
+
+        repo = gh.get_repo(repo_full_name)
+        pr = repo.create_pull(title=title, body=body, head=head, base=base)
+
+        log_key_value("PR Created", f"PR #{pr.number}: {pr.html_url}")
+
+        return {
+            "success": True,
+            "message": f"Successfully created PR: {title}",
+            "data": {"pr_url": pr.html_url},
+        }
+    except GithubException as e:
+        error_msg = f"GitHub API Error creating PR: {str(e)}"
+        log_error(e, error_msg)
+        return {
+            "success": False,
+            "message": f"Failed to create pull request: {error_msg}",
+            "data": {
+                "error_code": e.status,
+                "error_data": e.data,
+                "params": {
+                    "repo_full_name": repo_full_name,
+                    "head": head,
+                    "base": base,
+                },
+            },
+        }
+    except Exception as e:
+        error_msg = f"Error creating PR: {str(e)}"
+        log_error(e, error_msg)
+        return {
+            "success": False,
+            "message": f"Failed to create pull request: {error_msg}",
+            "data": {
+                "params": {
+                    "repo_full_name": repo_full_name,
+                    "head": head,
+                    "base": base,
+                },
+            },
+        }
+
+
 def create_pull_request(
     repo_owner: str,
     repo_name: str,

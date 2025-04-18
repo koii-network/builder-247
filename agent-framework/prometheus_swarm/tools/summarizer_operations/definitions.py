@@ -1,6 +1,6 @@
 """Summarizer operations tool definitions."""
 
-from src.tools.summarizer_operations.implementations import (
+from prometheus_swarm.tools.summarizer_operations.implementations import (
     create_readme_file,
     review_readme_file,
 )

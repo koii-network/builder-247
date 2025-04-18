@@ -7,9 +7,9 @@ from prometheus_swarm.database import get_db
 from prometheus_swarm.clients import setup_client
 from src.workflows.repoSummarizer.workflow import RepoSummarizerWorkflow
 from prometheus_swarm.utils.logging import logger, log_error
-from src.workflows.starRepo.workflow import StarRepoWorkflow
 from dotenv import load_dotenv
 from src.workflows.repoSummarizer.prompts import PROMPTS
+from src.dababase.models import Submission
 
 load_dotenv()
 
