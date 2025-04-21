@@ -35,12 +35,6 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
       status: IssueStatus.INITIALIZED,
     },
     {
-      $push: {
-        assignees: {
-          githubUsername: githubUsername,
-          roundNumber: 0, // Initial round number
-        },
-      },
       $set: {
         status: IssueStatus.AGGREGATOR_PENDING,
       },
