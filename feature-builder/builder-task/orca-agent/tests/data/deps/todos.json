@@ -1,7 +1,6 @@
 [
   {
     "title": "Implement Prime Number Checker",
-    "taskId": "1112",
     "description": "Create a function that efficiently determines if a number is prime",
     "acceptanceCriteria": [
       "Function should return boolean indicating if number is prime",
@@ -12,12 +11,10 @@
     "repoOwner": "koii-network",
     "repoName": "builder-test",
     "status": "initialized",
-    "issueUuid": "issue-2",
     "dependencyTasks": []
   },
   {
     "title": "Create Prime Factorization Function",
-    "taskId": "1112",
     "description": "Implement a function that finds all prime factors of a number using the prime checker",
     "acceptanceCriteria": [
       "Use the prime checker function from previous todo",
@@ -28,12 +25,10 @@
     "repoOwner": "koii-network",
     "repoName": "builder-test",
     "status": "initialized",
-    "issueUuid": "issue-2",
     "dependencyTasks": ["Implement Prime Number Checker"]
   },
   {
     "title": "Implement GCD Calculator Using Prime Factors",
-    "taskId": "1112",
     "description": "Create a function that finds the Greatest Common Divisor using prime factorization",
     "acceptanceCriteria": [
       "Use prime factorization function from previous todo",
@@ -44,12 +39,10 @@
     "repoOwner": "koii-network",
     "repoName": "builder-test",
     "status": "initialized",
-    "issueUuid": "issue-2",
     "dependencyTasks": ["Create Prime Factorization Function"]
   },
   {
     "title": "Create LCM Calculator Using GCD",
-    "taskId": "1112",
     "description": "Implement a function to find Least Common Multiple using the GCD function",
     "acceptanceCriteria": [
       "Use GCD function from previous todo",
@@ -60,12 +53,10 @@
     "repoOwner": "koii-network",
     "repoName": "builder-test",
     "status": "initialized",
-    "issueUuid": "issue-2",
     "dependencyTasks": ["Implement GCD Calculator Using Prime Factors"]
   },
   {
     "title": "Implement Fraction Simplifier",
-    "taskId": "1112",
     "description": "Create a function that simplifies fractions using GCD",
     "acceptanceCriteria": [
       "Use GCD function from previous todo",
@@ -76,7 +67,6 @@
     "repoOwner": "koii-network",
     "repoName": "builder-test",
     "status": "initialized",
-    "issueUuid": "issue-2",
     "dependencyTasks": ["Implement GCD Calculator Using Prime Factors"]
   }
 ]

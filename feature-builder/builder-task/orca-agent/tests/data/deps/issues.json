@@ -4,8 +4,6 @@
     "description": "Create a comprehensive number theory library by implementing functions that build upon each other",
     "repoOwner": "koii-network",
     "repoName": "builder-test",
-    "status": "initialized",
-    "issueUuid": "issue-2",
-    "taskId": "1112"
+    "status": "initialized"
   }
 ]
