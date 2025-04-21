@@ -375,10 +375,7 @@ class TestRunner:
                     # Check for errors
                     if not result.get("success"):
                         error_msg = result.get("error", "Unknown error")
-                        # Only continue if it's a 409 Conflict error
-                        if "409" not in str(error_msg):
-                            raise RuntimeError(f"Step {step.name} failed: {error_msg}")
-                        print(f"Warning: {error_msg} (continuing due to 409 status)")
+                        raise RuntimeError(f"Step {step.name} failed: {error_msg}")
 
                     # Validate step result if validation function exists
                     if step.validate:

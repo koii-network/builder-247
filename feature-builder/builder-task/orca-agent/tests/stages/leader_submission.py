@@ -1,18 +1,18 @@
-"""Stage for handling worker submissions."""
+"""Stage for handling leader submissions."""
 
 import requests
 from prometheus_test.utils import create_signature
 
 
 def prepare(runner, worker):
-    """Prepare data for worker submission"""
+    """Prepare data for leader submission"""
     # Get the current round's state
     round_state = runner.state.get("rounds", {}).get(str(runner.current_round), {})
     pr_urls = round_state.get("pr_urls", {})
 
-    if worker.name not in pr_urls:
+    if "leader" not in pr_urls:
         # Return None to indicate this step should be skipped
-        print(f"✓ No PR URL found for {worker.name} - continuing")
+        print("✓ No PR URL found for leader, skipping submission - continuing")
         return None
 
     # Get submission data from worker
@@ -41,7 +41,7 @@ def prepare(runner, worker):
 
 
 def execute(runner, worker, data):
-    """Store worker submission data"""
+    """Store leader submission data"""
     # If prepare returned None, skip this step
     if data is None:
         return {"success": True, "message": "Skipped due to missing PR URL"}
@@ -55,7 +55,7 @@ def execute(runner, worker, data):
         round_state["submission_data"] = {}
 
     # Store or update submission data
-    round_state["submission_data"][worker.name] = data
+    round_state["submission_data"]["leader"] = data
 
     # Return success result
     return {"success": True, "data": data}

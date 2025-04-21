@@ -18,6 +18,11 @@ def execute(runner, worker, data):
     response = requests.post(url, json=data)
     result = response.json()
 
+    # Handle 409 gracefully - no eligible issues is an expected case
+    if response.status_code == 409:
+        print(f"✓ {result.get('message', 'No eligible issues')} - continuing")
+        return {"success": True, "message": result.get("message")}
+
     if result.get("success"):
         runner.state["fork_url"] = result["data"]["fork_url"]
         runner.state["issue_uuid"] = result["data"]["issue_uuid"]

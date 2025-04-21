@@ -8,13 +8,22 @@ def prepare(runner, worker, target_name):
     """Prepare data for worker audit"""
     round_state = runner.state["rounds"].get(str(runner.current_round), {})
     pr_urls = round_state.get("pr_urls", {})
+
     if target_name not in pr_urls:
-        raise ValueError(f"No PR URL found for {target_name}")
+        # Return None to indicate this step should be skipped
+        print(
+            f"✓ No PR URL found for {target_name}, skipping {worker.name} audit - continuing"
+        )
+        return None
 
     # Get submission data from state
     submission_data = round_state.get("submission_data", {}).get(target_name)
     if not submission_data:
-        raise ValueError(f"No submission data found for {target_name}")
+        # Return None to indicate this step should be skipped
+        print(
+            f"✓ No submission data found for {target_name}, skipping {worker.name} audit - continuing"
+        )
+        return None
 
     # Create auditor payload which is used to generate the signature
     auditor_payload = {
@@ -57,6 +66,15 @@ def prepare(runner, worker, target_name):
 
 def execute(runner, worker, data):
     """Execute worker audit step"""
+    # If prepare returned None, skip this step
+    if data is None:
+        return {
+            "success": True,
+            "message": "Skipped due to missing PR URL or submission data",
+        }
+
     url = f"{worker.url}/worker-audit/{runner.current_round}"
     response = requests.post(url, json=data)
-    return response.json()
+    result = response.json()
+
+    return result

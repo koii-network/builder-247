@@ -102,21 +102,18 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
     return;
   }
 
-  const response = await addAggregatorInfoLogic(requestBody, signatureData);
+  const response = await addAggregatorInfoLogic(signatureData);
   res.status(response.statuscode).json(response.data);
 };
 
-export const addAggregatorInfoLogic = async (
-  requestBody: { signature: string; stakingKey: string; pubKey: string },
-  signatureData: {
-    roundNumber: number;
-    githubUsername: string;
-    issueUuid: string;
-    aggregatorUrl: string;
-  }
-) => {
+export const addAggregatorInfoLogic = async (signatureData: {
+  roundNumber: number;
+  githubUsername: string;
+  issueUuid: string;
+  aggregatorUrl: string;
+}) => {
   console.log('Searching for issue with:', {
-    issueUuid: signatureData.issueUuid,
+    uuid: signatureData.issueUuid,
   });
   const issue = await IssueModel.findOneAndUpdate(
     {

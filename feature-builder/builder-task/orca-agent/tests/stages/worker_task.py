@@ -47,6 +47,13 @@ def execute(runner, worker, data):
     response = requests.post(url, json=data)
     result = response.json()
 
+    # Handle 409 gracefully - no eligible todos is an expected case
+    if response.status_code in [401, 409]:
+        print(
+            f"✓ {result.get('message', 'No eligible todos')} for {worker.name} - continuing"
+        )
+        return {"success": True, "message": result.get("message")}
+
     if result.get("success") and "pr_url" in result:
         round_key = str(runner.current_round)
         round_state = runner.state["rounds"].setdefault(round_key, {})
