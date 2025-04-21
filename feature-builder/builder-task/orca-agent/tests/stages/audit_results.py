@@ -6,6 +6,7 @@ from prometheus_test.utils import create_signature
 
 def prepare(runner, worker, role: str):
     """Prepare data for updating audit results"""
+    # Create payload with all required fields
     payload = {
         "taskId": runner.config.task_id,
         "roundNumber": runner.round_number,
@@ -13,6 +14,7 @@ def prepare(runner, worker, role: str):
         "stakingKey": worker.staking_public_key,
         "pubKey": worker.public_key,
     }
+
     return {
         **payload,
         "stakingSignature": create_signature(worker.staking_signing_key, payload),

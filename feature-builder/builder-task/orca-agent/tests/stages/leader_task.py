@@ -6,15 +6,38 @@ from prometheus_test.utils import create_signature
 
 def prepare(runner, worker):
     """Prepare data for leader task"""
-    payload = {
+    # Create fetch-issue payload for stakingSignature and publicSignature
+    fetch_issue_payload = {
+        "taskId": runner.config.task_id,
+        "roundNumber": runner.round_number,
+        "action": "fetch-issue",
+        "githubUsername": worker.env.get("GITHUB_USERNAME"),
+        "stakingKey": worker.staking_public_key,
+        "pubKey": worker.public_key,
+    }
+
+    # Create add-pr payload for addPRSignature
+    add_pr_payload = {
+        "taskId": runner.config.task_id,
+        "roundNumber": runner.round_number,
+        "action": "add-issue-pr",
+        "githubUsername": worker.env.get("GITHUB_USERNAME"),
+        "stakingKey": worker.staking_public_key,
+        "pubKey": worker.public_key,
+    }
+
+    return {
         "taskId": runner.config.task_id,
         "roundNumber": runner.round_number,
         "stakingKey": worker.staking_public_key,
         "pubKey": worker.public_key,
-    }
-    return {
-        **payload,
-        "stakingSignature": create_signature(worker.staking_signing_key, payload),
+        "stakingSignature": create_signature(
+            worker.staking_signing_key, fetch_issue_payload
+        ),
+        "publicSignature": create_signature(
+            worker.public_signing_key, fetch_issue_payload
+        ),
+        "addPRSignature": create_signature(worker.staking_signing_key, add_pr_payload),
     }
 
 

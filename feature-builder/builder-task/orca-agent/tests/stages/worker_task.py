@@ -6,27 +6,38 @@ from prometheus_test.utils import create_signature
 
 def prepare(runner, worker):
     """Prepare data for worker task"""
-    # Prepare base payload for task signatures
-    task_payload = {
+    # Create fetch-todo payload for stakingSignature and publicSignature
+    fetch_todo_payload = {
         "taskId": runner.config.task_id,
         "roundNumber": runner.round_number,
+        "action": "fetch-todo",
+        "githubUsername": worker.env.get("GITHUB_USERNAME"),
         "stakingKey": worker.staking_public_key,
         "pubKey": worker.public_key,
     }
 
-    # Prepare PR submission payload
-    pr_payload = {
-        **task_payload,
-        "action": "audit",
+    # Create add-pr payload for addPRSignature
+    add_pr_payload = {
+        "taskId": runner.config.task_id,
+        "roundNumber": runner.round_number,
+        "action": "add-todo-pr",
         "githubUsername": worker.env.get("GITHUB_USERNAME"),
+        "stakingKey": worker.staking_public_key,
+        "pubKey": worker.public_key,
     }
 
-    # Create signatures using appropriate payloads
     return {
-        **task_payload,
-        "stakingSignature": create_signature(worker.staking_signing_key, task_payload),
-        "publicSignature": create_signature(worker.public_signing_key, task_payload),
-        "addPRSignature": create_signature(worker.staking_signing_key, pr_payload),
+        "taskId": runner.config.task_id,
+        "roundNumber": runner.round_number,
+        "stakingKey": worker.staking_public_key,
+        "pubKey": worker.public_key,
+        "stakingSignature": create_signature(
+            worker.staking_signing_key, fetch_todo_payload
+        ),
+        "publicSignature": create_signature(
+            worker.public_signing_key, fetch_todo_payload
+        ),
+        "addPRSignature": create_signature(worker.staking_signing_key, add_pr_payload),
     }
 
 

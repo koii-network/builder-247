@@ -1,11 +1,13 @@
-import { Request, Response } from "express";
-import { IssueModel, IssueStatus } from "../../models/Issue";
-import { verifySignature } from "../../utils/sign";
-import { taskIDs } from "../../config/constant";
-import { TodoModel } from "../../models/Todo";
+import { Request, Response } from 'express';
+import { IssueModel, IssueStatus } from '../../models/Issue';
+import { verifySignature } from '../../utils/sign';
+import { taskIDs } from '../../config/constant';
+import { TodoModel } from '../../models/Todo';
 
-export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
-  console.log("verifyRequestBody", req.body);
+export function verifyRequestBody(
+  req: Request
+): { signature: string; stakingKey: string; pubKey: string } | null {
+  console.log('verifyRequestBody', req.body);
   try {
     const signature = req.body.signature as string;
     const stakingKey = req.body.stakingKey as string;
@@ -23,7 +25,7 @@ async function verifySignatureData(
   signature: string,
   stakingKey: string,
   pubKey: string,
-  action: string,
+  action: string
 ): Promise<{
   roundNumber: number;
   githubUsername: string;
@@ -34,22 +36,22 @@ async function verifySignatureData(
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
-      console.log("bad signature");
+      console.log('bad signature');
       return null;
     }
     const body = JSON.parse(data);
     console.log({ signature_payload: body });
-    console.log("task id matches", taskIDs.includes(body.taskId));
-    console.log("round number is number", typeof body.roundNumber === "number");
-    console.log("pub key matches", body.pubKey === pubKey);
-    console.log("staking key matches", body.stakingKey === stakingKey);
-    console.log("action matches", body.action === action);
-    console.log("github username exists", body.githubUsername);
-    console.log("aggregator url exists", body.aggregatorUrl);
-    console.log("issue uuid exists", body.issueUuid);
+    console.log('task id matches', taskIDs.includes(body.taskId));
+    console.log('round number is number', typeof body.roundNumber === 'number');
+    console.log('pub key matches', body.pubKey === pubKey);
+    console.log('staking key matches', body.stakingKey === stakingKey);
+    console.log('action matches', body.action === action);
+    console.log('github username exists', body.githubUsername);
+    console.log('aggregator url exists', body.aggregatorUrl);
+    console.log('issue uuid exists', body.issueUuid);
     if (
       !body.taskId ||
-      typeof body.roundNumber !== "number" ||
+      typeof body.roundNumber !== 'number' ||
       !taskIDs.includes(body.taskId) ||
       body.action !== action ||
       !body.githubUsername ||
@@ -60,7 +62,7 @@ async function verifySignatureData(
       !body.aggregatorUrl ||
       !body.issueUuid
     ) {
-      console.log("bad signature data");
+      console.log('bad signature data');
       return null;
     }
     return {
@@ -71,7 +73,7 @@ async function verifySignatureData(
       aggregatorUrl: body.aggregatorUrl,
     };
   } catch (error) {
-    console.log("unexpected signature error", error);
+    console.log('unexpected signature error', error);
     return null;
   }
 }
@@ -81,7 +83,7 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
   if (!requestBody) {
     res.status(401).json({
       success: false,
-      message: "Invalid request body",
+      message: 'Invalid request body',
     });
     return;
   }
@@ -90,12 +92,12 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
     requestBody.signature,
     requestBody.stakingKey,
     requestBody.pubKey,
-    "create-repo",
+    'create-repo'
   );
   if (!signatureData) {
     res.status(401).json({
       success: false,
-      message: "Failed to verify signature",
+      message: 'Failed to verify signature',
     });
     return;
   }
@@ -106,14 +108,19 @@ export const addAggregatorInfo = async (req: Request, res: Response) => {
 
 export const addAggregatorInfoLogic = async (
   requestBody: { signature: string; stakingKey: string; pubKey: string },
-  signatureData: { roundNumber: number; githubUsername: string; issueUuid: string; aggregatorUrl: string },
+  signatureData: {
+    roundNumber: number;
+    githubUsername: string;
+    issueUuid: string;
+    aggregatorUrl: string;
+  }
 ) => {
-  console.log("Searching for issue with:", {
+  console.log('Searching for issue with:', {
     issueUuid: signatureData.issueUuid,
   });
   const issue = await IssueModel.findOneAndUpdate(
     {
-      issueUuid: signatureData.issueUuid,
+      uuid: signatureData.issueUuid,
     },
     {
       $set: {
@@ -122,14 +129,14 @@ export const addAggregatorInfoLogic = async (
         aggregatorUrl: signatureData.aggregatorUrl,
       },
     },
-    { new: true },
+    { new: true }
   );
   if (!issue) {
     return {
       statuscode: 409,
       data: {
         success: false,
-        message: "Issue not found",
+        message: 'Issue not found',
       },
     };
   }
@@ -138,10 +145,10 @@ export const addAggregatorInfoLogic = async (
   // This ensures workers fork from the aggregator repo, not the original
   const todoUpdateResult = await TodoModel.updateMany(
     { issueUuid: signatureData.issueUuid },
-    { $set: { repoOwner: signatureData.githubUsername } },
+    { $set: { repoOwner: signatureData.githubUsername } }
   );
 
-  console.log("Updated todos for issue:", {
+  console.log('Updated todos for issue:', {
     issueUuid: signatureData.issueUuid,
     todosUpdated: todoUpdateResult.modifiedCount,
     aggregatorOwner: signatureData.githubUsername,
@@ -155,7 +162,7 @@ export const addAggregatorInfoLogic = async (
     statuscode: 200,
     data: {
       success: true,
-      message: "Aggregator info added and todos updated",
+      message: 'Aggregator info added and todos updated',
       todosUpdated: todoUpdateResult.modifiedCount,
     },
   };

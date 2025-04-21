@@ -9,16 +9,16 @@ def prepare(runner, worker):
     if "fork_url" not in runner.state or "issue_uuid" not in runner.state:
         raise ValueError("Fork URL or Issue UUID not found in state")
 
-    # Base payload for both request and signature
+    # Create payload with all required fields
     payload = {
         "taskId": runner.config.task_id,
         "roundNumber": runner.round_number,
         "action": "create-repo",
         "githubUsername": worker.env.get("GITHUB_USERNAME"),
-        "stakingKey": worker.staking_public_key,
-        "pubKey": worker.public_key,
         "issueUuid": runner.state["issue_uuid"],
         "aggregatorUrl": runner.state["fork_url"],
+        "stakingKey": worker.staking_public_key,
+        "pubKey": worker.public_key,
     }
 
     return {
