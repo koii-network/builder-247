@@ -24,7 +24,7 @@ export async function task(roundNumber: number): Promise<void> {
 // No submission on Round 0 so no need to trigger fetch audit result before round 3
 // Changed from 3 to 4 to have more time
   if (roundNumber >= 4) {
-    const triggerFetchAuditResult = await fetch(`${middleServerUrl}/api/builder/planner/trigger-fetch-audit-result`, {
+    const triggerFetchAuditResult = await fetch(`${middleServerUrl}/api/planner/trigger-fetch-audit-result`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -96,7 +96,7 @@ export async function task(roundNumber: number): Promise<void> {
 
     console.log(`[TASK] Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
     console.log(`[TASK] request body: ${JSON.stringify({ signature: signature, stakingKey: stakingKey })}`);
-    const requiredWorkResponse = await fetch(`${middleServerUrl}/api/builder/planner/fetch-planner-todo`, {
+    const requiredWorkResponse = await fetch(`${middleServerUrl}/api/planner/fetch-planner-todo`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -237,7 +237,7 @@ export async function task(roundNumber: number): Promise<void> {
             stakingKeypair.secretKey,
           );
           console.log("[TASK] signature: ", signature);
-          const addPrToSummarizerTodoResponse = await fetch(`${middleServerUrl}/api/builder/planner/add-pr-to-planner-todo`, {
+          const addPrToSummarizerTodoResponse = await fetch(`${middleServerUrl}/api/planner/add-pr-to-planner-todo`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

@@ -31,7 +31,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
 
     console.log(`[AUDIT] Checking summarizer status for submitter ${submitterKey}`);
 
-    const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/builder/planner/check-planner`, {
+    const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/planner/check-planner`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
