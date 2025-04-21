@@ -3,7 +3,7 @@
 import requests
 
 
-def prepare(runner):
+def prepare(runner, worker):
     """Prepare data for creating a repository"""
     return {
         "taskId": runner.config.task_id,
@@ -12,9 +12,8 @@ def prepare(runner):
     }
 
 
-def execute(runner, data):
+def execute(runner, worker, data):
     """Execute repository creation step"""
-    worker = runner.get_worker("leader")
     url = f"{worker.url}/create-aggregator-repo/{data['taskId']}"
     response = requests.post(url, json=data)
     result = response.json()

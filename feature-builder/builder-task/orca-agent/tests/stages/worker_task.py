@@ -1,14 +1,11 @@
 """Stage for executing worker tasks."""
 
-import os
 import requests
 from prometheus_test.utils import create_signature
 
 
-def prepare(runner, worker_name="worker1"):
+def prepare(runner, worker):
     """Prepare data for worker task"""
-    worker = runner.get_worker(worker_name)
-
     # Prepare base payload for task signatures
     task_payload = {
         "taskId": runner.config.task_id,
@@ -21,7 +18,7 @@ def prepare(runner, worker_name="worker1"):
     pr_payload = {
         **task_payload,
         "action": "audit",
-        "githubUsername": os.getenv(f"{worker_name.upper()}_GITHUB_USERNAME"),
+        "githubUsername": worker.env.get("GITHUB_USERNAME"),
     }
 
     # Create signatures using appropriate payloads
@@ -33,14 +30,13 @@ def prepare(runner, worker_name="worker1"):
     }
 
 
-def execute(runner, data, worker_name="worker1"):
+def execute(runner, worker, data):
     """Execute worker task step"""
-    worker = runner.get_worker(worker_name)
     url = f"{worker.url}/worker-task/{data['roundNumber']}"
     response = requests.post(url, json=data)
     result = response.json()
 
     if result.get("success") and "pr_url" in result:
-        runner.state.setdefault("pr_urls", {})[worker_name] = result["pr_url"]
+        runner.state.setdefault("pr_urls", {})[worker.name] = result["pr_url"]
 
     return result

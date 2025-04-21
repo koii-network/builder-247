@@ -2,6 +2,7 @@
 
 from . import (
     create_repo,
+    record_repo,
     worker_task,
     worker_submission,
     worker_audit,
@@ -12,6 +13,7 @@ from . import (
 
 __all__ = [
     "create_repo",
+    "record_repo",
     "worker_task",
     "worker_submission",
     "worker_audit",

@@ -1,16 +1,13 @@
 """Stage for handling worker submissions."""
 
-import os
 import requests
 from prometheus_test.utils import create_signature
 
 
-def prepare(runner, worker_name):
+def prepare(runner, worker):
     """Prepare data for worker submission"""
-    if worker_name not in runner.state.get("pr_urls", {}):
-        raise ValueError(f"No PR URL found for {worker_name}")
-
-    worker = runner.get_worker(worker_name)
+    if worker.name not in runner.state.get("pr_urls", {}):
+        raise ValueError(f"No PR URL found for {worker.name}")
 
     # Get submission data from worker
     url = f"{worker.url}/submission/{runner.config.task_id}/{runner.round_number}"
@@ -25,7 +22,7 @@ def prepare(runner, worker_name):
         "stakingKey": worker.staking_public_key,
         "pubKey": worker.public_key,
         "action": "audit",
-        "githubUsername": os.getenv(f"{worker_name.upper()}_GITHUB_USERNAME"),
+        "githubUsername": worker.env.get("GITHUB_USERNAME"),
         "prUrl": submission_data.get("prUrl"),
     }
 
@@ -37,6 +34,6 @@ def prepare(runner, worker_name):
     }
 
 
-def execute(runner, data):
+def execute(runner, worker, data):
     """Store worker submission data"""
     return data

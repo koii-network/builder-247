@@ -4,9 +4,8 @@ import requests
 from prometheus_test.utils import create_signature
 
 
-def prepare(runner):
+def prepare(runner, worker):
     """Prepare data for leader task"""
-    worker = runner.get_worker("leader")
     payload = {
         "taskId": runner.config.task_id,
         "roundNumber": runner.round_number,
@@ -19,9 +18,8 @@ def prepare(runner):
     }
 
 
-def execute(runner, data):
+def execute(runner, worker, data):
     """Execute leader task step"""
-    worker = runner.get_worker("leader")
     url = f"{worker.url}/leader-task/{data['roundNumber']}"
     response = requests.post(url, json=data)
     result = response.json()

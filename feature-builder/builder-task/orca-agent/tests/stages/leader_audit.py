@@ -4,12 +4,11 @@ import requests
 from prometheus_test.utils import create_signature
 
 
-def prepare(runner):
+def prepare(runner, worker):
     """Prepare data for leader audit"""
     if "leader" not in runner.state.get("pr_urls", {}):
         raise ValueError("No PR URL found for leader")
 
-    worker = runner.get_worker("leader")
     payload = {
         "taskId": runner.config.task_id,
         "roundNumber": runner.round_number,
@@ -22,9 +21,8 @@ def prepare(runner):
     }
 
 
-def execute(runner, data):
+def execute(runner, worker, data):
     """Execute leader audit step"""
-    worker = runner.get_worker("leader")
     url = f"{worker.url}/leader-audit/{data['roundNumber']}"
     response = requests.post(url, json=data)
     return response.json()

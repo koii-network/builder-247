@@ -1,5 +1,5 @@
 # Test Configuration
-task_id: 1112 # Task ID for the test sequence
+task_id: "1112" # Task ID for the test sequence
 # server_entrypoint: /path/to/main.py  # Custom server script path
 # base_port: 5000 # Base port for worker servers
 # max_rounds: 3 # Maximum number of test rounds

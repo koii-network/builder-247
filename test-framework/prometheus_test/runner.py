@@ -106,6 +106,7 @@ class TestStep:
 
     name: str
     description: str
+    worker: str
     prepare: Callable[[], Dict[str, Any]]  # Returns data needed for the step
     execute: Callable[Dict[str, Any], Any]  # Takes prepared data and executes step
     validate: Optional[Callable[[Any, Any], None]] = (
@@ -336,11 +337,12 @@ class TestRunner:
                 print(f"STEP {step.name}: {step.description}")
                 print("#" * 80)
 
+                worker = self.get_worker(step.worker)
                 # Prepare step data
-                data = step.prepare(self)
+                data = step.prepare(self, worker)
 
                 # Execute step
-                result = step.execute(self, data)
+                result = step.execute(self, worker, data)
 
                 # Check for errors
                 if not result.get("success"):
