@@ -23,6 +23,21 @@ def prepare(runner, worker, role: str):
 
 def execute(runner, worker, data):
     """Execute audit results update"""
-    url = f"{worker.url}/audit-results/{data['roundNumber']}"
-    response = requests.post(url, json=data)
-    return response.json()
+    url = f"{worker.url}/update-audit-result/{runner.config.task_id}/{data['roundNumber']}"
+
+    # Structure the payload according to what the server expects
+    payload = {
+        "taskId": runner.config.task_id,
+        "round": data["roundNumber"],
+        "auditType": data["role"],
+    }
+
+    response = requests.post(url, json=payload)
+    result = response.json()
+
+    if not result.get("success", False):
+        raise Exception(
+            f"Update audit result failed: {result.get('message', 'Unknown error')}"
+        )
+
+    return result

@@ -6,7 +6,11 @@ from prometheus_test.utils import create_signature
 
 def prepare(runner, worker):
     """Prepare data for worker submission"""
-    if worker.name not in runner.state.get("pr_urls", {}):
+    # Get the current round's state
+    round_state = runner.state.get("rounds", {}).get(str(runner.current_round), {})
+    pr_urls = round_state.get("pr_urls", {})
+
+    if worker.name not in pr_urls:
         raise ValueError(f"No PR URL found for {worker.name}")
 
     # Get submission data from worker
@@ -36,4 +40,16 @@ def prepare(runner, worker):
 
 def execute(runner, worker, data):
     """Store worker submission data"""
-    return data
+    # Store submission data in state
+    round_key = str(runner.current_round)
+    round_state = runner.state["rounds"].setdefault(round_key, {})
+
+    # Initialize submission_data if not exists
+    if "submission_data" not in round_state:
+        round_state["submission_data"] = {}
+
+    # Store or update submission data
+    round_state["submission_data"][worker.name] = data
+
+    # Return success result
+    return {"success": True, "data": data}

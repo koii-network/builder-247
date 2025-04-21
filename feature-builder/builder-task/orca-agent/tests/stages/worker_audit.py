@@ -57,6 +57,6 @@ def prepare(runner, worker, target_name):
 
 def execute(runner, worker, data):
     """Execute worker audit step"""
-    url = f"{worker.url}/worker-audit/{data['roundNumber']}"
+    url = f"{worker.url}/worker-audit/{runner.current_round}"
     response = requests.post(url, json=data)
     return response.json()
