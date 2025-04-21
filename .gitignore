@@ -4,6 +4,7 @@ __pycache__
 .pytest_cache
 *.db
 test
+test_state.json
 task_flow.egg-info
 example_repo
 signature.js
