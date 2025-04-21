@@ -1,35 +1,35 @@
-import { Request, Response } from "express";
-import "dotenv/config";
+import { Request, Response } from 'express';
+import 'dotenv/config';
 
-import { TodoModel, TodoStatus } from "../../models/Todo";
-import { taskIDs } from "../../config/constant";
-import { isValidStakingKey } from "../../utils/taskState";
-import { IssueModel, IssueStatus } from "../../models/Issue";
-import { verifySignature } from "../../utils/sign";
-import { SystemPromptModel } from "../../models/SystemPrompt";
+import { TodoModel, TodoStatus } from '../../models/Todo';
+import { taskIDs } from '../../config/constant';
+import { isValidStakingKey } from '../../utils/taskState';
+import { IssueModel, IssueStatus } from '../../models/Issue';
+import { verifySignature } from '../../utils/sign';
+import { SystemPromptModel } from '../../models/SystemPrompt';
 
 // Get PR URLs for dependencies
 async function getDependencies(dependencyUuids: string[]): Promise<string[]> {
   if (!dependencyUuids || dependencyUuids.length === 0) {
-    console.log("No dependency UUIDs provided");
+    console.log('No dependency UUIDs provided');
     return [];
   }
 
-  console.log("Looking for dependencies with UUIDs:", dependencyUuids);
+  console.log('Looking for dependencies with UUIDs:', dependencyUuids);
 
   const dependencyTodos = await TodoModel.find({
     uuid: { $in: dependencyUuids },
     status: TodoStatus.APPROVED,
   })
-    .select("uuid status assignees")
+    .select('uuid status assignees')
     .lean();
 
-  console.log("Found dependency todos:", dependencyTodos);
+  console.log('Found dependency todos:', dependencyTodos);
 
   // If we didn't find all dependencies, some are not APPROVED
   if (dependencyTodos.length !== dependencyUuids.length) {
-    console.log("Not all dependencies are APPROVED");
-    throw new Error("Not all dependencies are APPROVED");
+    console.log('Not all dependencies are APPROVED');
+    throw new Error('Not all dependencies are APPROVED');
   }
 
   const prUrls = dependencyTodos
@@ -39,7 +39,7 @@ async function getDependencies(dependencyUuids: string[]): Promise<string[]> {
     })
     .filter((url): url is string => url !== null && url !== undefined);
 
-  console.log("Extracted PR URLs:", prUrls);
+  console.log('Extracted PR URLs:', prUrls);
 
   return prUrls;
 }
@@ -56,17 +56,21 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number, 
         },
       },
     })
-      .select("title acceptanceCriteria repoOwner repoName uuid issueUuid assignees dependencyTasks")
+      .select(
+        'title acceptanceCriteria repoOwner repoName uuid issueUuid assignees dependencyTasks'
+      )
       .lean();
 
     if (!todo) return null;
 
-    console.log("Found todo with dependencies:", todo.dependencyTasks);
+    console.log('Found todo with dependencies:', todo.dependencyTasks);
 
     // Get PR URLs for dependencies
     const dependencyPrUrls = await getDependencies(todo.dependencyTasks || []);
 
-    const assignee = todo.assignees?.find((a) => a.stakingKey === stakingKey && a.roundNumber === roundNumber);
+    const assignee = todo.assignees?.find(
+      (a) => a.stakingKey === stakingKey && a.roundNumber === roundNumber
+    );
     const hasPR = Boolean(assignee?.prUrl);
 
     return {
@@ -75,13 +79,15 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number, 
       dependencyPrUrls,
     };
   } catch (error) {
-    console.error("Error checking assigned info:", error);
+    console.error('Error checking assigned info:', error);
     return null;
   }
 }
 
-export function verifyRequestBody(req: Request): { signature: string; stakingKey: string; pubKey: string } | null {
-  console.log("verifyRequestBody", req.body);
+export function verifyRequestBody(
+  req: Request
+): { signature: string; stakingKey: string; pubKey: string } | null {
+  console.log('verifyRequestBody', req.body);
   try {
     const signature = req.body.signature as string;
     const stakingKey = req.body.stakingKey as string;
@@ -99,19 +105,19 @@ async function verifySignatureData(
   signature: string,
   stakingKey: string,
   pubKey: string,
-  action: string,
+  action: string
 ): Promise<{ roundNumber: number; githubUsername: string; taskId: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
-      console.log("bad signature");
+      console.log('bad signature');
       return null;
     }
     const body = JSON.parse(data);
     console.log({ signature_payload: body });
     if (
       !body.taskId ||
-      typeof body.roundNumber !== "number" ||
+      typeof body.roundNumber !== 'number' ||
       !taskIDs.includes(body.taskId) ||
       body.action !== action ||
       !body.githubUsername ||
@@ -120,12 +126,16 @@ async function verifySignatureData(
       !body.stakingKey ||
       body.stakingKey !== stakingKey
     ) {
-      console.log("bad signature data");
+      console.log('bad signature data');
       return null;
     }
-    return { roundNumber: body.roundNumber, githubUsername: body.githubUsername, taskId: body.taskId };
+    return {
+      roundNumber: body.roundNumber,
+      githubUsername: body.githubUsername,
+      taskId: body.taskId,
+    };
   } catch (error) {
-    console.log("unexpected signature error", error);
+    console.log('unexpected signature error', error);
     return null;
   }
 }
@@ -135,7 +145,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
   if (!requestBody) {
     res.status(401).json({
       success: false,
-      message: "Invalid request body",
+      message: 'Invalid request body',
     });
     return;
   }
@@ -144,12 +154,12 @@ export const fetchTodo = async (req: Request, res: Response) => {
     requestBody.signature,
     requestBody.stakingKey,
     requestBody.pubKey,
-    "fetch-todo",
+    'fetch-todo'
   );
   if (!signatureData) {
     res.status(401).json({
       success: false,
-      message: "Failed to verify signature",
+      message: 'Failed to verify signature',
     });
     return;
   }
@@ -157,7 +167,7 @@ export const fetchTodo = async (req: Request, res: Response) => {
   if (!(await isValidStakingKey(requestBody.stakingKey, signatureData.taskId))) {
     res.status(401).json({
       success: false,
-      message: "Invalid staking key",
+      message: 'Invalid staking key',
     });
     return;
   }
@@ -167,13 +177,13 @@ export const fetchTodo = async (req: Request, res: Response) => {
 
 export const fetchTodoLogic = async (
   requestBody: { signature: string; stakingKey: string; pubKey: string },
-  signatureData: { roundNumber: number; githubUsername: string; taskId: string },
+  signatureData: { roundNumber: number; githubUsername: string; taskId: string }
 ) => {
   // 1. Check if user already has an assignment
   const existingAssignment = await checkExistingAssignment(
     requestBody.stakingKey,
     signatureData.roundNumber,
-    signatureData.taskId,
+    signatureData.taskId
   );
   if (existingAssignment) {
     console.log(`Found existing assignment ${existingAssignment.todo.uuid}`);
@@ -182,7 +192,7 @@ export const fetchTodoLogic = async (
         statuscode: 409,
         data: {
           success: false,
-          message: "Task already completed",
+          message: 'Task already completed',
         },
       };
     }
@@ -214,7 +224,7 @@ export const fetchTodoLogic = async (
         statuscode: 409,
         data: {
           success: false,
-          message: "No active issue found",
+          message: 'No active issue found',
         },
       };
     }
@@ -224,25 +234,28 @@ export const fetchTodoLogic = async (
       // Match initial criteria
       {
         $match: {
-          issueUuid: currentIssue.issueUuid,
+          issueUuid: currentIssue.uuid,
           status: TodoStatus.INITIALIZED,
         },
       },
       // Lookup dependencies
       {
         $lookup: {
-          from: "todos", // assuming collection name is "todos"
-          let: { dependencyTasks: { $ifNull: ["$dependencyTasks", []] } },
+          from: 'todos', // assuming collection name is "todos"
+          let: { dependencyTasks: { $ifNull: ['$dependencyTasks', []] } },
           pipeline: [
             {
               $match: {
                 $expr: {
-                  $and: [{ $in: ["$uuid", "$$dependencyTasks"] }, { $ne: ["$status", TodoStatus.APPROVED] }],
+                  $and: [
+                    { $in: ['$uuid', '$$dependencyTasks'] },
+                    { $ne: ['$status', TodoStatus.APPROVED] },
+                  ],
                 },
               },
             },
           ],
-          as: "unmetDependencies",
+          as: 'unmetDependencies',
         },
       },
       // Only keep todos with no unmet dependencies
@@ -269,7 +282,7 @@ export const fetchTodoLogic = async (
         statuscode: 409,
         data: {
           success: false,
-          message: "No todos with completed dependencies available",
+          message: 'No todos with completed dependencies available',
         },
       };
     }
@@ -292,7 +305,7 @@ export const fetchTodoLogic = async (
           status: TodoStatus.IN_PROGRESS,
         },
       },
-      { new: true },
+      { new: true }
     );
 
     if (!updatedTodo) {
@@ -300,7 +313,7 @@ export const fetchTodoLogic = async (
         statuscode: 409,
         data: {
           success: false,
-          message: "Task assignment conflict",
+          message: 'Task assignment conflict',
         },
       };
     }
@@ -308,7 +321,7 @@ export const fetchTodoLogic = async (
     // Get PR URLs for dependencies
     const dependencyPrUrls = await getDependencies(updatedTodo.dependencyTasks || []);
 
-    console.log("dependencyPrUrls", dependencyPrUrls);
+    console.log('dependencyPrUrls', dependencyPrUrls);
 
     // Get task-specific system prompt
     const systemPrompt = await SystemPromptModel.findOne({ taskId: signatureData.taskId });
@@ -317,7 +330,7 @@ export const fetchTodoLogic = async (
         statuscode: 500,
         data: {
           success: false,
-          message: "System prompt not found for task",
+          message: 'System prompt not found for task',
         },
       };
     }
@@ -333,7 +346,7 @@ export const fetchTodoLogic = async (
       dependency_pr_urls: dependencyPrUrls,
     };
 
-    console.log("TODO DATA:", data);
+    console.log('TODO DATA:', data);
 
     return {
       statuscode: 200,
@@ -343,12 +356,12 @@ export const fetchTodoLogic = async (
       },
     };
   } catch (error) {
-    console.error("Error fetching todo:", error);
+    console.error('Error fetching todo:', error);
     return {
       statuscode: 500,
       data: {
         success: false,
-        message: "Failed to fetch todo",
+        message: 'Failed to fetch todo',
       },
     };
   }

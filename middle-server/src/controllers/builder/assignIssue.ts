@@ -1,9 +1,9 @@
-import { Request, Response } from "express";
-import { IssueModel, IssueStatus } from "../../models/Issue";
-import { taskIDs } from "../../config/constant";
+import { Request, Response } from 'express';
+import { IssueModel, IssueStatus } from '../../models/Issue';
+import { taskIDs } from '../../config/constant';
 
 export function verifyRequestBody(req: Request): { taskId: string; githubUsername: string } | null {
-  console.log("verifyRequestBody", req.body);
+  console.log('verifyRequestBody', req.body);
   const taskId = req.body.taskId as string;
   const githubUsername = req.body.githubUsername as string;
   if (!taskId || !taskIDs.includes(taskId) || !githubUsername) {
@@ -17,7 +17,7 @@ export const assignIssue = async (req: Request, res: Response) => {
   if (!body) {
     res.status(401).json({
       success: false,
-      message: "Invalid request body",
+      message: 'Invalid request body',
     });
     return;
   }
@@ -45,7 +45,7 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
         status: IssueStatus.AGGREGATOR_PENDING,
       },
     },
-    { new: true },
+    { new: true }
   );
 
   if (!result) {
@@ -53,20 +53,20 @@ export const assignIssueLogic = async (taskId: string, githubUsername: string) =
       statuscode: 409,
       data: {
         success: false,
-        message: "No issues available for assignment",
+        message: 'No issues available for assignment',
       },
     };
   }
 
   const data = {
     success: true,
-    message: "Issue assigned",
-    issueId: result.issueUuid,
+    message: 'Issue assigned',
+    issueId: result.uuid,
     repoOwner: result.repoOwner,
     repoName: result.repoName,
   };
 
-  console.log("data", data);
+  console.log('data', data);
 
   return {
     statuscode: 200,

@@ -1,15 +1,15 @@
-import { prop, getModelForClass, modelOptions, Severity } from "@typegoose/typegoose";
-import { builder247DB } from "../services/database/database";
+import { prop, getModelForClass, modelOptions, Severity } from '@typegoose/typegoose';
+import { builder247DB } from '../services/database/database';
 
 enum IssueStatus {
-  INITIALIZED = "initialized",
-  AGGREGATOR_PENDING = "aggregator_pending",
-  IN_PROGRESS = "in_progress",
-  ASSIGN_PENDING = "assign_pending", // Awaiting assignment to a leader node
-  ASSIGNED = "assigned", // Assigned to a leader node
-  IN_REVIEW = "in_review", // The PR is opened and waiting for review
-  APPROVED = "approved", // The PR passed audit and appeared on the distribution list
-  MERGED = "merged", // The PR is merged (must be done manually by bounty owner)
+  INITIALIZED = 'initialized',
+  AGGREGATOR_PENDING = 'aggregator_pending',
+  IN_PROGRESS = 'in_progress',
+  ASSIGN_PENDING = 'assign_pending', // Awaiting assignment to a leader node
+  ASSIGNED = 'assigned', // Assigned to a leader node
+  IN_REVIEW = 'in_review', // The PR is opened and waiting for review
+  APPROVED = 'approved', // The PR passed audit and appeared on the distribution list
+  MERGED = 'merged', // The PR is merged (must be done manually by bounty owner)
 }
 
 class AssignedInfo {
@@ -46,7 +46,7 @@ class AssignedInfo {
 })
 class Issue {
   @prop({ required: true })
-  public issueUuid!: string;
+  public uuid!: string;
 
   @prop({ required: true })
   public taskId!: string;

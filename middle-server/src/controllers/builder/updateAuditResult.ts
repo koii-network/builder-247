@@ -1,27 +1,27 @@
-import { Request, Response } from "express";
-import { IssueModel } from "../../models/Issue";
+import { Request, Response } from 'express';
+import { IssueModel } from '../../models/Issue';
 import {
   getDistributionListSubmitter,
   getDistributionListWrapper,
   getKeysByValueSign,
-} from "../../utils/taskState/getDistributionList";
-import { IssueStatus } from "../../models/Issue";
-import { TodoModel, TodoStatus } from "../../models/Todo";
-import { AuditModel, AuditStatus } from "../../models/Audit";
+} from '../../utils/taskState/getDistributionList';
+import { IssueStatus } from '../../models/Issue';
+import { TodoModel, TodoStatus } from '../../models/Todo';
+import { AuditModel, AuditStatus } from '../../models/Audit';
 
 const PROCESS_TIMEOUT = 10 * 60 * 1000; // 10 minutes
-const BYPASS_TASK_STATE_CHECK = process.env.NODE_ENV === "development";
+const BYPASS_TASK_STATE_CHECK = process.env.NODE_ENV === 'development';
 
 /**
  * Verify the request body for update-audit-result endpoint
  */
 function verifyRequestBody(req: Request): { taskId: string; round: number } | null {
-  console.log("updateAuditResult request body:", req.body);
+  console.log('updateAuditResult request body:', req.body);
   try {
     const taskId = req.body.taskId as string;
     const round = req.body.round as number;
 
-    if (!taskId || typeof round !== "number") {
+    if (!taskId || typeof round !== 'number') {
       return null;
     }
 
@@ -37,7 +37,7 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
   if (!requestBody) {
     res.status(400).json({
       success: false,
-      message: "Invalid request body. Required fields: taskId (string), round (number)",
+      message: 'Invalid request body. Required fields: taskId (string), round (number)',
     });
     return;
   }
@@ -51,7 +51,7 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
     await updateTestEnvironmentStatus(round);
     res.status(200).json({
       success: true,
-      message: "[TEST MODE] Task processed successfully.",
+      message: '[TEST MODE] Task processed successfully.',
     });
     return;
   }
@@ -71,7 +71,9 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
 
   if (existingAudit) {
     const message =
-      existingAudit.status === AuditStatus.COMPLETED ? "Task already processed." : "Task is being processed.";
+      existingAudit.status === AuditStatus.COMPLETED
+        ? 'Task already processed.'
+        : 'Task is being processed.';
     res.status(200).json({
       success: true,
       message,
@@ -89,7 +91,7 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
       status: AuditStatus.IN_PROGRESS,
       error: null,
     },
-    { upsert: true, new: true },
+    { upsert: true, new: true }
   );
 
   try {
@@ -108,9 +110,9 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
             assignedGithubUsername: undefined,
             assignedRoundNumber: undefined,
           },
-        },
+        }
       );
-      throw new Error("No Distribution List Submitter found");
+      throw new Error('No Distribution List Submitter found');
     }
 
     const distributionList = await getDistributionListWrapper(taskId, String(round));
@@ -124,9 +126,9 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
             assignedGithubUsername: undefined,
             assignedRoundNumber: undefined,
           },
-        },
+        }
       );
-      throw new Error("No Distribution List found");
+      throw new Error('No Distribution List found');
     }
 
     const { positive, negative } = await getKeysByValueSign(distributionList);
@@ -141,16 +143,16 @@ export async function updateAuditResult(req: Request, res: Response): Promise<vo
 
     res.status(200).json({
       success: true,
-      message: "Task processed successfully.",
+      message: 'Task processed successfully.',
     });
   } catch (error) {
     await AuditModel.findByIdAndUpdate(audit._id, {
       status: AuditStatus.FAILED,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
     res.status(500).json({
       success: false,
-      message: "Audit processing failed",
+      message: 'Audit processing failed',
       error: error instanceof Error ? error.message : error,
     });
   }
@@ -166,8 +168,8 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
   // 1. Update IN_REVIEW todos to APPROVED if they have PR URLs
   const inReviewTodos = await TodoModel.find({
     status: TodoStatus.IN_REVIEW,
-    "assignees.roundNumber": round,
-    "assignees.prUrl": { $exists: true, $ne: null },
+    'assignees.roundNumber': round,
+    'assignees.prUrl': { $exists: true, $ne: null },
   });
 
   for (const todo of inReviewTodos) {
@@ -179,7 +181,9 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
     await todo.save();
   }
 
-  console.log(`[TEST MODE] Updated ${inReviewTodos.length} todos from IN_REVIEW to APPROVED for round ${round}`);
+  console.log(
+    `[TEST MODE] Updated ${inReviewTodos.length} todos from IN_REVIEW to APPROVED for round ${round}`
+  );
 
   // 2. Find all IN_PROGRESS issues (these are issues that have been audited by the leader)
   const inProgressIssues = await IssueModel.find({ status: IssueStatus.IN_PROGRESS });
@@ -188,9 +192,9 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
 
   // 3. For each IN_PROGRESS issue, check if all its todos are APPROVED
   for (const issue of inProgressIssues) {
-    console.log(`[TEST MODE] Processing issue ${issue.issueUuid}`);
-    const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
-    console.log(`[TEST MODE] Found ${todos.length} todos for issue ${issue.issueUuid}`);
+    console.log(`[TEST MODE] Processing issue ${issue.uuid}`);
+    const todos = await TodoModel.find({ issueUuid: issue.uuid });
+    console.log(`[TEST MODE] Found ${todos.length} todos for issue ${issue.uuid}`);
 
     const allTodosApproved = todos.every((todo) => todo.status === TodoStatus.APPROVED);
 
@@ -198,10 +202,17 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
 
     if (allTodosApproved) {
       // Update to ASSIGN_PENDING if all todos are approved
-      await IssueModel.updateOne({ _id: issue._id }, { $set: { status: IssueStatus.ASSIGN_PENDING } });
-      console.log(`[TEST MODE] Updated issue ${issue.issueUuid} to ASSIGN_PENDING - all todos are approved`);
+      await IssueModel.updateOne(
+        { _id: issue._id },
+        { $set: { status: IssueStatus.ASSIGN_PENDING } }
+      );
+      console.log(
+        `[TEST MODE] Updated issue ${issue.uuid} to ASSIGN_PENDING - all todos are approved`
+      );
     } else {
-      console.log(`[TEST MODE] Issue ${issue.issueUuid} remains IN_PROGRESS - not all todos are approved`);
+      console.log(
+        `[TEST MODE] Issue ${issue.uuid} remains IN_PROGRESS - not all todos are approved`
+      );
     }
   }
 
@@ -218,12 +229,16 @@ async function updateTestEnvironmentStatus(round: number): Promise<void> {
   console.log(`[TEST MODE] Updated ${inReviewIssues.length} issues from IN_REVIEW to APPROVED`);
 }
 
-export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negativeKeys: string[], round: number) => {
+export const triggerFetchAuditResultLogic = async (
+  positiveKeys: string[],
+  negativeKeys: string[],
+  round: number
+) => {
   console.log(`Processing audit results for round ${round}`);
   console.log(`Positive keys: ${positiveKeys.length}, Negative keys: ${negativeKeys.length}`);
 
   // Update the subtask status
-  const auditableTodos = await TodoModel.find({ "assignees.roundNumber": round });
+  const auditableTodos = await TodoModel.find({ 'assignees.roundNumber': round });
 
   console.log(`Found ${auditableTodos.length} auditable todos`);
 
@@ -249,24 +264,24 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
   console.log(`Found ${issues.length} issues related to updated todos`);
 
   for (const issue of issues) {
-    const todos = await TodoModel.find({ issueUuid: issue.issueUuid });
+    const todos = await TodoModel.find({ issueUuid: issue.uuid });
     if (todos.every((todo) => todo.status === TodoStatus.APPROVED)) {
       issue.status = IssueStatus.ASSIGN_PENDING;
-      console.log(`Setting issue ${issue.issueUuid} to ASSIGN_PENDING - all todos approved`);
+      console.log(`Setting issue ${issue.uuid} to ASSIGN_PENDING - all todos approved`);
     } else {
       console.log(
-        `Issue ${issue.issueUuid} remains in current status - not all todos are approved:`,
+        `Issue ${issue.uuid} remains in current status - not all todos are approved:`,
         todos.map((t) => ({
           id: t._id,
           status: t.status,
-        })),
+        }))
       );
     }
     await issue.save();
   }
 
   // Now update the has PR issues
-  const auditedIssues = await IssueModel.find({ "assignees.roundNumber": round });
+  const auditedIssues = await IssueModel.find({ 'assignees.roundNumber': round });
 
   console.log(`Found ${auditedIssues.length} audited issues`);
 
@@ -278,13 +293,16 @@ export const triggerFetchAuditResultLogic = async (positiveKeys: string[], negat
       issue.status = IssueStatus.APPROVED;
       assignee.approved = true;
       await issue.save();
-      console.log(`Setting issue ${issue.issueUuid} to APPROVED`);
-      await TodoModel.updateMany({ issueUuid: issue.issueUuid }, { $set: { status: TodoStatus.MERGED } });
+      console.log(`Setting issue ${issue.uuid} to APPROVED`);
+      await TodoModel.updateMany(
+        { issueUuid: issue.uuid },
+        { $set: { status: TodoStatus.MERGED } }
+      );
     } else {
       issue.status = IssueStatus.ASSIGN_PENDING;
       assignee.approved = false;
       await issue.save();
-      console.log(`Setting issue back to ${issue.issueUuid} to ASSIGN_PENDING`);
+      console.log(`Setting issue back to ${issue.uuid} to ASSIGN_PENDING`);
     }
   }
 };
