@@ -28,8 +28,6 @@ def add_uuids(db):
     for issue in issues:
         if "uuid" not in issue:
             issue["uuid"] = str(uuid.uuid4())
-        if "issueUuid" not in issue:
-            issue["issueUuid"] = issue["uuid"]
         db.issues.replace_one({"_id": issue["_id"]}, issue)
 
     # Process todos collection
