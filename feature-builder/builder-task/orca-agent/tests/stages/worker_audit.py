@@ -6,33 +6,30 @@ from prometheus_test.utils import create_signature
 
 def prepare(runner, worker, target_name):
     """Prepare data for worker audit"""
-    pr_urls = runner.state.get("pr_urls", {})
+    round_state = runner.state["rounds"].get(str(runner.current_round), {})
+    pr_urls = round_state.get("pr_urls", {})
     if target_name not in pr_urls:
         raise ValueError(f"No PR URL found for {target_name}")
+
+    # Get submission data from state
+    submission_data = round_state.get("submission_data", {}).get(target_name)
+    if not submission_data:
+        raise ValueError(f"No submission data found for {target_name}")
 
     # Create auditor payload which is used to generate the signature
     auditor_payload = {
         "taskId": runner.config.task_id,
-        "roundNumber": runner.round_number,
+        "roundNumber": runner.current_round,
         "prUrl": pr_urls[target_name],
         "stakingKey": worker.staking_public_key,
         "pubKey": worker.public_key,
     }
 
-    # Get submission data from target worker
-    target_worker = runner.get_worker(target_name)
-    url = (
-        f"{target_worker.url}/submission/{runner.config.task_id}/{runner.round_number}"
-    )
-    response = requests.get(url)
-    response.raise_for_status()
-    submission_data = response.json()
-
     # Structure the payload according to what the server expects
     return {
         "submission": {
             "taskId": runner.config.task_id,
-            "roundNumber": runner.round_number,
+            "roundNumber": runner.current_round,
             "prUrl": pr_urls[target_name],
             "githubUsername": submission_data.get("githubUsername"),
             "repoOwner": submission_data.get("repoOwner"),

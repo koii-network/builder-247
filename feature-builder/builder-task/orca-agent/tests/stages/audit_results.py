@@ -9,7 +9,7 @@ def prepare(runner, worker, role: str):
     # Create payload with all required fields
     payload = {
         "taskId": runner.config.task_id,
-        "roundNumber": runner.round_number,
+        "roundNumber": runner.current_round,
         "role": role,
         "stakingKey": worker.staking_public_key,
         "pubKey": worker.public_key,

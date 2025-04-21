@@ -6,20 +6,21 @@ from prometheus_test.utils import create_signature
 
 def prepare(runner, worker):
     """Prepare data for leader audit"""
-    if "leader" not in runner.state.get("pr_urls", {}):
+    round_state = runner.state["rounds"].get(str(runner.current_round), {})
+    pr_urls = round_state.get("pr_urls", {})
+    if "leader" not in pr_urls:
         raise ValueError("No PR URL found for leader")
 
-    # Get submission data from leader
-    url = f"{worker.url}/submission/{runner.config.task_id}/{runner.round_number}"
-    response = requests.get(url)
-    response.raise_for_status()
-    submission_data = response.json()
+    # Get submission data from state
+    submission_data = round_state.get("submission_data", {}).get("leader")
+    if not submission_data:
+        raise ValueError("No submission data found for leader")
 
     # Create auditor payload which is used to generate the signature
     auditor_payload = {
         "taskId": runner.config.task_id,
-        "roundNumber": runner.round_number,
-        "prUrl": runner.state["pr_urls"]["leader"],
+        "roundNumber": runner.current_round,
+        "prUrl": pr_urls["leader"],
         "stakingKey": worker.staking_public_key,
         "pubKey": worker.public_key,
     }
@@ -28,8 +29,8 @@ def prepare(runner, worker):
     return {
         "submission": {
             "taskId": runner.config.task_id,
-            "roundNumber": runner.round_number,
-            "prUrl": runner.state["pr_urls"]["leader"],
+            "roundNumber": runner.current_round,
+            "prUrl": pr_urls["leader"],
             "githubUsername": submission_data.get("githubUsername"),
             "repoOwner": submission_data.get("repoOwner"),
             "repoName": submission_data.get("repoName"),
@@ -47,7 +48,7 @@ def prepare(runner, worker):
             worker.staking_signing_key, auditor_payload
         ),
         "publicSignature": create_signature(worker.public_signing_key, auditor_payload),
-        "prUrl": runner.state["pr_urls"]["leader"],
+        "prUrl": pr_urls["leader"],
         "repoOwner": submission_data.get("repoOwner"),
         "repoName": submission_data.get("repoName"),
         "githubUsername": worker.env.get("GITHUB_USERNAME"),

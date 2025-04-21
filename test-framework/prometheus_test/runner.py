@@ -120,18 +120,12 @@ class TestRunner:
     def __init__(
         self,
         steps: List[TestStep],
-        config: Optional[TestConfig] = None,
         config_file: Optional[Path] = None,
         config_overrides: Optional[Dict[str, Any]] = None,
     ):
-        """Initialize with test steps and either a config object or path to config file"""
+        """Initialize test runner with steps and optional config"""
         self.steps = steps
-
-        # Load config from file or use provided config or defaults
-        if config_file:
-            self.config = TestConfig.from_yaml(config_file)
-        else:
-            self.config = config or TestConfig()
+        self.config = TestConfig.from_yaml(config_file) if config_file else TestConfig()
 
         # Apply any config overrides
         if config_overrides:
@@ -141,8 +135,10 @@ class TestRunner:
                 else:
                     raise ValueError(f"Invalid config override: {key}")
 
-        self.state: Dict[str, Any] = {}
-        self.round_number = 1
+        # Initialize state
+        self.state = {}
+        self.current_round = 1
+        self.last_completed_step = None
 
         # Ensure directories exist
         self.config.data_dir.mkdir(parents=True, exist_ok=True)
@@ -293,6 +289,10 @@ class TestRunner:
     def save_state(self):
         """Save current test state to file"""
         state_file = self.config.data_dir / "test_state.json"
+        # Add current round and step to state before saving
+        self.state["current_round"] = self.current_round
+        if self.last_completed_step:
+            self.state["last_completed_step"] = self.last_completed_step
         with open(state_file, "w") as f:
             json.dump(self.state, f, indent=2)
 
@@ -302,10 +302,17 @@ class TestRunner:
         if state_file.exists():
             with open(state_file, "r") as f:
                 self.state = json.load(f)
+                # Restore current round and step from state
+                self.current_round = self.state.get("current_round", 1)
+                self.last_completed_step = self.state.get("last_completed_step")
 
     def reset_state(self):
         """Clear the current state"""
-        self.state = {}
+        self.state = {
+            "rounds": {},
+            "current_round": self.current_round,
+        }
+        self.last_completed_step = None
         state_file = self.config.data_dir / "test_state.json"
         if state_file.exists():
             state_file.unlink()
@@ -326,36 +333,61 @@ class TestRunner:
             finally:
                 self.save_state()
 
+    def next_round(self):
+        """Move to next round"""
+        self.current_round += 1
+        # Initialize state for new round if needed
+        if "rounds" not in self.state:
+            self.state["rounds"] = {}
+        if str(self.current_round) not in self.state["rounds"]:
+            self.state["rounds"][str(self.current_round)] = {}
+        self.state["current_round"] = self.current_round
+        self.last_completed_step = None
+
     def run(self, force_reset=False):
         """Run the test sequence."""
         # Ensure clean state before starting
         self.ensure_clean_state(force_reset)
 
         with self.run_environment():
-            for step in self.steps:
-                print("\n" + "#" * 80)
-                print(f"STEP {step.name}: {step.description}")
-                print("#" * 80)
+            while self.current_round <= self.max_rounds:
+                round_steps = [s for s in self.steps]
 
-                worker = self.get_worker(step.worker)
-                # Prepare step data
-                data = step.prepare(self, worker)
+                # Find the index to start from based on last completed step
+                start_index = 0
+                if self.last_completed_step:
+                    for i, step in enumerate(round_steps):
+                        if step.name == self.last_completed_step:
+                            start_index = i + 1
+                            break
 
-                # Execute step
-                result = step.execute(self, worker, data)
+                # Skip already completed steps
+                for step in round_steps[start_index:]:
+                    self.log_step(step)
 
-                # Check for errors
-                if not result.get("success"):
-                    error_msg = result.get("error", "Unknown error")
-                    # Only continue if it's a 409 Conflict error
-                    if "409" not in str(error_msg):
-                        raise RuntimeError(f"Step {step.name} failed: {error_msg}")
-                    print(f"Warning: {error_msg} (continuing due to 409 status)")
+                    worker = self.get_worker(step.worker)
+                    # Prepare step data
+                    data = step.prepare(self, worker)
 
-                # Validate step result if validation function exists
-                if step.validate:
-                    step.validate(self, result)
+                    # Execute step
+                    result = step.execute(self, worker, data)
 
-                # Save state after successful step
-                self.save_state()
-                self.last_completed_step = step.name
+                    # Check for errors
+                    if not result.get("success"):
+                        error_msg = result.get("error", "Unknown error")
+                        # Only continue if it's a 409 Conflict error
+                        if "409" not in str(error_msg):
+                            raise RuntimeError(f"Step {step.name} failed: {error_msg}")
+                        print(f"Warning: {error_msg} (continuing due to 409 status)")
+
+                    # Validate step result if validation function exists
+                    if step.validate:
+                        step.validate(self, result)
+
+                    # Save state after successful step
+                    self.last_completed_step = step.name
+                    self.save_state()
+
+                # Move to next round after completing all steps
+                if self.current_round < self.max_rounds:
+                    self.next_round()

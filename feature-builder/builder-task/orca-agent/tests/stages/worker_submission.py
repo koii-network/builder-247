@@ -10,7 +10,7 @@ def prepare(runner, worker):
         raise ValueError(f"No PR URL found for {worker.name}")
 
     # Get submission data from worker
-    url = f"{worker.url}/submission/{runner.config.task_id}/{runner.round_number}"
+    url = f"{worker.url}/submission/{runner.config.task_id}/{runner.current_round}"
     response = requests.get(url)
     response.raise_for_status()
     submission_data = response.json()
@@ -18,7 +18,7 @@ def prepare(runner, worker):
     # Create signature for the submission
     submitter_payload = {
         "taskId": runner.config.task_id,
-        "roundNumber": runner.round_number,
+        "roundNumber": runner.current_round,
         "stakingKey": worker.staking_public_key,
         "pubKey": worker.public_key,
         "action": "audit",

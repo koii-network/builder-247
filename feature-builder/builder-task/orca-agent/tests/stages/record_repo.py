@@ -12,7 +12,7 @@ def prepare(runner, worker):
     # Create payload with all required fields
     payload = {
         "taskId": runner.config.task_id,
-        "roundNumber": runner.round_number,
+        "roundNumber": runner.current_round,
         "action": "create-repo",
         "githubUsername": worker.env.get("GITHUB_USERNAME"),
         "issueUuid": runner.state["issue_uuid"],
