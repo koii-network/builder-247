@@ -1,0 +1,32 @@
+{
+  "leader": {
+    "env_vars": {
+      "GITHUB_TOKEN": "LEADER_GITHUB_TOKEN",
+      "GITHUB_USERNAME": "LEADER_GITHUB_USERNAME"
+    },
+    "keypairs": {
+      "staking": "LEADER_STAKING_KEYPAIR",
+      "public": "LEADER_PUBLIC_KEYPAIR"
+    }
+  },
+  "worker1": {
+    "env_vars": {
+      "GITHUB_TOKEN": "WORKER1_GITHUB_TOKEN",
+      "GITHUB_USERNAME": "WORKER1_GITHUB_USERNAME"
+    },
+    "keypairs": {
+      "staking": "WORKER1_STAKING_KEYPAIR",
+      "public": "WORKER1_PUBLIC_KEYPAIR"
+    }
+  },
+  "worker2": {
+    "env_vars": {
+      "GITHUB_TOKEN": "WORKER2_GITHUB_TOKEN",
+      "GITHUB_USERNAME": "WORKER2_GITHUB_USERNAME"
+    },
+    "keypairs": {
+      "staking": "WORKER2_STAKING_KEYPAIR",
+      "public": "WORKER2_PUBLIC_KEYPAIR"
+    }
+  }
+}

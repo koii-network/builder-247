@@ -2,7 +2,12 @@
 
 from flask import Flask, request
 from .routes import task, submission, audit, healthz
-from prometheus_swarm.utils.logging import configure_logging, log_section, log_key_value, log_value
+from prometheus_swarm.utils.logging import (
+    configure_logging,
+    log_section,
+    log_key_value,
+    log_value,
+)
 from prometheus_swarm.database import initialize_database
 from colorama import Fore, Style
 import uuid
@@ -56,6 +61,13 @@ def create_app():
     with app.app_context():
         # Set up logging (includes both console and database logging)
         configure_logging()
+
+        # Debug logging for database path
+        print("\nDEBUG: Environment variables:")
+        print(f"DATABASE_PATH={os.getenv('DATABASE_PATH')}")
+        print(f"PWD={os.getenv('PWD')}")
+        print(f"Current working directory: {os.getcwd()}")
+
         # Initialize database
         initialize_database()
         # Disable Flask's default logging
