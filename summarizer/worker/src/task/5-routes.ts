@@ -1,12 +1,9 @@
 import { namespaceWrapper, app } from "@_koii/task-manager/namespace-wrapper";
-import { getLeaderNode, getRandomNodes } from "../utils/leader";
+import { getLeaderNode } from "../utils/leader";
 import { task } from "./1-task";
 import { submission } from "./2-submission";
 import { audit } from "./3-audit";
-import { distribution } from "./4-distribution";
-import { submissionJSONSignatureDecode } from "../utils/submissionJSONSignatureDecode";
-import { Submission } from "@_koii/namespace-wrapper/dist/types";
-import { taskRunner } from "@_koii/task-manager"
+import { taskRunner } from "@_koii/task-manager";
 
 /**
  *
@@ -25,7 +22,10 @@ export async function routes() {
   app.get("/leader/:roundNumber/:submitterPublicKey", async (req, res) => {
     const roundNumber = req.params.roundNumber;
     const submitterPublicKey = req.params.submitterPublicKey;
-    const {isLeader, leaderNode} = await getLeaderNode({roundNumber: Number(roundNumber), submitterPublicKey: submitterPublicKey});
+    const { isLeader, leaderNode } = await getLeaderNode({
+      roundNumber: Number(roundNumber),
+      submitterPublicKey: submitterPublicKey,
+    });
     res.status(200).json({ isLeader: isLeader, leaderNode: leaderNode });
   });
 
@@ -53,5 +53,4 @@ export async function routes() {
     const submitDistributionResult = await taskRunner.submitDistributionList(Number(roundNumber));
     res.status(200).json({ result: submitDistributionResult });
   });
-
 }

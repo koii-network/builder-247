@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
 import 'dotenv/config';
 
-import { taskIDs } from '../../config/constant';
-import { isValidStakingKey } from '../../utils/taskState';
-import { IssueModel, IssueStatus } from '../../models/Issue';
-import { verifySignature } from '../../utils/sign';
-import { getPRDict } from '../../utils/issueUtils';
+import { taskIDs } from '../../../config/constant';
+import { isValidStakingKey } from '../../../utils/taskState';
+import { IssueModel, IssueStatus } from '../../../models/Issue';
+import { verifySignature } from '../../../utils/sign';
+import { getPRDict } from '../../../utils/issueUtils';
 
 // Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {

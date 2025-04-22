@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { IssueModel, IssueStatus } from '../../models/Issue';
-import { taskIDs } from '../../config/constant';
+import { IssueModel, IssueStatus } from '../../../models/Issue';
+import { taskIDs } from '../../../config/constant';
 
 export function verifyRequestBody(req: Request): { taskId: string; githubUsername: string } | null {
   console.log('verifyRequestBody', req.body);

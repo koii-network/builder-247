@@ -21,24 +21,28 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
       // This returns a dummy true
       return true;
     }
-    const decodeResult = await submissionJSONSignatureDecode({submission_value: cid, submitterPublicKey: submitterKey, roundNumber: roundNumber});
+    const decodeResult = await submissionJSONSignatureDecode({
+      submission_value: cid,
+      submitterPublicKey: submitterKey,
+      roundNumber: roundNumber,
+    });
     if (!decodeResult) {
-      console.log("[AUDIT] DECODE RESULT FAILED.")
+      console.log("[AUDIT] DECODE RESULT FAILED.");
       return false;
     }
     console.log(`[AUDIT] ✅ Signature decoded successfully`);
 
     console.log(`[AUDIT] Checking summarizer status for submitter ${submitterKey}`);
-    const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/builder/summarizer/check-summarizer`, {
+    const checkSummarizerResponse = await fetch(`${middleServerUrl}/summarizer/worker/check-todo`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         stakingKey: submitterKey,
         roundNumber,
         githubUsername: decodeResult.githubUsername,
-        prUrl: decodeResult.prUrl
+        prUrl: decodeResult.prUrl,
       }),
     });
     const checkSummarizerJSON = await checkSummarizerResponse.json();

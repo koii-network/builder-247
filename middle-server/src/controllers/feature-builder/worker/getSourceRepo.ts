@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { IssueModel } from '../../models/Issue';
-import { TodoModel } from '../../models/Todo';
+import { IssueModel } from '../../../models/Issue';
+import { TodoModel } from '../../../models/Todo';
 export const getSourceRepo = async (req: Request, res: Response) => {
   try {
     const { uuid, nodeType } = req.params;

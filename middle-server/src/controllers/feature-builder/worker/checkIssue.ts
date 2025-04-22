@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { IssueModel } from '../../models/Issue';
-import { verifySignature } from '../../utils/sign';
-import { taskIDs } from '../../config/constant';
-import { isValidStakingKey } from '../../utils/taskState';
-import { getPRDict } from '../../utils/issueUtils';
+import { IssueModel } from '../../../models/Issue';
+import { verifySignature } from '../../../utils/sign';
+import { taskIDs } from '../../../config/constant';
+import { isValidStakingKey } from '../../../utils/taskState';
+import { getPRDict } from '../../../utils/issueUtils';
 
 // Helper function to verify request body
 function verifyRequestBody(req: Request): {

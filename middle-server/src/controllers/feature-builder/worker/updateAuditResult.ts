@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
-import { IssueModel } from '../../models/Issue';
+import { IssueModel } from '../../../models/Issue';
 import {
   getDistributionListSubmitter,
   getDistributionListWrapper,
   getKeysByValueSign,
-} from '../../utils/taskState/getDistributionList';
-import { IssueStatus } from '../../models/Issue';
-import { TodoModel, TodoStatus } from '../../models/Todo';
-import { AuditModel, AuditStatus } from '../../models/Audit';
+} from '../../../utils/taskState/getDistributionList';
+import { IssueStatus } from '../../../models/Issue';
+import { TodoModel, TodoStatus } from '../../../models/Todo';
+import { AuditModel, AuditStatus } from '../../../models/Audit';
 
 const PROCESS_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 const BYPASS_TASK_STATE_CHECK = process.env.NODE_ENV === 'development';

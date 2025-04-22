@@ -2,9 +2,9 @@ import { Router, RequestHandler } from 'express';
 import { verifyBearerToken } from '../middleware/auth';
 
 /******** Builder *********/
-import { fetchTodo } from '../controllers/feature-builder/worker/fetchToDo';
+import { fetchTodo } from '../controllers/feature-builder/worker/fetchTodo';
 import { addPR } from '../controllers/feature-builder/worker/addTodoPR';
-import { checkToDo } from '../controllers/feature-builder/worker/checkToDo';
+import { checkToDo } from '../controllers/feature-builder/worker/checkTodo';
 import { updateAuditResult } from '../controllers/feature-builder/worker/updateAuditResult';
 import { addAggregatorInfo } from '../controllers/feature-builder/worker/addAggregatorInfo';
 import { addIssuePR } from '../controllers/feature-builder/worker/addIssuePR';

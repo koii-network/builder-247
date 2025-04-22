@@ -1,6 +1,6 @@
-import { Request, Response } from "express";
-import { DocumentationModel } from "../../models/Documentation";
-import { documentSummarizerTaskID } from "../../config/constant";
+import { Request, Response } from 'express';
+import { DocumentationModel } from '../../../models/Documentation';
+import { documentSummarizerTaskID } from '../../../config/constant';
 
 // Helper function to verify request body
 function verifyRequestBody(req: Request): {
@@ -10,7 +10,7 @@ function verifyRequestBody(req: Request): {
   prUrl: string;
 } | null {
   try {
-    console.log("Request body:", req.body);
+    console.log('Request body:', req.body);
 
     const stakingKey = req.body.stakingKey as string;
     const roundNumber = req.body.roundNumber as string;
@@ -29,7 +29,7 @@ async function checkToDoAssignment(
   stakingKey: string,
   roundNumber: string,
   githubUsername: string,
-  prUrl: string,
+  prUrl: string
 ): Promise<boolean> {
   try {
     const data = {
@@ -39,7 +39,7 @@ async function checkToDoAssignment(
       prUrl,
       taskId: documentSummarizerTaskID,
     };
-    console.log("Data:", data);
+    console.log('Data:', data);
 
     const result = await DocumentationModel.findOne({
       assignedTo: {
@@ -51,10 +51,10 @@ async function checkToDoAssignment(
       },
     });
 
-    console.log("Todo assignment check result:", result);
+    console.log('Todo assignment check result:', result);
     return result !== null;
   } catch (error) {
-    console.error("Error checking todo assignment:", error);
+    console.error('Error checking todo assignment:', error);
     return false;
   }
 }
@@ -64,7 +64,7 @@ export const checkRequest = async (req: Request, res: Response) => {
   if (!requestBody) {
     res.status(401).json({
       success: false,
-      message: "Invalid request body",
+      message: 'Invalid request body',
     });
     return;
   }
@@ -72,19 +72,19 @@ export const checkRequest = async (req: Request, res: Response) => {
     requestBody.stakingKey,
     requestBody.roundNumber,
     requestBody.githubUsername,
-    requestBody.prUrl,
+    requestBody.prUrl
   );
 
   if (!isValid) {
     res.status(409).json({
       success: false,
-      message: "No matching todo assignment found",
+      message: 'No matching todo assignment found',
     });
     return;
   }
 
   res.status(200).json({
     success: true,
-    message: "Todo assignment verified successfully",
+    message: 'Todo assignment verified successfully',
   });
 };

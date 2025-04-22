@@ -1,14 +1,20 @@
-import { Request, Response } from "express";
-import { taskIDs } from "../../config/constant";
-import { verifySignature } from "../../utils/sign";
-import { isValidStakingKey } from "../../utils/taskState";
-import { TodoModel, TodoStatus } from "../../models/Todo";
+import { Request, Response } from 'express';
+import { taskIDs } from '../../../config/constant';
+import { verifySignature } from '../../../utils/sign';
+import { isValidStakingKey } from '../../../utils/taskState';
+import { TodoModel, TodoStatus } from '../../../models/Todo';
 
 function verifyRequestBody(
-  req: Request,
-): { signature: string; pubKey: string; stakingKey: string; prUrl: string; todo_uuid: string } | null {
+  req: Request
+): {
+  signature: string;
+  pubKey: string;
+  stakingKey: string;
+  prUrl: string;
+  todo_uuid: string;
+} | null {
   try {
-    console.log("req.body", req.body);
+    console.log('req.body', req.body);
     const signature = req.body.signature as string;
     const pubKey = req.body.pubKey as string;
     const stakingKey = req.body.stakingKey as string;
@@ -29,25 +35,25 @@ async function verifySignatureData(
   signature: string,
   pubKey: string,
   stakingKey: string,
-  action: string,
+  action: string
 ): Promise<{ roundNumber: number; taskId: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
-      console.log("signature error", error);
+      console.log('signature error', error);
       return null;
     }
     const body = JSON.parse(data);
-    console.log("signature payload", { body, pubKey, stakingKey });
-    console.log("taskIDs match", taskIDs.includes(body.taskId));
-    console.log("typeof body.roundNumber", typeof body.roundNumber);
-    console.log("body.action", body.action);
-    console.log("body.pubKey", body.pubKey);
-    console.log("body.stakingKey", body.stakingKey);
+    console.log('signature payload', { body, pubKey, stakingKey });
+    console.log('taskIDs match', taskIDs.includes(body.taskId));
+    console.log('typeof body.roundNumber', typeof body.roundNumber);
+    console.log('body.action', body.action);
+    console.log('body.pubKey', body.pubKey);
+    console.log('body.stakingKey', body.stakingKey);
     if (
       !body.taskId ||
       !taskIDs.includes(body.taskId) ||
-      typeof body.roundNumber !== "number" ||
+      typeof body.roundNumber !== 'number' ||
       body.action !== action ||
       !body.pubKey ||
       body.pubKey !== pubKey ||
@@ -66,9 +72,9 @@ async function updateTodoWithPRUrl(
   todo_uuid: string,
   stakingKey: string,
   roundNumber: number,
-  prUrl: string,
+  prUrl: string
 ): Promise<boolean> {
-  console.log("updateTodoWithPRUrl", { todo_uuid, stakingKey, roundNumber, prUrl });
+  console.log('updateTodoWithPRUrl', { todo_uuid, stakingKey, roundNumber, prUrl });
   const result = await TodoModel.findOneAndUpdate(
     {
       uuid: todo_uuid,
@@ -82,14 +88,14 @@ async function updateTodoWithPRUrl(
     {
       $set: {
         status: TodoStatus.IN_REVIEW,
-        "assignees.$.prUrl": prUrl,
+        'assignees.$.prUrl': prUrl,
       },
-    },
+    }
   )
-    .select("_id")
+    .select('_id')
     .lean();
 
-  console.log("pr update result", result);
+  console.log('pr update result', result);
 
   return result !== null;
 }
@@ -99,7 +105,7 @@ export const addPR = async (req: Request, res: Response) => {
   if (!requestBody) {
     res.status(401).json({
       success: false,
-      message: "Invalid request body",
+      message: 'Invalid request body',
     });
     return;
   }
@@ -108,12 +114,12 @@ export const addPR = async (req: Request, res: Response) => {
     requestBody.signature,
     requestBody.pubKey,
     requestBody.stakingKey,
-    "add-todo-pr",
+    'add-todo-pr'
   );
   if (!signatureData) {
     res.status(401).json({
       success: false,
-      message: "Failed to verify signature",
+      message: 'Failed to verify signature',
     });
     return;
   }
@@ -121,7 +127,7 @@ export const addPR = async (req: Request, res: Response) => {
   if (!(await isValidStakingKey(signatureData.taskId, requestBody.stakingKey))) {
     res.status(401).json({
       success: false,
-      message: "Invalid staking key",
+      message: 'Invalid staking key',
     });
     return;
   }
@@ -131,22 +137,28 @@ export const addPR = async (req: Request, res: Response) => {
 };
 
 export const addPRLogic = async (
-  requestBody: { signature: string; pubKey: string; stakingKey: string; prUrl: string; todo_uuid: string },
-  signatureData: { roundNumber: number; taskId: string },
+  requestBody: {
+    signature: string;
+    pubKey: string;
+    stakingKey: string;
+    prUrl: string;
+    todo_uuid: string;
+  },
+  signatureData: { roundNumber: number; taskId: string }
 ) => {
-  console.log("prUrl", requestBody.prUrl);
+  console.log('prUrl', requestBody.prUrl);
   const result = await updateTodoWithPRUrl(
     requestBody.todo_uuid,
     requestBody.stakingKey,
     signatureData.roundNumber,
-    requestBody.prUrl,
+    requestBody.prUrl
   );
   if (!result) {
     return {
       statuscode: 409,
       data: {
         success: false,
-        message: "Todo not found",
+        message: 'Todo not found',
       },
     };
   }
@@ -155,7 +167,7 @@ export const addPRLogic = async (
     statuscode: 200,
     data: {
       success: true,
-      message: "Pull request URL updated",
+      message: 'Pull request URL updated',
     },
   };
 };
