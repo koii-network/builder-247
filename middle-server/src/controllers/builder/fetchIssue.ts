@@ -10,6 +10,9 @@ import { getPRDict } from '../../utils/issueUtils';
 // Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
   try {
+    console.log(
+      `Checking existing assignment for stakingKey: ${stakingKey}, round: ${roundNumber}`
+    );
     const result = await IssueModel.findOne({
       assignees: {
         $elemMatch: {
@@ -18,14 +21,25 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
         },
       },
     })
-      .select('title acceptanceCriteria repoName uuid assignees aggregatorOwner')
+      .select('title acceptanceCriteria repoName uuid assignees aggregatorOwner status')
       .lean();
+
+    console.log('Existing assignment query result:', {
+      found: !!result,
+      uuid: result?.uuid,
+      status: result?.status,
+      assigneesCount: result?.assignees?.length,
+      assignees: result?.assignees,
+    });
 
     if (!result) return null;
 
+    const hasPR = Boolean(result.assignees?.find((a) => a.prUrl));
+    console.log(`Has PR: ${hasPR}`);
+
     return {
       issue: result,
-      hasPR: Boolean(result.assignees?.find((a) => a.prUrl)),
+      hasPR,
     };
   } catch (error) {
     console.error('Error checking assigned info:', error);
@@ -127,6 +141,12 @@ export const fetchIssueLogic = async (
   requestBody: { signature: string; stakingKey: string; pubKey: string },
   signatureData: { roundNumber: number; githubUsername: string; taskId: string }
 ) => {
+  console.log('Starting fetchIssueLogic with:', {
+    stakingKey: requestBody.stakingKey,
+    roundNumber: signatureData.roundNumber,
+    githubUsername: signatureData.githubUsername,
+  });
+
   // 1. Check if user already has an assignment
   const existingAssignment = await checkExistingAssignment(
     requestBody.stakingKey,
@@ -134,6 +154,12 @@ export const fetchIssueLogic = async (
   );
 
   if (existingAssignment) {
+    console.log('Found existing assignment:', {
+      uuid: existingAssignment.issue.uuid,
+      status: existingAssignment.issue.status,
+      hasPR: existingAssignment.hasPR,
+    });
+
     if (existingAssignment.hasPR) {
       return {
         statuscode: 409,
@@ -148,6 +174,7 @@ export const fetchIssueLogic = async (
 
     // Get PR dict for the existing assignment
     const prDict = await getPRDict(existingAssignment.issue.uuid);
+    console.log('PR dict for existing assignment:', prDict);
 
     // Return consistent response format with snake_case
     return {
@@ -166,6 +193,17 @@ export const fetchIssueLogic = async (
   }
 
   try {
+    console.log('Looking for eligible issue with status:', IssueStatus.ASSIGN_PENDING);
+
+    // First check what issues are available
+    const availableIssues = await IssueModel.find({
+      status: IssueStatus.ASSIGN_PENDING,
+    })
+      .select('uuid status')
+      .lean();
+
+    console.log('Available issues before assignment:', availableIssues);
+
     const eligibleIssue = await IssueModel.findOneAndUpdate(
       { status: IssueStatus.ASSIGN_PENDING },
       {
@@ -183,6 +221,13 @@ export const fetchIssueLogic = async (
       },
       { new: true, sort: { createdAt: 1 } }
     );
+
+    console.log('Eligible issue found:', {
+      found: !!eligibleIssue,
+      uuid: eligibleIssue?.uuid,
+      status: eligibleIssue?.status,
+      assigneesCount: eligibleIssue?.assignees?.length,
+    });
 
     if (!eligibleIssue) {
       return {
