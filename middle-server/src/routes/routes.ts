@@ -13,12 +13,6 @@ import { fetchIssue } from "../controllers/builder/fetchIssue";
 import { checkIssue } from "../controllers/builder/checkIssue";
 import { getSourceRepo } from "../controllers/builder/getSourceRepo";
 
-/******** Summarizer *********/
-import { fetchRequest as fetchSummarizerRequest } from "../controllers/summarizer/fetchRequest";
-import { addRequest as addSummarizerRequest } from "../controllers/summarizer/addRequest";
-import { triggerFetchAuditResult as triggerFetchAuditResultSummarizer } from "../controllers/summarizer/triggerFetchAuditResult";
-import { checkRequest as checkSummarizerRequest } from "../controllers/summarizer/checkRequest";
-
 /******** Planner ***********/
 import { fetchRequest as fetchPlannerRequest } from "../controllers/planner/fetchRequest";
 import { addRequest as addPlannerRequest } from "../controllers/planner/addRequest";
@@ -47,14 +41,6 @@ router.post("/builder/update-audit-result", updateAuditResult as RequestHandler)
 router.post("/builder/fetch-issue", fetchIssue as RequestHandler);
 router.post("/builder/check-issue", checkIssue as RequestHandler);
 router.get("/builder/get-source-repo/:nodeType/:uuid", getSourceRepo as RequestHandler);
-
-/********** Summarizer */
-// router.post("/summarizer/fetch-summarizer-todo", fetchSummarizerRequest as RequestHandler);
-router.post("/summarizer/add-pr-to-summarizer-todo", addSummarizerRequest as RequestHandler);
-router.post("/summarizer/trigger-fetch-audit-result", triggerFetchAuditResultSummarizer as RequestHandler);
-router.post("/summarizer/check-summarizer", checkSummarizerRequest as RequestHandler);
-// router.post("/summarizer/trigger-update-swarms-status", triggerUpdateSwarmsStatus as RequestHandler);
-// router.post("/summarizer/trigger-save-swarms-for-round", triggerSaveSwarmsForRound as RequestHandler);
 
 /********** Planner ***********/
 router.post("/planner/fetch-planner-todo", fetchPlannerRequest as RequestHandler);
