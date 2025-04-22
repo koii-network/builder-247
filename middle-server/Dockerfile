@@ -1,5 +1,5 @@
 # Use Node.js 21 as the base image
-FROM node:21
+FROM node:20
 
 # Install Yarn globally
 RUN npm install -g yarn
