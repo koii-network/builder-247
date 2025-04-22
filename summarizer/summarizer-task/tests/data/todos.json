@@ -1,0 +1,20 @@
+[
+  {
+    "taskId": "summarizer",
+    "roundNumber": 1,
+    "repo_owner": "test_owner",
+    "repo_name": "test_repo",
+    "prUrl": "https://github.com/test_owner/test_repo/pull/1",
+    "status": "pending",
+    "stakingKey": "test_key_1"
+  },
+  {
+    "taskId": "summarizer",
+    "roundNumber": 1,
+    "repo_owner": "test_owner",
+    "repo_name": "test_repo",
+    "prUrl": "https://github.com/test_owner/test_repo/pull/2",
+    "status": "pending",
+    "stakingKey": "test_key_2"
+  }
+]

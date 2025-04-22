@@ -1,0 +1,29 @@
+{
+  "worker1": {
+    "port": 5001,
+    "env": {
+      "WORKER_ID": "worker1",
+      "ANTHROPIC_API_KEY": "test_key",
+      "GITHUB_USERNAME": "test_user",
+      "GITHUB_TOKEN": "test_token"
+    }
+  },
+  "worker2": {
+    "port": 5002,
+    "env": {
+      "WORKER_ID": "worker2",
+      "ANTHROPIC_API_KEY": "test_key",
+      "GITHUB_USERNAME": "test_user",
+      "GITHUB_TOKEN": "test_token"
+    }
+  },
+  "leader": {
+    "port": 5000,
+    "env": {
+      "WORKER_ID": "leader",
+      "ANTHROPIC_API_KEY": "test_key",
+      "GITHUB_USERNAME": "test_user",
+      "GITHUB_TOKEN": "test_token"
+    }
+  }
+}
