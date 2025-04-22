@@ -1,4 +1,5 @@
 import { Router, RequestHandler } from "express";
+import { verifyBearerToken } from "../middleware/auth";
 
 /******** Builder *********/
 import { fetchTodo } from "../controllers/builder/fetchToDo";
@@ -63,7 +64,7 @@ router.post("/planner/trigger-fetch-audit-result", triggerFetchAuditResultPlanne
 
 /*********** Prometheus Website ***********/
 router.get("/prometheus/get-assigned-nodes", getAssignedTo as RequestHandler);
-router.post("/prometheus/classification", classification as RequestHandler);
+router.post("/prometheus/classification", verifyBearerToken, classification as RequestHandler);
 
 
 /****************** Supporter **************/
