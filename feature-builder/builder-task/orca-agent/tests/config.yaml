@@ -2,11 +2,11 @@
 task_id: "1112" # Task ID for the test sequence
 # server_entrypoint: /path/to/main.py  # Custom server script path
 # base_port: 5000 # Base port for worker servers
-# max_rounds: 3 # Maximum number of test rounds
+max_rounds: 1 # Maximum number of test rounds
 
 # Paths
 # relative to the test directory
-data_dir: data/no-deps # Directory containing test data
+data_dir: data/minimal # Directory containing test data
 # workers_config: workers.json # Worker configuration file
 
 # MongoDB Configuration

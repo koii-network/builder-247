@@ -1,0 +1,15 @@
+[
+  {
+    "title": "Implement String Reversal Function",
+    "description": "Create a function that reverses a string without using built-in reverse methods",
+    "acceptanceCriteria": [
+      "Function should take a string input and return its reverse",
+      "Should handle empty strings",
+      "Should preserve spaces and special characters",
+      "Should be implemented without using string[::-1] or reverse()"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized"
+  }
+]
