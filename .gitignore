@@ -27,6 +27,7 @@ metadata.json
 .npmrc
 *.pem
 .vscode
+.cursor
 data/chunks
 data/process
 test_state.csv
