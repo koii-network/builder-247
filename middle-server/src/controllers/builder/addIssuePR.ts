@@ -1,11 +1,15 @@
-import { Request, Response } from "express";
-import { IssueModel, IssueStatus } from "../../models/Issue";
-import { verifySignature } from "../../utils/sign";
-import { taskIDs } from "../../config/constant";
-export function verifyRequestBody(
-  req: Request,
-): { signature: string; stakingKey: string; pubKey: string; prUrl: string; issueUuid: string } | null {
-  console.log("verifyRequestBody", req.body);
+import { Request, Response } from 'express';
+import { IssueModel, IssueStatus } from '../../models/Issue';
+import { verifySignature } from '../../utils/sign';
+import { taskIDs } from '../../config/constant';
+export function verifyRequestBody(req: Request): {
+  signature: string;
+  stakingKey: string;
+  pubKey: string;
+  prUrl: string;
+  issueUuid: string;
+} | null {
+  console.log('verifyRequestBody', req.body);
   try {
     const signature = req.body.signature as string;
     const stakingKey = req.body.stakingKey as string;
@@ -26,19 +30,19 @@ async function verifySignatureData(
   signature: string,
   stakingKey: string,
   pubKey: string,
-  action: string,
+  action: string
 ): Promise<{ roundNumber: number; taskId: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
-      console.log("bad signature");
+      console.log('bad signature');
       return null;
     }
     const body = JSON.parse(data);
     console.log({ signature_payload: body });
     if (
       !body.taskId ||
-      typeof body.roundNumber !== "number" ||
+      typeof body.roundNumber !== 'number' ||
       !taskIDs.includes(body.taskId) ||
       body.action !== action ||
       !body.pubKey ||
@@ -46,7 +50,7 @@ async function verifySignatureData(
       !body.stakingKey ||
       body.stakingKey !== stakingKey
     ) {
-      console.log("bad signature data");
+      console.log('bad signature data');
       return null;
     }
     return {
@@ -54,7 +58,7 @@ async function verifySignatureData(
       taskId: body.taskId,
     };
   } catch (error) {
-    console.log("unexpected signature error", error);
+    console.log('unexpected signature error', error);
     return null;
   }
 }
@@ -64,7 +68,7 @@ export const addIssuePR = async (req: Request, res: Response) => {
   if (!requestBody) {
     res.status(401).json({
       success: false,
-      message: "Invalid request body",
+      message: 'Invalid request body',
     });
     return;
   }
@@ -73,12 +77,12 @@ export const addIssuePR = async (req: Request, res: Response) => {
     requestBody.signature,
     requestBody.stakingKey,
     requestBody.pubKey,
-    "add-issue-pr",
+    'add-issue-pr'
   );
   if (!signatureData) {
     res.status(401).json({
       success: false,
-      message: "Failed to verify signature",
+      message: 'Failed to verify signature',
     });
     return;
   }
@@ -91,34 +95,40 @@ export const addIssuePR = async (req: Request, res: Response) => {
   res.status(response.statuscode).json(response.data);
 };
 export const addIssuePRLogic = async (
-  requestBody: { signature: string; stakingKey: string; pubKey: string; prUrl: string; issueUuid: string },
-  signatureData: { roundNumber: number; prUrl: string; issueUuid: string },
+  requestBody: {
+    signature: string;
+    stakingKey: string;
+    pubKey: string;
+    prUrl: string;
+    issueUuid: string;
+  },
+  signatureData: { roundNumber: number; prUrl: string; issueUuid: string }
 ) => {
   const issue = await IssueModel.findOneAndUpdate(
     {
-      issueUuid: signatureData.issueUuid,
-    },
-    {
-      $push: {
-        assignees: {
+      uuid: signatureData.issueUuid,
+      assignees: {
+        $elemMatch: {
           stakingKey: requestBody.stakingKey,
           roundNumber: signatureData.roundNumber,
-          prUrl: signatureData.prUrl,
         },
       },
+    },
+    {
       $set: {
+        'assignees.$.prUrl': signatureData.prUrl,
         status: IssueStatus.IN_REVIEW,
       },
     },
-    { new: true },
+    { new: true }
   );
 
   if (!issue) {
     return {
-      statuscode: 409,
+      statuscode: 400,
       data: {
         success: false,
-        message: "Issue not found",
+        message: 'No matching issue found',
       },
     };
   }
@@ -127,7 +137,7 @@ export const addIssuePRLogic = async (
     statuscode: 200,
     data: {
       success: true,
-      message: "Issue PR added",
+      message: 'Issue PR added',
     },
   };
 };

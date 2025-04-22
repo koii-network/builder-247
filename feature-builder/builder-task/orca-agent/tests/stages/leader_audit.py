@@ -70,7 +70,7 @@ def execute(runner, worker, data):
             "message": "Skipped due to missing PR URL or submission data",
         }
 
-    url = f"{worker.url}/leader-audit/{data['roundNumber']}"
+    url = f"{worker.url}/leader-audit/{runner.current_round}"
     response = requests.post(url, json=data)
     result = response.json()
 

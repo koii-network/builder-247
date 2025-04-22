@@ -624,12 +624,7 @@ def record_pr(
 
 
 def consolidate_prs(
-    task_id,
-    round_number,
-    staking_key,
-    pub_key,
-    staking_signature,
-    public_signature,
+    task_id, round_number, staking_key, pub_key, staking_signature, public_signature
 ):
     """Consolidate PRs from workers."""
     try:
@@ -745,31 +740,6 @@ def consolidate_prs(
                     "status": 500,
                     "error": "Merge workflow failed to create PR",
                 }
-
-            # Store PR URL in local DB
-            submission.pr_url = pr_url
-            submission.status = (
-                "pending_record"  # Will be updated to completed by record_pr
-            )
-            db.commit()
-            logger.info(
-                f"Stored PR URL {pr_url} locally for task {task_id}, round {round_number}"
-            )
-
-        # Use record_pr to handle both local and remote recording
-        record_result = record_pr(
-            staking_key=staking_key,
-            staking_signature=staking_signature,
-            pub_key=pub_key,
-            pr_url=pr_url,
-            round_number=round_number,
-            task_id=task_id,
-            node_type="leader",
-        )
-
-        if not record_result["success"]:
-            logger.warning(f"PR recording had issues: {record_result}")
-            # Continue anyway since we have the PR
 
         return {
             "success": True,

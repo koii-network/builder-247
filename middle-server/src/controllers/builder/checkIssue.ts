@@ -73,11 +73,15 @@ async function checkIssueAssignment(
 ): Promise<string | null> {
   try {
     const result = await IssueModel.findOne({
-      assignedStakingKey: stakingKey,
-      assignedRoundNumber: roundNumber,
-      prUrl: prUrl,
+      assignees: {
+        $elemMatch: {
+          stakingKey: stakingKey,
+          roundNumber: roundNumber,
+          prUrl: prUrl,
+        },
+      },
     })
-      .select('issueUuid')
+      .select('uuid')
       .lean();
 
     console.log('Issue assignment check result:', result);

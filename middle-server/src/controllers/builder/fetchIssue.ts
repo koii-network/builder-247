@@ -11,17 +11,21 @@ import { getPRDict } from '../../utils/issueUtils';
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
   try {
     const result = await IssueModel.findOne({
-      assignedStakingKey: stakingKey,
-      assignedRoundNumber: roundNumber,
+      assignees: {
+        $elemMatch: {
+          stakingKey: stakingKey,
+          roundNumber: roundNumber,
+        },
+      },
     })
-      .select('title acceptanceCriteria repoName issueUuid assignees aggregatorOwner')
+      .select('title acceptanceCriteria repoName uuid assignees aggregatorOwner')
       .lean();
 
     if (!result) return null;
 
     return {
       issue: result,
-      hasPR: Boolean(result.assignees?.find((a) => a.prUrl && a.approved)),
+      hasPR: Boolean(result.assignees?.find((a) => a.prUrl)),
     };
   } catch (error) {
     console.error('Error checking assigned info:', error);
@@ -167,10 +171,14 @@ export const fetchIssueLogic = async (
       {
         $set: {
           status: IssueStatus.ASSIGNED,
-          assignedStakingKey: requestBody.stakingKey,
-          assignedGithubUsername: signatureData.githubUsername,
-          assignedRoundNumber: signatureData.roundNumber,
           updatedAt: new Date(),
+        },
+        $push: {
+          assignees: {
+            stakingKey: requestBody.stakingKey,
+            githubUsername: signatureData.githubUsername,
+            roundNumber: signatureData.roundNumber,
+          },
         },
       },
       { new: true, sort: { createdAt: 1 } }
