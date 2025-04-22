@@ -1,0 +1,37 @@
+# Tests
+src/tests/
+
+# Development files
+.git
+.gitignore
+README.md
+*.md
+.editorconfig
+.eslintrc
+.prettierrc
+
+# Build output
+dist/
+node_modules/
+build/
+*.log
+Dockerfile
+docker-compose.yml
+venv/
+.venv/
+__pycache__/
+.pytest_cache/
+*.db
+*.egg-info
+repos/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.*
+!.env.example

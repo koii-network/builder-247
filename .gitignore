@@ -2,16 +2,16 @@
 .env
 __pycache__
 .pytest_cache
-conversations.db
-database.db
+*.db
 test
+test_state.json
 task_flow.egg-info
 example_repo
 signature.js
 git-filter-repo
 task/orca/
 **/dist/
-yarn.lock
+# yarn.lock
 package-lock.json
 node_modules
 build
@@ -29,9 +29,16 @@ metadata.json
 .vscode
 data/chunks
 data/process
+test_state.csv
 todos-example.csv
 
 
 # Ignore auto-generated repository directories
-repo_*/
 repos/
+
+
+# Ignore Data
+data/*
+
+
+venv

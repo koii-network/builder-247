@@ -1,0 +1,137 @@
+[
+  {
+    "title": "Implement String Reversal Function",
+    "description": "Create a function that reverses a string without using built-in reverse methods",
+    "acceptanceCriteria": [
+      "Function should take a string input and return its reverse",
+      "Should handle empty strings",
+      "Should preserve spaces and special characters",
+      "Should be implemented without using string[::-1] or reverse()"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized"
+  },
+  {
+    "title": "Create Array Flattening Function",
+    "description": "Implement a function that flattens a nested array to a single level",
+    "acceptanceCriteria": [
+      "Function should handle arrays of any nesting depth",
+      "Should preserve order of elements",
+      "Should handle empty arrays and non-array elements",
+      "Should work with mixed data types"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized"
+  },
+  {
+    "title": "Implement Binary Search Function",
+    "description": "Create a function that performs binary search on a sorted array",
+    "acceptanceCriteria": [
+      "Function should return the index of the target element",
+      "Should return -1 if element is not found",
+      "Should handle empty arrays",
+      "Should be implemented iteratively"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized"
+  },
+  {
+    "title": "Create URL Parser Function",
+    "description": "Implement a function that parses a URL into its components",
+    "acceptanceCriteria": [
+      "Should extract protocol, domain, path, query parameters, and fragment",
+      "Handle URLs with missing components",
+      "Properly decode URL-encoded characters",
+      "Return results in a structured format"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized"
+  },
+  {
+    "title": "Implement RGB to Hex Converter",
+    "description": "Create a function that converts RGB color values to hexadecimal format",
+    "acceptanceCriteria": [
+      "Accept three integers (0-255) for R, G, and B",
+      "Return hex string in format '#RRGGBB'",
+      "Handle invalid input values",
+      "Pad single digit values with zeros"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized"
+  },
+  {
+    "title": "Implement Prime Number Checker",
+    "description": "Create a function that efficiently determines if a number is prime",
+    "acceptanceCriteria": [
+      "Function should return boolean indicating if number is prime",
+      "Implement efficient primality test",
+      "Handle edge cases (negative numbers, 0, 1)",
+      "Include unit tests for various cases"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized",
+    "dependencyTasks": []
+  },
+  {
+    "title": "Create Prime Factorization Function",
+    "description": "Implement a function that finds all prime factors of a number using the prime checker",
+    "acceptanceCriteria": [
+      "Use the prime checker function from previous todo",
+      "Return list of prime factors in ascending order",
+      "Handle edge cases (negative numbers, 0, 1)",
+      "Include frequency of each prime factor"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized",
+    "dependencyTasks": ["Implement Prime Number Checker"]
+  },
+  {
+    "title": "Implement GCD Calculator Using Prime Factors",
+    "description": "Create a function that finds the Greatest Common Divisor using prime factorization",
+    "acceptanceCriteria": [
+      "Use prime factorization function from previous todo",
+      "Calculate GCD using prime factors",
+      "Handle multiple input numbers",
+      "Optimize for efficiency"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized",
+    "dependencyTasks": ["Create Prime Factorization Function"]
+  },
+  {
+    "title": "Create LCM Calculator Using GCD",
+    "description": "Implement a function to find Least Common Multiple using the GCD function",
+    "acceptanceCriteria": [
+      "Use GCD function from previous todo",
+      "Calculate LCM for two or more numbers",
+      "Handle edge cases (0, negative numbers)",
+      "Optimize for large numbers"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized",
+    "dependencyTasks": ["Implement GCD Calculator Using Prime Factors"]
+  },
+  {
+    "title": "Implement Fraction Simplifier",
+    "description": "Create a function that simplifies fractions using GCD",
+    "acceptanceCriteria": [
+      "Use GCD function from previous todo",
+      "Return numerator and denominator in simplified form",
+      "Handle improper fractions",
+      "Support negative numbers"
+    ],
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized",
+    "dependencyTasks": ["Implement GCD Calculator Using Prime Factors"]
+  }
+]

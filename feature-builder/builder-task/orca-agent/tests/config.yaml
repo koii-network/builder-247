@@ -1,0 +1,26 @@
+# Test Configuration
+task_id: "1112" # Task ID for the test sequence
+# server_entrypoint: /path/to/main.py  # Custom server script path
+# base_port: 5000 # Base port for worker servers
+# max_rounds: 1 # Maximum number of test rounds
+
+# Paths
+# relative to the test directory
+data_dir: data/minimal # Directory containing test data
+# workers_config: workers.json # Worker configuration file
+
+# MongoDB Configuration
+mongodb:
+  database: builder247
+  collections:
+    issues:
+      data_file: issues.json # Relative to data_dir
+      required_count: 1 # Minimum number of documents required
+    todos:
+      data_file: todos.json
+      required_count: 1
+    systemprompts:
+      data_file: prompts.json
+      required_count: 1
+    audits:
+      required_count: 0 # No data file, just needs to exist

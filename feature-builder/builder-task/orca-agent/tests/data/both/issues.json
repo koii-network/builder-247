@@ -1,0 +1,16 @@
+[
+  {
+    "title": "Implement Independent Utility Functions",
+    "description": "Create a collection of independent utility functions for various common programming tasks",
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized"
+  },
+  {
+    "title": "Build a Number Theory Library",
+    "description": "Create a comprehensive number theory library by implementing functions that build upon each other",
+    "repoOwner": "koii-network",
+    "repoName": "builder-test",
+    "status": "initialized"
+  }
+]
