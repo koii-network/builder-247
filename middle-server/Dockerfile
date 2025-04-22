@@ -1,8 +1,8 @@
-# Use Node.js 21 as the base image
+# Use Node.js 20 as the base image
 FROM node:20
 
-# Install Yarn globally
-RUN npm install -g yarn
+# Install Yarn globally; Yarn seems to be pre-installed in Node.js 20
+# RUN npm install -g yarn
 
 # Set the working directory inside the container
 WORKDIR /app
