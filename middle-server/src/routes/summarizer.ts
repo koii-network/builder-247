@@ -1,6 +1,6 @@
 import { Router, RequestHandler } from 'express';
 // import { fetchRequest as fetchSummarizerRequest } from '../controllers/summarizer/fetchRequest';
-import { addRequest as addSummarizerRequest } from '../controllers/summarizer/addRequest';
+import { addRequest as addSummarizerRequest } from '../controllers/summarizer/worker/addRequest';
 import { triggerFetchAuditResult as triggerFetchAuditResultSummarizer } from '../controllers/summarizer/triggerFetchAuditResult';
 import { checkRequest as checkSummarizerRequest } from '../controllers/summarizer/checkRequest';
 

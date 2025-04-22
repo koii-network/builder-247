@@ -1,13 +1,13 @@
-import { Request, Response } from "express";
-import "dotenv/config";
+import { Request, Response } from 'express';
+import 'dotenv/config';
 
-import { DocumentationModel, DocumentationStatus } from "../../models/Documentation";
+import { DocumentationModel, DocumentationStatus } from '../../../models/Documentation';
 // import { documentSummarizerTaskID } from "../../config/constant";
-import { isValidStakingKey } from "../../utils/taskState";
-import { verifySignature } from "../../utils/sign";
-import { documentSummarizerTaskID, SwarmBountyStatus } from "../../config/constant";
-import { syncDB } from "../../services/summarizer/syncDB";
-import { updateSwarmBountyStatus } from "../../services/swarmBounty/updateStatus";
+import { isValidStakingKey } from '../../../utils/taskState';
+import { verifySignature } from '../../../utils/sign';
+import { documentSummarizerTaskID, SwarmBountyStatus } from '../../../config/constant';
+import { syncDB } from '../../../services/summarizer/syncDB';
+import { updateSwarmBountyStatus } from '../../../services/swarmBounty/updateStatus';
 
 // Check if the user has already completed the task
 async function checkExistingAssignment(stakingKey: string, roundNumber: number) {
@@ -26,7 +26,10 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
 
     // Find the specific assignment entry
     const assignment = result.assignedTo.find(
-      (a: any) => a.stakingKey === stakingKey && a.roundNumber === roundNumber && a.taskId === documentSummarizerTaskID,
+      (a: any) =>
+        a.stakingKey === stakingKey &&
+        a.roundNumber === roundNumber &&
+        a.taskId === documentSummarizerTaskID
     );
 
     return {
@@ -34,7 +37,7 @@ async function checkExistingAssignment(stakingKey: string, roundNumber: number) 
       hasPR: Boolean(assignment?.prUrl),
     };
   } catch (error) {
-    console.error("Error checking assigned info:", error);
+    console.error('Error checking assigned info:', error);
     return null;
   }
 }
@@ -53,31 +56,31 @@ export function verifyRequestBody(req: Request): { signature: string; stakingKey
 async function verifySignatureData(
   signature: string,
   stakingKey: string,
-  action: string,
+  action: string
 ): Promise<{ roundNumber: number; githubUsername: string } | null> {
   try {
     const { data, error } = await verifySignature(signature, stakingKey);
     if (error || !data) {
-      console.log("bad signature");
+      console.log('bad signature');
       return null;
     }
     const body = JSON.parse(data);
     console.log({ signature_payload: body });
     if (
       !body.taskId ||
-      typeof body.roundNumber !== "number" ||
+      typeof body.roundNumber !== 'number' ||
       body.taskId !== documentSummarizerTaskID ||
       body.action !== action ||
       !body.githubUsername ||
       !body.stakingKey ||
       body.stakingKey !== stakingKey
     ) {
-      console.log("bad signature data");
+      console.log('bad signature data');
       return null;
     }
     return { roundNumber: body.roundNumber, githubUsername: body.githubUsername };
   } catch (error) {
-    console.log("unexpected signature error", error);
+    console.log('unexpected signature error', error);
     return null;
   }
 }
@@ -99,16 +102,20 @@ export const fetchRequest = async (req: Request, res: Response) => {
   if (!requestBody) {
     res.status(401).json({
       success: false,
-      message: "Invalid request body",
+      message: 'Invalid request body',
     });
     return;
   }
 
-  const signatureData = await verifySignatureData(requestBody.signature, requestBody.stakingKey, "fetch");
+  const signatureData = await verifySignatureData(
+    requestBody.signature,
+    requestBody.stakingKey,
+    'fetch'
+  );
   if (!signatureData) {
     res.status(401).json({
       success: false,
-      message: "Failed to verify signature",
+      message: 'Failed to verify signature',
     });
     return;
   }
@@ -116,7 +123,7 @@ export const fetchRequest = async (req: Request, res: Response) => {
   if (!(await isValidStakingKey(documentSummarizerTaskID, requestBody.stakingKey))) {
     res.status(401).json({
       success: false,
-      message: "Invalid staking key",
+      message: 'Invalid staking key',
     });
     return;
   }
@@ -126,17 +133,20 @@ export const fetchRequest = async (req: Request, res: Response) => {
 
 export const fetchTodoLogic = async (
   requestBody: { signature: string; stakingKey: string },
-  signatureData: { roundNumber: number; githubUsername: string },
+  signatureData: { roundNumber: number; githubUsername: string }
 ): Promise<{ statuscode: number; data: any }> => {
   await preProcessTodoLogic();
-  const existingAssignment = await checkExistingAssignment(requestBody.stakingKey, signatureData.roundNumber);
+  const existingAssignment = await checkExistingAssignment(
+    requestBody.stakingKey,
+    signatureData.roundNumber
+  );
   if (existingAssignment) {
     if (existingAssignment.hasPR) {
       return {
         statuscode: 401,
         data: {
           success: false,
-          message: "Task already completed",
+          message: 'Task already completed',
         },
       };
     } else {
@@ -144,7 +154,7 @@ export const fetchTodoLogic = async (
         statuscode: 200,
         data: {
           success: true,
-          role: "worker",
+          role: 'worker',
           data: {
             repo_owner: existingAssignment.spec.repoOwner,
             repo_name: existingAssignment.spec.repoName,
@@ -159,8 +169,8 @@ export const fetchTodoLogic = async (
       {
         // Not assigned to the current user
         $nor: [
-          { "assignedTo.stakingKey": requestBody.stakingKey },
-          { "assignedTo.githubUsername": signatureData.githubUsername },
+          { 'assignedTo.stakingKey': requestBody.stakingKey },
+          { 'assignedTo.githubUsername': signatureData.githubUsername },
         ],
         $or: [
           {
@@ -198,7 +208,7 @@ export const fetchTodoLogic = async (
           roundNumber: signatureData.roundNumber,
         },
       },
-      { new: true },
+      { new: true }
     )
       .sort({ createdAt: 1 })
       .exec();
@@ -208,14 +218,14 @@ export const fetchTodoLogic = async (
         statuscode: 409,
         data: {
           success: false,
-          message: "No available todos found",
+          message: 'No available todos found',
         },
       };
     }
     try {
       await updateSwarmBountyStatus(updatedTodo.swarmBountyId, SwarmBountyStatus.ASSIGNED);
     } catch (error) {
-      console.error("Error updating swarm bounty status:", error);
+      console.error('Error updating swarm bounty status:', error);
     }
     // Validate required data fields
     if (!updatedTodo.repoOwner || !updatedTodo.repoName) {
@@ -223,7 +233,7 @@ export const fetchTodoLogic = async (
         statuscode: 409,
         data: {
           success: false,
-          message: "Todo data is incomplete",
+          message: 'Todo data is incomplete',
         },
       };
     }
@@ -232,7 +242,7 @@ export const fetchTodoLogic = async (
       statuscode: 200,
       data: {
         success: true,
-        role: "worker",
+        role: 'worker',
         data: {
           repo_owner: updatedTodo.repoOwner,
           repo_name: updatedTodo.repoName,
@@ -240,12 +250,12 @@ export const fetchTodoLogic = async (
       },
     };
   } catch (error) {
-    console.error("Error fetching todos:", error);
+    console.error('Error fetching todos:', error);
     return {
       statuscode: 500,
       data: {
         success: false,
-        message: "Failed to fetch todos",
+        message: 'Failed to fetch todos',
       },
     };
   }
