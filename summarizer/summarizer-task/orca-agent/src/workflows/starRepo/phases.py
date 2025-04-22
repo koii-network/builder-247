@@ -1,6 +1,6 @@
 """Task decomposition workflow phases implementation."""
 
-from src.workflows.base import WorkflowPhase, Workflow
+from prometheus_swarm.workflows.base import WorkflowPhase, Workflow
 
 
 class ReadmeGenerationPhase(WorkflowPhase):

@@ -239,7 +239,7 @@ def delete_file(file_path: str, commit_message: str = None, **kwargs) -> ToolOut
 def list_files(directory: str, **kwargs) -> ToolOutput:
     """
     Return a list of all files in the specified directory and its subdirectories,
-    excluding .git directory and respecting .gitignore.
+    excluding .git directory and node_modules directory, and respecting .gitignore.
 
     Parameters:
     directory (str or Path): The directory to search for files.
@@ -276,6 +276,9 @@ def list_files(directory: str, **kwargs) -> ToolOutput:
             files = []
             for root, _, filenames in os.walk(directory):
                 rel_root = os.path.relpath(root, directory)
+                # Skip node_modules directory
+                if "node_modules" in rel_root.split(os.sep):
+                    continue
                 for filename in filenames:
                     if rel_root == ".":
                         files.append(filename)
@@ -295,9 +298,9 @@ def list_files(directory: str, **kwargs) -> ToolOutput:
             repo.git.ls_files("--others", "--exclude-standard").splitlines()
         )
 
-        # Combine and filter out .git directory
+        # Combine and filter out .git directory and node_modules
         all_files = tracked_files.union(untracked_files)
-        files = sorted([f for f in all_files if not f.startswith(".git/")])
+        files = sorted([f for f in all_files if not f.startswith(".git/") and not "node_modules" in f.split("/")])
 
         return {
             "success": True,

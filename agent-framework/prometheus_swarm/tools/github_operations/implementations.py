@@ -15,7 +15,7 @@ from prometheus_swarm.workflows.utils import get_fork_name
 from git import Repo, GitCommandError
 from prometheus_swarm.tools.github_operations.templates import TEMPLATES
 from github.PullRequest import PullRequest
-
+from prometheus_swarm.tools.github_operations.templates_legacy import TEMPLATES as TEMPLATES_LEGACY
 import csv
 import uuid
 
@@ -39,6 +39,91 @@ def _get_github_client(github_token: str) -> Github:
     if not github_token:
         raise ValueError("GitHub token is required")
     return Github(auth=Auth.Token(github_token))
+
+
+def create_pull_request_legacy(
+    repo_full_name: str,
+    title: str,
+    head: str,
+    description: str,
+    base: str = "main",
+    github_token: str = None,
+    **kwargs,
+) -> ToolOutput:
+    """Create PR with formatted description.
+
+    Args:
+        repo_full_name: Full name of repository (owner/repo)
+        title: PR title
+        head: Head branch name
+        description: PR description
+        tests: List of test descriptions
+        todo: Original todo task
+        acceptance_criteria: Task acceptance criteria
+        base: Base branch name (default: main)
+
+    Returns:
+        ToolOutput: Standardized tool output with PR URL on success
+    """
+    try:
+        gh = _get_github_client(github_token)
+
+        # Auto-format head branch if needed
+        if ":" not in head:
+            head = f"{os.environ['GITHUB_USERNAME']}:{head}"
+
+        # Ensure base branch is just the name without owner
+        base = base.split(":")[-1]  # Remove owner prefix if present
+
+        body = TEMPLATES_LEGACY["pr_template"].format(
+            title=title,
+            description=description,
+        )
+
+        log_key_value(
+            "Creating PR", f"repo: {repo_full_name}, head: {head}, base: {base}"
+        )
+
+        repo = gh.get_repo(repo_full_name)
+        pr = repo.create_pull(title=title, body=body, head=head, base=base)
+
+        log_key_value("PR Created", f"PR #{pr.number}: {pr.html_url}")
+
+        return {
+            "success": True,
+            "message": f"Successfully created PR: {title}",
+            "data": {"pr_url": pr.html_url},
+        }
+    except GithubException as e:
+        error_msg = f"GitHub API Error creating PR: {str(e)}"
+        log_error(e, error_msg)
+        return {
+            "success": False,
+            "message": f"Failed to create pull request: {error_msg}",
+            "data": {
+                "error_code": e.status,
+                "error_data": e.data,
+                "params": {
+                    "repo_full_name": repo_full_name,
+                    "head": head,
+                    "base": base,
+                },
+            },
+        }
+    except Exception as e:
+        error_msg = f"Error creating PR: {str(e)}"
+        log_error(e, error_msg)
+        return {
+            "success": False,
+            "message": f"Failed to create pull request: {error_msg}",
+            "data": {
+                "params": {
+                    "repo_full_name": repo_full_name,
+                    "head": head,
+                    "base": base,
+                },
+            },
+        }
 
 
 def create_pull_request(
@@ -725,6 +810,7 @@ def create_github_issue(
     repo_full_name: str,
     title: str,
     description: str,
+    github_token: str,
 ) -> ToolOutput:
     """Create a GitHub issue.
 
@@ -737,7 +823,7 @@ def create_github_issue(
         ToolOutput: Standardized tool output with success status and error message if any
     """
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(github_token)
         repo = gh.get_repo(repo_full_name)
         issue = repo.create_issue(title=title, body=description)
         return {
@@ -788,3 +874,171 @@ def get_pull_request(
     except Exception as e:
         print(f"Failed to get pull request: {str(e)}")
         return None
+
+def star_repository(owner: str, repo_name: str, github_token: str, **kwargs) -> ToolOutput:
+    """
+    Star a repository using the GitHub API.
+
+    Args:
+        owner: Owner of the repository
+        repo_name: Name of the repository
+
+    Returns:
+        ToolOutput: Standardized tool output with success status and error message if any
+    """
+    try:
+        repo_full_name = f"{owner}/{repo_name}"
+        log_key_value("Starring repository", repo_full_name)
+
+        gh = _get_github_client(github_token)
+        repo = gh.get_repo(repo_full_name)
+
+        # Star the repository
+        user = gh.get_user()
+        user.add_to_starred(repo)
+
+        log_key_value("Successfully starred", repo_full_name)
+
+        return {
+            "success": True,
+            "message": f"Successfully starred repository {repo_full_name}",
+            "data": {"repo_name": repo_full_name},
+        }
+    except GithubException as e:
+        log_error(e, "Repository star failed")
+        return {
+            "success": False,
+            "message": f"GitHub API error: {str(e)}",
+            "data": {"error": str(e)},
+        }
+    except Exception as e:
+        log_error(e, "Repository star failed")
+        return {
+            "success": False,
+            "message": f"Failed to star repository: {str(e)}",
+            "data": None,
+        }
+
+
+def get_user_starred_repos(username: str = None, **kwargs) -> ToolOutput:
+    """
+    Get list of repositories starred by a user.
+    If username is None, gets starred repos for authenticated user.
+
+    Args:
+        username: GitHub username (optional)
+
+    Returns:
+        ToolOutput: Standardized tool output with list of starred repos
+    """
+    try:
+        gh = _get_github_client()
+
+        # Get user object
+        user = gh.get_user(username) if username else gh.get_user()
+
+        # Get starred repos
+        starred_repos = list(user.get_starred())
+
+        return {
+            "success": True,
+            "message": f"Found {len(starred_repos)} starred repositories",
+            "data": {
+                "starred_repos": [
+                    {
+                        "full_name": repo.full_name,
+                        "url": repo.html_url,
+                        "description": repo.description,
+                    }
+                    for repo in starred_repos
+                ]
+            },
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to get starred repositories: {str(e)}",
+            "data": None,
+        }
+    
+def review_pull_request_legacy(
+    repo_full_name: str,
+    pr_number: int,
+    title: str,
+    description: str,
+    recommendation: str,
+    recommendation_reason: List[str],
+    github_token: str,
+    **kwargs,
+) -> ToolOutput:
+    """
+    Post a structured review comment on a pull request.
+
+    Args:
+        repo_full_name (str): Full name of the repository (owner/repo)
+        pr_number (int): Pull request number
+        title (str): Title of the PR
+        description (str): Description of the changes
+        requirements (Dict[str, List[str]]): Dictionary with 'met' and 'not_met' requirements
+        test_evaluation (Dict[str, List[str]]): Dictionary with test evaluation details
+        recommendation (str): APPROVE/REVISE/REJECT
+        recommendation_reason (List[str]): List of reasons for the recommendation
+        action_items (List[str]): List of required changes or improvements
+
+    Returns:
+        ToolOutput: Standardized tool output with review status and details
+    """
+    try:
+        gh = _get_github_client(github_token)
+        repo = gh.get_repo(repo_full_name)
+        # Convert pr_number to integer
+        pr = repo.get_pull(int(pr_number))
+
+        # Format lists into markdown bullet points
+        def format_list(items: List[str], empty_message: str = "None", **kwargs) -> str:
+            if not items:
+                return f"*{empty_message}*"
+            return "- " + "\n- ".join(items)
+
+        # Format the review body using the template
+        review_body = TEMPLATES_LEGACY["review_template"].format(
+            title=title,
+            description=description,
+            recommendation=recommendation,
+            recommendation_reasons=format_list(
+                recommendation_reason, "No specific reasons provided"
+            ),
+        )
+
+        # Post the review
+        pr.create_issue_comment(review_body)
+        validated = recommendation.upper() == "APPROVE"
+        return {
+            "success": True,
+            "message": f"Successfully posted review on PR #{pr_number}",
+            "data": {
+                "validated": validated,
+                "review_body": review_body,
+                "recommendation": recommendation,
+            },
+        }
+    except GithubException as e:
+        error_msg = f"GitHub API Error posting review on PR #{pr_number}: {str(e)}"
+        log_error(e, error_msg)
+        return {
+            "success": False,
+            "message": f"Failed to post review: {error_msg}",
+            "data": {"error_code": e.status, "error_data": e.data},
+        }
+    except Exception as e:
+        import traceback
+
+        error_msg = f"Error posting review on PR #{pr_number}: {str(e)}"
+        tb = traceback.format_exc()
+        log_error(e, f"{error_msg}\n{tb}")
+        return {
+            "success": False,
+            "message": f"Failed to post review: {error_msg}",
+            "data": {"traceback": tb},
+        }
+

@@ -16,9 +16,11 @@ RUN pip install -r requirements.txt
 # Configure Git to add the safe directory
 RUN git config --global --add safe.directory /app
 
+COPY ../../../agent_framework /app/
+COPY ../../../agent_framework/setup.py /app/
 # Copy the agent-framework package
-COPY agent_framework/ /app/agent_framework/
-COPY setup.py /app/
+# COPY agent_framework/ /app/agent_framework/
+# COPY setup.py /app/
 
 # Install the agent-framework package in editable mode
 RUN pip install -e /app

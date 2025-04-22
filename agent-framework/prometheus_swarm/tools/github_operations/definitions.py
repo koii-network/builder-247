@@ -2,10 +2,13 @@ from prometheus_swarm.tools.github_operations.implementations import (
     create_worker_pull_request,
     create_leader_pull_request,
     review_pull_request,
+    review_pull_request_legacy,
     validate_implementation,
     generate_analysis,
     merge_pull_request,
     create_github_issue,
+    star_repository,
+    create_pull_request_legacy
 )
 
 DEFINITIONS = {
@@ -48,6 +51,28 @@ DEFINITIONS = {
         },
         "function": create_worker_pull_request,
     },
+    "create_pull_request_legacy": {
+        "name": "create_pull_request_legacy",
+        "description": "Create a pull request with formatted description.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Title of the pull request"},
+                "description": {
+                    "type": "string",
+                    "description": "A brief summary of the changes made",
+                },
+                "github_token": {
+                    "type": "string",
+                    "description": "GitHub token for authentication",
+                },
+            },
+            "required": ["title", "description", "github_token"],
+        },
+        "final_tool": True,
+        "function": create_pull_request_legacy,
+    },
+    
     "create_leader_pull_request": {
         "name": "create_leader_pull_request",
         "description": "Create a pull request for a leader node consolidating multiple worker PRs.",
@@ -307,5 +332,54 @@ DEFINITIONS = {
         },
         "final_tool": True,
         "function": create_github_issue,
+    },
+    "star_repository": {
+        "name": "star_repository",
+        "description": "Star a repository using the GitHub API.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "owner": {"type": "string", "description": "Owner of the repository"},
+                "repo_name": {
+                    "type": "string",
+                    "description": "Name of the repository",
+                },
+            },
+            "required": ["owner", "repo_name"],
+        },
+        "function": star_repository,
+    },
+
+    "review_pull_request_legacy": {
+        "name": "review_pull_request_legacy",
+        "description": "Review a pull request and post a structured review comment.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Title of the PR"},
+                "description": {
+                    "type": "string",
+                    "description": "Description of changes",
+                },
+                "recommendation": {
+                    "type": "string",
+                    "description": "Decision to approve, revise, or reject the PR",
+                    "enum": ["APPROVE", "REVISE", "REJECT"],
+                },
+                "recommendation_reason": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Reasons for recommendation",
+                },
+            },
+            "required": [
+                "title",
+                "description",
+                "recommendation",
+                "recommendation_reason",
+            ],
+        },
+        "final_tool": True,
+        "function": review_pull_request_legacy,
     },
 }

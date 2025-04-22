@@ -590,24 +590,4 @@ PROMPTS = {
 
 
 
-REPO_TYPES = [
-    "library",
-    "web_app",
-    "api_service",
-    "mobile_app",
-    "tutorial",
-    "template",
-    "cli_tool",
-    "framework",
-    "data_science",
-    "plugin",
-    "chrome_extension",
-    "jupyter_notebook",
-    "infrastructure",
-    "smart_contract",
-    "dApp",
-    "game",
-    "desktop_app",
-    "dataset",
-    "other",
-]
+
