@@ -7,7 +7,6 @@ WORKDIR /app
 # Copy the requirements.txt file into the container
 COPY requirements.txt .
 
-
 # Install Git and any other necessary packages
 RUN apt-get update && apt-get install -y git sudo curl
 
@@ -16,6 +15,13 @@ RUN pip install -r requirements.txt
 
 # Configure Git to add the safe directory
 RUN git config --global --add safe.directory /app
+
+
+COPY agent_framework/ /app/agent_framework/
+COPY setup.py /app/
+
+# Install the agent-framework package in editable mode
+RUN pip install -e /app
 
 # Copy the rest of your application code into the container
 COPY . .
