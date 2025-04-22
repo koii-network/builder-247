@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    /* Language and Environment */
+    "target": "es2020",
+
+    /* Modules */
+    "module": "ES2020",
+    "rootDir": "./",
+    "outDir": "./build",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "Node",
+
+    /* Type Checking */
+    "strict": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "declaration": false,
+    "sourceMap": true,
+    "noEmit": false,
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src/**/*", "tests/**/*", "../api/builder/src/orcaSettings.js"],
+  "exclude": ["node_modules", "dist", "build"]
+}
