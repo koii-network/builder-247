@@ -17,8 +17,8 @@ RUN pip install -r requirements.txt
 RUN git config --global --add safe.directory /app
 
 # Copy the agent-framework package
-COPY agent_framework/prometheus_swarm /app/agent_framework/prometheus_swarm
-COPY agent_framework/setup.py /app/setup.py
+COPY agent-framework/prometheus_swarm /app/agent-framework/prometheus_swarm
+COPY agent-framework/setup.py /app/setup.py
 
 # Install the agent-framework package in editable mode
 RUN pip install -e /app
