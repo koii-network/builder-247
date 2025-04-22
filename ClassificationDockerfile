@@ -5,7 +5,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Copy the requirements.txt file into the container
-COPY requirements.txt .
+COPY summarizer/classification-orca/orca-agent/requirements.txt .
 
 # Install Git and any other necessary packages
 RUN apt-get update && apt-get install -y git sudo curl
@@ -17,14 +17,14 @@ RUN pip install -r requirements.txt
 RUN git config --global --add safe.directory /app
 
 # Copy the agent-framework package
-COPY agent_framework/ /app/agent_framework/
-COPY setup.py /app/
+COPY agent_framework/prometheus_swarm /app/agent_framework/prometheus_swarm
+COPY agent_framework/setup.py /app/setup.py
 
 # Install the agent-framework package in editable mode
 RUN pip install -e /app
 
 # Copy the rest of your application code into the container
-COPY . .
+COPY summarizer/classification-orca/orca-agent/ .
 
 ENV MIDDLE_SERVER_URL=https://builder247.api.koii.network
 

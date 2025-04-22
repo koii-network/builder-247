@@ -1,9 +1,8 @@
 version: "3.8"
-
 services:
   middle-server:
     build:
-      context: ../middle-server
+      context: ./middle-server
     ports:
       - "3000:3000"
     environment:
@@ -12,7 +11,8 @@ services:
 
   orca-agent:
     build:
-      context: ../summarizer/classification-orca/orca-agent
+      context: ./
+      dockerfile: ClassificationDockerfile
     environment:
       - NODE_ENV=production
     restart: always
