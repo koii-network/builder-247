@@ -3,10 +3,11 @@ import { Request, Response } from "express";
 export const classification = async (req: Request, res: Response) => {
   const { repo_url } = req.body;
   try {
-    // access http://127.0.0.1:8080/repo_classify with {
-    //   "repo_url": repoUrl
-    // }
-    const response = await fetch("http://127.0.0.1:8080/repo_classify", {
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'http://orca-agent:8080'
+      : 'http://127.0.0.1:8080';
+    
+    const response = await fetch(`${baseUrl}/repo_classify`, {
       method: "POST",
       headers: {
         'Content-Type': 'application/json'
