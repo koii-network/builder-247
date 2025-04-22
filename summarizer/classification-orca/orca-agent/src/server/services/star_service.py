@@ -7,7 +7,7 @@ from prometheus_swarm.database import get_db
 from prometheus_swarm.clients import setup_client
 from src.workflows.repoClassifier.workflow import RepoClassifierWorkflow
 from prometheus_swarm.utils.logging import logger, log_error
-from src.workflows.starRepo.workflow import StarRepoWorkflow
+# from src.workflows.starRepo.workflow import StarRepoWorkflow
 from dotenv import load_dotenv
 from src.workflows.repoClassifier.prompts import PROMPTS
 

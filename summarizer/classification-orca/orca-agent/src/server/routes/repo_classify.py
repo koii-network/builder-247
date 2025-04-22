@@ -1,27 +1,21 @@
 from flask import Blueprint, jsonify, request
-from src.server.services import repo_summary_service
+from src.server.services import repo_classification_service
 
-bp = Blueprint("repo_summary", __name__)
+bp = Blueprint("repo_classify", __name__)
 
 
-@bp.post("/repo_summary/<round_number>")
-def start_task(round_number):
-    logger = repo_summary_service.logger
-    logger.info(f"Task started for round: {round_number}")
+@bp.post("/repo_classify")
+def start_task():
+    logger = repo_classification_service.logger
+    logger.info(f"Task started")
 
     data = request.get_json()
     logger.info(f"Task data: {data}")
-    required_fields = [
-        "taskId",
-        "round_number",
-        "repo_url"
-    ]
-    if any(data.get(field) is None for field in required_fields):
-        return jsonify({"error": "Missing data"}), 401
+    
+    if not data.get("repo_url"):
+        return jsonify({"error": "Missing repo_url"}), 401
 
-    result = repo_summary_service.handle_task_creation(
-        task_id=data["taskId"],
-        round_number=int(round_number),
+    result = repo_classification_service.handle_task_creation(
         repo_url=data["repo_url"],
     )
 
@@ -36,8 +30,6 @@ if __name__ == "__main__":
     
     # Test data
     test_data = {
-        "taskId": "fake",
-        "round_number": "1",
         "repo_url": "https://github.com/koii-network/docs"
     }
     
@@ -45,7 +37,7 @@ if __name__ == "__main__":
     with app.test_client() as client:
         # Make a POST request to the endpoint
         response = client.post(
-            "/repo_summary/1",
+            "/repo_classify/1",
             json=test_data
         )
         

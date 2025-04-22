@@ -76,40 +76,44 @@ class RepoClassifierWorkflow(Workflow):
                 self.cleanup()
 
     def setup(self):
-        """Set up repository and workspace."""
-        check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
-        validate_github_auth(os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_USERNAME"))
-
-        # Get the default branch from GitHub
         try:
-            gh = Github(os.getenv("GITHUB_TOKEN"))
-            self.context["repo_full_name"] = (
-                f"{self.context['repo_owner']}/{self.context['repo_name']}"
-            )
+            """Set up repository and workspace."""
+            check_required_env_vars(["GITHUB_TOKEN", "GITHUB_USERNAME"])
+            validate_github_auth(os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_USERNAME"))
 
-            repo = gh.get_repo(
-                f"{self.context['repo_owner']}/{self.context['repo_name']}"
-            )
-            self.context["base"] = repo.default_branch
-            log_key_value("Default branch", self.context["base"])
+            # Get the default branch from GitHub
+            try:
+                gh = Github(os.getenv("GITHUB_TOKEN"))
+                self.context["repo_full_name"] = (
+                    f"{self.context['repo_owner']}/{self.context['repo_name']}"
+                )
+
+                repo = gh.get_repo(
+                    f"{self.context['repo_owner']}/{self.context['repo_name']}"
+                )
+                self.context["base"] = repo.default_branch
+                log_key_value("Default branch", self.context["base"])
+            except Exception as e:
+                log_error(e, "Failed to get default branch, using 'main'")
+                self.context["base"] = "main" 
+                
+
+            # Set up repository directory
+            setup_result = setup_repository(self.context["repo_url"], github_token=os.getenv("GITHUB_TOKEN"), github_username=os.getenv("GITHUB_USERNAME"))
+            if not setup_result["success"]:
+                raise Exception(f"Failed to set up repository: {setup_result['message']}")
+            self.context["github_token"] = os.getenv("GITHUB_TOKEN")
+            self.context["repo_path"] = setup_result["data"]["clone_path"]
+            self.original_dir = setup_result["data"]["original_dir"]
+            self.context["fork_url"] = setup_result["data"]["fork_url"]
+            self.context["fork_owner"] = setup_result["data"]["fork_owner"]
+            self.context["fork_name"] = setup_result["data"]["fork_name"]
+
+            # Enter repo directory
+            os.chdir(self.context["repo_path"])
         except Exception as e:
-            log_error(e, "Failed to get default branch, using 'main'")
-            self.context["base"] = "main"
-
-        # Set up repository directory
-        setup_result = setup_repository(self.context["repo_url"], github_token=os.getenv("GITHUB_TOKEN"), github_username=os.getenv("GITHUB_USERNAME"))
-        if not setup_result["success"]:
-            raise Exception(f"Failed to set up repository: {setup_result['message']}")
-        self.context["github_token"] = os.getenv("GITHUB_TOKEN")
-        self.context["repo_path"] = setup_result["data"]["clone_path"]
-        self.original_dir = setup_result["data"]["original_dir"]
-        self.context["fork_url"] = setup_result["data"]["fork_url"]
-        self.context["fork_owner"] = setup_result["data"]["fork_owner"]
-        self.context["fork_name"] = setup_result["data"]["fork_name"]
-
-        # Enter repo directory
-        os.chdir(self.context["repo_path"])
-
+            log_error(e, "Error during setup")
+            raise
         # Configure Git user info
         # setup_git_user_config(self.context["repo_path"])
 
