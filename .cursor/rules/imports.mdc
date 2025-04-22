@@ -1,7 +1,0 @@
----
-description: 
-globs: 
-alwaysApply: true
----
-
-Always put all imports at the top of the file, not inside functions.
