@@ -2,16 +2,13 @@
 
 import os
 from github import Github
-from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository, star_repository
-from src.utils.logging import log_section, log_key_value, log_error
+from prometheus_swarm.workflows.base import Workflow
+from prometheus_swarm.tools.github_operations.implementations import star_repository
+from prometheus_swarm.utils.logging import log_section, log_key_value, log_error
 from src.workflows.repoSummarizer import phases
-from src.workflows.utils import (
+from prometheus_swarm.workflows.utils import (
     check_required_env_vars,
     validate_github_auth,
-    setup_repo_directory,
-    setup_git_user_config,
-    cleanup_repo_directory,
 )
 
 
@@ -61,6 +58,7 @@ class StarRepoWorkflow(Workflow):
         )
         self.context["repo_owner"] = repo_owner
         self.context["repo_name"] = repo_name
+        self.context["github_token"] = os.getenv("GITHUB_TOKEN")
 
     def setup(self):
         """Set up repository and workspace."""
@@ -105,6 +103,7 @@ class StarRepoWorkflow(Workflow):
 
     def cleanup(self):
         """Cleanup workspace."""
+            # cleanup_repository(self.original_dir, self.context.get("repo_path", ""))
         # Make sure we're not in the repo directory before cleaning up
         # if os.getcwd() == self.context.get("repo_path", ""):
         #     os.chdir(self.original_dir)
@@ -123,7 +122,7 @@ class StarRepoWorkflow(Workflow):
             self.setup()
             # ==================== Generate issues ====================
             star_repo_result = star_repository(
-                self.context["repo_owner"], self.context["repo_name"]
+                self.context["repo_owner"], self.context["repo_name"], self.context["github_token"]
             )
             if not star_repo_result or not star_repo_result.get("success"):
                 log_error(

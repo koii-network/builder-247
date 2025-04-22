@@ -1,4 +1,5 @@
 import { Router, RequestHandler } from "express";
+import { verifyBearerToken } from "../middleware/auth";
 
 /******** Builder *********/
 import { fetchTodo } from "../controllers/builder/fetchToDo";
@@ -23,8 +24,10 @@ import { fetchRequest as fetchPlannerRequest } from "../controllers/planner/fetc
 import { addRequest as addPlannerRequest } from "../controllers/planner/addRequest";
 import { checkRequest as checkPlannerRequest } from "../controllers/planner/checkRequest";
 import { triggerFetchAuditResult as triggerFetchAuditResultPlanner } from "../controllers/planner/triggerFetchAuditResult";
-import { getAssignedTo } from "../controllers/prometheus/getAssignedTo";
 
+/******** Prometheus Website ***********/
+import { getAssignedTo } from "../controllers/prometheus/getAssignedTo";
+import { classification } from "../controllers/prometheus/classification";
 
 /********** Supporter ***********/
 import { bindRequest } from "../controllers/supporter/bindRequest";
@@ -61,6 +64,7 @@ router.post("/planner/trigger-fetch-audit-result", triggerFetchAuditResultPlanne
 
 /*********** Prometheus Website ***********/
 router.get("/prometheus/get-assigned-nodes", getAssignedTo as RequestHandler);
+router.post("/prometheus/classification", verifyBearerToken, classification as RequestHandler);
 
 
 /****************** Supporter **************/

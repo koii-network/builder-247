@@ -6,7 +6,7 @@ import argparse
 from dotenv import load_dotenv
 from src.workflows.starRepo.workflow import StarRepoWorkflow
 from src.workflows.starRepo.prompts import PROMPTS
-from src.clients import setup_client
+from prometheus_swarm.clients import setup_client
 
 # Load environment variables
 load_dotenv()

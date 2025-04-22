@@ -3,13 +3,13 @@
 import requests
 import os
 from flask import jsonify
-from src.database import get_db, Submission
-from src.clients import setup_client
+from prometheus_swarm.database import get_db
+from prometheus_swarm.clients import setup_client
 from src.workflows.repoSummarizer.workflow import RepoSummarizerWorkflow
-from src.utils.logging import logger, log_error
-from src.workflows.starRepo.workflow import StarRepoWorkflow
+from prometheus_swarm.utils.logging import logger, log_error
 from dotenv import load_dotenv
 from src.workflows.repoSummarizer.prompts import PROMPTS
+from src.dababase.models import Submission
 
 load_dotenv()
 

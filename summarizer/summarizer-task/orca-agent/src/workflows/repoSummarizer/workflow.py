@@ -2,16 +2,14 @@
 
 import os
 from github import Github
-from src.workflows.base import Workflow
-from src.tools.github_operations.implementations import fork_repository
-from src.utils.logging import log_section, log_key_value, log_error
+from prometheus_swarm.workflows.base import Workflow
+from prometheus_swarm.utils.logging import log_section, log_key_value, log_error
 from src.workflows.repoSummarizer import phases
-from src.workflows.utils import (
+from prometheus_swarm.workflows.utils import (
     check_required_env_vars,
+    cleanup_repository,
     validate_github_auth,
-    setup_repo_directory,
-    setup_git_user_config,
-    cleanup_repo_directory,
+    setup_repository
 )
 from src.workflows.repoSummarizer.prompts import PROMPTS
 
@@ -83,26 +81,21 @@ class RepoSummarizerWorkflow(Workflow):
             self.context["base"] = "main"
 
         # Set up repository directory
-        repo_path, original_dir = setup_repo_directory()
-        self.context["repo_path"] = repo_path
-        self.original_dir = original_dir
-
-        # Fork and clone repository
-        log_section("FORKING AND CLONING REPOSITORY")
-        fork_result = fork_repository(
-            f"{self.context['repo_owner']}/{self.context['repo_name']}",
-            self.context["repo_path"],
-        )
-        if not fork_result["success"]:
-            error = fork_result.get("error", "Unknown error")
-            log_error(Exception(error), "Fork failed")
-            raise Exception(error)
+        setup_result = setup_repository(self.context["repo_url"], github_token=os.getenv("GITHUB_TOKEN"), github_username=os.getenv("GITHUB_USERNAME"))
+        if not setup_result["success"]:
+            raise Exception(f"Failed to set up repository: {setup_result['message']}")
+        self.context["github_token"] = os.getenv("GITHUB_TOKEN")
+        self.context["repo_path"] = setup_result["data"]["clone_path"]
+        self.original_dir = setup_result["data"]["original_dir"]
+        self.context["fork_url"] = setup_result["data"]["fork_url"]
+        self.context["fork_owner"] = setup_result["data"]["fork_owner"]
+        self.context["fork_name"] = setup_result["data"]["fork_name"]
 
         # Enter repo directory
         os.chdir(self.context["repo_path"])
 
         # Configure Git user info
-        setup_git_user_config(self.context["repo_path"])
+        # setup_git_user_config(self.context["repo_path"])
 
         # Get current files for context
 
@@ -113,7 +106,7 @@ class RepoSummarizerWorkflow(Workflow):
             os.chdir(self.original_dir)
 
         # Clean up the repository directory
-        cleanup_repo_directory(self.original_dir, self.context.get("repo_path", ""))
+        cleanup_repository(self.original_dir, self.context.get("repo_path", ""))
         # Clean up the MongoDB
 
     def run(self):

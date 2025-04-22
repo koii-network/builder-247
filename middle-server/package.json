@@ -2,7 +2,7 @@
   "scripts": {
     "start": "ts-node src/index.ts",
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
-    "build": "tsc && cpx './src/utils/webasm_bincode_deserializer/**/*' './dist/utils/webasm_bincode_deserializer'",
+    "build": "tsc && cpx './src/utils/webasm_bincode_deserializer/**/*' './dist/src/utils/webasm_bincode_deserializer'",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "lint": "eslint . --ext .ts",
