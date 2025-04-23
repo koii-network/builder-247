@@ -355,13 +355,10 @@ INITIAL_SECTIONS = [
         "- Key features and benefits\n\n",
     },
     {
-        "name": "Getting Started",
+        "name": "Getting Started, Installation and Setup",
         "description": "Include a quick start guide with usage instructions. Leave detailed installation instructions "
-        "to the Installation and Setup section.\n\n",
-    },
-    {
-        "name": "Installation and Setup",
-        "description": "Provide all necessary instruction to install and use the project, including dependencies and "
+        "to the Installation and Setup section.\n\n"
+        "Provide all necessary instruction to install and use the project, including dependencies and "
         "platform-specific instructions (if applicable)\n"
         "Include steps for both running the app in development and building a production release (if applicable)\n\n",
     },
