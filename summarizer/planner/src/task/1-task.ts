@@ -1,18 +1,12 @@
 import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
-import "dotenv/config";
-import { getRandomNodes } from "../utils/leader";
-import { getExistingIssues } from "../utils/existingIssues";
 import { status, middleServerUrl } from "../utils/constant";
-import dotenv from "dotenv";
 import { checkAnthropicAPIKey, isValidAnthropicApiKey } from "../utils/anthropicCheck";
-import { checkGitHub } from "../utils/githubCheck";
 import { LogLevel } from "@_koii/namespace-wrapper/dist/types";
 import { actionMessage } from "../utils/constant";
 import { errorMessage } from "../utils/constant";
 import { storeFile } from "../utils/ipfs";
-dotenv.config();
-
+import "dotenv/config";
 
 export async function task(roundNumber: number): Promise<void> {
   /**

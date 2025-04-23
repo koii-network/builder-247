@@ -5,11 +5,15 @@ from prometheus_swarm.tools.repo_operations.implementations import (
     classify_language,
     classify_test_framework,
 )
-from prometheus_swarm.tools.repo_operations.Types import RepoType, Language, TestFramework
+from prometheus_swarm.tools.repo_operations.Types import (
+    RepoType,
+    Language,
+    TestFramework,
+)
 
 DEFINITIONS = {
     "classify_repository": {
-        "name": "classify_repository", 
+        "name": "classify_repository",
         "description": "Classify a repository into a specific type",
         "parameters": {
             "type": "object",
@@ -32,10 +36,11 @@ DEFINITIONS = {
         "description": "Classify a repository into a specific language",
         "parameters": {
             "type": "object",
-            "properties": { 
+            "properties": {
                 "language": {
                     "type": "string",
-                    "description": "The language, must be one of: python, javascript, java, c, go, rust, ruby, php, swift, kotlin, scala, r, shell, other",
+                    "description": "The language, must be one of: python, javascript, java, c, go, rust, ruby, "
+                    "php, swift, kotlin, scala, r, shell, other",
                     "enum": Language.to_string_list(),
                 },
             },
@@ -53,9 +58,10 @@ DEFINITIONS = {
             "properties": {
                 "test_framework": {
                     "type": "string",
-                    "description": "The test framework, must be one of: pytest, unittest, jest, mocha, junit, testng, go_testing, rspec, phpunit, xctest, kotest, other",
+                    "description": "The test framework, must be one of: pytest, unittest, jest, mocha, "
+                    "junit, testng, go_testing, rspec, phpunit, xctest, kotest, other",
                     "enum": TestFramework.to_string_list(),
-                },  
+                },
             },
             "required": ["test_framework"],
             "additionalProperties": False,

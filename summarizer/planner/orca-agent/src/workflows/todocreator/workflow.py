@@ -3,8 +3,7 @@
 import os
 from github import Github
 from prometheus_swarm.workflows.base import Workflow
-from prometheus_swarm.tools.planner_operations.implementations import generate_tasks
-from prometheus_swarm.utils.logging import log_section, log_key_value, log_error
+from prometheus_swarm.utils.logging import log_key_value, log_error
 from src.workflows.todocreator import phases
 from prometheus_swarm.workflows.utils import (
     check_required_env_vars,
@@ -13,8 +12,11 @@ from prometheus_swarm.workflows.utils import (
     setup_repository,
     get_current_files,
 )
-from prometheus_swarm.workflows.utils import cleanup_repository
-from src.workflows.todocreator.utils import TaskModel, insert_task_to_mongodb, IssueModel, insert_issue_to_mongodb
+from src.workflows.todocreator.utils import (
+    TaskModel,
+    IssueModel,
+)
+
 
 class Task:
     def __init__(self, title: str, description: str, acceptance_criteria: list[str]):
@@ -60,7 +62,6 @@ class TodoCreatorWorkflow(Workflow):
             repo_url=repo_url,
             repo_owner=repo_owner,
             repo_name=repo_name,
-            
         )
         # self.feature_spec = feature_spec
         self.issue_spec = issue_spec
@@ -83,10 +84,14 @@ class TodoCreatorWorkflow(Workflow):
             self.context["base_branch"] = "main"
 
         # Set up repository directory
-        setup_result = setup_repository(self.context["repo_url"], github_token=os.getenv("GITHUB_TOKEN"), github_username=os.getenv("GITHUB_USERNAME"))
+        setup_result = setup_repository(
+            self.context["repo_url"],
+            github_token=os.getenv("GITHUB_TOKEN"),
+            github_username=os.getenv("GITHUB_USERNAME"),
+        )
         if not setup_result["success"]:
             raise Exception(f"Failed to set up repository: {setup_result['message']}")
-            
+
         self.context["repo_path"] = setup_result["data"]["clone_path"]
         self.original_dir = setup_result["data"]["original_dir"]
         self.context["fork_url"] = setup_result["data"]["fork_url"]
@@ -95,8 +100,6 @@ class TodoCreatorWorkflow(Workflow):
 
         # Enter repo directory
         os.chdir(self.context["repo_path"])
-
-  
 
         # Get current files for context
         self.context["current_files"] = get_current_files()
@@ -109,6 +112,7 @@ class TodoCreatorWorkflow(Workflow):
         """Cleanup workspace."""
         # Make sure we're not in the repo directory before cleaning up
         cleanup_repository(self.original_dir, self.context.get("repo_path", ""))
+
     def run(self):
         generate_issues_result = self.generate_issues()
         tasks = []
@@ -117,15 +121,18 @@ class TodoCreatorWorkflow(Workflow):
             task_result = self.generate_tasks(issue["uuid"])
             if task_result:
                 tasks.append(task_result["data"]["tasks"])
-        
+
         return {
             "success": True,
             "message": "Issue generation workflow completed",
             "data": {
                 "issues": generate_issues_result["data"]["issues"],
-                "tasks": [[task.to_dict() for task in task_list] for task_list in tasks]
-            }
+                "tasks": [
+                    [task.to_dict() for task in task_list] for task_list in tasks
+                ],
+            },
         }
+
     def generate_issues(self):
         """Execute the issue generation workflow."""
 
@@ -142,7 +149,7 @@ class TodoCreatorWorkflow(Workflow):
                     "Issue generation failed",
                 )
                 return None
-            
+
             # TODO: save it to db
             for issue in generate_issues_result["data"]["issues"]:
                 issueModel = {
@@ -150,7 +157,7 @@ class TodoCreatorWorkflow(Workflow):
                     "description": issue["description"],
                     "repoOwner": self.context["repo_owner"],
                     "repoName": self.context["repo_name"],
-                    "uuid": issue["uuid"]
+                    "uuid": issue["uuid"],
                 }
                 # print(issueModel)
                 issue_model = IssueModel(**issueModel)
@@ -163,10 +170,9 @@ class TodoCreatorWorkflow(Workflow):
             return {
                 "success": False,
                 "message": f"Issue generation workflow failed: {str(e)}",
-                "data": {
-                    "issues": issues
-                }
+                "data": {"issues": issues},
             }
+
     def generate_tasks(self, issue_uuid):
         """Execute the task decomposition workflow."""
         tasks = []
@@ -194,11 +200,11 @@ class TodoCreatorWorkflow(Workflow):
                 )
                 return None
             log_key_value("Tasks created Number", task_count)
-            
+
             # Save the tasks data in the context, prepare for the validation phase
             self.context["subtasks"] = tasks_data
             log_key_value("Subtasks Number", len(self.context["subtasks"]))
-            
+
             # ==================== Validation phase ====================
             validation_phase = phases.TaskValidationPhase(workflow=self)
             validation_result = validation_phase.execute()
@@ -209,26 +215,26 @@ class TodoCreatorWorkflow(Workflow):
                     "Task validation failed",
                 )
                 return None
-            
+
             # Get the decisions from the validation result
             decisions = validation_result["data"]["decisions"]
-            
+
             # TODO: Rework until all the tasks are valid
             # save the audited tasks in the context, prepare for the regeneration phase
             self.context["auditedSubtasks"] = []
             # decisions_flag =  True
             for uuid, decision in decisions.items():
                 # decision["decision"] = False
-                if decision["decision"] == False:
-                    task = next((task for task in tasks_data if task["uuid"] == uuid), None)
+                if not decision["decision"]:
+                    task = next(
+                        (task for task in tasks_data if task["uuid"] == uuid), None
+                    )
                     if task:
                         self.context["auditedSubtasks"].append(task)
                     # decisions_flag = False
-            
+
             # save the decisions in the context, prepare for the regeneration phase
             self.context["feedbacks"] = decisions
-            
-
 
             # ==================== Regeneration phase ====================
             if len(self.context["auditedSubtasks"]) > 0:
@@ -243,7 +249,14 @@ class TodoCreatorWorkflow(Workflow):
                 regenerated_tasks_data = regenerate_result["data"]["tasks"]
                 # replace the self.context["subtasks"] with the new tasks
                 for task in regenerated_tasks_data:
-                    index = next((i for i, t in enumerate(tasks_data) if t["uuid"] == task["uuid"]), None)
+                    index = next(
+                        (
+                            i
+                            for i, t in enumerate(tasks_data)
+                            if t["uuid"] == task["uuid"]
+                        ),
+                        None,
+                    )
                     if index is not None:
                         # decisions[task["uuid"]]["decision"] = True
                         tasks_data[index] = task
@@ -252,32 +265,15 @@ class TodoCreatorWorkflow(Workflow):
             log_key_value("Regenerated tasks", len(tasks_data))
             # save the regenerated tasks in the context, prepare for the dependency phase
             self.context["subtasks"] = tasks_data
-            # ==================== Dependency Phase ====================
-            # # TODO: Refine the Dependency Phase
-            for task in tasks_data:
-                self.context["target_task"] = task
-                dependency_phase = phases.TaskDependencyPhase(workflow=self)
-                dependency_result = dependency_phase.execute()
-                if dependency_result is None or not dependency_result.get("success"):
-                    log_error(
-                        Exception(dependency_result.get("error", "No result") if dependency_result else "No results returned from phase"),
-                        "Task dependency failed, continuing with empty dependencies",
-                    )
-                    task["dependency_tasks"] = []
-                    continue
-                # save the dependency tasks in the context, prepare for the MongoDB insertion phase
-                try: 
-                    task["dependency_tasks"] = dependency_result["data"][task["uuid"]]
-                except Exception as e:
-                    log_error(e, "Task dependency failed for task: " + task["title"])
-                    task["dependency_tasks"] = []
 
             # ==================== MongoDB Insertion Phase ====================
             # Insert into MongoDB
             for task in tasks_data:
-                try:    
+                try:
                     # Check if task UUID exists in decisions and has a decision value
-                    if task["uuid"] in decisions and decisions[task["uuid"]].get("decision", False):
+                    if task["uuid"] in decisions and decisions[task["uuid"]].get(
+                        "decision", False
+                    ):
                         task_model = TaskModel(
                             title=task["title"],
                             description=task["description"],
@@ -286,20 +282,22 @@ class TodoCreatorWorkflow(Workflow):
                             repoName=self.context["repo_name"],
                             dependencyTasks=task["dependency_tasks"],
                             uuid=task["uuid"],
-                            issueUuid=issue_uuid
+                            issueUuid=issue_uuid,
                         )
                         tasks.append(task_model)
                 except Exception as e:
-                    log_error(e, f"Failed to process task {task.get('title', 'unknown')} with UUID {task.get('uuid', 'unknown')}")
+                    log_error(
+                        e,
+                        f"Failed to process task {task.get('title', 'unknown')} "
+                        f"with UUID {task.get('uuid', 'unknown')}",
+                    )
                     continue
 
             # Return the final result
             return {
                 "success": True,
                 "message": f"Created {task_count} tasks for the feature",
-                "data" : {
-                    "tasks": tasks
-                }
+                "data": {"tasks": tasks},
             }
 
         except Exception as e:

@@ -1,8 +1,13 @@
 """Flask application initialization."""
 
 from flask import Flask, request
-from .routes import repo_summary, star, audit, healthz, submission  
-from prometheus_swarm.utils.logging import configure_logging, log_section, log_key_value, log_value
+from .routes import task, audit, healthz, submission
+from prometheus_swarm.utils.logging import (
+    configure_logging,
+    log_section,
+    log_key_value,
+    log_value,
+)
 from prometheus_swarm.database import initialize_database
 from colorama import Fore, Style
 import uuid
@@ -47,11 +52,10 @@ def create_app():
 
     # Register blueprints
     app.register_blueprint(healthz.bp)
-    app.register_blueprint(repo_summary.bp)
-    app.register_blueprint(star.bp)
+    app.register_blueprint(task.bp)
     app.register_blueprint(audit.bp)
     app.register_blueprint(submission.bp)
-    
+
     # Configure logging within app context
     with app.app_context():
         # Set up logging (includes both console and database logging)
