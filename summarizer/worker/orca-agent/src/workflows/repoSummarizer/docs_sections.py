@@ -355,7 +355,7 @@ INITIAL_SECTIONS = [
         "- Key features and benefits\n\n",
     },
     {
-        "name": "Getting Started, Installation and Setup",
+        "name": "Getting Started, Installation, and Setup",
         "description": "Include a quick start guide with usage instructions. Leave detailed installation instructions "
         "to the Installation and Setup section.\n\n"
         "Provide all necessary instruction to install and use the project, including dependencies and "
@@ -370,21 +370,21 @@ FINAL_SECTIONS = [
         "description": "Briefly explain the purpose of key directories and files\n\n",
     },
     {
-        "name": "Contributing",
-        "description": "Include basic instructions for how others can contribute\n"
-        "- Mention where to find or how to run tests (if available)\n\n",
-    },
-    {
-        "name": "License",
-        "description": "State the type of license and include a link to the license file\n\n"
-        "If no license is mentioned, state that the code is unlicensed and explain the implications.",
-    },
-    {
         "name": "Additional Notes",
         "description": "Focus on making the README useful and descriptive, "
         "even if the project type is ambiguous\n"
         "- Use best judgment to tailor the content to the actual "
         "functionality and audience of the project\n"
         "- Avoid placeholder text and strive to extract real, useful information from the codebase",
+    },
+    {
+        "name": "Contributing",
+        "description": "Include basic instructions for how others can contribute\n"
+        "- Mention any specific guidelines or requirements for contributions (e.g. code style, testing, etc.)\n\n",
+    },
+    {
+        "name": "License",
+        "description": "State the type of license and include a link to the license file\n\n"
+        "If no license is mentioned, state that the code is unlicensed and explain the implications.",
     },
 ]
