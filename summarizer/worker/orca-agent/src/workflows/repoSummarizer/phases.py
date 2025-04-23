@@ -33,7 +33,7 @@ class ReadmeGenerationPhase(WorkflowPhase):
             available_tools=[
                 "read_file",
                 "list_files",
-                "write_file",
+                "create_readme_section",
             ],
             conversation_id=conversation_id,
             name="Readme Generation",
