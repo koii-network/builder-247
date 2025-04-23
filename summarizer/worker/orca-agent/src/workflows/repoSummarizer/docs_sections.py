@@ -1,4 +1,4 @@
-SECTIONS = {
+DOCS_SECTIONS = {
     "library": [
         {
             "name": "Project Overview",
@@ -36,7 +36,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the type of license and include a link to the license file\n\n",
+            "description": "State the type of license and include a link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "web_app": [
@@ -76,9 +77,9 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
-        "   - State the license type and link to the license file\n\n",
     ],
     "api_service": [
         {
@@ -121,7 +122,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "mobile_app": [
@@ -167,7 +169,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "tutorial": [
@@ -210,7 +213,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "template": (
@@ -252,7 +256,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ),
     "cli_tool": [
@@ -293,7 +298,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "framework": [
@@ -340,7 +346,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "data_science": [
@@ -386,7 +393,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "plugin": [
@@ -419,7 +427,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "chrome_extension": [
@@ -449,7 +458,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "jupyter_notebook": [
@@ -478,7 +488,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "infrastructure": [
@@ -508,7 +519,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "smart_contract": [
@@ -537,7 +549,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "dapp": [
@@ -569,7 +582,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "game": [
@@ -598,7 +612,8 @@ SECTIONS = {
         },
         {
             "name": "License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "desktop_app": [
@@ -627,7 +642,8 @@ SECTIONS = {
         },
         {
             "name": "   License",
-            "description": "State the license type and link to the license file\n\n",
+            "description": "State the license type and link to the license file\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
     ],
     "dataset": [
@@ -650,7 +666,8 @@ SECTIONS = {
         {
             "name": "Licensing and Terms of Use",
             "description": "State the license and any restrictions on usage or distribution\n"
-            "Include citation or attribution instructions if required\n\n",
+            "Include citation or attribution instructions if required\n\n"
+            "If no license is mentioned, state that the code is unlicensed and explain the implications.",
         },
         {
             "name": "Related Work / Source Links",
