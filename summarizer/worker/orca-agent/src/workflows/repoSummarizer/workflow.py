@@ -11,7 +11,7 @@ from prometheus_swarm.workflows.utils import (
     validate_github_auth,
     setup_repository,
 )
-from prometheus_swarm.tools.file_operations import write_file
+from prometheus_swarm.tools.file_operations.implementations import write_file
 from src.workflows.repoSummarizer.prompts import PROMPTS
 from src.workflows.repoSummarizer.docs_sections import DOCS_SECTIONS
 
@@ -274,7 +274,9 @@ class RepoSummarizerWorkflow(Workflow):
                         "Readme file generation failed",
                     )
                     return None
-                readme_sections.append(readme_result.get("data"))
+                readme_sections.append(
+                    readme_result.get("data", {}).get("section_content")
+                )
 
             final_readme = "\n\n".join(readme_sections)
 
