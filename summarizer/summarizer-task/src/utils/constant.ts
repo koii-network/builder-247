@@ -54,4 +54,4 @@ export const defaultBountyMarkdownFile = "https://raw.githubusercontent.com/koii
 
 export const customReward = 400*10**9 // This should be in ROE! 
 
-export const middleServerUrl = "https://ooww84kco0s0cs808w8cg804.dev.koii.network"
+export const middleServerUrl = "https://builder247-prod.dev.koii.network"
