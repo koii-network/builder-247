@@ -264,6 +264,11 @@ class RepoSummarizerWorkflow(Workflow):
 
     def generate_readme_file(self, repo_type):
         """Generate the README file."""
+
+        self.context["repo_type"] = repo_type
+        self.context["all_sections"] = ", ".join(
+            [section["name"] for section in DOCS_SECTIONS[repo_type]]
+        )
         try:
             readme_sections = []
             for section in DOCS_SECTIONS[repo_type]:

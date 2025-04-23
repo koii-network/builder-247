@@ -674,4 +674,43 @@ DOCS_SECTIONS = {
             "description": "Link to original data sources, research papers, or related projects (if applicable)\n\n",
         },
     ],
+    "other": [
+        {
+            "name": "Project Overview",
+            "description": "Describe the purpose of the project and its main functionality\n"
+            "Summarize what the project does and who it's for\n\n",
+        },
+        {
+            "name": "Getting Started",
+            "description": "Include setup or usage instructions based on the repo's structure\n"
+            "Mention installation steps, dependencies, and commands to run or use the project\n\n",
+        },
+        {
+            "name": "Features / Capabilities",
+            "description": "List the core features or components of the project\n"
+            "Include relevant examples, demos, or configurations if applicable\n\n",
+        },
+        {
+            "name": "Project Structure",
+            "description": "Describe the layout of files and folders, especially any key scripts, configs, or assets\n",
+        },
+        {
+            "name": "Technologies Used",
+            "description": "List any major frameworks, libraries, or languages identified in the project\n\n",
+        },
+        {
+            "name": "Usage Examples",
+            "description": "Include example commands or steps showing how to use the project\n\n",
+        },
+        {
+            "name": "License",
+            "description": "State the license type and link to the license file\n\n",
+        },
+        {
+            "name": "Additional Notes",
+            "description": "Focus on making the README useful and descriptive, even if the project type is ambiguous\n"
+            "- Use best judgment to tailor the content to the actual functionality and audience of the project\n"
+            "- Avoid placeholder text and strive to extract real, useful information from the codebase",
+        },
+    ],
 }
