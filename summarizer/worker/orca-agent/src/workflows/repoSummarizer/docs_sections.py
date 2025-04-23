@@ -356,7 +356,8 @@ INITIAL_SECTIONS = [
     },
     {
         "name": "Getting Started",
-        "description": "Include a quick start guide with usage instructions\n\n",
+        "description": "Include a quick start guide with usage instructions. Leave detailed installation instructions "
+        "to the Installation and Setup section.\n\n",
     },
     {
         "name": "Installation and Setup",
