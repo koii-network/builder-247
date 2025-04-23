@@ -43,3 +43,5 @@ data/*
 
 
 venv
+
+**/venv/
