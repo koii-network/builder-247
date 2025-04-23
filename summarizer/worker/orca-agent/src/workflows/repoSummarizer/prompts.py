@@ -33,6 +33,10 @@ PROMPTS = {
         "- Desktop App: GUI application for desktop environments (e.g., Electron, Qt, Tauri)\n"
         "- Dataset: Repository containing structured data for analysis or training\n"
         "- Other: If it doesn't fit into any of the above categories\n"
+        "IMPORTANT: Do not assume that the README is correct. "
+        "Classify the repository based on the codebase.\n"
+        "If files are mentioned in the README but are not present in the codebase, "
+        "do NOT use them as a source of information.\n"
     ),
     "generate_readme_section": (
         "You are writing the {section_name} section of a README file for a repository.\n"
@@ -43,8 +47,9 @@ PROMPTS = {
         "The section should include the following information:\n"
         "{section_description}\n"
         "IMPORTANT: Do not assume that an existing README is correct. "
-        "Create the documentation based on the codebase, using the README "
-        "only as an entry point to understand the repository.\n"
+        "Create the documentation based on the codebase.\n"
+        "If files are mentioned in the README but are not present in the codebase, "
+        "do NOT reference them in your documentation.\n"
     ),
     "create_pr": (
         "You are creating a pull request for the documentation you have generated:\n"
