@@ -34,6 +34,12 @@ PROMPTS = {
         "- Dataset: Repository containing structured data for analysis or training\n"
         "- Other: If it doesn't fit into any of the above categories\n"
     ),
+    "generate_readme_section": (
+        "You are writing the {section_name} section of a README file for a repository.\n"
+        "Read all files relevant to your task and generate comprehensive, clear documentation.\n"
+        "The section should include the following information:\n"
+        "{section_description}\n"
+    ),
     "create_pr": (
         "You are creating a pull request for the documentation you have generated:\n"
         "IMPORTANT: Always use relative paths (e.g., 'src/file.py' not '/src/file.py')\n\n"
