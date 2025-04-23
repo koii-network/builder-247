@@ -40,6 +40,7 @@ PROMPTS = {
     ),
     "generate_readme_section": (
         "You are writing the {section_name} section of a README file for a repository.\n"
+        "The repository has been cloned to the current directory and the files are available for inspection.\n"
         "The readme will contain the following sections:\n"
         "{all_sections}\n"
         "Restrict your documentation to the section you are writing.\n"
@@ -50,11 +51,11 @@ PROMPTS = {
         "The section name will be automatically added as a second level heading.\n"
         "Do not include the section name in your documentation.\n"
         "Any sub-sections should be added as third level headings.\n"
-        "IMPORTANT: Do not assume that an existing README is correct. "
+        "IMPORTANT: Do NOT assume that an existing README is correct. "
         "Create the documentation based on the codebase.\n"
         "If files are mentioned in the README but are not present in the codebase, "
-        "do NOT reference them in your documentation.\n"
-        "If a section is not relevant to the repository, just return an empty string.\n"
+        "do NOT mention them in your documentation.\n"
+        "If this section is not relevant to the repository, return an empty string.\n"
     ),
     "generate_readme": (
         "Create a descriptive title for the following README contents and create the README file:\n"

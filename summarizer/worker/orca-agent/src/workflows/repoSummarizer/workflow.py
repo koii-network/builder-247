@@ -12,7 +12,11 @@ from prometheus_swarm.workflows.utils import (
     setup_repository,
 )
 from src.workflows.repoSummarizer.prompts import PROMPTS
-from src.workflows.repoSummarizer.docs_sections import DOCS_SECTIONS
+from src.workflows.repoSummarizer.docs_sections import (
+    DOCS_SECTIONS,
+    INITIAL_SECTIONS,
+    FINAL_SECTIONS,
+)
 
 
 class Task:
@@ -266,14 +270,21 @@ class RepoSummarizerWorkflow(Workflow):
     def generate_readme_file(self, repo_type):
         """Generate the README file."""
 
+        readme_sections_spec = (
+            list(INITIAL_SECTIONS)
+            + list(DOCS_SECTIONS[repo_type])
+            + list(FINAL_SECTIONS)
+        )
+
         self.context["repo_type"] = repo_type
         self.context["all_sections"] = ", ".join(
-            [section["name"] for section in DOCS_SECTIONS[repo_type]]
+            [section["name"] for section in readme_sections_spec]
         )
         try:
             readme_sections = []
-            for section in DOCS_SECTIONS[repo_type]:
+            for section in readme_sections_spec:
                 readme_result = self.generate_readme_section(section)
+                print("README RESULT", readme_result)
                 if not readme_result or not readme_result.get("success"):
                     log_error(
                         Exception(readme_result.get("error", "No result")),
