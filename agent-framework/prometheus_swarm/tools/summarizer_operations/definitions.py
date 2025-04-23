@@ -1,6 +1,7 @@
 """Summarizer operations tool definitions."""
 
 from prometheus_swarm.tools.summarizer_operations.implementations import (
+    create_readme_file,
     create_readme_section,
     review_readme_file,
 )
@@ -20,6 +21,22 @@ DEFINITIONS = {
             "required": ["section_content"],
         },
         "function": create_readme_section,
+        "final_tool": True,
+    },
+    "create_readme_file": {
+        "name": "create_readme_file",
+        "description": "Create a README file.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "The title of the README file",
+                },
+            },
+            "required": ["title"],
+        },
+        "function": create_readme_file,
         "final_tool": True,
     },
     "review_readme_file": {

@@ -25,7 +25,7 @@ class RepoClassificationPhase(WorkflowPhase):
         )
 
 
-class ReadmeGenerationPhase(WorkflowPhase):
+class ReadmeSectionGenerationPhase(WorkflowPhase):
     def __init__(self, workflow: Workflow, conversation_id: str = None):
         super().__init__(
             workflow=workflow,
@@ -36,7 +36,18 @@ class ReadmeGenerationPhase(WorkflowPhase):
                 "create_readme_section",
             ],
             conversation_id=conversation_id,
-            name="Readme Generation",
+            name="Readme Section Generation",
+        )
+
+
+class ReadmeFileCreationPhase(WorkflowPhase):
+    def __init__(self, workflow: Workflow, conversation_id: str = None):
+        super().__init__(
+            workflow=workflow,
+            prompt_name="generate_readme",
+            required_tool="create_readme_file",
+            conversation_id=conversation_id,
+            name="Readme File Creation",
         )
 
 

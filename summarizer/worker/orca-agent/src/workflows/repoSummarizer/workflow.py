@@ -11,7 +11,6 @@ from prometheus_swarm.workflows.utils import (
     validate_github_auth,
     setup_repository,
 )
-from prometheus_swarm.tools.file_operations.implementations import write_file
 from src.workflows.repoSummarizer.prompts import PROMPTS
 from src.workflows.repoSummarizer.docs_sections import DOCS_SECTIONS
 
@@ -241,7 +240,9 @@ class RepoSummarizerWorkflow(Workflow):
 
             # ==================== Generate README file ====================
             log_section("GENERATING README SECTION")
-            generate_readme_section_phase = phases.ReadmeGenerationPhase(workflow=self)
+            generate_readme_section_phase = phases.ReadmeSectionGenerationPhase(
+                workflow=self
+            )
             readme_result = generate_readme_section_phase.execute()
 
             # Check README Generation Result
@@ -279,22 +280,24 @@ class RepoSummarizerWorkflow(Workflow):
                         "Readme file generation failed",
                     )
                     return None
-                readme_sections.append(
-                    readme_result.get("data", {}).get("section_content")
+
+                readme_section_content = readme_result.get("data", {}).get(
+                    "section_content"
                 )
+                if readme_section_content:
+                    readme_section_title = readme_result.get("data", {}).get(
+                        "section_name"
+                    )
 
-            final_readme = "\n\n".join(readme_sections)
+                    readme_section = (
+                        f"## {readme_section_title}\n\n" f"{readme_section_content}"
+                    )
+                    readme_sections.append(readme_section)
 
-            write_file(
-                "README_Prometheus.md",
-                final_readme,
-                "Create Prometheus-generated README file",
-            )
+            self.context["readme_content"] = "\n\n".join(readme_sections)
 
-            return {
-                "success": True,
-                "message": "Readme file generated successfully",
-            }
+            generate_readme_file_phase = phases.ReadmeFileCreationPhase(workflow=self)
+            return generate_readme_file_phase.execute()
 
         except Exception as e:
             log_error(e, "Readme file generation workflow failed")

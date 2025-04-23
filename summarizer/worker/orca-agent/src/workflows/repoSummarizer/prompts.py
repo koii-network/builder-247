@@ -46,10 +46,20 @@ PROMPTS = {
         "Read all files relevant to your task and generate comprehensive, clear documentation.\n"
         "The section should include the following information:\n"
         "{section_description}\n"
+        "Write the section in markdown format.\n"
+        "The section name will be automatically added as a second level heading.\n"
+        "Do not include the section name in your documentation.\n"
+        "Any sub-sections should be added as third level headings.\n"
         "IMPORTANT: Do not assume that an existing README is correct. "
         "Create the documentation based on the codebase.\n"
         "If files are mentioned in the README but are not present in the codebase, "
         "do NOT reference them in your documentation.\n"
+        "If a section is not relevant to the repository, just return an empty string.\n"
+    ),
+    "generate_readme": (
+        "Create a descriptive title for the following README contents and create the README file:\n"
+        "{readme_content}\n"
+        "The content will be added automatically, your job is just to create a good title."
     ),
     "create_pr": (
         "You are creating a pull request for the documentation you have generated:\n"
