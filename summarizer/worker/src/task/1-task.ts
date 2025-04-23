@@ -98,22 +98,7 @@ export async function task(roundNumber: number): Promise<void> {
     if (!pubKey) {
       throw new Error("No public key found");
     }
-    /****************** All issues need to be starred ******************/
 
-    const existingIssues = await getExistingIssues();
-    const githubUrls = existingIssues.map((issue) => issue.githubUrl);
-    try {
-      await orcaClient.podCall(`star/${roundNumber}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ taskId: TASK_ID, round_number: String(roundNumber), github_urls: githubUrls }),
-      });
-    } catch (error) {
-      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.STAR_ISSUE_FAILED);
-      console.error("Error starring issues:", error);
-    }
     /****************** All these issues need to be generate a markdown file ******************/
 
     const signature = await namespaceWrapper.payloadSigning(
@@ -152,7 +137,7 @@ export async function task(roundNumber: number): Promise<void> {
     };
     console.log("[TASK] jsonBody: ", jsonBody);
     try {
-      const repoSummaryResponse = await orcaClient.podCall(`repo_summary/${roundNumber}`, {
+      const repoSummaryResponse = await orcaClient.podCall(`worker-task/${roundNumber}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
