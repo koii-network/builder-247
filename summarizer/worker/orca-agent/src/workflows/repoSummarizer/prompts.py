@@ -51,10 +51,10 @@ PROMPTS = {
         "The section name will be automatically added as a second level heading.\n"
         "Do not include the section name in your documentation.\n"
         "Any sub-sections should be added as third level headings.\n"
-        "IMPORTANT: Do NOT assume that an existing README is correct. "
-        "Create the documentation based on the codebase.\n"
-        "If files are mentioned in the README but are not present in the codebase, "
-        "do NOT mention them in your documentation.\n"
+        "IMPORTANT: DO NOT assume that any existing documentation is correct. It may be inaccurate or outdated.\n"
+        "Create the documentation based SOLELY on the files actually present in the codebase.\n"
+        "EXTREMELY IMPORTANT: If files are mentioned in the README but are not present in the codebase, "
+        "do NOT mention them in your documentation. They do not exist and are not relevant.\n"
         "If this section is not relevant to the repository, return an empty string.\n"
     ),
     "generate_readme": (
