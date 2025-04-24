@@ -17,4 +17,4 @@ class XAIClient(OpenAIClient):
         return "x.ai"
 
     def _get_default_model(self) -> str:
-        return "grok-2-latest"
+        return "grok-3-beta"
