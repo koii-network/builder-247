@@ -3,7 +3,7 @@ import "dotenv/config";
 
 import { DocumentationModel, DocumentationStatus } from "../../models/Documentation";
 // import { documentSummarizerTaskID } from "../../config/constant";
-import { isValidStakingKey } from "../../utils/taskState";
+import { isValidStakingKey } from "../../utils/taskState/stakingList";
 import { verifySignature } from "../../utils/sign";
 import { documentSummarizerTaskID, SwarmBountyStatus } from "../../config/constant";
 import { syncDB } from "../../services/summarizer/syncDB";

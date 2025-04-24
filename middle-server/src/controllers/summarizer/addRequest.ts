@@ -3,7 +3,7 @@ import { DocumentationModel } from "../../models/Documentation";
 import { Request, Response } from "express";
 import { verifySignature } from "../../utils/sign";
 import { documentSummarizerTaskID, SwarmBountyStatus } from "../../config/constant";
-import { isValidStakingKey } from "../../utils/taskState";
+import { isValidStakingKey } from "../../utils/taskState/stakingList";
 import { updateSwarmBountyStatus } from "../../services/swarmBounty/updateStatus";
 
 function verifyRequestBody(req: Request): { signature: string; stakingKey: string } | null {

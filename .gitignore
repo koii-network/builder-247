@@ -33,7 +33,7 @@ data/process
 test_state.csv
 todos-example.csv
 
-
+.env.prod.local
 # Ignore auto-generated repository directories
 repos/
 

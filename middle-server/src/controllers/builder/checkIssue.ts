@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { IssueModel } from '../../models/Issue';
 import { verifySignature } from '../../utils/sign';
 import { taskIDs } from '../../config/constant';
-import { isValidStakingKey } from '../../utils/taskState';
+import { isValidStakingKey } from '../../utils/taskState/stakingList';
 import { getPRDict } from '../../utils/issueUtils';
 
 // Helper function to verify request body

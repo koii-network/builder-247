@@ -4,7 +4,7 @@ import {
   getDistributionListSubmitter,
   getDistributionListWrapper,
   getKeysByValueSign,
-} from "../../utils/taskState/getDistributionList";
+} from "../../utils/taskState/distributionList";
 import { SpecModel, SpecStatus } from "../../models/Spec";
 import { plannerTaskID } from "../../config/constant";
 import { SwarmBountyStatus } from "../../config/constant";

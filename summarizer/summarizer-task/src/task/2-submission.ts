@@ -1,5 +1,5 @@
 import { storeFile } from "../utils/ipfs";
-import { getOrcaClient } from "@_koii/task-manager/extensions";
+import { handleOrcaClientCreation, handleRequest } from "../utils/orcaHandler/orcaHandler";
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import { status } from "../utils/constant";
 export async function submission(roundNumber: number) : Promise<string | void> {
@@ -13,11 +13,14 @@ export async function submission(roundNumber: number) : Promise<string | void> {
 
   try {
     console.log("[SUBMISSION] Initializing Orca client...");
-    const orcaClient = await getOrcaClient();
-    if (!orcaClient) {
+    let orcaClient;
+    try {
+      orcaClient = await handleOrcaClientCreation();
+    }catch{
       console.error("[SUBMISSION] Failed to initialize Orca client");
       return;
     }
+
     console.log("[SUBMISSION] Orca client initialized successfully");
 
     console.log(`[SUBMISSION] Fetching task result for round ${roundNumber}...`);
@@ -34,7 +37,7 @@ export async function submission(roundNumber: number) : Promise<string | void> {
     }
 
     console.log(`[SUBMISSION] Fetching submission data for round ${roundNumber}...`);
-    const result = await orcaClient.podCall(`submission/${roundNumber}`);
+    const result = await handleRequest({orcaClient, route: `submission/${roundNumber}`, bodyJSON: { taskId: TASK_ID, roundNumber }});
     let submission;
 
     console.log("[SUBMISSION] Submission result:", result.data);

@@ -18,6 +18,7 @@
     "tsconfigRootDir": "."
   },
   "plugins": ["@typescript-eslint"],
+  "ignorePatterns": ["dist/**/*", "**/*.d.ts"],
   "rules": {
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/no-explicit-any": "off",

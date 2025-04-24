@@ -3,7 +3,7 @@ import 'dotenv/config';
 
 import { TodoModel, TodoStatus } from '../../models/Todo';
 import { taskIDs } from '../../config/constant';
-import { isValidStakingKey } from '../../utils/taskState';
+import { isValidStakingKey } from '../../utils/taskState/stakingList';
 import { IssueModel, IssueStatus } from '../../models/Issue';
 import { verifySignature } from '../../utils/sign';
 import { SystemPromptModel } from '../../models/SystemPrompt';

@@ -1,7 +1,7 @@
 import { AccountInfo, PublicKey, Connection } from "@_koii/web3.js";
 import { decodeZstd } from "./decodeZstd";
 import { getTaskStateInfo } from "@_koii/create-task-cli";
-import { bincode_js_deserialize } from "../../utils/webasm_bincode_deserializer/bincode_js.js";
+import { bincode_js_deserialize } from "../webasm_bincode_deserializer/bincode_js.js";
 
 export async function getDistributionListSubmitter(taskId: string, round: string): Promise<string | null> {
   const connection = new Connection("https://mainnet.koii.network", "confirmed");

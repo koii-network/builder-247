@@ -1,4 +1,4 @@
-import { getOrcaClient } from "@_koii/task-manager/extensions";
+
 import { namespaceWrapper, TASK_ID } from "@_koii/namespace-wrapper";
 import "dotenv/config";
 import { getRandomNodes } from "../utils/leader";
@@ -10,6 +10,8 @@ import { checkGitHub } from "../utils/githubCheck";
 import { LogLevel } from "@_koii/namespace-wrapper/dist/types";
 import { actionMessage } from "../utils/constant";
 import { errorMessage } from "../utils/constant";
+import { handleOrcaClientCreation, handleRequest } from "../utils/orcaHandler/orcaHandler";
+
 dotenv.config();
 
 
@@ -23,7 +25,7 @@ export async function task(roundNumber: number): Promise<void> {
 // No submission on Round 0 so no need to trigger fetch audit result before round 3
 // Changed from 3 to 4 to have more time
   if (roundNumber >= 4) {
-    const triggerFetchAuditResult = await fetch(`${middleServerUrl}/api/builder/summarizer/trigger-fetch-audit-result`, {
+    const triggerFetchAuditResult = await fetch(`${middleServerUrl}/api/summarizer/trigger-fetch-audit-result`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -34,7 +36,14 @@ export async function task(roundNumber: number): Promise<void> {
   }
   console.log(`[TASK] EXECUTE TASK FOR ROUND ${roundNumber}`);
   try {
-    const orcaClient = await getOrcaClient();
+    let orcaClient;
+    try {
+      orcaClient = await handleOrcaClientCreation();
+    }catch{
+      await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.NO_ORCA_CLIENT, actionMessage.NO_ORCA_CLIENT);
+      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ORCA_CLIENT);
+      return;
+    }
     // check if the env variable is valid
     if (!process.env.ANTHROPIC_API_KEY) {
       await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.ANTHROPIC_API_KEY_INVALID, actionMessage.ANTHROPIC_API_KEY_INVALID);
@@ -63,11 +72,7 @@ export async function task(roundNumber: number): Promise<void> {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.GITHUB_CHECK_FAILED);
       return;
     }
-    if (!orcaClient) {
-      await namespaceWrapper.logMessage(LogLevel.Error, errorMessage.NO_ORCA_CLIENT, actionMessage.NO_ORCA_CLIENT);
-      await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ORCA_CLIENT);
-      return;
-    }
+
 
     const stakingKeypair = await namespaceWrapper.getSubmitterAccount();
     if (!stakingKeypair) {
@@ -83,13 +88,7 @@ export async function task(roundNumber: number): Promise<void> {
     const existingIssues = await getExistingIssues();
     const githubUrls = existingIssues.map((issue) => issue.githubUrl);
     try {
-      await orcaClient.podCall(`star/${roundNumber}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ taskId: TASK_ID, round_number: String(roundNumber), github_urls: githubUrls }),
-      });
+      await handleRequest({orcaClient, route: `star/${roundNumber}`, bodyJSON: { taskId: TASK_ID, round_number: String(roundNumber), github_urls: githubUrls }});
     } catch (error) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.STAR_ISSUE_FAILED);
       console.error("Error starring issues:", error);
@@ -110,7 +109,7 @@ export async function task(roundNumber: number): Promise<void> {
     // const initializedDocumentSummarizeIssues = await getInitializedDocumentSummarizeIssues(existingIssues);
 
     console.log(`[TASK] Making Request to Middle Server with taskId: ${TASK_ID} and round: ${roundNumber}`);
-    const requiredWorkResponse = await fetch(`${middleServerUrl}/api/builder/summarizer/fetch-summarizer-todo`, {
+    const requiredWorkResponse = await fetch(`${middleServerUrl}/api/summarizer/fetch-summarizer-todo`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -132,13 +131,7 @@ export async function task(roundNumber: number): Promise<void> {
     };
     console.log("[TASK] jsonBody: ", jsonBody);
     try {
-      const repoSummaryResponse = await orcaClient.podCall(`repo_summary/${roundNumber}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(jsonBody),
-      });
+      const repoSummaryResponse = await handleRequest({orcaClient, route: `repo_summary/${roundNumber}`, bodyJSON: jsonBody});
       console.log("[TASK] repoSummaryResponse: ", repoSummaryResponse);
       console.log("[TASK] repoSummaryResponse.data.result.data ", repoSummaryResponse.data.result.data);
       const payload = {
@@ -156,7 +149,7 @@ export async function task(roundNumber: number): Promise<void> {
             stakingKeypair.secretKey,
           );
           console.log("[TASK] signature: ", signature);
-          const addPrToSummarizerTodoResponse = await fetch(`${middleServerUrl}/api/builder/summarizer/add-pr-to-summarizer-todo`, {
+          const addPrToSummarizerTodoResponse = await fetch(`${middleServerUrl}/api/summarizer/add-pr-to-summarizer-todo`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -170,42 +163,10 @@ export async function task(roundNumber: number): Promise<void> {
         }
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_SUCCESSFULLY_SUMMARIZED);
       } else {
-        // post this summary response to slack` to notify the team
-        // THE HOOK IS ALREADY DISABLED
-        // try{
-        //   const slackResponse = await fetch('https://hooks.slack.com/services/', {
-        //     method: "POST",
-        //     headers: {
-        //     "Content-Type": "application/json",
-        //   },
-        //   body: JSON.stringify({
-        //     text: `[TASK] Error summarizing issue:\nStatus: ${repoSummaryResponse.status}\nData: ${JSON.stringify(repoSummaryResponse.data, null, 2)}`
-        //   }),
-        // });
-        // console.log("[TASK] slackResponse: ", slackResponse);
-        // }catch(error){
-        //   console.error("[TASK] Error posting to slack:", error);
-        // }
-
         await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
       }
     } catch (error) {
       await namespaceWrapper.storeSet(`result-${roundNumber}`, status.ISSUE_FAILED_TO_BE_SUMMARIZED);
-
-      // try{
-      //   const slackResponse = await fetch('https://hooks.slack.com/services', {
-      //     method: "POST",
-      //     headers: {
-      //       "Content-Type": "application/json",
-      //     },
-      //     body: JSON.stringify({
-      //       text: `[TASK] Error summarizing issue:\n ${JSON.stringify(error)}`
-      //     }),
-      //   });
-      //   console.log("[TASK] slackResponse: ", slackResponse);
-      // }catch(error){
-      //   console.error("[TASK] Error posting to slack:", error);
-      // }
       console.error("[TASK] EXECUTE TASK ERROR:", error);
     }
   } catch (error) {

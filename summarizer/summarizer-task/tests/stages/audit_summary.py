@@ -26,7 +26,7 @@ async def execute(context: Context, prepare_data: dict):
 
     # Mock response for audit
     response = requests.post(
-        "http://localhost:5000/api/builder/summarizer/audit",
+        "http://localhost:5000/api/summarizer/audit",
         json={
             "taskId": context.config.task_id,
             "roundNumber": round_number,

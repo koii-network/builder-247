@@ -3,7 +3,7 @@ import { SpecModel } from "../../models/Spec";
 import { Request, Response } from "express";
 import { verifySignature } from "../../utils/sign";
 import { plannerTaskID } from "../../config/constant";
-import { isValidStakingKey } from "../../utils/taskState";
+import { isValidStakingKey } from "../../utils/taskState/stakingList";
 
 function verifyRequestBody(req: Request): { signature: string; stakingKey: string } | null {
   try {

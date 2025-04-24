@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import 'dotenv/config';
 
 import { taskIDs } from '../../config/constant';
-import { isValidStakingKey } from '../../utils/taskState';
+import { isValidStakingKey } from '../../utils/taskState/stakingList';
 import { IssueModel, IssueStatus } from '../../models/Issue';
 import { verifySignature } from '../../utils/sign';
 import { getPRDict } from '../../utils/issueUtils';

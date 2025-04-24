@@ -1,6 +1,6 @@
-import { getOrcaClient } from "@_koii/task-manager/extensions";
 import { middleServerUrl, status } from "../utils/constant";
 import { submissionJSONSignatureDecode } from "../utils/submissionJSONSignatureDecode";
+import { handleOrcaClientCreation, handleRequest } from "../utils/orcaHandler/orcaHandler";
 // import { status } from '../utils/constant'
 export async function audit(cid: string, roundNumber: number, submitterKey: string): Promise<boolean | void> {
   /**
@@ -11,11 +11,13 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
    */
 
   try {
-    const orcaClient = await getOrcaClient();
-    if (!orcaClient) {
-      // await namespaceWrapper.storeSet(`result-${roundNumber}`, status.NO_ORCA_CLIENT);
+    let orcaClient;
+    try {
+      orcaClient = await handleOrcaClientCreation();
+    }catch{
       return;
     }
+
     // Check if the cid is one of the status
     if (Object.values(status).includes(cid)) {
       // This returns a dummy true
@@ -29,7 +31,7 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     console.log(`[AUDIT] ✅ Signature decoded successfully`);
 
     console.log(`[AUDIT] Checking summarizer status for submitter ${submitterKey}`);
-    const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/builder/summarizer/check-summarizer`, {
+    const checkSummarizerResponse = await fetch(`${middleServerUrl}/api/summarizer/check-summarizer`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -53,15 +55,9 @@ export async function audit(cid: string, roundNumber: number, submitterKey: stri
     console.log(`[AUDIT] Sending audit request for submitter: ${submitterKey}`);
     console.log(`[AUDIT] Submission data being sent to audit:`, decodeResult);
 
-    const result = await orcaClient.podCall(`audit/${roundNumber}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        submission: decodeResult,
-      }),
-    });
+    const result = await handleRequest({orcaClient, route: `audit/${roundNumber}`, bodyJSON: {
+      submission: decodeResult,
+    }});
 
     console.log(`[AUDIT] Raw audit result:`, result);
     console.log(`[AUDIT] Audit result data type:`, typeof result.data);

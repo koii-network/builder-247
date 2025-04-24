@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { DocumentationModel } from "../../models/Documentation";
+// @deprecated
 export const getAssignedTo = async (req: Request, res: Response) => {
   const { swarmBountyId } = req.query;
   if (!swarmBountyId) {

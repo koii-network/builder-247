@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { StarFollowModel } from "../../models/StarFollow";
 import { verifySignature } from "../../utils/sign";
 import { SUPPORTER_TASK_ID } from "../../config/constant";
-import { isValidStakingKey } from "../../utils/taskState";
+import { isValidStakingKey } from "../../utils/taskState/stakingList";
 
 // Helper function to verify request body
 function verifyRequestBody(req: Request): {

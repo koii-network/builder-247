@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { taskIDs } from "../../config/constant";
 import { verifySignature } from "../../utils/sign";
-import { isValidStakingKey } from "../../utils/taskState";
+import { isValidStakingKey } from "../../utils/taskState/stakingList";
 import { TodoModel, TodoStatus } from "../../models/Todo";
 
 function verifyRequestBody(
