@@ -1,0 +1,10 @@
+[
+  {
+    "taskId": "62n2aAVVV42rtt53wxieotTdnKpTRjiChsHYdSxHDhAZ",
+    "content": "This is a test document that needs to be summarized. It contains multiple sentences and paragraphs to test the summarization functionality. The document discusses various topics and should be processed by the workers to generate a concise summary.",
+    "metadata": {
+      "source": "test",
+      "type": "text"
+    }
+  }
+]

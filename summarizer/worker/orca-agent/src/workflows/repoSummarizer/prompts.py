@@ -84,6 +84,7 @@ PROMPTS = {
         "Use the validate_implementation tool to submit your findings.\n"
         "IMPORTANT: Do not assume that an existing README is correct. "
         "Evaluate README_Prometheus.md against the codebase.\n"
+        "DO NOT consider the filename in your analysis, only the content.\n"
         "STOP after submitting the review report."
     ),
     "previous_review_comments": ("Here are the comments from the previous review:\n"),

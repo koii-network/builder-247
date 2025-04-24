@@ -7,20 +7,10 @@ from prometheus_test.utils import create_signature
 def prepare(runner, worker):
     """Prepare data for worker task"""
     # Create fetch-todo payload for stakingSignature and publicSignature
-    fetch_todo_payload = {
+    payload = {
         "taskId": runner.config.task_id,
         "roundNumber": runner.current_round,
         "action": "fetch-todo",
-        "githubUsername": worker.env.get("GITHUB_USERNAME"),
-        "stakingKey": worker.staking_public_key,
-        "pubKey": worker.public_key,
-    }
-
-    # Create add-pr payload for addPRSignature
-    add_pr_payload = {
-        "taskId": runner.config.task_id,
-        "roundNumber": runner.current_round,
-        "action": "add-todo-pr",
         "githubUsername": worker.env.get("GITHUB_USERNAME"),
         "stakingKey": worker.staking_public_key,
         "pubKey": worker.public_key,
@@ -31,20 +21,18 @@ def prepare(runner, worker):
         "roundNumber": runner.current_round,
         "stakingKey": worker.staking_public_key,
         "pubKey": worker.public_key,
-        "stakingSignature": create_signature(
-            worker.staking_signing_key, fetch_todo_payload
-        ),
-        "publicSignature": create_signature(
-            worker.public_signing_key, fetch_todo_payload
-        ),
-        "addPRSignature": create_signature(worker.staking_signing_key, add_pr_payload),
+        "stakingSignature": create_signature(worker.staking_signing_key, payload),
+        "publicSignature": create_signature(worker.public_signing_key, payload),
     }
 
 
 def execute(runner, worker, data):
     """Execute worker task step"""
     url = f"{worker.url}/worker-task/{data['roundNumber']}"
-    response = requests.post(url, json=data)
+    response = requests.post(
+        url,
+        json={"signature": data["stakingSignature"], "stakingKey": data["stakingKey"]},
+    )
     result = response.json()
 
     # Handle 409 gracefully - no eligible todos is an expected case

@@ -1,0 +1,26 @@
+# Test Configuration
+task_id: "62n2aAVVV42rtt53wxieotTdnKpTRjiChsHYdSxHDhAZ" # Task ID from config-task.yml
+middle_server_url: "http://localhost:3000"
+# base_port: 5000 # Base port for worker servers
+# max_rounds: 1 # Maximum number of test rounds
+
+# Paths
+# relative to the test directory
+data_dir: data/minimal # Directory containing test data
+# workers_config: workers.json # Worker configuration file
+
+# MongoDB Configuration
+mongodb:
+  database: summarizer
+  collections:
+    docs:
+      data_file: docs.json # Relative to data_dir
+      required_count: 1 # Minimum number of documents required
+    summaries:
+      data_file: summaries.json
+      required_count: 1
+    systemprompts:
+      data_file: prompts.json
+      required_count: 1
+    audits:
+      required_count: 0 # No data file, just needs to exist

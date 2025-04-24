@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 bp = Blueprint("audit", __name__)
 
 
-@bp.post("/audit/<round_number>")
+@bp.post("/worker-audit/<round_number>")
 def audit_submission(round_number: int):
     logger.info("Auditing submission")
 

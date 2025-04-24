@@ -105,7 +105,7 @@ export async function task(roundNumber: number): Promise<void> {
       {
         taskId: TASK_ID,
         roundNumber: roundNumber,
-        action: "fetch",
+        action: "fetch-todo",
         githubUsername: stakingKey,
         stakingKey: stakingKey,
       },
@@ -148,7 +148,7 @@ export async function task(roundNumber: number): Promise<void> {
       console.log("[TASK] repoSummaryResponse.data.result.data ", repoSummaryResponse.data.result.data);
       const payload = {
         taskId: TASK_ID,
-        action: "add",
+        action: "add-todo-pr",
         roundNumber: roundNumber,
         prUrl: repoSummaryResponse.data.result.data.pr_url,
         stakingKey: stakingKey,

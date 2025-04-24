@@ -6,7 +6,6 @@ import dotenv
 import argparse
 import uuid
 
-from .steps import steps
 
 dotenv.load_dotenv()
 
@@ -21,21 +20,24 @@ def parse_args():
     return parser.parse_args()
 
 
-def post_load_callback(db):
+def add_uuids(db):
     """Post-load callback to process MongoDB data after JSON import"""
-    # Process todos collection
-    todos = list(db.todos.find({"taskId": runner.config.task_id}))
-    for todo in todos:
-        if "uuid" not in todo:
-            todo["uuid"] = str(uuid.uuid4())
-        db.todos.replace_one({"_id": todo["_id"]}, todo)
+    # Process docs collection
+    docs = list(db.docs.find({"taskId": runner.config.task_id}))
+    for doc in docs:
+        if "uuid" not in doc:
+            doc["uuid"] = str(uuid.uuid4())
+        db.docs.replace_one({"_id": doc["_id"]}, doc)
 
-    # Process issues collection
-    issues = list(db.issues.find({"taskId": runner.config.task_id}))
-    for issue in issues:
-        if "uuid" not in issue:
-            issue["uuid"] = str(uuid.uuid4())
-        db.issues.replace_one({"_id": issue["_id"]}, issue)
+    # Process summaries collection
+    summaries = list(db.summaries.find({"taskId": runner.config.task_id}))
+    for summary in summaries:
+        if "uuid" not in summary:
+            summary["uuid"] = str(uuid.uuid4())
+        if "docUuid" not in summary and docs:
+            # Link to first doc for simplicity
+            summary["docUuid"] = docs[0]["uuid"]
+        db.summaries.replace_one({"_id": summary["_id"]}, summary)
 
 
 # Global reference to the test runner
@@ -46,12 +48,15 @@ def main():
     global runner
     args = parse_args()
 
+    # Import steps here to avoid circular imports
+    from .steps import steps
+
     # Create test runner with config from YAML
     base_dir = Path(__file__).parent
     runner = TestRunner(
         steps=steps,
         config_file=base_dir / "config.yaml",
-        config_overrides={"post_load_callback": post_load_callback},
+        config_overrides={"post_load_callback": add_uuids},
     )
 
     # Run test sequence

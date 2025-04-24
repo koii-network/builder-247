@@ -1,0 +1,10 @@
+[
+  {
+    "taskId": "62n2aAVVV42rtt53wxieotTdnKpTRjiChsHYdSxHDhAZ",
+    "summary": "Test document containing multiple sentences for summarization testing.",
+    "metadata": {
+      "source": "test",
+      "type": "summary"
+    }
+  }
+]

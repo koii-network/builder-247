@@ -125,11 +125,6 @@ DOCS_SECTIONS = {
             "(e.g., 'Use this for building a REST API with authentication')\n"
             "Link to live demos or projects built from this template if available\n\n",
         },
-        {
-            "name": "Contributing",
-            "description": "If the template is open to contributions, provide basic instructions for "
-            "submitting improvements\n\n",
-        },
     ),
     "cli_tool": [
         {
@@ -148,10 +143,6 @@ DOCS_SECTIONS = {
             "name": "Configuration",
             "description": "Describe any optional or required configuration files (e.g., `.clirc`, `config.json`)\n"
             "Show example configurations and where to place them\n\n",
-        },
-        {
-            "name": "Contributing",
-            "description": "Outline how to contribute, test changes, or add new commands\n\n",
         },
     ],
     "framework": [
