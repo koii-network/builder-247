@@ -33,6 +33,7 @@ import { classification } from "../controllers/prometheus/classification";
 import { bindRequest } from "../controllers/supporter/bindRequest";
 import { fetchRequest as fetchRepoList } from "../controllers/supporter/fetchRequest";
 import { checkRequest as checkRepoRequest } from "../controllers/supporter/checkRequest";
+import { info } from "../controllers/prometheus/info";
 
 const router = Router();
 
@@ -49,7 +50,7 @@ router.post("/builder/check-issue", checkIssue as RequestHandler);
 router.get("/builder/get-source-repo/:nodeType/:uuid", getSourceRepo as RequestHandler);
 
 /********** Summarizer */
-// router.post("/summarizer/fetch-summarizer-todo", fetchSummarizerRequest as RequestHandler);
+router.post("/summarizer/fetch-summarizer-todo", fetchSummarizerRequest as RequestHandler);
 router.post("/summarizer/add-pr-to-summarizer-todo", addSummarizerRequest as RequestHandler);
 router.post("/summarizer/trigger-fetch-audit-result", triggerFetchAuditResultSummarizer as RequestHandler);
 router.post("/summarizer/check-summarizer", checkSummarizerRequest as RequestHandler);
@@ -65,6 +66,7 @@ router.post("/planner/trigger-fetch-audit-result", triggerFetchAuditResultPlanne
 /*********** Prometheus Website ***********/
 router.get("/prometheus/get-assigned-nodes", getAssignedTo as RequestHandler);
 router.post("/prometheus/classification", verifyBearerToken, classification as RequestHandler);
+router.get("/prometheus/info", info as RequestHandler);
 
 
 /****************** Supporter **************/

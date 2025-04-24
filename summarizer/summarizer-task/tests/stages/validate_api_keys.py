@@ -17,7 +17,7 @@ async def execute(context: Context, prepare_data: dict):
 
     # Mock response for Anthropic API validation
     response = requests.post(
-        "http://localhost:5000/api/builder/summarizer/validate-api-key",
+        "http://localhost:5000/api/summarizer/validate-api-key",
         json={"api_key": api_key},
     )
 

@@ -10,26 +10,31 @@ export const info = async (req: Request, res: Response) => {
   const { swarmBountyId, swarmType } = req.query;
 
   if (!swarmBountyId || !swarmType) {
-    return res.status(400).json({ error: "swarmBountyId and swarmType are required" });
+    res.status(400).json({ error: "swarmBountyId and swarmType are required" });
+    return;
   }
   const validTypes = Object.values(SwarmBountyType);
   if (!validTypes.includes(swarmType as any)) {
-    return res.status(400).json({ error: "Invalid swarm type" });
+    res.status(400).json({ error: "Invalid swarm type" });
+    return;
   }
   if (swarmType === SwarmBountyType.DOCUMENT_SUMMARIZER) {
     const { statuscode, data } = await getDocumentationInfo(swarmBountyId as string);
-    return res.status(statuscode).json(data);
+    res.status(statuscode).json(data);
+    return;
   }
   if (swarmType === SwarmBountyType.FIND_BUGS) {
     const { statuscode, data } = await getFindBugsInfo(swarmBountyId as string);
-    return res.status(statuscode).json(data);
+    res.status(statuscode).json(data);
+    return;
   }
   if (swarmType === SwarmBountyType.BUILD_FEATURE) {
     const { statuscode, data } = await getBuildFeatureInfo(swarmBountyId as string);
-    return res.status(statuscode).json(data);
+    res.status(statuscode).json(data);
+    return;
   }
-  return res.status(500).json({ error: "Internal server error" });
-
+  res.status(500).json({ error: "Internal server error" });
+  return;
 
 };
 // @dummy function
@@ -61,7 +66,7 @@ export const getBuildFeatureInfo = async (swarmsBountyId: string): Promise<{ sta
     }
 }
 export const getDocumentationNumberOfNodesTemp = async (): Promise<number> => {
-  const documentationTaskId = process.env.DOCUMENTATION_TASK_ID;
+  const documentationTaskId = process.env.DOCUMENT_SUMMARIZER_TASK_ID;
   if (!documentationTaskId) {
       throw new Error("DOCUMENTATION_TASK_ID is not set");
   }
@@ -70,8 +75,9 @@ export const getDocumentationNumberOfNodesTemp = async (): Promise<number> => {
 }
 export const getDocumentationInfo = async (swarmsBountyId: string): Promise<{ statuscode: number; data: any }> => {
     try {
+      console.log("swarmsBountyId", swarmsBountyId);
       const documentation = await DocumentationModel.findOne({ swarmBountyId: swarmsBountyId });
-      console.log(documentation);
+      console.log("documentation", documentation);
       if (documentation && documentation.assignedTo) {
         const numberOfNodes = await getDocumentationNumberOfNodesTemp();
         let status; 
@@ -110,6 +116,7 @@ export const getDocumentationInfo = async (swarmsBountyId: string): Promise<{ st
         },
       };
     } catch (error) {
+      console.log("error", error);
       return {
         statuscode: 500,
         data: {

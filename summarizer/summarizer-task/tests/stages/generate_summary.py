@@ -26,7 +26,7 @@ async def execute(context: Context, prepare_data: dict):
 
     # Mock response for repo summary generation
     response = requests.post(
-        "http://localhost:5000/api/builder/summarizer/generate-summary",
+        "http://localhost:5000/api/summarizer/generate-summary",
         json={
             "taskId": context.config.task_id,
             "round_number": str(round_number),
