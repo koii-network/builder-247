@@ -3,10 +3,10 @@ import "dotenv/config";
 import { StarFollowModel } from "../../models/StarFollow";
 import { verifySignature } from "../../utils/sign";
 import { SUPPORTER_TASK_ID } from "../../config/constant";
-import { isValidStakingKey } from "../../utils/taskState";
+import { isValidStakingKey } from "../../utils/taskState/stakingList";
 import { getSwarmBounty } from "../../utils/prometheus/api";
 import { Bounty } from "../../types/bounty";
-import { getCurrentRound } from "../../utils/taskState/getSubmissionRound";
+import { getCurrentRound } from "../../utils/taskState/submissionRound";
 // import { updateSwarmBountyStatus } from "../../services/swarmBounty/updateStatus";
 
 // Check if the user has already completed the task

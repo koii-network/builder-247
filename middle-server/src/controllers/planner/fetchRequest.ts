@@ -3,7 +3,7 @@ import 'dotenv/config';
 
 import { SpecModel, SpecStatus } from '../../models/Spec';
 
-import { isValidStakingKey } from '../../utils/taskState';
+import { isValidStakingKey } from '../../utils/taskState/stakingList';
 import { verifySignature } from '../../utils/sign';
 import { plannerTaskID, SwarmBountyStatus } from '../../config/constant';
 import { syncDB } from '../../services/planner/syncDB';

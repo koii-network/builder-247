@@ -1,0 +1,124 @@
+import { DocumentationModel } from "../../models/Documentation";
+import { Request, Response } from "express";
+import { DocumentationStatus } from "../../models/Documentation";
+
+
+
+import { SwarmBountyStatus, SwarmBountyType } from "../../config/constant";
+import { getLastRoundValueLength } from "../../utils/taskState/activeNode";
+export const info = async (req: Request, res: Response) => {
+  const { swarmBountyId, swarmType } = req.query;
+
+  if (!swarmBountyId || !swarmType) {
+    return res.status(400).json({ error: "swarmBountyId and swarmType are required" });
+  }
+  const validTypes = Object.values(SwarmBountyType);
+  if (!validTypes.includes(swarmType as any)) {
+    return res.status(400).json({ error: "Invalid swarm type" });
+  }
+  if (swarmType === SwarmBountyType.DOCUMENT_SUMMARIZER) {
+    const { statuscode, data } = await getDocumentationInfo(swarmBountyId as string);
+    return res.status(statuscode).json(data);
+  }
+  if (swarmType === SwarmBountyType.FIND_BUGS) {
+    const { statuscode, data } = await getFindBugsInfo(swarmBountyId as string);
+    return res.status(statuscode).json(data);
+  }
+  if (swarmType === SwarmBountyType.BUILD_FEATURE) {
+    const { statuscode, data } = await getBuildFeatureInfo(swarmBountyId as string);
+    return res.status(statuscode).json(data);
+  }
+  return res.status(500).json({ error: "Internal server error" });
+
+
+};
+// @dummy function
+export const getFindBugsInfo = async (swarmsBountyId: string): Promise<{ statuscode: number; data: any }> => {
+    return {
+        statuscode: 200,
+        data: {
+            success: true,
+            data: {
+                issues: 0,
+                nodes: 0,
+                status: SwarmBountyStatus.IN_PROGRESS
+            }
+        }
+    }
+}
+
+export const getBuildFeatureInfo = async (swarmsBountyId: string): Promise<{ statuscode: number; data: any }> => {
+    return {
+        statuscode: 200,
+        data: {
+            success: true,
+            data: {
+                issues: 0,
+                nodes: 0,
+                status: SwarmBountyStatus.IN_PROGRESS
+            }
+        }
+    }
+}
+export const getDocumentationNumberOfNodesTemp = async (): Promise<number> => {
+  const documentationTaskId = process.env.DOCUMENTATION_TASK_ID;
+  if (!documentationTaskId) {
+      throw new Error("DOCUMENTATION_TASK_ID is not set");
+  }
+  const numberOfNodes = await getLastRoundValueLength(documentationTaskId);
+  return numberOfNodes;
+}
+export const getDocumentationInfo = async (swarmsBountyId: string): Promise<{ statuscode: number; data: any }> => {
+    try {
+      const documentation = await DocumentationModel.findOne({ swarmBountyId: swarmsBountyId });
+      console.log(documentation);
+      if (documentation && documentation.assignedTo) {
+        const numberOfNodes = await getDocumentationNumberOfNodesTemp();
+        let status; 
+        if (documentation.status === DocumentationStatus.IN_PROGRESS) {
+          if (documentation.assignedTo.length === 0) {
+            status = SwarmBountyStatus.IN_PROGRESS;
+          } else {
+            if (documentation.assignedTo[documentation.assignedTo.length - 1].prUrl) {
+              if (documentation.assignedTo[documentation.assignedTo.length - 1].auditResult==true) {
+                status = SwarmBountyStatus.COMPLETED;
+              } else {
+                status = SwarmBountyStatus.AUDITING;
+              }
+            } else {
+              status = SwarmBountyStatus.ASSIGNED;
+            }
+          }
+        }
+        return {
+          statuscode: 200,
+          data: {
+            success: true,
+            data: {
+                issues: 1,
+                nodes: numberOfNodes,
+                status: documentation.status
+            }
+          },
+        };
+      }
+      return {
+        statuscode: 409,
+        data: {
+          success: false,
+          message: "Documentation not found",
+        },
+      };
+    } catch (error) {
+      return {
+        statuscode: 500,
+        data: {
+          success: false,
+          message: "Error getting assigned to in documentation",
+        },
+      };
+    }
+};
+  
+
+

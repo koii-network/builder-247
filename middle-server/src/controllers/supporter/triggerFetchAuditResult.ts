@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../../utils/taskState/getDistributionList';
+import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../../utils/taskState/distributionList';
 import { StarFollowModel } from "../../models/StarFollow";
 import { SUPPORTER_TASK_ID } from '../../config/constant';
 import { SwarmBountyStatus } from '../../config/constant';

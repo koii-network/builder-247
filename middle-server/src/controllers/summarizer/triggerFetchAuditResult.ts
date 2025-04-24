@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../../utils/taskState/getDistributionList';
+import { getDistributionListSubmitter, getDistributionListWrapper, getKeysByValueSign } from '../../utils/taskState/distributionList';
 import { DocumentationModel, DocumentationStatus } from "../../models/Documentation";
 import { documentSummarizerTaskID } from '../../config/constant';
 import { SwarmBountyStatus } from '../../config/constant';

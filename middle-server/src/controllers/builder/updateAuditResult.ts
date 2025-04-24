@@ -4,7 +4,7 @@ import {
   getDistributionListSubmitter,
   getDistributionListWrapper,
   getKeysByValueSign,
-} from '../../utils/taskState/getDistributionList';
+} from '../../utils/taskState/distributionList';
 import { IssueStatus } from '../../models/Issue';
 import { TodoModel, TodoStatus } from '../../models/Todo';
 import { AuditModel, AuditStatus } from '../../models/Audit';

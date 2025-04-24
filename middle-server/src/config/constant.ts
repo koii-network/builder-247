@@ -7,15 +7,22 @@ export const defaultBountyMarkdownFile =
   process.env.DEFAULT_BOUNTY_MARKDOWN_FILE ||
   "https://raw.githubusercontent.com/HermanL02/prometheus-swarm-bounties/master/README.md";
 export const plannerTaskID = process.env.PLANNER_TASK_ID || "";
+
+import { DocumentationStatus } from "../models/Documentation";
 export enum SwarmBountyStatus {
   COMPLETED = "completed",
   FAILED = "failed",
   IN_PROGRESS = "in-progress",
-  // LOADING = "loading",
   ASSIGNED = "assigned",
-  // FORKED = "forked"
   AUDITING = "auditing",
 }
+// export const SwarmBountyStatusDocumentationStatusMapping = {
+//   [DocumentationStatus.DONE]: SwarmBountyStatus.COMPLETED,
+//   [DocumentationStatus.FAILED]: SwarmBountyStatus.FAILED,
+//   [DocumentationStatus.IN_PROGRESS]: SwarmBountyStatus.IN_PROGRESS,
+//   [DocumentationStatus.IN_PROGRESS]: SwarmBountyStatus.ASSIGNED,
+//   [DocumentationStatus.AUDITING]: SwarmBountyStatus.AUDITING,
+// }
 export enum SwarmBountyType {
   DOCUMENT_SUMMARIZER = "document-summarizer",
   FIND_BUGS = "find-bugs",
