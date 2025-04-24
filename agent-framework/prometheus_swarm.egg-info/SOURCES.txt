@@ -1,3 +1,4 @@
+LICENSE
 README.md
 setup.py
 prometheus_swarm/__init__.py
