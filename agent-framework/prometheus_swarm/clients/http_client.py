@@ -79,7 +79,10 @@ class HttpClient:
         except ConnectionError:
             raise ConnectionError(f"Could not connect to {url}")
         except HTTPError as e:
-            error_msg = f"HTTP Error {e.response.status_code}: {e.response.reason}"
-            raise HTTPError(error_msg)
+            # Safely extract status code and reason, with graceful fallback
+            status_code = getattr(e.response, 'status_code', 'Unknown')
+            reason = getattr(e.response, 'reason', 'No reason')
+            error_msg = f"HTTP Error {status_code}: {reason}"
+            raise HTTPError(error_msg) from e
         except RequestException as e:
             raise RequestException(f"Unexpected error during request: {str(e)}")
