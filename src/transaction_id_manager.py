@@ -63,7 +63,13 @@ class TransactionIDManager:
         
         # Use sanitization to pre-process the input
         cleaned_input = str(transaction_id).strip()
-        if len(re.findall(r'\s', cleaned_input)) > 0:
+        
+        # Check for various invalid conditions
+        if (
+            not cleaned_input or  # Empty
+            len(re.findall(r'\s', cleaned_input)) > 0 or  # Contains whitespace
+            re.search(r'[^a-zA-Z0-9]', cleaned_input)  # Contains non-alphanumeric chars
+        ):
             return False
         
         cleaned_id = TransactionIDManager.sanitize_transaction_id(transaction_id)
