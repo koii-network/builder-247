@@ -43,7 +43,8 @@ def test_check_text_with_prohibited_words():
     config = ProhibitedWordsConfig(["bad", "inappropriate"])
     assert config.check_text("This is a bad comment")
     assert config.check_text("Inappropriate language used here")
-    assert config.check_text("BAD WORDS IN CAPS")
+    assert config.check_text("BAD words in CAPS")
+    assert config.check_text("This bad! word is not okay.")
 
 
 def test_check_text_without_prohibited_words():
