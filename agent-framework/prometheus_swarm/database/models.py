@@ -2,7 +2,32 @@
 
 from datetime import datetime
 from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Column, Enum
+from enum import Enum as PyEnum
+
+
+class TransactionStatus(str, PyEnum):
+    """Enum for transaction status."""
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+
+
+class Transaction(SQLModel, table=True):
+    """Transaction tracking model."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    transaction_hash: str = Field(unique=True, index=True)
+    amount: float
+    currency: str
+    sender: str
+    recipient: str
+    description: Optional[str] = None
+    status: TransactionStatus = Field(sa_column=Column(Enum(TransactionStatus)))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+    transaction_metadata: Optional[str] = Field(default=None, alias="transaction_metadata")  # JSON-encoded additional details
 
 
 class Conversation(SQLModel, table=True):
