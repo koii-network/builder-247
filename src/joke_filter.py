@@ -38,22 +38,22 @@ def filter_jokes(
             continue
         
         # Prepare text for comparison
-        text = joke['text'].lower()
+        text = joke['text']
         
         # Check category if specified
         if category and joke.get('category') != category:
             continue
         
         # Check max length if specified
-        if max_length and len(joke['text']) > max_length:
+        if max_length and len(text) > max_length:
             continue
         
         # Check contains if specified
-        if contains and contains.lower() not in text:
+        if contains and contains.lower() not in text.lower():
             continue
         
         # Check exclude_contains
-        if any(ex.lower() in text for ex in exclude_contains):
+        if any(ex.lower() in text.lower() for ex in exclude_contains):
             continue
         
         filtered_jokes.append(joke)
