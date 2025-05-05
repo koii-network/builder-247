@@ -46,22 +46,21 @@ class ContentFilter:
         if mode not in ['exclude', 'include']:
             raise ValueError("Mode must be either 'exclude' or 'include'")
 
-        # Prepare keywords for matching
-        if not case_sensitive:
-            content = content.lower()
-            keywords = [kw.lower() for kw in keywords]
+        # Prepare for matching
+        search_content = content.lower() if not case_sensitive else content
+        search_keywords = [kw.lower() if not case_sensitive else kw for kw in keywords]
 
         # Filter logic
         if mode == 'exclude':
             # Remove content if any keyword is found
-            for keyword in keywords:
-                if keyword in content:
+            for keyword in search_keywords:
+                if keyword in search_content:
                     return None
             return content
         else:  # mode == 'include'
             # Keep content only if any keyword is found
-            for keyword in keywords:
-                if keyword in content:
+            for keyword in search_keywords:
+                if keyword in search_content:
                     return content
             return None
 
