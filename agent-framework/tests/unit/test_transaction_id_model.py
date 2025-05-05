@@ -23,7 +23,7 @@ def test_transaction_id_creation(session):
     transaction = TransactionID(
         transaction_id='unique_tx_123',
         source='github',
-        metadata={'repo': 'test-repo', 'action': 'pull_request'}
+        transaction_metadata={'repo': 'test-repo', 'action': 'pull_request'}
     )
     session.add(transaction)
     session.commit()
@@ -32,7 +32,7 @@ def test_transaction_id_creation(session):
     retrieved_tx = session.query(TransactionID).filter_by(transaction_id='unique_tx_123').first()
     assert retrieved_tx is not None
     assert retrieved_tx.source == 'github'
-    assert retrieved_tx.metadata == {'repo': 'test-repo', 'action': 'pull_request'}
+    assert retrieved_tx.transaction_metadata == {'repo': 'test-repo', 'action': 'pull_request'}
 
 def test_transaction_id_timestamps(session):
     """Test automatic timestamp handling"""
