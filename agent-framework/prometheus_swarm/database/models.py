@@ -1,44 +1,56 @@
-"""Database models."""
-
+from sqlalchemy import Column, Integer, String, DateTime, UniqueConstraint
+from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+import uuid
 
+Base = declarative_base()
 
-class Conversation(SQLModel, table=True):
-    """Conversation model."""
-
-    id: str = Field(primary_key=True)
-    model: str
-    system_prompt: Optional[str] = None
-    available_tools: Optional[str] = None  # JSON list of tool names
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    messages: List["Message"] = Relationship(back_populates="conversation")
-
-
-class Message(SQLModel, table=True):
-    """Message model."""
-
-    id: str = Field(primary_key=True)
-    conversation_id: str = Field(foreign_key="conversation.id")
-    role: str
-    content: str  # JSON-encoded content
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    conversation: Conversation = Relationship(back_populates="messages")
-
-
-class Log(SQLModel, table=True):
-    """Log entry model."""
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    level: str
-    message: str
-    module: Optional[str] = None
-    function: Optional[str] = None
-    path: Optional[str] = None
-    line_no: Optional[int] = None
-    exception: Optional[str] = None
-    stack_trace: Optional[str] = None
-    request_id: Optional[str] = None
-    additional_data: Optional[str] = None
+class TransactionID(Base):
+    """
+    Model for storing unique transaction identifiers with additional metadata.
+    
+    Attributes:
+        id (int): Primary key for database indexing
+        transaction_uuid (str): Unique universal identifier for the transaction
+        source (str): Origin or context of the transaction
+        created_at (datetime): Timestamp of transaction ID creation
+        metadata (str, optional): Additional JSON-serializable metadata about the transaction
+    """
+    __tablename__ = 'transaction_ids'
+    
+    id = Column(Integer, primary_key=True)
+    transaction_uuid = Column(String, unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
+    source = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    metadata = Column(String, nullable=True)
+    
+    # Ensure uniqueness of transaction_uuid
+    __table_args__ = (
+        UniqueConstraint('transaction_uuid', name='uq_transaction_uuid'),
+    )
+    
+    def __repr__(self):
+        """
+        String representation of the TransactionID instance.
+        
+        Returns:
+            str: A descriptive string of the transaction ID
+        """
+        return f"<TransactionID(uuid='{self.transaction_uuid}', source='{self.source}', created_at='{self.created_at}')>"
+    
+    @classmethod
+    def create(cls, source: str, metadata: str = None):
+        """
+        Class method to create a new TransactionID instance.
+        
+        Args:
+            source (str): Origin or context of the transaction
+            metadata (str, optional): Additional metadata about the transaction
+        
+        Returns:
+            TransactionID: A new transaction ID instance
+        """
+        return cls(
+            source=source,
+            metadata=metadata
+        )
