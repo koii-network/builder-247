@@ -12,7 +12,7 @@ class TransactionID(SQLModel, table=True):
         context (str): Context or type of transaction
         timestamp (DateTime): Timestamp of transaction creation
         status (str): Current status of the transaction
-        metadata (str, optional): Additional metadata about the transaction
+        additional_info (str, optional): Additional metadata about the transaction
     """
     __tablename__ = 'transaction_ids'
 
@@ -21,10 +21,10 @@ class TransactionID(SQLModel, table=True):
     context: str
     timestamp: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
     status: str = Field(default='pending')
-    metadata: str = Field(default=None, nullable=True)
+    additional_info: str = Field(default=None, nullable=True)
 
     @classmethod
-    def create(cls, transaction_id: str, context: str, status: str = 'pending', metadata: str = None):
+    def create(cls, transaction_id: str, context: str, status: str = 'pending', additional_info: str = None):
         """
         Class method to create a new transaction ID record.
         
@@ -32,7 +32,7 @@ class TransactionID(SQLModel, table=True):
             transaction_id (str): Unique transaction identifier
             context (str): Transaction context
             status (str, optional): Transaction status. Defaults to 'pending'
-            metadata (str, optional): Additional transaction metadata
+            additional_info (str, optional): Additional transaction metadata
         
         Returns:
             TransactionID: New transaction record
@@ -41,7 +41,7 @@ class TransactionID(SQLModel, table=True):
             transaction_id=transaction_id,
             context=context,
             status=status,
-            metadata=metadata
+            additional_info=additional_info
         )
 
     def update_status(self, new_status: str):
