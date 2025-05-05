@@ -63,9 +63,11 @@ class ProhibitedWordsConfig:
         if not text:
             return False
 
-        # Use word boundary regex to ensure whole word match
-        pattern = r'\b(' + '|'.join(re.escape(self._normalize_word(word)) for word in self._prohibited_words) + r')\b'
-        return bool(re.search(pattern, self._normalize_word(text)))
+        # Extract words, removing non-alphanumeric characters
+        text_words = re.findall(r'\b\w+\b', self._normalize_word(text))
+        
+        # Check if any word directly matches a prohibited word
+        return any(word in self._prohibited_words for word in text_words)
 
     @staticmethod
     def _normalize_word(word: str) -> str:
@@ -78,7 +80,7 @@ class ProhibitedWordsConfig:
         Returns:
             str: Normalized word.
         """
-        return re.sub(r'[^a-z0-9]', '', word.lower())
+        return re.sub(r'[^a-z0-9]', '', word.lower()) if word else ''
 
     def get_prohibited_words(self) -> List[str]:
         """
