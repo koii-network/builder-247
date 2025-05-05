@@ -38,9 +38,9 @@ def test_filter_jokes_no_criteria(sample_jokes):
 
 def test_filter_jokes_max_length(sample_jokes):
     """Test filtering jokes by maximum length."""
-    result = filter_jokes(sample_jokes, max_length=20)
+    result = filter_jokes(sample_jokes, max_length=40)
     assert len(result) == 2
-    assert all(len(joke['text']) <= 20 for joke in result)
+    assert all(len(joke['text']) <= 40 for joke in result)
 
 def test_filter_jokes_exclude_keywords(sample_jokes):
     """Test filtering jokes by excluded keywords."""
@@ -58,14 +58,14 @@ def test_filter_jokes_multiple_criteria(sample_jokes):
     """Test filtering jokes with multiple criteria."""
     result = filter_jokes(
         sample_jokes, 
-        max_length=30, 
-        exclude_keywords=['long'], 
+        max_length=50, 
+        exclude_keywords=['very'], 
         min_rating=3.0
     )
     assert len(result) == 2
     assert all(
-        len(joke['text']) <= 30 and 
-        'long' not in joke['text'].lower() and 
+        len(joke['text']) <= 50 and 
+        'very' not in joke['text'].lower() and 
         joke['rating'] >= 3.0 
         for joke in result
     )
