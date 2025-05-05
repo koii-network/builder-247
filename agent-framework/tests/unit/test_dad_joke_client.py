@@ -1,6 +1,6 @@
 import pytest
 import requests
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from prometheus_swarm.clients.dad_joke_client import DadJokeClient
 
 class TestDadJokeClient:
@@ -10,9 +10,10 @@ class TestDadJokeClient:
         """
         with patch('requests.get') as mock_get:
             # Create a mock response with a sample joke
-            mock_response = mock_get.return_value
+            mock_response = Mock()
+            mock_response.status_code = 200
             mock_response.text = "Why don't scientists trust atoms? Because they make up everything!"
-            mock_response.raise_for_status = lambda: None  # Simulate successful request
+            mock_get.return_value = mock_response
 
             # Get the joke
             joke = DadJokeClient.get_random_joke()
@@ -28,12 +29,13 @@ class TestDadJokeClient:
         """
         with patch('requests.get') as mock_get:
             # Create a mock response with an empty joke
-            mock_response = mock_get.return_value
+            mock_response = Mock()
+            mock_response.status_code = 200
             mock_response.text = ""
-            mock_response.raise_for_status = lambda: None  # Simulate successful request
+            mock_get.return_value = mock_response
 
             # Verify that an empty response raises a ValueError
-            with pytest.raises(ValueError, match="No joke received from the API"):
+            with pytest.raises(requests.RequestException, match="No joke received from the API"):
                 DadJokeClient.get_random_joke()
 
     def test_get_random_joke_network_error(self):
@@ -53,10 +55,11 @@ class TestDadJokeClient:
         Test handling of HTTP errors when fetching a joke.
         """
         with patch('requests.get') as mock_get:
-            # Create a mock response that raises an HTTP error
-            mock_response = mock_get.return_value
-            mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+            # Create a mock response with a bad status code
+            mock_response = Mock()
+            mock_response.status_code = 404
+            mock_get.return_value = mock_response
 
             # Verify that an HTTP error raises an exception
-            with pytest.raises(requests.HTTPError):
+            with pytest.raises(requests.RequestException, match="HTTP error 404"):
                 DadJokeClient.get_random_joke()
