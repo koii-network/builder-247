@@ -1,0 +1,19 @@
+[run]
+source = prometheus_swarm
+omit = 
+    */tests/*
+    */__init__.py
+    */__main__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if __name__ == .__main__.:
+    raise NotImplementedError
+    pass
+    raise
+
+[html]
+directory = coverage_html_report
