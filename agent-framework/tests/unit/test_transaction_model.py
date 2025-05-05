@@ -101,11 +101,11 @@ def test_transaction_metadata(engine):
             sender="sender_3",
             recipient="recipient_3",
             status=TransactionStatus.COMPLETED,
-            metadata='{"fee": 5.0, "source": "payment_gateway"}'
+            transaction_metadata='{"fee": 5.0, "source": "payment_gateway"}'
         )
         session.add(transaction)
         session.commit()
 
         # Retrieve and verify
         db_transaction = session.get(Transaction, transaction.id)
-        assert db_transaction.metadata == '{"fee": 5.0, "source": "payment_gateway"}'
+        assert db_transaction.transaction_metadata == '{"fee": 5.0, "source": "payment_gateway"}'
