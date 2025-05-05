@@ -3,6 +3,7 @@ import time
 import logging
 from typing import Any, Callable, Dict, Optional
 from functools import wraps
+import signal
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,9 @@ class CacheStorageError(CacheError):
 class CacheRetrievalError(CacheError):
     """Raised when there's an issue retrieving from cache."""
     pass
+
+def timeout_handler(signum, frame):
+    raise CacheTimeoutError("Cache operation timed out")
 
 def cache_with_error_handling(
     max_age: int = 300,  # 5 minutes default cache time
@@ -49,45 +53,47 @@ def cache_with_error_handling(
             key = str(args) + str(kwargs)
 
             try:
-                # Check cache with timeout
-                start_time = time.time()
-                
-                # Check cache entry existence and validity
-                if key in cache:
-                    entry = cache[key]
-                    if time.time() - entry['timestamp'] < max_age:
-                        return entry['value']
-                    
-                    # Remove expired entries
-                    del cache[key]
+                # Set up timeout mechanism
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.setitimer(signal.ITIMER_REAL, timeout)
 
-                # Enforce max cache size
-                if len(cache) >= max_size:
-                    # Remove oldest entry
-                    oldest_key = min(cache, key=lambda k: cache[k]['timestamp'])
-                    del cache[oldest_key]
+                try:
+                    # Check cache entry existence and validity
+                    if key in cache:
+                        entry = cache[key]
+                        if time.time() - entry['timestamp'] < max_age:
+                            return entry['value']
+                        
+                        # Remove expired entries
+                        del cache[key]
 
-                # Execute function with timeout
-                if time.time() - start_time > timeout:
-                    raise CacheTimeoutError("Cache operation timed out")
+                    # Enforce max cache size
+                    if len(cache) >= max_size:
+                        # Remove oldest entry
+                        oldest_key = min(cache, key=lambda k: cache[k]['timestamp'])
+                        del cache[oldest_key]
 
-                result = func(*args, **kwargs)
+                    result = func(*args, **kwargs)
 
-                # Store result in cache
-                cache[key] = {
-                    'value': result,
-                    'timestamp': time.time()
-                }
+                    # Store result in cache
+                    cache[key] = {
+                        'value': result,
+                        'timestamp': time.time()
+                    }
 
-                return result
+                    return result
+
+                finally:
+                    # Always cancel the alarm
+                    signal.setitimer(signal.ITIMER_REAL, 0)
 
             except Exception as e:
+                if isinstance(e, CacheTimeoutError):
+                    raise
+                
                 if ignore_errors:
                     logger.warning(f"Cache error (ignored): {e}")
                     return func(*args, **kwargs)
-                
-                if isinstance(e, CacheError):
-                    raise
                 
                 raise CacheStorageError(f"Error in caching: {e}") from e
 
