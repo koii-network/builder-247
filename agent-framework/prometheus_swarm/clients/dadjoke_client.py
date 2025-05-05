@@ -1,8 +1,8 @@
 import requests
 from typing import Dict, Optional
-from .base_client import BaseClient
+from .base_client import Client
 
-class DadJokeClient(BaseClient):
+class DadJokeClient(Client):
     """
     A client for fetching Dad Jokes from the icanhazdadjoke.com API.
     
@@ -18,11 +18,40 @@ class DadJokeClient(BaseClient):
         Args:
             api_key (Optional[str]): Optional API key (not required for this API)
         """
+        super().__init__()  # Initialize base Client
         self.base_url = "https://icanhazdadjoke.com/"
         self.headers = {
             "Accept": "application/json",
             "User-Agent": "Prometheus Swarm Dad Joke Client"
         }
+    
+    def _get_default_model(self) -> str:
+        """Model is not applicable for a joke API client."""
+        return "dadjoke_api"
+    
+    def _get_api_name(self) -> str:
+        """Return the name of the API."""
+        return "DadJoke"
+    
+    def _convert_tool_to_api_format(self, tool: Dict) -> Dict:
+        """Not applicable for this client."""
+        return {}
+    
+    def _convert_message_to_api_format(self, message: Dict) -> Dict:
+        """Not applicable for this client."""
+        return {}
+    
+    def _convert_api_response_to_message(self, response: Dict) -> Dict:
+        """Not applicable for this client."""
+        return {}
+    
+    def _make_api_call(self, **kwargs) -> Dict:
+        """Not applicable for this client."""
+        return {}
+    
+    def _format_tool_response(self, response: str) -> Dict:
+        """Not applicable for this client."""
+        return {}
     
     def get_random_joke(self) -> str:
         """
