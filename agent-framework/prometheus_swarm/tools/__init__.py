@@ -1,5 +1,1 @@
-"""Tools package."""
-
-from . import repo_operations
-
-__all__ = ["repo_operations"]
+from .dad_joke_command import dad_joke_command_handler
