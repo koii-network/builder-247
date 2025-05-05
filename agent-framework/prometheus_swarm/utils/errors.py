@@ -1,4 +1,4 @@
-"""Error type for API errors."""
+"""Error types for API errors."""
 
 
 class ClientAPIError(Exception):
@@ -14,3 +14,10 @@ class ClientAPIError(Exception):
             super().__init__(original_error.message)
         else:
             super().__init__(str(original_error))
+
+
+class APIClientError(Exception):
+    """Generic error for API client operations."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
