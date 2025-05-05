@@ -107,8 +107,8 @@ class ProhibitedWordsConfig:
         )
 
         # Check context-specific prohibited words if context is provided
-        if context:
-            context_words = self._context_prohibited_words.get(context, set())
+        if context and context in self._context_prohibited_words:
+            context_words = self._context_prohibited_words[context]
             found_prohibited_words.update(
                 word for word in context_words if word in lower_text
             )
