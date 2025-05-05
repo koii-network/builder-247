@@ -22,14 +22,14 @@ def filter_jokes(jokes, max_length=None, exclude_keywords=None, min_rating=None)
 
     filtered_jokes = jokes.copy()
 
-    # Filter by max length
+    # Filter by max length if specified
     if max_length is not None:
         filtered_jokes = [
             joke for joke in filtered_jokes 
-            if joke.get('text') and len(joke['text']) <= max_length
+            if len(joke.get('text', '')) <= max_length
         ]
 
-    # Filter by exclude keywords
+    # Filter by exclude keywords if specified
     if exclude_keywords is not None:
         filtered_jokes = [
             joke for joke in filtered_jokes
@@ -39,7 +39,7 @@ def filter_jokes(jokes, max_length=None, exclude_keywords=None, min_rating=None)
             )
         ]
 
-    # Filter by minimum rating
+    # Filter by minimum rating if specified
     if min_rating is not None:
         filtered_jokes = [
             joke for joke in filtered_jokes
