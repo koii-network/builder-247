@@ -1,0 +1,25 @@
+[tool.pytest.ini_options]
+addopts = "--cov=prometheus_swarm --cov-report=html --cov-report=term-missing"
+testpaths = [
+    "tests",
+]
+
+[tool.coverage.run]
+source = ["prometheus_swarm"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "*/__main__.py",
+    "*/clients/base_client.py",
+    "*/old/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass"
+]

@@ -29,6 +29,29 @@ from prometheus_swarm.clients import setup_client
 - Python 3.8 or higher
 - See requirements.txt for full dependency list
 
+## Testing
+
+### Running Tests
+
+To run tests:
+
+```bash
+pytest tests/
+```
+
+### Running Tests with Coverage
+
+To generate test coverage report:
+
+```bash
+./run_tests_with_coverage.sh
+```
+
+This will:
+- Run all tests
+- Generate a terminal coverage report
+- Create an HTML coverage report in `coverage_html_report/`
+
 ## Documentation
 
 For detailed documentation, please visit [documentation link].
