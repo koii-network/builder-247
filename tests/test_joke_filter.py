@@ -11,8 +11,8 @@ def test_filter_jokes_by_keywords():
     # Filter jokes containing 'wife' or 'scarecrow'
     filtered = filter_jokes(jokes, keywords=['wife', 'scarecrow'])
     assert len(filtered) == 2
-    assert "I told my wife" in filtered
-    assert "Why did the scarecrow" in filtered
+    assert "I told my wife she was drawing her eyebrows too high." in filtered
+    assert "Why did the scarecrow win an award? Because he was outstanding in his field!" in filtered
 
 def test_filter_jokes_by_min_length():
     jokes = ["Hi", "Short joke", "This is a longer joke about something funny"]
