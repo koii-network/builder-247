@@ -48,7 +48,7 @@ def test_invalid_key():
     """Test behavior with invalid keys."""
     cache = CacheManager()
     
-    with pytest.raises(CacheWriteError):
+    with pytest.raises(ValueError):
         cache.set('', 'value')
 
 def test_unserialized_data():
