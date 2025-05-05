@@ -51,9 +51,9 @@ def test_invalid_joke_type(sample_jokes):
 def test_multiple_filters(sample_jokes):
     result = filter_jokes(
         sample_jokes, 
-        max_length=20, 
+        max_length=25, 
         contains='joke', 
         category='animals'
     )
     assert len(result) == 1
-    assert result[0]['text'] == 'A funny joke about dogs'
+    assert 'A funny joke about dogs' == result[0]['text']
