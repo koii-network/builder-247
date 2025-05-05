@@ -39,20 +39,11 @@ class TransactionIDManager:
         # Convert to string and strip whitespace
         cleaned_id = str(transaction_id).strip()
         
-        # Replace problematic characters
-        cleaned_id = re.sub(r'[_\s@!#$%^&*()]', '-', cleaned_id)
-        
-        # Remove any non-alphanumeric characters except hyphens
-        cleaned_id = re.sub(r'[^a-zA-Z0-9\-]', '', cleaned_id)
-        
-        # Remove consecutive hyphens
-        cleaned_id = re.sub(r'\-+', '-', cleaned_id)
+        # Remove any non-alphanumeric characters
+        cleaned_id = re.sub(r'[^a-zA-Z0-9]', '', cleaned_id)
         
         # Truncate to reasonable length (e.g., 100 characters)
         cleaned_id = cleaned_id[:100]
-        
-        # Remove leading/trailing hyphens
-        cleaned_id = cleaned_id.strip('-')
         
         return cleaned_id if cleaned_id else None
 
