@@ -53,7 +53,7 @@ def test_transaction_id_metadata(session):
     tx_id = TransactionID(
         transaction_id='metadata-tx-001', 
         source='metadata_system',
-        metadata={
+        transaction_metadata={
             'user_id': 123,
             'operation': 'create',
             'additional_info': {'key': 'value'}
@@ -63,8 +63,8 @@ def test_transaction_id_metadata(session):
     session.commit()
 
     retrieved_tx = session.query(TransactionID).filter_by(transaction_id='metadata-tx-001').first()
-    assert retrieved_tx.metadata['user_id'] == 123
-    assert retrieved_tx.metadata['operation'] == 'create'
+    assert retrieved_tx.transaction_metadata['user_id'] == 123
+    assert retrieved_tx.transaction_metadata['operation'] == 'create'
 
 def test_transaction_id_unique_constraint(session):
     """Test that transaction IDs must be unique."""
