@@ -62,7 +62,8 @@ class ContentFilter:
         
         # Filter using allowed characters regex if specified
         if self.allowed_chars_regex:
-            if not re.match(f"^{self.allowed_chars_regex}*$", content):
+            # Use re.fullmatch instead of re.match to ensure whole string match
+            if not re.fullmatch(self.allowed_chars_regex, content):
                 raise ValueError("Content contains disallowed characters")
         
         return content
