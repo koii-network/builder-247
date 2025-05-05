@@ -1,9 +1,9 @@
 import requests
 from typing import Dict, Optional
-from .base_client import BaseClient
+from .base_client import Client
 from prometheus_swarm.utils.errors import APIClientError
 
-class DadJokeClient(BaseClient):
+class DadJokeClient(Client):
     """
     A client for interacting with the icanhazdadjoke.com API to fetch dad jokes.
 
@@ -25,6 +25,34 @@ class DadJokeClient(BaseClient):
             "Accept": "application/json",
             "User-Agent": "PrometheusSwarm/1.0 (https://github.com/your-project)"
         }
+
+    def _get_default_model(self) -> str:
+        """Get the default 'model' for this client (not applicable for dad jokes)."""
+        return "dad_joke_client"
+
+    def _get_api_name(self) -> str:
+        """Get the name of the API."""
+        return "Dad Joke API"
+
+    def _convert_tool_to_api_format(self, tool):
+        """Not applicable for this client."""
+        return {}
+
+    def _convert_message_to_api_format(self, message):
+        """Not applicable for this client."""
+        return {}
+
+    def _convert_api_response_to_message(self, response):
+        """Not applicable for this client."""
+        return {"content": [{"type": "text", "text": response}]}
+
+    def _make_api_call(self):
+        """Not applicable for this client."""
+        pass
+
+    def _format_tool_response(self, response):
+        """Not applicable for this client."""
+        return {"role": "tool", "content": [{"type": "text", "text": response}]}
 
     def get_random_joke(self) -> str:
         """
