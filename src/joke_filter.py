@@ -18,6 +18,10 @@ def filter_jokes(jokes, filter_criteria=None):
     Raises:
         ValueError: If filter_criteria is not a dictionary or if joke is invalid.
     """
+    # Validate jokes input
+    if not all(isinstance(joke, dict) and 'text' in joke for joke in jokes):
+        raise ValueError("Each joke must be a dictionary with a 'text' key")
+
     # If no filter criteria provided, return all jokes
     if filter_criteria is None:
         return jokes
@@ -26,42 +30,42 @@ def filter_jokes(jokes, filter_criteria=None):
     if not isinstance(filter_criteria, dict):
         raise ValueError("Filter criteria must be a dictionary")
 
-    # Validate jokes input
-    if not all(isinstance(joke, dict) for joke in jokes):
-        raise ValueError("Each joke must be a dictionary")
-
     filtered_jokes = []
     for joke in jokes:
         # Default to empty strings if keys are missing
         joke_text = joke.get('text', '')
         joke_category = joke.get('category', '')
 
+        # Check if joke passes all filters
+        passes_filters = True
+
         # Length filtering
         min_length = filter_criteria.get('min_length')
         max_length = filter_criteria.get('max_length')
         
         if min_length is not None and len(joke_text) < min_length:
-            continue
+            passes_filters = False
         
         if max_length is not None and len(joke_text) > max_length:
-            continue
+            passes_filters = False
 
         # Contains filtering
         contains = filter_criteria.get('contains')
         if contains and contains.lower() not in joke_text.lower():
-            continue
+            passes_filters = False
 
         # Excludes filtering
         excludes = filter_criteria.get('excludes')
         if excludes and excludes.lower() in joke_text.lower():
-            continue
+            passes_filters = False
 
         # Categories filtering
         categories = filter_criteria.get('categories')
         if categories and joke_category.lower() not in [cat.lower() for cat in categories]:
-            continue
+            passes_filters = False
 
         # If joke passes all filters, add to results
-        filtered_jokes.append(joke)
+        if passes_filters:
+            filtered_jokes.append(joke)
 
     return filtered_jokes
