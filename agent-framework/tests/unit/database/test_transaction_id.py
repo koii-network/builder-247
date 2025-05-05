@@ -1,22 +1,19 @@
 import pytest
-from datetime import datetime, timezone
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from prometheus_swarm.database.database import Base
+from datetime import datetime
+from sqlmodel import SQLModel, create_engine, Session
 from prometheus_swarm.database.transaction_id import TransactionID
 
 @pytest.fixture
 def db_engine():
     """Create an in-memory SQLite database for testing."""
     engine = create_engine('sqlite:///:memory:', echo=True)
-    Base.metadata.create_all(engine)
+    SQLModel.metadata.create_all(engine)
     return engine
 
 @pytest.fixture
 def db_session(db_engine):
     """Create a database session for testing."""
-    SessionLocal = sessionmaker(bind=db_engine)
-    session = SessionLocal()
+    session = Session(db_engine)
     yield session
     session.close()
 
