@@ -1,8 +1,11 @@
+from sqlalchemy.orm import declarative_base, DeclarativeBase
 from sqlalchemy import Column, Integer, String, DateTime, JSON
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
+from typing import Dict, Any
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    """Base class for SQLAlchemy models"""
+    pass
 
 class TransactionID(Base):
     """
@@ -12,7 +15,7 @@ class TransactionID(Base):
         id (int): Primary key for the transaction record
         transaction_id (str): Unique identifier for a transaction
         source (str): Origin of the transaction (e.g., 'github', 'local', 'external')
-        metadata (dict): Additional context or details about the transaction
+        transaction_metadata (dict): Additional context or details about the transaction
         created_at (datetime): Timestamp when the transaction was recorded
         updated_at (datetime): Timestamp of the last update to the transaction
     """
@@ -21,7 +24,7 @@ class TransactionID(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_id = Column(String, unique=True, nullable=False, index=True)
     source = Column(String, nullable=False)
-    metadata = Column(JSON, nullable=True)
+    transaction_metadata = Column('metadata', JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
