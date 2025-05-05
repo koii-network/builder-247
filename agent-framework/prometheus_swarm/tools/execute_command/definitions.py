@@ -3,6 +3,7 @@ from prometheus_swarm.tools.execute_command.implementations import (
     run_tests,
     install_dependency,
     setup_dependencies,
+    get_dad_joke,  # Add this import
 )
 
 
@@ -86,5 +87,14 @@ DEFINITIONS = {
             "required": ["package_manager"],
         },
         "function": setup_dependencies,
+    },
+    "get_dad_joke": {  # Add this new command definition
+        "name": "get_dad_joke",
+        "description": "Fetch a random dad joke from the internet",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+        },
+        "function": get_dad_joke,
     },
 }
