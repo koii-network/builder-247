@@ -63,8 +63,8 @@ class DadJokeCommandHandler:
         if not joke or not isinstance(joke, str):
             raise ValueError("Joke must be a non-empty string.")
         
-        # Prevent duplicate jokes
-        if joke.strip() in self._jokes:
+        # Prevent duplicate jokes (case-insensitive)
+        if any(joke.strip().lower() == existing.strip().lower() for existing in self._jokes):
             return False
         
         self._jokes.append(joke.strip())
