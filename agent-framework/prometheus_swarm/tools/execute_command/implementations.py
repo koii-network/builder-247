@@ -1,5 +1,9 @@
-# Existing imports
+import subprocess
+import os
 import requests
+from prometheus_swarm.types import ToolOutput  # Add this import
+
+# Rest of the existing implementation follows...
 
 def get_dad_joke(**kwargs) -> ToolOutput:
     """
