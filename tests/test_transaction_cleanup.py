@@ -9,7 +9,9 @@ def test_clean_transaction_id_basic():
 
 def test_clean_transaction_id_special_chars():
     """Test removal of special characters"""
-    assert clean_transaction_id("Trans@ction#123!") == "transaction123"
+    result = clean_transaction_id("Trans@ction#123!")
+    assert result == "transction123"  # Note the removed 'a'
+    assert re.match(r'^[a-z0-9-]+$', result)
 
 def test_clean_transaction_id_mixed_case():
     """Test conversion to lowercase"""
