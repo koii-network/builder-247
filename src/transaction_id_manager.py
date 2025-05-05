@@ -61,6 +61,11 @@ class TransactionIDManager:
         if transaction_id is None:
             return False
         
+        # Use sanitization to pre-process the input
+        cleaned_input = str(transaction_id).strip()
+        if len(re.findall(r'\s', cleaned_input)) > 0:
+            return False
+        
         cleaned_id = TransactionIDManager.sanitize_transaction_id(transaction_id)
         
         # Check if cleaned ID is not empty and meets basic criteria
