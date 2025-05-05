@@ -4,6 +4,7 @@ Unit tests for JokeFilterLogger.
 
 import logging
 import pytest
+from unittest.mock import Mock
 from prometheus_swarm.utils.joke_filter_logger import JokeFilterLogger
 
 
@@ -59,9 +60,9 @@ def test_add_filter():
     assert "naughty" in joke_logger.filters
 
 
-def test_log_joke_custom_logger(mocker):
+def test_log_joke_custom_logger():
     """Test logging with a custom logger."""
-    mock_logger = mocker.Mock()
+    mock_logger = Mock()
     joke_logger = JokeFilterLogger(logger=mock_logger)
     
     safe_joke = "A clean joke about programming"
