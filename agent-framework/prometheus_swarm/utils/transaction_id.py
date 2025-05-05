@@ -26,10 +26,19 @@ def cleanup_transaction_id(transaction_id: Union[str, uuid.UUID]) -> Optional[st
     # Remove whitespace
     cleaned_id = transaction_id.strip()
 
-    # Remove non-alphanumeric characters except hyphens
-    cleaned_id = re.sub(r'[^a-zA-Z0-9\-]', '', cleaned_id)
+    # Extract potential UUID using regex
+    uuid_match = re.search(r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', cleaned_id, re.IGNORECASE)
+    
+    if uuid_match:
+        extracted_uuid = uuid_match.group(1)
+        try:
+            # Validate extracted UUID
+            uuid.UUID(extracted_uuid)
+            return extracted_uuid
+        except ValueError:
+            return None
 
-    # Validate UUID format (optional extra validation)
+    # If no UUID found, validate entire string
     try:
         uuid.UUID(cleaned_id)
         return cleaned_id
