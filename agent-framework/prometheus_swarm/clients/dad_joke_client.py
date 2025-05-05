@@ -24,14 +24,17 @@ class DadJokeClient:
                 headers={
                     "Accept": "text/plain",
                     "User-Agent": "Prometheus Swarm Dad Joke Client"
-                }
+                },
+                timeout=10  # Add a timeout to prevent hanging
             )
-            response.raise_for_status()  # Raise an exception for bad status codes
+            # Explicitly check status before processing
+            if response.status_code != 200:
+                raise requests.RequestException(f"HTTP error {response.status_code}")
 
             joke = response.text.strip()
             if not joke:
                 raise ValueError("No joke received from the API")
 
             return joke
-        except requests.RequestException as e:
+        except Exception as e:
             raise requests.RequestException(f"Error fetching dad joke: {e}")
