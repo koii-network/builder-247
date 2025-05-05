@@ -23,11 +23,11 @@ def test_filter_jokes_by_category(sample_jokes):
     assert all(joke['category'] == 'clean' for joke in result)
 
 def test_filter_jokes_by_complexity(sample_jokes):
-    complexity_filter = JokeFilter.by_complexity(5)
+    complexity_filter = JokeFilter.by_complexity(6)
     result = JokeFilter.filter_jokes(sample_jokes, [complexity_filter])
     
-    assert len(result) == 3
-    assert all(len(joke['text'].split()) <= 5 for joke in result)
+    assert len(result) == 4
+    assert all(len(joke['text'].split()) <= 6 for joke in result)
 
 def test_exclude_explicit_content(sample_jokes):
     explicit_filter = JokeFilter.exclude_explicit_content()
@@ -38,13 +38,12 @@ def test_exclude_explicit_content(sample_jokes):
 
 def test_multiple_filters(sample_jokes):
     category_filter = JokeFilter.by_category('clean')
-    complexity_filter = JokeFilter.by_complexity(5)
+    complexity_filter = JokeFilter.by_complexity(6)
     
     result = JokeFilter.filter_jokes(sample_jokes, [category_filter, complexity_filter])
     
-    assert len(result) == 1
-    assert result[0]['category'] == 'clean'
-    assert len(result[0]['text'].split()) <= 5
+    assert len(result) == 2
+    assert all(joke['category'] == 'clean' and len(joke['text'].split()) <= 6 for joke in result)
 
 def test_invalid_input_types():
     with pytest.raises(TypeError, match="Jokes must be a list"):
