@@ -136,6 +136,7 @@ def validate_input(data: Any, rules: Dict[str, Any]) -> None:
     invalid_fields = {}
 
     for field, validators in rules.items():
+        # Check if field is missing and required
         if field not in data:
             if validators.get('required', False):
                 invalid_fields[field] = "Required field missing"
@@ -143,21 +144,31 @@ def validate_input(data: Any, rules: Dict[str, Any]) -> None:
 
         value = data[field]
 
-        # Type validation
-        if 'type' in validators and not isinstance(value, validators['type']):
-            invalid_fields[field] = f"Must be of type {validators['type'].__name__}"
+        # Type validation first
+        if 'type' in validators:
+            # Check type compatibility
+            if not isinstance(value, validators['type']):
+                try:
+                    # Attempt type conversion
+                    value = validators['type'](value)
+                except (ValueError, TypeError):
+                    invalid_fields[field] = f"Must be of type {validators['type'].__name__}"
+                    continue
 
-        # Value range validation
-        if 'min' in validators and value < validators['min']:
-            invalid_fields[field] = f"Must be greater than or equal to {validators['min']}"
-        
-        if 'max' in validators and value > validators['max']:
-            invalid_fields[field] = f"Must be less than or equal to {validators['max']}"
+        # Range validation for numeric types
+        if 'min' in validators and isinstance(value, (int, float)):
+            if value < validators['min']:
+                invalid_fields[field] = f"Must be greater than or equal to {validators['min']}"
+
+        if 'max' in validators and isinstance(value, (int, float)):
+            if value > validators['max']:
+                invalid_fields[field] = f"Must be less than or equal to {validators['max']}"
 
         # Custom validation
         if 'validator' in validators and not validators['validator'](value):
             invalid_fields[field] = "Failed custom validation"
 
+    # Raise error if any validation failed
     if invalid_fields:
         raise InvalidInputError(
             "Input validation failed", 
