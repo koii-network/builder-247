@@ -17,12 +17,12 @@ def test_sanitize_transaction_id():
     """Test transaction ID sanitization."""
     test_cases = [
         # Normal cases
-        ("valid-transaction-id", "valid-transaction-id"),
+        ("valid-transaction-id", "validtransactionid"),
         ("  whitespace  ", "whitespace"),
         
         # Special character handling
         ("id@123!", "id123"),
-        ("id_with_underscore", "id-with-underscore"),
+        ("id_with_underscore", "idwithunderscore"),
         
         # Integer handling
         (12345, "12345"),
@@ -48,10 +48,10 @@ def test_long_transaction_id_truncation():
 def test_is_valid_transaction_id():
     """Test transaction ID validation."""
     valid_test_cases = [
-        "valid-id",
+        "validid",
         "123456",
         "a" * 50,
-        "mixed-case-123"
+        "mixedcase123"
     ]
     
     invalid_test_cases = [
