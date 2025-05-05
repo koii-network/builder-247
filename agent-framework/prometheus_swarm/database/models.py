@@ -1,7 +1,8 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, UniqueConstraint
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from datetime import datetime
 import uuid
+import json
 
 Base = declarative_base()
 
@@ -16,7 +17,7 @@ class TransactionID(Base):
         updated_at (datetime): Timestamp of last transaction update
         status (str): Current status of the transaction
         is_completed (bool): Flag indicating transaction completion
-        metadata (str): Optional JSON-serializable metadata for additional context
+        transaction_metadata (str): Optional JSON-serializable metadata for additional context
     """
     __tablename__ = 'transaction_ids'
 
@@ -26,7 +27,7 @@ class TransactionID(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     status = Column(String(50), default='PENDING')
     is_completed = Column(Boolean, default=False)
-    metadata = Column(String, nullable=True)
+    transaction_metadata = Column(String, nullable=True)
 
     __table_args__ = (
         UniqueConstraint('transaction_uuid', name='uq_transaction_uuid'),
@@ -36,20 +37,24 @@ class TransactionID(Base):
         return f"<TransactionID(uuid='{self.transaction_uuid}', status='{self.status}')>"
 
     @classmethod
-    def create_transaction(cls, status='PENDING', metadata=None):
+    def create_transaction(cls, status='PENDING', transaction_metadata=None):
         """
         Class method to create a new transaction with optional status and metadata.
         
         Args:
             status (str, optional): Initial transaction status. Defaults to 'PENDING'.
-            metadata (str, optional): Additional transaction metadata. Defaults to None.
+            transaction_metadata (dict or str, optional): Additional transaction metadata. Defaults to None.
         
         Returns:
             TransactionID: A new transaction instance
         """
+        # Convert dict to JSON if a dictionary is passed
+        if isinstance(transaction_metadata, dict):
+            transaction_metadata = json.dumps(transaction_metadata)
+        
         return cls(
             status=status,
-            metadata=metadata
+            transaction_metadata=transaction_metadata
         )
 
     def mark_completed(self):
@@ -67,3 +72,17 @@ class TransactionID(Base):
             new_status (str): New status for the transaction
         """
         self.status = new_status
+
+    def get_metadata(self):
+        """
+        Parse and return the metadata as a dictionary.
+        
+        Returns:
+            dict or None: Parsed metadata or None if no metadata exists
+        """
+        if self.transaction_metadata:
+            try:
+                return json.loads(self.transaction_metadata)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return None
