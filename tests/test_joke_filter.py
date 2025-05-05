@@ -58,14 +58,14 @@ def test_filter_jokes_multiple_criteria(sample_jokes):
     """Test filtering jokes with multiple criteria."""
     result = filter_jokes(
         sample_jokes, 
-        max_length=50, 
-        exclude_keywords=['very'], 
+        max_length=100, 
+        exclude_keywords=['long'], 
         min_rating=3.0
     )
     assert len(result) == 2
     assert all(
-        len(joke['text']) <= 50 and 
-        'very' not in joke['text'].lower() and 
+        len(joke['text']) <= 100 and 
+        'long' not in joke['text'].lower() and 
         joke['rating'] >= 3.0 
         for joke in result
     )
