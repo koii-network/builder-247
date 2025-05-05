@@ -71,6 +71,7 @@ def test_dad_joke_interface():
     science_joke = handler.get_joke_by_category('science')
     assert isinstance(science_joke, str)
     assert science_joke in handler.get_joke_categories()
+    assert science_joke in handler._jokes['science']
 
     # Test adding a joke
     new_joke = 'I used to be a baker, but I didn\'t make enough dough.'
