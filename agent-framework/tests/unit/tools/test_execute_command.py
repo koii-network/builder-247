@@ -1,4 +1,5 @@
 import pytest
+import requests
 import requests_mock
 from prometheus_swarm.tools.execute_command.implementations import get_dad_joke
 
@@ -30,7 +31,7 @@ def test_get_dad_joke_api_error():
 def test_get_dad_joke_network_error():
     """Test dad joke retrieval with network error."""
     with requests_mock.Mocker() as m:
-        m.get("https://icanhazdadjoke.com/", exc=requests_mock.Mocker.ANY_EXCEPTION)
+        m.get("https://icanhazdadjoke.com/", exc=requests.RequestException)
 
         result = get_dad_joke()
 
