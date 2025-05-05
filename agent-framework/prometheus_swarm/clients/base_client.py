@@ -1,6 +1,6 @@
 import requests
 import json
-from ..utils.errors import NetworkError, APIError, handle_api_error
+from ..utils.errors import NetworkError, APIError, AuthenticationError, RateLimitError
 
 class BaseClient:
     """Base client for API interactions with robust error handling."""
@@ -41,20 +41,26 @@ class BaseClient:
         kwargs['timeout'] = kwargs.get('timeout', self.timeout)
 
         try:
-            response = requests.request(method, url, **kwargs)
-            
-            # Check for API-level errors
-            handle_api_error(response)
-            
+            try:
+                response = requests.request(method, url, **kwargs)
+            except (requests.exceptions.ConnectionError, ConnectionError) as e:
+                raise NetworkError(f"Unable to connect: {str(e)}")
+            except (requests.exceptions.Timeout, TimeoutError) as e:
+                raise NetworkError(f"Request timed out: {str(e)}")
+
+            # Handle HTTP status code errors
+            if response.status_code == 401:
+                raise AuthenticationError("Authentication failed")
+            elif response.status_code == 429:
+                raise RateLimitError("Rate limit exceeded")
+            elif 400 <= response.status_code < 600:
+                raise APIError(f"Server error: {response.status_code} - {response.text}")
+
             # Attempt to parse JSON response
             try:
                 return response.json()
             except ValueError:
                 raise APIError("Malformed response: Unable to parse JSON")
-        
-        except requests.exceptions.ConnectionError as e:
-            raise NetworkError(f"Unable to connect: {str(e)}")
-        except requests.exceptions.Timeout as e:
-            raise NetworkError(f"Request timed out: {str(e)}")
+
         except requests.exceptions.RequestException as e:
             raise NetworkError(f"Request failed: {str(e)}")
