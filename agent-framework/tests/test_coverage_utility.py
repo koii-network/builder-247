@@ -1,7 +1,19 @@
 import os
+import sys
 import subprocess
 import pytest
-from prometheus_swarm.utils.test_coverage import run_test_coverage, generate_coverage_badge
+import importlib
+
+# Add the project root to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Dynamically import the module
+spec = importlib.util.spec_from_file_location(
+    "test_coverage", 
+    os.path.join(os.path.dirname(__file__), '..', 'prometheus_swarm', 'utils', 'test_coverage.py')
+)
+test_coverage_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(test_coverage_module)
 
 def test_run_test_coverage():
     """Test the run_test_coverage function."""
@@ -14,7 +26,7 @@ def test_dummy():
     
     try:
         # Run coverage on dummy test
-        result = run_test_coverage(['tests/dummy_test.py'])
+        result = test_coverage_module.run_test_coverage(['tests/dummy_test.py'])
         assert result == 0, "Test coverage run should succeed"
     finally:
         # Clean up dummy test file
@@ -25,7 +37,7 @@ def test_generate_coverage_badge(mocker):
     # Mock subprocess to avoid actual badge generation
     mock_run = mocker.patch('subprocess.run')
     
-    generate_coverage_badge()
+    test_coverage_module.generate_coverage_badge()
     
     # Verify both coverage XML and badge generation were called
     assert mock_run.call_count == 2
