@@ -3,6 +3,7 @@ from prometheus_swarm.tools.execute_command.implementations import (
     run_tests,
     install_dependency,
     setup_dependencies,
+    get_dad_joke,
 )
 
 
@@ -86,5 +87,21 @@ DEFINITIONS = {
             "required": ["package_manager"],
         },
         "function": setup_dependencies,
+    },
+    "get_dad_joke": {
+        "name": "get_dad_joke",
+        "description": "Retrieve a random dad joke",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "Optional category or type of dad joke (optional)",
+                    "enum": ["coding", "general", "pun", "random"],
+                    "default": "random"
+                }
+            }
+        },
+        "function": get_dad_joke,
     },
 }
