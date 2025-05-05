@@ -63,23 +63,9 @@ class ProhibitedWordsConfig:
         if not text:
             return False
 
-        normalized_text = self._normalize_word(text)
-        words = re.findall(r'\b\w+\b', normalized_text)
-
-        return any(word for word in words if self._word_matches_prohibited(word))
-
-    def _word_matches_prohibited(self, word: str) -> bool:
-        """
-        Check if a word matches any prohibited word.
-
-        Args:
-            word (str): Word to check.
-
-        Returns:
-            bool: True if word is prohibited, False otherwise.
-        """
-        normalized_word = self._normalize_word(word)
-        return normalized_word in self._prohibited_words
+        # Use word boundary regex to ensure whole word match
+        pattern = r'\b(' + '|'.join(re.escape(self._normalize_word(word)) for word in self._prohibited_words) + r')\b'
+        return bool(re.search(pattern, self._normalize_word(text)))
 
     @staticmethod
     def _normalize_word(word: str) -> str:
