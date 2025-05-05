@@ -47,13 +47,13 @@ class ExpiringCache:
         Returns:
             Any: The cached value if found and not expired, None otherwise.
         """
-        entry = self._cache.get(key)
-        if entry is None:
-            return None
-
         current_time = time.time()
-        if current_time > entry['expiration']:
-            del self._cache[key]
+        entry = self._cache.get(key)
+        
+        if entry is None or current_time > entry['expiration']:
+            # Remove expired entries
+            if entry:
+                del self._cache[key]
             return None
 
         return entry['value']
@@ -81,7 +81,19 @@ class ExpiringCache:
             list: List of valid keys in the cache.
         """
         current_time = time.time()
-        return [
-            key for key, entry in self._cache.items()
-            if current_time <= entry['expiration']
-        ]
+        
+        # Remove expired entries as we check
+        valid_keys = []
+        keys_to_remove = []
+        
+        for key, entry in self._cache.items():
+            if current_time <= entry['expiration']:
+                valid_keys.append(key)
+            else:
+                keys_to_remove.append(key)
+        
+        # Remove all expired entries
+        for key in keys_to_remove:
+            del self._cache[key]
+        
+        return valid_keys
