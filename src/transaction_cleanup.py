@@ -21,7 +21,7 @@ def clean_transaction_id(transaction_id: str) -> str:
     # Remove leading/trailing whitespace
     cleaned_id = transaction_id.strip()
     
-    # Remove any non-alphanumeric characters except hyphens
+    # Remove special characters while preserving alphanumeric characters
     cleaned_id = re.sub(r'[^a-zA-Z0-9-]', '', cleaned_id)
     
     # Convert to lowercase
