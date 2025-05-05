@@ -87,7 +87,8 @@ def safe_cache_set(cache, key: str, value: Any, timeout: Optional[int] = None) -
         CacheSetError: If setting the cache fails.
     """
     try:
-        if not key or not isinstance(key, str):
+        # More permissive key validation
+        if key is None or (isinstance(key, str) and len(key.strip()) == 0):
             raise CacheInvalidArgumentError("Invalid cache key")
 
         if value is None:
@@ -105,6 +106,9 @@ def safe_cache_set(cache, key: str, value: Any, timeout: Optional[int] = None) -
         return True
 
     except Exception as e:
+        if isinstance(e, CacheInvalidArgumentError):
+            raise
+        
         logger.error(f"Failed to set cache for key {key}: {e}")
         raise CacheSetError(f"Cache set failed for key {key}: {e}") from e
 
@@ -125,12 +129,16 @@ def safe_cache_get(cache, key: str, default: Optional[Any] = None) -> Optional[A
         CacheGetError: If retrieving the cache fails.
     """
     try:
-        if not key or not isinstance(key, str):
+        # More permissive key validation
+        if key is None or (isinstance(key, str) and len(key.strip()) == 0):
             raise CacheInvalidArgumentError("Invalid cache key")
 
         value = cache.get(key)
         return value if value is not None else default
 
     except Exception as e:
+        if isinstance(e, CacheInvalidArgumentError):
+            raise
+        
         logger.error(f"Failed to get cache for key {key}: {e}")
         raise CacheGetError(f"Cache get failed for key {key}: {e}") from e
