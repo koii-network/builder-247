@@ -9,6 +9,12 @@ import os
 import psutil
 import logging
 
+try:
+    import resource
+    RESOURCE_AVAILABLE = True
+except ImportError:
+    RESOURCE_AVAILABLE = False
+
 class CachePerformanceConfig:
     """
     A utility class for configuring cache performance and memory limits.
@@ -79,11 +85,14 @@ class CachePerformanceConfig:
             bool: True if limit was set successfully, False otherwise.
         """
         try:
+            if not RESOURCE_AVAILABLE:
+                self.logger.warning("Resource module not available. Cannot set memory limit.")
+                return False
+
             if limit_bytes is None:
                 limit_bytes = self.calculate_cache_limits()
             
             # Set memory limit using resource module
-            import resource
             resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
             
             self.logger.info(f"Memory limit set to {limit_bytes} bytes")
