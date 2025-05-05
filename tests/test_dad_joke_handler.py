@@ -30,7 +30,7 @@ def test_get_random_joke():
 def test_get_random_joke_empty_collection():
     """Test getting a random joke from an empty collection."""
     handler = DadJokeCommandHandler(initial_jokes=[])
-    with pytest.raises(ValueError, match="No jokes available"):
+    with pytest.raises(ValueError, match="No jokes available in the collection"):
         handler.get_random_joke()
 
 
@@ -53,7 +53,7 @@ def test_add_duplicate_joke():
     
     # Add a duplicate joke
     first_result = handler.add_joke("Duplicate joke")
-    second_result = handler.add_joke("Duplicate joke")
+    second_result = handler.add_joke("duplicate JOKE")
     
     assert first_result is True
     assert second_result is False
