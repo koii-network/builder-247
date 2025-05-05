@@ -1,10 +1,46 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, UniqueConstraint
-from sqlalchemy.orm import declarative_base
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, UniqueConstraint, Text, ForeignKey
+from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.sql import func
 from datetime import datetime
 import uuid
 import json
 
 Base = declarative_base()
+
+class Conversation(Base):
+    """
+    Represents a conversation entity
+    """
+    __tablename__ = 'conversations'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    messages = relationship("Message", back_populates="conversation")
+
+class Message(Base):
+    """
+    Represents a message in a conversation
+    """
+    __tablename__ = 'messages'
+
+    id = Column(Integer, primary_key=True)
+    conversation_id = Column(Integer, ForeignKey('conversations.id'))
+    role = Column(String(50))
+    content = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    conversation = relationship("Conversation", back_populates="messages")
+
+class Log(Base):
+    """
+    Represents a log entry
+    """
+    __tablename__ = 'logs'
+
+    id = Column(Integer, primary_key=True)
+    level = Column(String(20))
+    message = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class TransactionID(Base):
     """
