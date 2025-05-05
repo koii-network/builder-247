@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from datetime import datetime
 
 Base = declarative_base()
@@ -16,7 +16,7 @@ class TransactionID(Base):
         created_at (datetime): Timestamp of transaction creation
         updated_at (datetime): Timestamp of last update
         is_processed (bool): Flag indicating whether the transaction has been processed
-        metadata (dict): Additional JSON-stored metadata about the transaction
+        transaction_metadata (dict): Additional JSON-stored metadata about the transaction
     """
     __tablename__ = 'transaction_ids'
 
@@ -27,7 +27,7 @@ class TransactionID(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_processed = Column(Boolean, default=False)
-    metadata = Column(JSON, nullable=True)
+    transaction_metadata = Column('metadata', JSON, nullable=True)
 
     def __repr__(self):
         """
