@@ -5,6 +5,7 @@ This module provides a configuration mechanism for managing and checking prohibi
 across different contexts in the Prometheus Swarm framework.
 """
 
+import re
 from typing import List, Optional, Set, Union
 
 
@@ -75,13 +76,13 @@ class ProhibitedWordsConfig:
 
         # Check global prohibited words
         for word in self.global_prohibited_words:
-            if word in lower_text:
+            if _word_in_text(word, lower_text):
                 return True
 
         # Check context-specific prohibited words if context is provided
         if context and context in self._context_prohibited_words:
             for word in self._context_prohibited_words[context]:
-                if word in lower_text:
+                if _word_in_text(word, lower_text):
                     return True
 
         return False
@@ -103,14 +104,28 @@ class ProhibitedWordsConfig:
 
         # Check global prohibited words
         found_prohibited_words.update(
-            word for word in self.global_prohibited_words if word in lower_text
+            word for word in self.global_prohibited_words if _word_in_text(word, lower_text)
         )
 
         # Check context-specific prohibited words if context is provided
         if context and context in self._context_prohibited_words:
             context_words = self._context_prohibited_words[context]
             found_prohibited_words.update(
-                word for word in context_words if word in lower_text
+                word for word in context_words if _word_in_text(word, lower_text)
             )
 
         return found_prohibited_words
+
+
+def _word_in_text(word: str, text: str) -> bool:
+    """
+    Check if a word is present in the text as a whole word (with word boundaries).
+
+    Args:
+        word (str): The word to search for.
+        text (str): The text to search in.
+
+    Returns:
+        bool: True if the word is found as a whole word, False otherwise.
+    """
+    return bool(re.search(r'\b' + re.escape(word) + r'\b', text))
