@@ -29,11 +29,14 @@ def configure_logging(
     # Create a logging stream
     log_stream = io.StringIO() if use_json else sys.stdout
 
+    # Get logging level
+    level = getattr(logging, log_level.upper())
+
     # Configure standard logging
     logging.basicConfig(
         format="%(message)s",
         stream=log_stream,
-        level=getattr(logging, log_level.upper())
+        level=level
     )
 
     # Configure structlog processors
@@ -65,8 +68,11 @@ def configure_logging(
         cache_logger_on_first_use=True,
     )
 
-    # Create a logger and return it
-    return logging.getLogger(__name__)
+    # Create a logger and set its level
+    logger = logging.getLogger(__name__)
+    logger.setLevel(level)
+
+    return logger
 
 def log_with_context(
     logger: logging.Logger, 
