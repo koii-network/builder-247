@@ -61,14 +61,14 @@ def test_categories_filter():
     assert {joke['category'] for joke in filtered} == {'Pun', 'Dad'}
 
 def test_combined_filters():
-    """Test combining multiple filtering criteria."""
+    """Test strict combined filtering criteria."""
     jokes = [
         {'text': 'Short chicken joke', 'category': 'Animal'},
         {'text': 'A very long joke about a chicken', 'category': 'Animal'},
         {'text': 'No chicken here', 'category': 'Dad'}
     ]
     filtered = filter_jokes(jokes, {
-        'min_length': 10,
+        'min_length': 20,  # Explicitly set to filter longer jokes
         'contains': 'chicken',
         'categories': ['Animal']
     })
@@ -83,8 +83,8 @@ def test_invalid_filter_criteria():
         filter_jokes(jokes, "not a dictionary")
 
 def test_invalid_joke_structure():
-    """Test that an invalid joke structure raises a ValueError."""
-    jokes = ['Not a dictionary']
+    """Test that an invalid joke structure without 'text' key raises a ValueError."""
+    jokes = [{'category': 'Pun'}]
     
-    with pytest.raises(ValueError, match="Each joke must be a dictionary"):
+    with pytest.raises(ValueError, match="Each joke must be a dictionary with a 'text' key"):
         filter_jokes(jokes)
