@@ -28,6 +28,16 @@ class APIError(Exception):
         self.details = details or {}
         super().__init__(self.message)
 
+    def __str__(self):
+        """
+        String representation of the error.
+        
+        Returns:
+            str: Detailed error message including details.
+        """
+        details_str = "; ".join(f"{k}: {v}" for k, v in self.details.get('invalid_fields', {}).items())
+        return f"{self.message}: {details_str}" if details_str else self.message
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert the error to a dictionary representation.
@@ -144,25 +154,25 @@ def validate_input(data: Any, rules: Dict[str, Any]) -> None:
 
         value = data[field]
 
-        # Type validation first
+        # Strict type validation
         if 'type' in validators:
-            # Check type compatibility
+            # Prevent automatic type conversion
             if not isinstance(value, validators['type']):
-                try:
-                    # Attempt type conversion
-                    value = validators['type'](value)
-                except (ValueError, TypeError):
-                    invalid_fields[field] = f"Must be of type {validators['type'].__name__}"
-                    continue
+                invalid_fields[field] = f"Must be of type {validators['type'].__name__}"
+                continue
 
         # Range validation for numeric types
-        if 'min' in validators and isinstance(value, (int, float)):
-            if value < validators['min']:
-                invalid_fields[field] = f"Must be greater than or equal to {validators['min']}"
+        try:
+            if 'min' in validators and isinstance(value, (int, float)):
+                if value < validators['min']:
+                    invalid_fields[field] = f"Must be greater than or equal to {validators['min']}"
 
-        if 'max' in validators and isinstance(value, (int, float)):
-            if value > validators['max']:
-                invalid_fields[field] = f"Must be less than or equal to {validators['max']}"
+            if 'max' in validators and isinstance(value, (int, float)):
+                if value > validators['max']:
+                    invalid_fields[field] = f"Must be less than or equal to {validators['max']}"
+        except TypeError:
+            # If comparison isn't supported
+            invalid_fields[field] = f"Invalid range comparison for {field}"
 
         # Custom validation
         if 'validator' in validators and not validators['validator'](value):
