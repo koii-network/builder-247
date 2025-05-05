@@ -1,9 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlmodel import SQLModel, Field, Column, DateTime
 from sqlalchemy.sql import func
-from .database import Base
+from datetime import datetime
 
-class TransactionID(Base):
+class TransactionID(SQLModel, table=True):
     """
     Database model for storing and tracking transaction IDs.
     
@@ -17,15 +16,15 @@ class TransactionID(Base):
     """
     __tablename__ = 'transaction_ids'
 
-    id = Column(Integer, primary_key=True, index=True)
-    transaction_id = Column(String, unique=True, index=True, nullable=False)
-    context = Column(String, nullable=False)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now())
-    status = Column(String, default='pending')
-    metadata = Column(String, nullable=True)
+    id: int = Field(default=None, primary_key=True)
+    transaction_id: str = Field(unique=True, index=True)
+    context: str
+    timestamp: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
+    status: str = Field(default='pending')
+    metadata: str = Field(default=None, nullable=True)
 
     @classmethod
-    def create(cls, transaction_id, context, status='pending', metadata=None):
+    def create(cls, transaction_id: str, context: str, status: str = 'pending', metadata: str = None):
         """
         Class method to create a new transaction ID record.
         
@@ -45,7 +44,7 @@ class TransactionID(Base):
             metadata=metadata
         )
 
-    def update_status(self, new_status):
+    def update_status(self, new_status: str):
         """
         Update the status of the transaction.
         
