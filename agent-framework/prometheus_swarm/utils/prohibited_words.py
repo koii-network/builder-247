@@ -66,11 +66,14 @@ class ProhibitedWordsConfig:
         # Normalize the text and split into words
         normalized_text = self._normalize_word(text)
         
-        # Split text into words, taking special care to handle various cases
+        # Split text into words, handling various cases
         words = re.findall(r'\b[a-z0-9]+\b', normalized_text)
         
         # Check if any word matches a prohibited word
-        return any(word in self._prohibited_words for word in words)
+        return any(
+            any(prohibited_word in word for prohibited_word in self._prohibited_words)
+            for word in words
+        )
 
     @staticmethod
     def _normalize_word(word: str) -> str:
@@ -83,7 +86,16 @@ class ProhibitedWordsConfig:
         Returns:
             str: Normalized word.
         """
-        return re.sub(r'[^a-z0-9]', '', str(word).lower()) if word else ''
+        # Handle None or empty input
+        if not word:
+            return ''
+        
+        # Convert to string, lowercase, and remove non-alphanumeric characters
+        try:
+            # Ensure input is converted to lowercase
+            return re.sub(r'[^a-z0-9]', '', str(word).lower())
+        except Exception:
+            return ''
 
     def get_prohibited_words(self) -> List[str]:
         """
