@@ -21,8 +21,8 @@ class TestDadJokeLogger:
         dad_joke_logger.log_joke_retrieval('api', 'joke123')
         
         assert 'Dad Joke Retrieved' in caplog.text
-        assert 'source: api' in caplog.text
-        assert 'joke_id: joke123' in caplog.text
+        assert "'source': 'api'" in caplog.text
+        assert "'joke_id': 'joke123'" in caplog.text
     
     def test_log_joke_generation(self, dad_joke_logger, caplog):
         """Test logging joke generation."""
@@ -31,8 +31,8 @@ class TestDadJokeLogger:
         dad_joke_logger.log_joke_generation('gpt', 0.5)
         
         assert 'Dad Joke Generated' in caplog.text
-        assert 'method: gpt' in caplog.text
-        assert 'generation_time_seconds: 0.5' in caplog.text
+        assert "'method': 'gpt'" in caplog.text
+        assert "'generation_time_seconds': 0.5" in caplog.text
     
     def test_log_joke_usage(self, dad_joke_logger, caplog):
         """Test logging joke usage."""
@@ -41,8 +41,8 @@ class TestDadJokeLogger:
         dad_joke_logger.log_joke_usage('conversation', {'mood': 'happy'})
         
         assert 'Dad Joke Used' in caplog.text
-        assert 'context: conversation' in caplog.text
-        assert 'mood: happy' in caplog.text
+        assert "'context': 'conversation'" in caplog.text
+        assert "'mood': 'happy'" in caplog.text
     
     def test_log_joke_error(self, dad_joke_logger, caplog):
         """Test logging joke errors."""
@@ -51,8 +51,8 @@ class TestDadJokeLogger:
         dad_joke_logger.log_joke_error('network', 'Failed to fetch joke')
         
         assert 'Dad Joke Error' in caplog.text
-        assert 'error_type: network' in caplog.text
-        assert 'error_message: Failed to fetch joke' in caplog.text
+        assert "'error_type': 'network'" in caplog.text
+        assert "'error_message': 'Failed to fetch joke'" in caplog.text
     
     def test_multiple_logger_instances(self):
         """Ensure multiple logger instances work correctly."""
