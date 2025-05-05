@@ -62,16 +62,16 @@ def test_is_prohibited_case_insensitive():
 def test_get_prohibited_words():
     """Test retrieving the list of prohibited words in text."""
     config = ProhibitedWordsConfig(["global", "banned"])
-    config.add_context_prohibited_words("custom", ["custom_bad"])
+    config.add_context_prohibited_words("custom", ["custom"])
     
     global_prohibited = config.get_prohibited_words("This is a global bad text")
     assert global_prohibited == {"global"}
     
-    context_prohibited = config.get_prohibited_words("custom bad word", context="custom")
-    assert context_prohibited == {"custom_bad"}
+    context_prohibited = config.get_prohibited_words("Some custom text", context="custom")
+    assert context_prohibited == {"custom"}
     
-    mixed_prohibited = config.get_prohibited_words("Global and custom_bad mixed", context="custom")
-    assert mixed_prohibited == {"global", "custom_bad"}
+    mixed_prohibited = config.get_prohibited_words("Global and custom mixed", context="custom")
+    assert mixed_prohibited == {"global", "custom"}
 
 
 def test_empty_configuration():
