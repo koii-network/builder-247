@@ -16,7 +16,7 @@ def filter_jokes(jokes, filter_criteria=None):
         list: Filtered list of jokes that meet the specified criteria.
 
     Raises:
-        ValueError: If filter_criteria is not a dictionary.
+        ValueError: If filter_criteria is not a dictionary or if joke is invalid.
     """
     # If no filter criteria provided, return all jokes
     if filter_criteria is None:
@@ -26,16 +26,19 @@ def filter_jokes(jokes, filter_criteria=None):
     if not isinstance(filter_criteria, dict):
         raise ValueError("Filter criteria must be a dictionary")
 
+    # Validate jokes input
+    if not all(isinstance(joke, dict) for joke in jokes):
+        raise ValueError("Each joke must be a dictionary")
+
     filtered_jokes = []
     for joke in jokes:
-        # Validate joke is a dictionary with required keys
-        if not isinstance(joke, dict):
-            raise ValueError("Each joke must be a dictionary")
+        # Default to empty strings if keys are missing
+        joke_text = joke.get('text', '')
+        joke_category = joke.get('category', '')
 
         # Length filtering
         min_length = filter_criteria.get('min_length')
         max_length = filter_criteria.get('max_length')
-        joke_text = joke.get('text', '')
         
         if min_length is not None and len(joke_text) < min_length:
             continue
@@ -55,7 +58,6 @@ def filter_jokes(jokes, filter_criteria=None):
 
         # Categories filtering
         categories = filter_criteria.get('categories')
-        joke_category = joke.get('category', '')
         if categories and joke_category.lower() not in [cat.lower() for cat in categories]:
             continue
 
