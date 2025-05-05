@@ -23,7 +23,7 @@ def test_create_transaction_id(db_session):
         transaction_id='test_tx_123',
         context='test_context',
         status='pending',
-        metadata='additional_info'
+        additional_info='additional_info'
     )
     db_session.add(transaction)
     db_session.commit()
@@ -35,7 +35,7 @@ def test_create_transaction_id(db_session):
     assert stored_transaction.transaction_id == 'test_tx_123'
     assert stored_transaction.context == 'test_context'
     assert stored_transaction.status == 'pending'
-    assert stored_transaction.metadata == 'additional_info'
+    assert stored_transaction.additional_info == 'additional_info'
     assert isinstance(stored_transaction.timestamp, datetime)
 
 def test_update_transaction_status(db_session):
