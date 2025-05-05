@@ -27,7 +27,7 @@ class Transaction(SQLModel, table=True):
     status: TransactionStatus = Field(sa_column=Column(Enum(TransactionStatus)))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
-    metadata: Optional[str] = None  # JSON-encoded additional details
+    transaction_metadata: Optional[str] = Field(default=None, alias="transaction_metadata")  # JSON-encoded additional details
 
 
 class Conversation(SQLModel, table=True):
