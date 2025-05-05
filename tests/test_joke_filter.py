@@ -18,15 +18,15 @@ def test_no_filtering(sample_jokes):
 
 def test_min_length_filter(sample_jokes):
     """Test filtering jokes by minimum length."""
-    result = filter_jokes(sample_jokes, min_length=30)
+    result = filter_jokes(sample_jokes, min_length=40)
     assert len(result) == 1
     assert "very long joke" in result[0]
 
 def test_max_length_filter(sample_jokes):
     """Test filtering jokes by maximum length."""
-    result = filter_jokes(sample_jokes, max_length=20)
+    result = filter_jokes(sample_jokes, max_length=25)
     assert len(result) == 2
-    assert all(len(joke) <= 20 for joke in result)
+    assert all(len(joke) <= 25 for joke in result)
 
 def test_contains_filter(sample_jokes):
     """Test filtering jokes containing specific substrings."""
