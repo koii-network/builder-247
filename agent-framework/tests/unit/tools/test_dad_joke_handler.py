@@ -3,6 +3,7 @@ Unit tests for Dad Joke Command Handler.
 """
 
 import pytest
+import requests
 from unittest.mock import patch, Mock
 from prometheus_swarm.tools.dad_joke_handler import DadJokeCommandHandler
 
