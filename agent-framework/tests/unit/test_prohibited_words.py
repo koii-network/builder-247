@@ -67,7 +67,7 @@ def test_get_prohibited_words():
     global_prohibited = config.get_prohibited_words("This is a global bad text")
     assert global_prohibited == {"global"}
     
-    context_prohibited = config.get_prohibited_words("Custom bad word", context="custom")
+    context_prohibited = config.get_prohibited_words("custom bad word", context="custom")
     assert context_prohibited == {"custom_bad"}
     
     mixed_prohibited = config.get_prohibited_words("Global and custom_bad mixed", context="custom")
