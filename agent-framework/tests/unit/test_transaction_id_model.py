@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from prometheus_swarm.database.models import Base, TransactionID
 import uuid
+import json
 from datetime import datetime, timedelta
 
 @pytest.fixture
@@ -65,18 +66,39 @@ def test_transaction_id_unique_constraint(session):
 
     assert transaction1.transaction_uuid != transaction2.transaction_uuid
 
-def test_transaction_with_metadata(session):
-    """Test creating a transaction with metadata."""
-    metadata = '{"key": "value"}'
+def test_transaction_with_metadata_dict(session):
+    """Test creating a transaction with dictionary metadata."""
+    metadata = {"key": "value", "numbers": 42}
     transaction = TransactionID.create_transaction(
         status='STARTED', 
-        metadata=metadata
+        transaction_metadata=metadata
     )
     session.add(transaction)
     session.commit()
 
     assert transaction.status == 'STARTED'
-    assert transaction.metadata == metadata
+    assert transaction.get_metadata() == metadata
+
+def test_transaction_with_metadata_string(session):
+    """Test creating a transaction with JSON string metadata."""
+    metadata = '{"key": "value", "numbers": 42}'
+    transaction = TransactionID.create_transaction(
+        status='STARTED', 
+        transaction_metadata=metadata
+    )
+    session.add(transaction)
+    session.commit()
+
+    assert transaction.status == 'STARTED'
+    assert transaction.get_metadata() == {"key": "value", "numbers": 42}
+
+def test_transaction_without_metadata(session):
+    """Test creating a transaction without metadata."""
+    transaction = TransactionID()
+    session.add(transaction)
+    session.commit()
+
+    assert transaction.get_metadata() is None
 
 def test_transaction_timestamps(session):
     """Test transaction timestamp tracking."""
