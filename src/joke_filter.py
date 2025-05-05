@@ -26,7 +26,7 @@ def filter_jokes(jokes, max_length=None, exclude_keywords=None, min_rating=None)
     if max_length is not None:
         filtered_jokes = [
             joke for joke in filtered_jokes 
-            if len(joke.get('text', '')) <= max_length
+            if joke.get('text') and len(joke['text']) <= max_length
         ]
 
     # Filter by exclude keywords
