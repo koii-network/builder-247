@@ -24,10 +24,10 @@ def validate_transaction_id(transaction_id: str) -> bool:
 
     # Validate UUID format
     try:
-        # Attempt to create a UUID object
-        parsed_uuid = uuid.UUID(transaction_id, version=4)
+        # Attempt to create a UUID object with more flexible parsing
+        parsed_uuid = uuid.UUID(transaction_id)
         
-        # Verify that the parsed UUID matches the input exactly
-        return str(parsed_uuid) == transaction_id
+        # Explicitly check for version 4 UUID
+        return parsed_uuid.version == 4
     except (ValueError, AttributeError):
         return False
