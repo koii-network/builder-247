@@ -107,5 +107,5 @@ class TransactionTimeWindowConfig:
         if self.max_transactions is None:
             return True
 
-        # Check if number of transactions exceeds the limit
-        return len(transactions_in_window) < self.max_transactions
+        # Check if number of transactions is less than or equal to the limit
+        return len(transactions_in_window) <= self.max_transactions
