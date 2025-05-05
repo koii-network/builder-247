@@ -1,6 +1,14 @@
 import pytest
 import requests
+import sys
 from unittest.mock import patch, Mock
+
+# Temporarily mock problematic imports
+sys.modules['prometheus_swarm.database'] = Mock()
+sys.modules['prometheus_swarm.clients.base_client'] = Mock()
+sys.modules['prometheus_swarm.clients.conversation_manager'] = Mock()
+sys.modules['sqlalchemy'] = Mock()
+
 from prometheus_swarm.clients.dad_joke_client import DadJokeClient
 
 class TestDadJokeClient:
