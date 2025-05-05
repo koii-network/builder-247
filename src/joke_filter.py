@@ -33,9 +33,12 @@ def filter_jokes(
     # Filter the jokes
     filtered_jokes = []
     for joke in jokes:
-        # Validate each joke is a dictionary
+        # Validate each joke is a dictionary with text
         if not isinstance(joke, dict) or 'text' not in joke:
             continue
+        
+        # Prepare text for comparison
+        text = joke['text'].lower()
         
         # Check category if specified
         if category and joke.get('category') != category:
@@ -46,11 +49,11 @@ def filter_jokes(
             continue
         
         # Check contains if specified
-        if contains and contains.lower() not in joke['text'].lower():
+        if contains and contains.lower() not in text:
             continue
         
         # Check exclude_contains
-        if any(ex.lower() in joke['text'].lower() for ex in exclude_contains):
+        if any(ex.lower() in text for ex in exclude_contains):
             continue
         
         filtered_jokes.append(joke)
