@@ -24,7 +24,7 @@ class ProhibitedWordsConfig:
             global_words (Optional[Union[List[str], Set[str]]], optional): 
                 A list or set of global prohibited words. Defaults to None.
         """
-        self.global_prohibited_words = set(global_words or [])
+        self.global_prohibited_words = set(word.lower() for word in (global_words or []))
         self._context_prohibited_words: dict[str, set[str]] = {}
 
     def add_global_prohibited_word(self, word: str) -> None:
@@ -107,9 +107,10 @@ class ProhibitedWordsConfig:
         )
 
         # Check context-specific prohibited words if context is provided
-        if context and context in self._context_prohibited_words:
+        if context:
+            context_words = self._context_prohibited_words.get(context, set())
             found_prohibited_words.update(
-                word for word in self._context_prohibited_words[context] if word in lower_text
+                word for word in context_words if word in lower_text
             )
 
         return found_prohibited_words
