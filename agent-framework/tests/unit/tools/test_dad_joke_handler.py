@@ -2,6 +2,7 @@
 Unit tests for Dad Joke Command Handler.
 """
 
+import random
 import pytest
 from prometheus_swarm.tools.dad_joke_handler import DadJokeCommandHandler
 
