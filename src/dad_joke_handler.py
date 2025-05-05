@@ -25,7 +25,8 @@ class DadJokeCommandHandler:
                 A list of initial jokes to populate the joke collection. 
                 Defaults to None.
         """
-        self._jokes: list[str] = initial_jokes or [
+        # Use a list of default jokes or the provided list
+        self._jokes: list[str] = initial_jokes.copy() if initial_jokes is not None else [
             "I'm afraid for the calendar. Its days are numbered.",
             "I told my wife she was drawing her eyebrows too high. She looked surprised.",
             "Why don't scientists trust atoms? Because they make up everything!",
@@ -43,7 +44,8 @@ class DadJokeCommandHandler:
         Raises:
             ValueError: If no jokes are available.
         """
-        if not self._jokes:
+        # Explicitly check for empty list
+        if len(self._jokes) == 0:
             raise ValueError("No jokes available in the collection.")
         return random.choice(self._jokes)
 
@@ -64,10 +66,11 @@ class DadJokeCommandHandler:
             raise ValueError("Joke must be a non-empty string.")
         
         # Prevent duplicate jokes (case-insensitive)
-        if any(joke.strip().lower() == existing.strip().lower() for existing in self._jokes):
+        cleaned_joke = joke.strip()
+        if any(cleaned_joke.lower() == existing.strip().lower() for existing in self._jokes):
             return False
         
-        self._jokes.append(joke.strip())
+        self._jokes.append(cleaned_joke)
         return True
 
     def remove_joke(self, joke: str) -> bool:
