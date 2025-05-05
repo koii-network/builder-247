@@ -5,10 +5,11 @@ from requests.exceptions import Timeout, ConnectionError, HTTPError
 from prometheus_swarm.clients.http_client import HttpClient
 
 class MockResponse:
-    def __init__(self, json_data=None, text='', status_code=200):
+    def __init__(self, json_data=None, text='', status_code=200, reason='OK'):
         self.json_data = json_data
         self.text = text
         self.status_code = status_code
+        self.reason = reason
 
     def json(self):
         if self.json_data is None:
@@ -17,7 +18,7 @@ class MockResponse:
 
     def raise_for_status(self):
         if 400 <= self.status_code < 600:
-            raise HTTPError(f"HTTP Error {self.status_code}")
+            raise HTTPError(f"HTTP Error {self.status_code}: {self.reason}", response=self)
 
 def test_http_client_get_json(monkeypatch):
     def mock_request(*args, **kwargs):
@@ -56,13 +57,17 @@ def test_http_client_connection_error(monkeypatch):
         HttpClient.make_request('https://example.com')
 
 def test_http_client_http_error(monkeypatch):
+    http_error = HTTPError(
+        "HTTP Error 404: Not Found", 
+        response=MockResponse(status_code=404, reason='Not Found')
+    )
+
     def mock_request(*args, **kwargs):
-        response = MockResponse(status_code=404)
-        response.raise_for_status()
+        raise http_error
 
     monkeypatch.setattr(requests, 'request', mock_request)
 
-    with pytest.raises(HTTPError, match="HTTP Error 404"):
+    with pytest.raises(HTTPError, match="HTTP Error 404: Not Found"):
         HttpClient.make_request('https://example.com')
 
 def test_http_client_invalid_method():
