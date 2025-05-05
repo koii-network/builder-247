@@ -29,6 +29,27 @@ from prometheus_swarm.clients import setup_client
 - Python 3.8 or higher
 - See requirements.txt for full dependency list
 
+## Testing
+
+### Running Tests
+
+To run tests with coverage reporting:
+
+```bash
+# Navigate to the agent-framework directory
+cd agent-framework
+
+# Install test dependencies
+pip install -r requirements.txt
+
+# Run tests
+./run_tests.sh
+```
+
+This will generate:
+- Terminal coverage report
+- HTML coverage report in `coverage_html_report/`
+
 ## Documentation
 
 For detailed documentation, please visit [documentation link].
