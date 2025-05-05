@@ -2,6 +2,7 @@
 
 import pytest
 import requests_mock
+import requests
 from prometheus_swarm.clients.dadjoke_client import DadJokeClient
 
 def test_get_random_joke():
@@ -36,5 +37,5 @@ def test_joke_retrieval_error():
         m.get("https://icanhazdadjoke.com/", status_code=500)
 
         client = DadJokeClient()
-        with pytest.raises(requests_mock.requests.RequestException):
+        with pytest.raises(requests.RequestException):
             client.get_random_joke()
