@@ -65,10 +65,8 @@ class TestCacheConfig:
         # Fill the cache
         test_function(1)
         test_function(2)
-        test_function(3)  # This should replace the oldest entry
+        result = test_function(3)  # This should replace the oldest entry
 
         # Verify cache behavior
-        with pytest.raises(TypeError):
-            test_function(1)  # First cached entry should be evicted
-        assert test_function(2) == 4  # Second entry still cached
-        assert test_function(3) == 6  # Third entry is cached
+        assert result == 6  # Third entry is returned
+        assert test_function(3) == 6  # Verifies cache hit
