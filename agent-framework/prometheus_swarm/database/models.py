@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
+from uuid import uuid4
 
 
 class Conversation(SQLModel, table=True):
@@ -42,3 +43,16 @@ class Log(SQLModel, table=True):
     stack_trace: Optional[str] = None
     request_id: Optional[str] = None
     additional_data: Optional[str] = None
+
+
+class TransactionID(SQLModel, table=True):
+    """Transaction ID storage model."""
+
+    id: str = Field(primary_key=True, default_factory=lambda: str(uuid4()))
+    namespace: str = Field(index=True)
+    context: Optional[str] = Field(default=None, index=True)
+    status: str = Field(default="pending")
+    description: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
+    additional_metadata: Optional[str] = Field(default=None)  # JSON-encoded metadata
