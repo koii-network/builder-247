@@ -25,7 +25,8 @@ def test_transaction_evidence_creation(session):
     
     evidence = TransactionEvidence(
         transaction_hash=transaction_hash,
-        **transaction_data
+        **transaction_data,
+        extra_data={'note': 'test transaction'}
     )
     
     session.add(evidence)
@@ -34,6 +35,7 @@ def test_transaction_evidence_creation(session):
     assert evidence.id is not None
     assert evidence.transaction_hash == transaction_hash
     assert evidence.validate() is True
+    assert evidence.extra_data == {'note': 'test transaction'}
 
 def test_transaction_evidence_uniqueness(session):
     """Ensure transaction hash prevents duplicate entries."""
