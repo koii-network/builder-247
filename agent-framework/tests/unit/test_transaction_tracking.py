@@ -78,13 +78,13 @@ def test_transaction_database_integration():
         assert db_transaction is not None
         assert db_transaction.amount == 200.75
 
-        # Optional metadata
-        transaction.metadata = '{"ref_code": "ABC123"}'
+        # Optional transaction_metadata
+        transaction.transaction_metadata = '{"ref_code": "ABC123"}'
         session.add(transaction)
         session.commit()
         session.refresh(transaction)
 
-        assert transaction.metadata == '{"ref_code": "ABC123"}'
+        assert transaction.transaction_metadata == '{"ref_code": "ABC123"}'
 
 
 def test_transaction_timestamps():
