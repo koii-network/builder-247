@@ -65,10 +65,10 @@ def verify_signature(payload, signature_data, secret_key=None):
         bool: Whether the signature is valid
     """
     try:
-        generated_signature = generate_signature(payload, secret_key)
-        return (
-            generated_signature['signature'] == signature_data.get('signature') and
-            generated_signature['id'] == signature_data.get('id')
-        )
+        # Regenerate signature with the same parameters
+        regenerated_signature = generate_signature(payload, secret_key)
+        
+        # Compare only signature and ignore timestamp/id
+        return regenerated_signature['signature'] == signature_data.get('signature')
     except (TypeError, ValueError):
         return False
