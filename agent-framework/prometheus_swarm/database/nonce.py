@@ -59,7 +59,12 @@ class Nonce(Base):
         Returns:
             bool: True if nonce is valid, False otherwise
         """
-        return datetime.now(timezone.utc) < self.expires_at
+        now = datetime.now(timezone.utc)
+        
+        # Explicitly make the locally stored expires_at timezone-aware if it's not
+        expires_at = self.expires_at if self.expires_at.tzinfo else self.expires_at.replace(tzinfo=timezone.utc)
+        
+        return now < expires_at
 
     def __repr__(self):
         return f"<Nonce(value={self.value}, expires_at={self.expires_at})>"
