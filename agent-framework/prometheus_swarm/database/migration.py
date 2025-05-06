@@ -15,15 +15,22 @@ def perform_database_migration(db_path: str, target_version: int = 1) -> bool:
     """
     # Validate path
     try:
+        # Get absolute path and directory
         db_dir = os.path.dirname(os.path.abspath(db_path))
+        
+        # Check if directory is writable
         if not os.path.exists(db_dir):
             try:
                 os.makedirs(db_dir, exist_ok=True)
             except (PermissionError, OSError):
                 print(f"Cannot create directory for {db_path}")
                 return False
-    except Exception:
-        print(f"Invalid path: {db_path}")
+        
+        if not os.access(db_dir, os.W_OK):
+            print(f"Directory not writable: {db_dir}")
+            return False
+    except Exception as e:
+        print(f"Error processing path {db_path}: {e}")
         return False
     
     connection = None
