@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import http from "http";
 import morgan from "morgan";
 import { checkConnections } from './services/database/database';
+import { validateTransactionId } from './middleware/transaction-id-validation';
 
 export const app = express();
 const port = process.env.PORT || 3000;
@@ -50,6 +51,9 @@ app.use(
 
 // Add body-parser middleware
 app.use(express.json());
+
+// Add Transaction ID Validation middleware
+app.use(validateTransactionId);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
