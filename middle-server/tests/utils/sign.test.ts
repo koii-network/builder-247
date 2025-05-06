@@ -1,58 +1,62 @@
+import { verifySignature, signData } from '../../src/utils/sign';
+import nacl from 'tweetnacl';
 import { Keypair } from "@_koii/web3.js";
-import { signData, verifySignature } from "../../src/utils/sign";
-import bs58 from "bs58";
+import bs58 from 'bs58';
 
-describe("Sign Utils", () => {
+describe('Signature Utilities', () => {
   let keypair: Keypair;
+  const testData = { key: 'value', number: 42 };
 
   beforeAll(() => {
-    keypair = Keypair.generate();
+    // Generate a keypair for testing
+    const keyPair = nacl.sign.keyPair();
+    keypair = {
+      publicKey: keyPair.publicKey,
+      secretKey: keyPair.secretKey
+    } as Keypair;
   });
 
-  describe("signData", () => {
-    it("should successfully sign data", async () => {
-      const testData = { test: "Hello World" };
+  describe('verifySignature', () => {
+    test('should verify a valid signature', async () => {
+      // Sign the data
+      const signedData = await signData(keypair, testData);
+      
+      // Verify the signature
+      const isValid = verifySignature(testData, signedData);
+      expect(isValid).toBe(true);
+    });
+
+    test('should return false for tampered data', async () => {
+      const signedData = await signData(keypair, testData);
+      const tamperedData = { ...testData, key: 'modified' };
+
+      const isValid = verifySignature(tamperedData, signedData);
+      expect(isValid).toBe(false);
+    });
+
+    test('should return false for invalid signature', () => {
+      const invalidSignature = 'invalid_base58_signature';
+
+      const isValid = verifySignature(testData, invalidSignature);
+      expect(isValid).toBe(false);
+    });
+
+    test('should handle null/undefined inputs gracefully', () => {
+      expect(verifySignature(null as any, 'signature')).toBe(false);
+      expect(verifySignature(testData, null as any)).toBe(false);
+    });
+  });
+
+  describe('signData', () => {
+    test('should generate a signature', async () => {
       const signature = await signData(keypair, testData);
-      expect(typeof signature).toBe("string");
+      
+      // Basic checks
+      expect(signature).toBeTruthy();
+      expect(typeof signature).toBe('string');
+      
+      // Verify it's a valid base58 encoded string
       expect(() => bs58.decode(signature)).not.toThrow();
-    });
-  });
-
-  describe("verifySignature", () => {
-    it("should verify valid signature successfully", async () => {
-      const testData = { message: "Test Message" };
-      const signature = await signData(keypair, testData);
-      const publicKey = bs58.encode(Buffer.from(keypair.publicKey.toBytes()));
-
-      const result = await verifySignature(signature, publicKey);
-
-      expect(result.error).toBeUndefined();
-      expect(result.data).toBeDefined();
-      expect(JSON.parse(result.data!)).toEqual(testData);
-    });
-
-    it("should reject invalid signature", async () => {
-      const invalidSignature = bs58.encode(Buffer.from("invalid signature"));
-      const publicKey = bs58.encode(Buffer.from(keypair.publicKey.toBytes()));
-
-      const result = await verifySignature(invalidSignature, publicKey);
-
-      expect(result.error).toBeDefined();
-      expect(result.data).toBeUndefined();
-    });
-
-    it("should reject when using wrong public key", async () => {
-      const testData = { message: "Test Message" };
-      const signature = await signData(keypair, testData);
-      const wrongKeypair = Keypair.generate();
-      const wrongPublicKey = bs58.encode(
-        Buffer.from(wrongKeypair.publicKey.toBytes()),
-      );
-
-      const result = await verifySignature(signature, wrongPublicKey);
-
-      expect(result.error).toBeDefined();
-      expect(result.data).toBeUndefined();
     });
   });
 });
