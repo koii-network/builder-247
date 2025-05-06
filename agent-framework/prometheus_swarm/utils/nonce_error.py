@@ -2,6 +2,7 @@ import logging
 from typing import Optional, Any, Callable
 from functools import wraps
 import time
+import inspect
 
 class NonceError(Exception):
     """Custom exception for Nonce-related errors."""
@@ -53,19 +54,35 @@ def handle_nonce_error(
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             retry_count = 0
             
+            # Inspect function signature to find nonce parameter
+            sig = inspect.signature(func)
+            nonce_param = None
+            for param_name, param in sig.parameters.items():
+                if param_name == 'nonce':
+                    nonce_param = kwargs.get(param_name)
+                    break
+            
+            # Fallback to first positional argument if no keyword 'nonce'
+            if nonce_param is None and len(args) > 0:
+                nonce_param = args[0]
+            
             while retry_count < max_retries:
                 try:
-                    # Optional nonce parameter extraction
-                    nonce = kwargs.get('nonce') or (args[1] if len(args) > 1 else None)
-                    
                     # Validate nonce before function execution
-                    if not validate_nonce(nonce):
-                        raise NonceError(f"Invalid nonce: {nonce}")
+                    if not validate_nonce(nonce_param):
+                        raise NonceError(f"Invalid nonce: {nonce_param}")
+                    
+                    # Inject validated nonce into arguments if needed
+                    if nonce_param is not None:
+                        if 'nonce' in sig.parameters:
+                            kwargs['nonce'] = nonce_param
+                        elif len(args) > 0:
+                            args = (nonce_param,) + args[1:]
                     
                     result = func(*args, **kwargs)
                     return result
                 
-                except NonceError as e:
+                except (NonceError, ValueError) as e:
                     if logger:
                         logger.warning(f"Nonce error on attempt {retry_count + 1}: {e}")
                     
