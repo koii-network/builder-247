@@ -70,16 +70,21 @@ class TestTransactionTracker:
     
     def test_get_total_amount(self, transaction_tracker):
         """Test calculating total transaction amount."""
+        # Track transactions in a specific test setup
         transaction_tracker.record_transaction('deposit', 'Deposit 1', 100)
         transaction_tracker.record_transaction('deposit', 'Deposit 2', 200)
         transaction_tracker.record_transaction('withdrawal', 'Withdrawal', 50)
         
+        print("Transactions:", transaction_tracker.get_transactions())
+        
         # Total amount for all transactions
         total = transaction_tracker.get_total_amount()
+        print("Total amount:", total)
         assert total == 250
         
         # Total amount for deposits only
         deposit_total = transaction_tracker.get_total_amount(transaction_type='deposit')
+        print("Deposit total:", deposit_total)
         assert deposit_total == 300
     
     def test_transaction_metadata(self, transaction_tracker):
