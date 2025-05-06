@@ -19,6 +19,7 @@ def test_signature_logger_initialization(temp_log_dir):
 
 def test_log_signature(temp_log_dir, caplog):
     """Test logging a signature."""
+    caplog.set_level(logging.INFO)
     logger = SignatureLogger(log_dir=temp_log_dir)
     signature = "test_signature_123"
     metadata = {"test_key": "test_value"}
@@ -63,6 +64,7 @@ def test_monitor_signatures(temp_log_dir):
 
 def test_high_frequency_signature_warning(temp_log_dir, caplog):
     """Test warning for high-frequency signatures."""
+    caplog.set_level(logging.WARNING)
     logger = SignatureLogger(log_dir=temp_log_dir)
     
     # Log a signature multiple times
