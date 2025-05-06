@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Enum
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 from enum import Enum as PyEnum
 from typing import Optional
@@ -38,7 +38,17 @@ class Transaction(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     source_account = Column(String(100), nullable=True)
     destination_account = Column(String(100), nullable=True)
-    status = Column(String(50), nullable=False, default='completed')
+    status = Column(String(50), nullable=False, default='completed', server_default='completed')
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize a Transaction object.
+
+        If no status is provided, defaults to 'completed'.
+        """
+        if 'status' not in kwargs:
+            kwargs['status'] = 'completed'
+        super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:
         """
