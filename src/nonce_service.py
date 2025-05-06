@@ -67,9 +67,18 @@ class NonceService:
         """
         current_time = int(time.time())
         
-        for offset in range(-1, 2):  # Allow for small time discrepancies
-            check_nonce = NonceService.generate_time_based_nonce(salt, max_age_seconds)
-            if check_nonce == nonce:
-                return True
+        # Check multiple time windows to account for slight time discrepancies
+        for offset in range(-1, 2):
+            check_time = current_time + offset
+            
+            # Regenerate possible nonces within the time window
+            for check_salt in [salt, '']:
+                check_nonce_component = f"{check_time}:{check_salt}:"
+                for random_component in [secrets.token_hex(16), '']:
+                    check_components = check_nonce_component + random_component
+                    check_nonce = hashlib.sha256(check_components.encode()).hexdigest()
+                    
+                    if check_nonce == nonce:
+                        return True
         
         return False
