@@ -1,6 +1,7 @@
 import pytest
-from sqlmodel import SQLModel, create_engine, Session
+from sqlmodel import SQLModel, create_engine, Session, select
 from prometheus_swarm.database.models import Evidence
+from pydantic import ValidationError
 
 def create_test_engine():
     """Create an in-memory SQLite engine for testing."""
@@ -55,7 +56,7 @@ def test_evidence_multiple_types():
         session.commit()
         
         # Verify both evidences were saved
-        saved_evidences = session.query(Evidence).filter_by(content="Shared Content").all()
+        saved_evidences = session.exec(select(Evidence).where(Evidence.content == "Shared Content")).all()
         assert len(saved_evidences) == 2
         assert {e.type for e in saved_evidences} == {"type1", "type2"}
 
@@ -68,18 +69,14 @@ def test_evidence_content_validation():
     
     with Session(engine) as session:
         # Test empty content
-        with pytest.raises(Exception) as excinfo:
-            empty_evidence = Evidence(content="", type="test_type")
-            session.add(empty_evidence)
-            session.commit()
+        with pytest.raises(ValidationError) as excinfo:
+            Evidence(content="", type="test_type")
         
-        assert "content" in str(excinfo.value).lower()
+        assert "min_length" in str(excinfo.value)
         
         # Test very long content
         long_content = "a" * 10001  # Exceeding max length
-        with pytest.raises(Exception) as excinfo:
-            long_evidence = Evidence(content=long_content, type="test_type")
-            session.add(long_evidence)
-            session.commit()
+        with pytest.raises(ValidationError) as excinfo:
+            Evidence(content=long_content, type="test_type")
         
-        assert "length" in str(excinfo.value).lower()
+        assert "max_length" in str(excinfo.value)
