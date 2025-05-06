@@ -1,7 +1,7 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .nonce_models import Nonce
 
@@ -94,7 +94,7 @@ class SqlAlchemyNonceStorage(NonceStorageInterface):
         query = self.session.query(Nonce).filter(
             and_(
                 Nonce.token == token,
-                Nonce.expires_at > datetime.utcnow(),
+                Nonce.expires_at > datetime.now(timezone.utc),
                 Nonce.used == 0,
                 (Nonce.purpose == purpose) if purpose else True
             )
@@ -116,7 +116,7 @@ class SqlAlchemyNonceStorage(NonceStorageInterface):
             .filter(
                 and_(
                     Nonce.token == token,
-                    Nonce.expires_at > datetime.utcnow(),
+                    Nonce.expires_at > datetime.now(timezone.utc),
                     Nonce.used == 0
                 )
             )
@@ -138,7 +138,7 @@ class SqlAlchemyNonceStorage(NonceStorageInterface):
             int: Number of nonces deleted
         """
         expired_nonces = self.session.query(Nonce).filter(
-            Nonce.expires_at < datetime.utcnow()
+            Nonce.expires_at < datetime.now(timezone.utc)
         )
         count = expired_nonces.count()
         expired_nonces.delete(synchronize_session=False)
