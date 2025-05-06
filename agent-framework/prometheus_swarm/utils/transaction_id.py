@@ -5,7 +5,6 @@ This module provides functionality to prevent duplicate transaction processing
 by tracking and validating transaction IDs.
 """
 from typing import Set, Any
-from collections import deque
 
 
 class TransactionTracker:
@@ -14,7 +13,6 @@ class TransactionTracker:
 
     Attributes:
         _processed_transactions (Set[Any]): A set of processed transaction IDs.
-        _transaction_order (deque): A queue to track transaction order.
         _max_tracked_transactions (int): Maximum number of transactions to track.
     """
 
@@ -27,7 +25,7 @@ class TransactionTracker:
                 transaction IDs to keep track of. Defaults to 1000.
         """
         self._processed_transactions: Set[Any] = set()
-        self._transaction_order: deque = deque(maxlen=max_tracked_transactions)
+        self._transaction_order: list = []
         self._max_tracked_transactions = max_tracked_transactions
 
     def is_duplicate(self, transaction_id: Any) -> bool:
@@ -43,9 +41,14 @@ class TransactionTracker:
         if transaction_id in self._processed_transactions:
             return True
 
-        # Add the new transaction and manage set size
+        # Add the new transaction
         self._processed_transactions.add(transaction_id)
         self._transaction_order.append(transaction_id)
+
+        # If we've exceeded max tracked transactions, remove the oldest
+        if len(self._processed_transactions) > self._max_tracked_transactions:
+            oldest_transaction = self._transaction_order.pop(0)
+            self._processed_transactions.remove(oldest_transaction)
 
         return False
 
