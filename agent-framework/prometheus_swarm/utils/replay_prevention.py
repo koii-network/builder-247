@@ -25,6 +25,7 @@ class ReplayAttackPrevention:
         self._max_cache_size = max_cache_size
         self._lock = threading.Lock()
         self._request_order: List[str] = []
+        self._last_cleanup = time.time()
     
     def generate_request_id(self, request_data: Any) -> str:
         """
@@ -58,17 +59,20 @@ class ReplayAttackPrevention:
         current_time = time.time()
         
         with self._lock:
-            # Clean up expired entries
-            self._cleanup_expired_entries(current_time)
+            # Periodically clean up expired entries
+            if current_time - self._last_cleanup > self._window_seconds / 2:
+                self._cleanup_expired_entries(current_time)
+                self._last_cleanup = current_time
             
-            # Check if request is in cache
+            # Check if request is in cache and within time window
             if request_id in self._request_cache:
                 return False
             
-            # If cache is at max size, remove oldest entry
+            # Enforce max cache size by removing oldest entries
             if len(self._request_cache) >= self._max_cache_size:
-                oldest_id = self._request_order.pop(0)
-                del self._request_cache[oldest_id]
+                while len(self._request_cache) >= self._max_cache_size:
+                    oldest_id = self._request_order.pop(0)
+                    del self._request_cache[oldest_id]
             
             # Add new request to cache
             self._request_cache[request_id] = current_time
