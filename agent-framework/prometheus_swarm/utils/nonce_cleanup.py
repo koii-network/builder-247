@@ -2,6 +2,7 @@ import datetime
 from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from agent-framework.prometheus_swarm.database.models import Nonce  # Adjust import based on actual model location
 
 def cleanup_expired_nonces(db: Session, max_age_hours: int = 24) -> int:
     """
