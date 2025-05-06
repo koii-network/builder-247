@@ -48,10 +48,10 @@ def create_mock_transaction(days_old):
 
 def test_transaction_cleanup_job_no_old_logs():
     # Test scenario with no old logs
-    with patch('prometheus_swarm.workflows.transaction_cleanup.SessionLocal', 
-               return_value=MockSession([])):
-        deleted_count = TransactionCleanupJob.cleanup_old_transactions()
-        assert deleted_count == 0
+    deleted_count = TransactionCleanupJob.cleanup_old_transactions(
+        session_factory=lambda: MockSession([])
+    )
+    assert deleted_count == 0
 
 def test_transaction_cleanup_job_with_old_logs():
     # Prepare mock transactions - some old, some recent
@@ -63,11 +63,12 @@ def test_transaction_cleanup_job_with_old_logs():
         create_mock_transaction(10)   # Will be kept
     ]
     
-    with patch('prometheus_swarm.workflows.transaction_cleanup.SessionLocal', 
-               return_value=MockSession(transactions)):
-        deleted_count = TransactionCleanupJob.cleanup_old_transactions(retention_days=30)
-        
-        assert deleted_count == 2
+    deleted_count = TransactionCleanupJob.cleanup_old_transactions(
+        retention_days=30,
+        session_factory=lambda: MockSession(transactions)
+    )
+    
+    assert deleted_count == 2
 
 def test_transaction_cleanup_job_large_dataset():
     # Simulate a large dataset with more than max_delete_batch
@@ -75,17 +76,19 @@ def test_transaction_cleanup_job_large_dataset():
         create_mock_transaction(40) for _ in range(15000)
     ]
     
-    with patch('prometheus_swarm.workflows.transaction_cleanup.SessionLocal', 
-               return_value=MockSession(transactions)):
-        deleted_count = TransactionCleanupJob.cleanup_old_transactions(
-            retention_days=30, 
-            max_delete_batch=10000
-        )
-        
-        assert deleted_count == 15000
+    deleted_count = TransactionCleanupJob.cleanup_old_transactions(
+        retention_days=30,
+        max_delete_batch=10000,
+        session_factory=lambda: MockSession(transactions)
+    )
+    
+    assert deleted_count == 15000
 
 def test_transaction_cleanup_job_exception_handling():
-    with patch('prometheus_swarm.workflows.transaction_cleanup.SessionLocal', 
-               side_effect=Exception("Database connection error")):
-        deleted_count = TransactionCleanupJob.cleanup_old_transactions()
-        assert deleted_count == 0
+    def raise_exception():
+        raise Exception("Database connection error")
+    
+    deleted_count = TransactionCleanupJob.cleanup_old_transactions(
+        session_factory=raise_exception
+    )
+    assert deleted_count == 0
