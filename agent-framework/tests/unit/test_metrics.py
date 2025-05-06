@@ -1,27 +1,31 @@
 import pytest
 import time
+from prometheus_client import CollectorRegistry
 from prometheus_swarm.utils.metrics import AgentMetrics
 
 def test_agent_metrics_initialization():
     """Test metrics object can be created without errors."""
-    metrics = AgentMetrics(metrics_port=8001)
+    registry = CollectorRegistry()
+    metrics = AgentMetrics(metrics_port=8001, registry=registry)
     assert metrics is not None
 
 def test_system_metrics_update():
     """Test system metrics can be updated."""
-    metrics = AgentMetrics(metrics_port=8002)
+    registry = CollectorRegistry()
+    metrics = AgentMetrics(metrics_port=8002, registry=registry)
     
     # Capture initial metrics
     metrics.update_system_metrics()
     
     # Verify metrics are recorded
-    assert metrics.cpu_usage._value is not None
-    assert metrics.memory_usage._value is not None
-    assert metrics.disk_usage._value is not None
+    assert metrics.cpu_usage._value.get() is not None
+    assert metrics.memory_usage._value.get() is not None
+    assert metrics.disk_usage._value.get() is not None
 
 def test_task_tracking():
     """Test task tracking and timing."""
-    metrics = AgentMetrics(metrics_port=8003)
+    registry = CollectorRegistry()
+    metrics = AgentMetrics(metrics_port=8003, registry=registry)
     
     # Simulate a task
     with metrics.track_task():
@@ -32,7 +36,8 @@ def test_task_tracking():
 
 def test_error_recording():
     """Test error recording functionality."""
-    metrics = AgentMetrics(metrics_port=8004)
+    registry = CollectorRegistry()
+    metrics = AgentMetrics(metrics_port=8004, registry=registry)
     
     # Record different types of errors
     metrics.record_error("network")
@@ -44,7 +49,8 @@ def test_error_recording():
 
 def test_periodic_update():
     """Test starting periodic updates."""
-    metrics = AgentMetrics(metrics_port=8005)
+    registry = CollectorRegistry()
+    metrics = AgentMetrics(metrics_port=8005, registry=registry)
     
     # Start updates in the background
     metrics.start_periodic_updates(interval=1)
@@ -53,4 +59,4 @@ def test_periodic_update():
     time.sleep(2)
     
     # Verify metrics have been updated
-    assert metrics.cpu_usage._value is not None
+    assert metrics.cpu_usage._value.get() is not None
