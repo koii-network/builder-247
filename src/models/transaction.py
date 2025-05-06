@@ -35,7 +35,7 @@ class Transaction(Base):
     amount = Column(Float, nullable=False)
     transaction_type = Column(Enum(TransactionType), nullable=False)
     description = Column(String(255), nullable=True)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    timestamp = Column(DateTime(timezone=True), nullable=False)
     source_account = Column(String(100), nullable=True)
     destination_account = Column(String(100), nullable=True)
     status = Column(String(50), nullable=False, default='completed', server_default='completed')
@@ -45,9 +45,14 @@ class Transaction(Base):
         Initialize a Transaction object.
 
         If no status is provided, defaults to 'completed'.
+        If no timestamp is provided, defaults to current time.
         """
         if 'status' not in kwargs:
             kwargs['status'] = 'completed'
+        
+        if 'timestamp' not in kwargs:
+            kwargs['timestamp'] = datetime.now()
+        
         super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:
