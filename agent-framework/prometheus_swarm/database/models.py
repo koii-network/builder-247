@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional, List, Dict
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Column
 from sqlalchemy import JSON
 from enum import Enum, auto
 
@@ -37,7 +37,7 @@ class Transaction(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Additional Transaction Details
-    details: Optional[Dict] = Field(default=None, sa_column_kwargs={"type_": JSON})
+    details: Optional[Dict] = Field(sa_column=Column(JSON))
     
     # Tracking and Debugging
     source_system: Optional[str] = None
