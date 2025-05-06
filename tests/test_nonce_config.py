@@ -64,14 +64,6 @@ def test_nonce_config_set_and_save(temp_config_file):
 
 def test_nonce_config_invalid_file():
     """Test handling of invalid configuration file."""
-    # Force a configuration load that would trigger a warning
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        
-        # Create a non-existent file path
+    # Verify that a UserWarning is raised for a non-existent file
+    with pytest.warns(UserWarning, match="Configuration file not found"):
         NonceConfig(config_path='/path/to/nonexistent/config.json')
-        
-        # Verify that a warning was raised
-        assert len(w) > 0
-        assert issubclass(w[-1].category, UserWarning)
-        assert "Could not load config file" in str(w[-1].message)
