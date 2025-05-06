@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship, Column, UniqueConstraint
 from sqlalchemy import CheckConstraint
+from pydantic import validator, constr
 
 class Conversation(SQLModel, table=True):
     """Conversation model."""
@@ -50,11 +51,18 @@ class Evidence(SQLModel, table=True):
     __tablename__ = 'evidence'
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    content: str = Field(min_length=1, max_length=10000)
+    content: constr(strip_whitespace=True, min_length=1, max_length=10000) = Field()
     type: str = Field(index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     __table_args__ = (
         UniqueConstraint('content', 'type', name='uix_evidence_content_type'),
-        CheckConstraint('length(content) > 0', name='check_content_not_empty')
     )
+    
+    @validator('content')
+    def validate_non_empty(cls, v):
+        """Validate content is not just whitespace"""
+        v = v.strip()
+        if not v:
+            raise ValueError("Content cannot be empty or just whitespace")
+        return v
