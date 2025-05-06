@@ -46,16 +46,24 @@ async def test_transaction_id_collision_prevention():
     """
     transaction_manager = TransactionIDManager()
     
-    # Generate multiple transaction IDs and try to reuse them
+    # Generate multiple transaction IDs
     transaction_ids = [
         await transaction_manager.generate_unique_transaction_id() 
         for _ in range(100)
     ]
     
-    # Attempt to submit duplicate transaction IDs
+    # Prepare submission tasks
+    first_submission_tasks = [
+        transaction_manager.submit_transaction(tid) for tid in transaction_ids
+    ]
+    duplicate_submission_tasks = [
+        transaction_manager.submit_transaction(tid) for tid in transaction_ids
+    ]
+    
+    # Combine and submit concurrently
     duplicate_submissions = await asyncio.gather(
-        *[transaction_manager.submit_transaction(tid) for tid in transaction_ids] +
-        *[transaction_manager.submit_transaction(tid) for tid in transaction_ids]
+        *first_submission_tasks,
+        *duplicate_submission_tasks
     )
     
     # First set of submissions should all be True
