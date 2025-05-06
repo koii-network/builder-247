@@ -21,6 +21,7 @@ prometheus_swarm/database/__init__.py
 prometheus_swarm/database/config.py
 prometheus_swarm/database/database.py
 prometheus_swarm/database/models.py
+prometheus_swarm/database/transaction_config.py
 prometheus_swarm/old/__init__.py
 prometheus_swarm/old/analyze_test_failure.py
 prometheus_swarm/old/fix_test_failures.py
