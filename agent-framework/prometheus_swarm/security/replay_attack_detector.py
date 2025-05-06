@@ -1,6 +1,6 @@
 import time
 from typing import Dict, Any, Optional
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 
 class ReplayAttackDetector:
@@ -19,7 +19,7 @@ class ReplayAttackDetector:
             window_size (int): Time window in seconds for nonce validity. Defaults to 5 minutes.
             max_nonces (int): Maximum number of nonces to store before pruning. Defaults to 1000.
         """
-        self._nonces: Dict[str, float] = {}
+        self._nonces: OrderedDict = OrderedDict()
         self._window_size = window_size
         self._max_nonces = max_nonces
 
@@ -55,18 +55,14 @@ class ReplayAttackDetector:
             current_time (float): Current timestamp.
         """
         # Remove nonces outside the time window
-        self._nonces = {
-            nonce: timestamp for nonce, timestamp in self._nonces.items() 
+        pruned_nonces = OrderedDict(
+            (nonce, timestamp) for nonce, timestamp in self._nonces.items() 
             if current_time - timestamp <= self._window_size
-        }
+        )
         
-        # Limit total number of nonces to max_nonces
-        if len(self._nonces) > self._max_nonces:
-            # Get the most recent nonces
-            sorted_nonces = sorted(
-                self._nonces.items(), 
-                key=lambda x: x[1], 
-                reverse=True
-            )[:self._max_nonces]
-            
-            self._nonces = dict(sorted_nonces)
+        # If pruned_nonces exceeds max_nonces, keep only the most recent
+        if len(pruned_nonces) > self._max_nonces:
+            for _ in range(len(pruned_nonces) - self._max_nonces):
+                pruned_nonces.popitem(last=False)
+        
+        self._nonces = pruned_nonces
