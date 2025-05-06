@@ -24,35 +24,21 @@ class TransactionIDValidator:
         if not isinstance(transaction_id, str):
             return False
         
-        # Ensure consistent lowercase for comparison
-        transaction_id = transaction_id.lower()
+        # Strict regular expression for a valid UUID
+        uuid_pattern = re.compile(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', 
+            re.IGNORECASE
+        )
         
-        # First, check the overall structure of the UUID
-        # Validate each segment of the UUID
-        segments = transaction_id.split('-')
-        if len(segments) != 5:
+        # Check if the pattern matches
+        if not uuid_pattern.match(transaction_id):
             return False
         
-        # Check lengths of each UUID segment
-        if (len(segments[0]) != 8 or 
-            len(segments[1]) != 4 or 
-            len(segments[2]) != 4 or 
-            len(segments[3]) != 4 or 
-            len(segments[4]) != 12):
-            return False
-        
-        # Check if all characters are valid hex
-        if not all(
-            all(c in '0123456789abcdef' for c in segment) 
-            for segment in segments
-        ):
-            return False
-        
-        # Use uuid library for final validation
+        # Final validation using uuid library
         try:
+            # Will raise ValueError if it can't parse the UUID
             parsed_uuid = uuid.UUID(transaction_id)
-            # Ensure the parsed UUID is identical to the input
-            return str(parsed_uuid).lower() == transaction_id
+            return True
         except (ValueError, TypeError):
             return False
     
