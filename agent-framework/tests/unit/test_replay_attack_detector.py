@@ -26,35 +26,26 @@ def test_replay_attack_detector_different_nonces():
     assert detector.is_replay_attack("nonce1")
 
 
-def test_replay_attack_detector_time_window():
+def test_replay_attack_detector_time_window(monkeypatch):
     """Test that nonces expire after the time window."""
-    class MockTimeReplayAttackDetector(ReplayAttackDetector):
-        def __init__(self, window_size=300, max_nonces=1000):
-            super().__init__(window_size, max_nonces)
-            self._mock_time = 0
-        
-        def _get_current_time(self):
-            return self._mock_time
-        
-        def is_replay_attack(self, nonce):
-            current_time = time.time()
-            self._mock_time = current_time
-            return super().is_replay_attack(nonce)
-        
-        def set_mock_time(self, time_val):
-            self._mock_time = time_val
-
-    detector = MockTimeReplayAttackDetector(window_size=5)
+    times = [0]
+    def mock_time():
+        return times[0]
+    
+    monkeypatch.setattr(time, 'time', mock_time)
+    
+    detector = ReplayAttackDetector(window_size=5)
     
     # Add initial nonce
+    times[0] = 0
     assert not detector.is_replay_attack("nonce1")
     
-    # Set time just before expiration
-    detector.set_mock_time(time.time() + 4)
+    # Still a replay attack before window expires
+    times[0] = 4
     assert detector.is_replay_attack("nonce1")
     
-    # Set time just after expiration
-    detector.set_mock_time(time.time() + 6)
+    # No longer a replay attack after window expires
+    times[0] = 6
     assert not detector.is_replay_attack("nonce1")
 
 
@@ -68,10 +59,10 @@ def test_replay_attack_detector_max_nonces():
     assert not detector.is_replay_attack("nonce3")
     assert not detector.is_replay_attack("nonce4")
     
-    # First nonce should no longer be tracked
+    # First nonce should no longer be tracked as a replay attack
     assert not detector.is_replay_attack("nonce1")
     
-    # Other nonces still tracked
+    # Recent nonces should still be tracked
     assert detector.is_replay_attack("nonce2")
     assert detector.is_replay_attack("nonce3")
     assert detector.is_replay_attack("nonce4")
