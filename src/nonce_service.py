@@ -1,7 +1,7 @@
 import secrets
 import time
 import uuid
-from typing import Union, Dict
+from typing import Union, Dict, ClassVar
 
 class NonceService:
     """
@@ -13,6 +13,9 @@ class NonceService:
     - Track and manage nonce usage
     """
     
+    # Class variable to track used nonces across all instances
+    _used_nonces: ClassVar[Dict[str, float]] = {}
+    
     def __init__(self, max_age_seconds: int = 3600):
         """
         Initialize the NonceService.
@@ -21,7 +24,6 @@ class NonceService:
             max_age_seconds (int, optional): Maximum age of a valid nonce in seconds. 
                                              Defaults to 1 hour (3600 seconds).
         """
-        self._used_nonces: Dict[str, float] = {}
         self._max_age = max_age_seconds
     
     def generate_nonce(self) -> str:
