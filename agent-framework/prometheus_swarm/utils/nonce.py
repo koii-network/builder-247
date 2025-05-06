@@ -64,7 +64,8 @@ class NonceSecurityManager:
         :return: Age of the nonce in seconds, or -1 if not found
         """
         with self._lock:
-            return time.time() - self._nonces.get(nonce, -1)
+            timestamp = self._nonces.get(nonce, None)
+            return time.time() - timestamp if timestamp is not None else -1
     
     def clear_nonces(self):
         """
