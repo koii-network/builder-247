@@ -1,6 +1,10 @@
 from dataclasses import dataclass, field
 from typing import Optional, List
 from datetime import datetime
+from sqlalchemy import Column, String, DateTime, Text
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
 
 @dataclass
 class Evidence:
@@ -21,7 +25,29 @@ class Evidence:
         if not self.submission_id or not self.content or not self.hash_value:
             raise ValueError("Submission ID, content, and hash value are required.")
 
-@dataclass
+class EvidenceModel(Base):
+    """
+    SQLAlchemy model for Evidence
+    """
+    __tablename__ = 'evidence'
+    
+    hash_value = Column(String, primary_key=True)
+    submission_id = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+class Conversation:
+    # Placeholder for potential compatibility
+    pass
+
+class Message:
+    # Placeholder for potential compatibility
+    pass
+
+class Log:
+    # Placeholder for potential compatibility
+    pass
+
 class Database:
     """
     Database management class with evidence tracking and uniqueness enforcement.
