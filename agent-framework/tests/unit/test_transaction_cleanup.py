@@ -2,8 +2,13 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 
+# Create a mock TransactionLog since we can't rely on database models
+class TransactionLog:
+    def __init__(self, id, created_at):
+        self.id = id
+        self.created_at = created_at
+
 from prometheus_swarm.workflows.transaction_cleanup import TransactionCleanupJob
-from prometheus_swarm.database.models import TransactionLog
 
 class MockSession:
     def __init__(self, transactions):
