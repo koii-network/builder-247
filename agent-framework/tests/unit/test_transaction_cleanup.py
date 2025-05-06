@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
 from unittest.mock import MagicMock
-from sqlmodel import SQLModel, Field, Model
+from sqlmodel import SQLModel, Field
 from typing import Optional
 from prometheus_swarm.utils.transaction_cleanup import cleanup_expired_transactions
 from pydantic import ConfigDict
