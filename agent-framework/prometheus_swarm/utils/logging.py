@@ -1,276 +1,183 @@
-"""Centralized logging configuration and utilities."""
+"""Enhanced logging utility with extended features."""
 
-import logging
+import os
 import sys
+import json
+import logging
 import traceback
-from typing import Any
+from typing import Any, Dict, Optional
 from pathlib import Path
 from functools import wraps
-import ast
-from colorama import init, Fore, Style
+from datetime import datetime
+from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 
-# Initialize colorama for cross-platform color support
-init(strip=False)  # Force color output even when not in a terminal
+# Default configuration
+DEFAULT_LOG_LEVEL = logging.INFO
+DEFAULT_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+DEFAULT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-# Create our logger
-logger = logging.getLogger("builder")
-logger.setLevel(logging.INFO)
-# Prevent propagation to avoid duplicate logs
-logger.propagate = False
+def _get_log_directory() -> Path:
+    """
+    Get or create the log directory.
 
-# Track if logging has been configured
-_logging_configured = False
-
-
-class SectionFormatter(logging.Formatter):
-    """Custom formatter that only shows timestamp and level for section headers and errors."""
-
-    def format(self, record):
-        # Check if this is a section header (starts with newline + ===)
-        is_section = (
-            record.msg.startswith("\n=== ") if isinstance(record.msg, str) else False
-        )
-
-        # Check if this is an error message
-        is_error = record.levelno >= logging.ERROR
-
-        if is_section:
-            # Full timestamp format for sections and errors
-            if is_error:
-                # Red timestamp and level for errors
-                fmt = f"{Fore.RED}%(asctime)s{Style.RESET_ALL}"
-                fmt += f" [{Fore.RED}ERROR{Style.RESET_ALL}] %(message)s"
-                self._style._fmt = fmt
-            else:
-                # Cyan timestamp and yellow level for sections
-                fmt = f"\n{Fore.CYAN}%(asctime)s{Style.RESET_ALL}"
-                fmt += f" [{Fore.YELLOW}INFO{Style.RESET_ALL}] %(message)s"
-                self._style._fmt = fmt
-            self.datefmt = "%Y-%m-%d %H:%M:%S"
-        else:
-            # No timestamp or level for other logs
-            self._style._fmt = "%(message)s"
-
-        # Format the message first
-        formatted_msg = super().format(record)
-
-        # If this is a section header, color the header text but keep equals signs black
-        if is_section:
-            # Split the header into parts (handle the newline)
-            parts = formatted_msg.split("===")
-            if len(parts) == 3:  # Should be ["\n", " HEADER ", ""]
-                # Color the middle part (the header text) while keeping === black
-                color = (
-                    Fore.RED if is_error else Fore.MAGENTA
-                )  # Red for errors, purple for info
-                formatted_msg = (
-                    parts[0] + "===" + color + parts[1] + Style.RESET_ALL + "==="
-                )
-
-        return formatted_msg
+    Returns:
+        Path to the log directory
+    """
+    log_dir = Path(os.getenv('PROMETHEUS_LOG_DIR', './logs'))
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return log_dir
 
 
-def configure_logging():
-    """Configure logging for the application."""
-    global _logging_configured
-    if _logging_configured:
-        return
+class StructuredLogger:
+    """Enhanced logger with structured logging capabilities."""
 
-    try:
-        # Remove any existing handlers to prevent duplicates
-        for handler in logger.handlers[:]:
-            logger.removeHandler(handler)
+    def __init__(
+        self,
+        name: str = "prometheus",
+        log_level: int = DEFAULT_LOG_LEVEL,
+        file_logging: bool = True,
+        log_format: str = DEFAULT_LOG_FORMAT
+    ):
+        """
+        Initialize a structured logger.
 
-        # Create console handler with colored output
+        Args:
+            name: Logger name
+            log_level: Logging level
+            file_logging: Enable file logging
+            log_format: Log message format
+        """
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(log_level)
+        self.logger.handlers.clear()  # Clear any existing handlers
+
+        # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.INFO)
-        console_formatter = SectionFormatter()
-        console_handler.setFormatter(console_formatter)
-        logger.addHandler(console_handler)
+        console_handler.setFormatter(logging.Formatter(log_format))
+        self.logger.addHandler(console_handler)
 
-        logger.info("Logging configured: INFO+ to console")
-        _logging_configured = True
+        # Optional file logging
+        if file_logging:
+            self._setup_file_logging()
 
-    except Exception as e:
-        # If logging setup fails, ensure basic console logging is available
-        print(f"Failed to configure logging: {e}", file=sys.stderr)
+    def _setup_file_logging(self):
+        """Set up file logging with rotation."""
+        log_dir = _get_log_directory()
+        log_filename = f"{datetime.now().strftime('%Y%m%d')}_prometheus.log"
+        log_path = log_dir / log_filename
 
+        # Timed rotating file handler (daily rotation)
+        file_handler = TimedRotatingFileHandler(
+            filename=log_path,
+            when='midnight',
+            interval=1,
+            backupCount=10,
+            encoding='utf-8'
+        )
+        file_handler.setFormatter(logging.Formatter(DEFAULT_LOG_FORMAT))
+        self.logger.addHandler(file_handler)
 
-def format_value(value: Any) -> str:
-    """Format a value for logging, handling multiline strings."""
-    if isinstance(value, str) and "\n" in value:
-        # Indent multiline strings
-        return "\n    " + value.replace("\n", "\n    ")
-    return str(value)
+    def log(
+        self,
+        level: int,
+        message: str,
+        extra: Optional[Dict[str, Any]] = None,
+        exc_info: bool = False
+    ):
+        """
+        Log a message with optional structured data.
 
+        Args:
+            level: Logging level
+            message: Log message
+            extra: Additional context data
+            exc_info: Include exception traceback
+        """
+        try:
+            log_data = {"message": message}
+            if extra:
+                log_data.update(extra)
 
-def log_section(name: str) -> None:
-    """Log a section header with consistent formatting."""
-    if not _logging_configured:
-        configure_logging()
-    logger.info(f"\n=== {name.upper()} ===")
+            # Add exception info if available
+            if exc_info and sys.exc_info()[0]:
+                log_data['exception'] = {
+                    'type': str(sys.exc_info()[0]),
+                    'message': str(sys.exc_info()[1]),
+                    'traceback': traceback.format_exc()
+                }
 
+            # Attempt to log as JSON if possible
+            try:
+                detailed_message = json.dumps(log_data, indent=2)
+            except (TypeError, ValueError):
+                detailed_message = str(log_data)
 
-def log_key_value(key: str, value: Any) -> None:
-    """Log a key-value pair with consistent formatting."""
-    if not _logging_configured:
-        configure_logging()
-    logger.info(f"{key}: {format_value(value)}")
+            self.logger.log(level, detailed_message)
+        except Exception as e:
+            print(f"Logging error: {e}", file=sys.stderr)
 
+    def debug(self, message: str, **kwargs):
+        """Log debug message."""
+        self.log(logging.DEBUG, message, **kwargs)
 
-def log_value(value: str) -> None:
-    """Log a value with consistent formatting."""
-    if not _logging_configured:
-        configure_logging()
-    logger.info(format_value(value))
+    def info(self, message: str, **kwargs):
+        """Log info message."""
+        self.log(logging.INFO, message, **kwargs)
 
+    def warning(self, message: str, **kwargs):
+        """Log warning message."""
+        self.log(logging.WARNING, message, **kwargs)
 
-def log_dict(data: dict, prefix: str = "") -> None:
-    """Log a dictionary with consistent formatting."""
-    for key, value in data.items():
-        if isinstance(value, dict):
-            log_dict(value, f"{prefix}{key}.")
-        else:
-            log_key_value(f"{prefix}{key}", value)
+    def error(self, message: str, **kwargs):
+        """Log error message."""
+        self.log(logging.ERROR, message, exc_info=True, **kwargs)
 
-
-def log_tool_call(tool_name: str, inputs: dict) -> None:
-    """Log a tool call with consistent formatting."""
-    if not _logging_configured:
-        configure_logging()
-    log_section(f"EXECUTING TOOL: {tool_name}")
-    if inputs:
-        logger.info("INPUTS:")
-        log_dict(inputs)
-
-
-def log_tool_result(result: Any) -> None:
-    """Log a tool result with consistent formatting."""
-    if not _logging_configured:
-        configure_logging()
-    logger.info("RESULT:")
-    if isinstance(result, dict):
-        # Handle success/failure responses
-        if "success" in result:
-            if result["success"]:
-                logger.info("✓ Success")
-                # For successful operations, show the main result or message
-                if "message" in result:
-                    logger.info(format_value(result["message"]))
-                # Show other relevant fields (excluding success flag and error)
-                for key, value in result.items():
-                    if key not in ["success", "error", "message"]:
-                        log_key_value(key, value)
-            else:
-                logger.info("✗ Failed")
-                if "error" in result:
-                    logger.info(format_value(result["error"]))
-        else:
-            # For other responses, just show key-value pairs
-            log_dict(result)
-    else:
-        logger.info(format_value(result))
+    def critical(self, message: str, **kwargs):
+        """Log critical message."""
+        self.log(logging.CRITICAL, message, exc_info=True, **kwargs)
 
 
-def log_error(
-    error: Exception, context: str = "", include_traceback: bool = True
-) -> None:
-    """Log an error with consistent formatting and optional stack trace."""
-    if not _logging_configured:
-        configure_logging()
-    logger.error(f"\n=== {context.upper() if context else 'ERROR'} ===")
-    logger.info(f"Error: {str(error)}")
-    if include_traceback and error.__traceback__:
-        logger.info("Stack trace:")
-        for line in traceback.format_tb(error.__traceback__):
-            logger.info(line.rstrip())
+# Global structured logger
+logger = StructuredLogger()
 
 
 def log_execution_time(func):
-    """Decorator to log function execution time."""
+    """
+    Decorator to log function execution time and result.
 
+    Args:
+        func: Function to be decorated
+
+    Returns:
+        Wrapped function with logging
+    """
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if not _logging_configured:
-            configure_logging()
         import time
-
         start_time = time.time()
         try:
             result = func(*args, **kwargs)
-            execution_time = time.time() - start_time
-            logger.info(f"{func.__name__} executed in {execution_time:.2f} seconds")
+            duration = time.time() - start_time
+            logger.info(
+                f"Function {func.__name__} executed successfully",
+                extra={
+                    "function": func.__name__,
+                    "execution_time_ms": round(duration * 1000, 2),
+                    "args": str(args),
+                    "kwargs": str(kwargs)
+                }
+            )
             return result
-        except Exception:
-            execution_time = time.time() - start_time
-            logger.error(f"{func.__name__} failed after {execution_time:.2f} seconds")
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(
+                f"Function {func.__name__} execution failed",
+                extra={
+                    "function": func.__name__,
+                    "execution_time_ms": round(duration * 1000, 2),
+                    "exception": str(e)
+                }
+            )
             raise
 
     return wrapper
-
-
-def add_file_logging(log_file: str) -> None:
-    """Add file logging with rotation."""
-    if not _logging_configured:
-        configure_logging()
-    try:
-        from logging.handlers import RotatingFileHandler
-
-        # Create log directory if it doesn't exist
-        log_dir = Path(log_file).parent
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create rotating file handler
-        file_handler = RotatingFileHandler(
-            log_file, maxBytes=10 * 1024 * 1024, backupCount=5  # 10MB
-        )
-        file_handler.setLevel(logging.INFO)
-        file_formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        file_handler.setFormatter(file_formatter)
-        logger.addHandler(file_handler)
-        logger.info(f"File logging enabled: {log_file}")
-    except Exception as e:
-        logger.error(f"Failed to set up file logging: {e}")
-
-
-def log_tool_response(response_str: str, tool_use_id: str = None) -> None:
-    """Log a tool response with consistent formatting.
-
-    Args:
-        response_str: The tool response string
-        tool_use_id: Optional tool use ID
-    """
-    if not _logging_configured:
-        configure_logging()
-    if tool_use_id:
-        logger.info(f"TOOL USE ID: {tool_use_id}")
-    logger.info("RESPONSE:")
-    try:
-        # Try to parse as Python dict string
-        response = ast.literal_eval(response_str)
-        if isinstance(response, dict):
-            # Handle success/failure responses
-            if "success" in response:
-                if response["success"]:
-                    logger.info("✓ Success")
-                    # For successful operations, show the main result or message
-                    if "message" in response:
-                        logger.info(format_value(response["message"]))
-                    # Show other relevant fields (excluding success flag and error)
-                    for key, value in response.items():
-                        if key not in ["success", "error", "message"]:
-                            log_key_value(key, value)
-                else:
-                    logger.info("✗ Failed")
-                    if "error" in response:
-                        logger.info(format_value(response["error"]))
-            else:
-                # For other responses, just show key-value pairs
-                log_dict(response)
-        else:
-            logger.info(format_value(response_str))
-    except (ValueError, SyntaxError):
-        # If not a valid Python literal, log as formatted string
-        logger.info(format_value(response_str))
