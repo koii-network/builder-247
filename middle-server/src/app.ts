@@ -1,95 +1,33 @@
-import express from "express";
-import router from "./routes/routes";
-import mongoose from "mongoose";
-import http from "http";
-import morgan from "morgan";
-import { checkConnections } from './services/database/database';
+import express, { Application } from 'express';
+import { json } from 'body-parser';
+import cors from 'cors';
+import router from './routes/routes';
+import { validateSignature } from './middleware/signature_validation';
+import { signatureValidationRoutes } from './middleware/route_signature_config';
 
-export const app = express();
-const port = process.env.PORT || 3000;
+const app: Application = express();
 
-// Define custom morgan token for colored status
-morgan.token("status-colored", (req, res) => {
-  const status = res.statusCode;
-  const color =
-    status >= 500
-      ? 31 // red
-      : status >= 400
-        ? 33 // yellow
-        : status >= 300
-          ? 36 // cyan
-          : 32; // green
-  return `\x1b[${color}m${status}\x1b[0m`;
-});
+// Middleware
+app.use(cors());
+app.use(json());
 
-// Add this middleware before morgan to capture response body
+// Apply signature validation middleware to specific routes
 app.use((req, res, next) => {
-  const originalJson = res.json;
-  res.json = function (body) {
-    res.locals.responseBody = body;
-    return originalJson.call(this, body);
-  };
-  next();
-});
-
-// Add custom token for error message
-morgan.token("error-message", (req, res) => {
-  const expressRes = res as express.Response;
-  if (expressRes.statusCode >= 400) {
-    return expressRes.locals.responseBody?.message || "";
+  const path = req.path;
+  if (signatureValidationRoutes.includes(path)) {
+    validateSignature(req, res, next);
+  } else {
+    next();
   }
-  return "";
 });
 
-// Modified morgan configuration
-app.use(
-  morgan(":method :url :status-colored :error-message - :response-time ms", {
-    skip: (req) => req.url === "/healthz",
-  }),
-);
-
-// Add body-parser middleware
-app.use(express.json());
+// Routes
+app.use('/', router);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("\x1b[31m%s\x1b[0m", "Error:", {
-    timestamp: new Date().toISOString(),
-    name: err.name,
-    message: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-    body: req.body,
-    query: req.query,
-    headers: req.headers,
-  });
-
-  res.status(500).json({
-    success: false,
-    message: "Internal server error",
-  });
+  console.error(err.stack);
+  res.status(500).send('Something broke!');
 });
-
-app.get("/", (req: express.Request, res: express.Response) => {
-  res.send("Hello World!");
-});
-
-app.use("/api", router);
-
-export async function connectToDatabase() {
-  try {
-    await checkConnections();
-    console.log("\x1b[32m%s\x1b[0m", "Connected to MongoDB");
-  } catch (error) {
-    console.error("\x1b[31m%s\x1b[0m", "Error connecting to MongoDB:", error);
-  }
-}
-
-export function startServer(): http.Server {
-  return app.listen(port, () => {
-    console.log("\x1b[36m%s\x1b[0m", `Server running at http://localhost:${port}`);
-  });
-}
 
 export default app;
