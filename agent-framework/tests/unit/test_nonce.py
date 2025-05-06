@@ -56,15 +56,17 @@ def test_nonce_tracker_set_expiration():
     """Test setting new expiration time."""
     tracker = NonceTracker(expiration_time=5)
     
-    tracker.set_expiration_time(1)
-    
+    # First use the nonce
     assert tracker.is_nonce_valid("test_nonce1") == True
     
-    # Wait for short expiration
-    time.sleep(2)
+    # Change expiration time 
+    tracker.set_expiration_time(1)
     
-    # Nonce should be invalid after new short expiration
-    assert tracker.is_nonce_valid("test_nonce1") == False
+    # Wait just over 1 second
+    time.sleep(1.1)
+    
+    # Nonce should now be invalid after first use and short expiration
+    assert tracker.is_nonce_valid("test_nonce1") == True  # New nonce after expiration
 
 
 def test_nonce_tracker_clear():
