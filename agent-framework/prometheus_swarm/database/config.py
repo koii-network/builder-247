@@ -88,4 +88,6 @@ if not db_path.startswith("sqlite:"):
     # Ensure the parent directory exists
     path.parent.mkdir(parents=True, exist_ok=True)
     # Convert to SQLite URL format with absolute path
-    db_path = f"sqlite:///{path}"\n\nengine = create_engine(db_path)
+    db_path = f"sqlite:///{path}"
+
+engine = create_engine(db_path)
