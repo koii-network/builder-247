@@ -5,13 +5,13 @@ import nacl.signing
 import json
 from typing import Dict, Optional, Any, Union
 from prometheus_swarm.utils.logging import log_error
-
+from .signature_monitor import signature_monitor
 
 def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:
     """Verify a signature locally using PyNaCl.
 
-    This function verifies signatures created by the Koii task node using nacl.sign().
-    The signatures are base58 encoded before being sent.
+    This function verifies signatures created by the Koii task node using nacl.sign()
+    and logs verification events using SignatureMonitor.
 
     Args:
         signed_message (str): Base58 encoded signed message
@@ -35,10 +35,15 @@ def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:
 
         # Decode message from bytes to string
         decoded_message = message.decode("utf-8")
+        
+        # Log successful verification
+        signature_monitor.log_verification(staking_key, success=True)
+        
         return {"data": decoded_message}
     except Exception as e:
+        # Log failed verification
+        signature_monitor.log_verification(staking_key, success=False, context={"error": str(e)})
         return {"error": f"Verification failed: {str(e)}"}
-
 
 def verify_and_parse_signature(
     signed_message: str,
@@ -83,12 +88,28 @@ def verify_and_parse_signature(
                         Exception("Invalid payload"),
                         context=f"Invalid payload: expected {key}={value}, got {data.get(key)}",
                     )
+                    # Log verification failure due to payload mismatch
+                    signature_monitor.log_verification(
+                        staking_key, 
+                        success=False, 
+                        context={"error": f"Payload mismatch for {key}"}
+                    )
                     return {
                         "error": f"Invalid payload: expected {key}={value}, got {data.get(key)}"
                     }
 
         return {"data": data}
     except json.JSONDecodeError:
+        signature_monitor.log_verification(
+            staking_key, 
+            success=False, 
+            context={"error": "Failed to parse signature payload as JSON"}
+        )
         return {"error": "Failed to parse signature payload as JSON"}
     except Exception as e:
+        signature_monitor.log_verification(
+            staking_key, 
+            success=False, 
+            context={"error": str(e)}
+        )
         return {"error": f"Error validating signature payload: {str(e)}"}
