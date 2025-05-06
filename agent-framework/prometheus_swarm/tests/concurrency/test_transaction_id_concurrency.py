@@ -83,7 +83,7 @@ def test_transaction_id_generation_speed():
     generator = TransactionIDGenerator()
     start_time = time.time()
     
-    def speed_worker():
+    def speed_worker(i):
         generator.generate_transaction_id()
 
     # Generate a large number of IDs concurrently
