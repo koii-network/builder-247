@@ -12,7 +12,7 @@ class TransactionIDValidator:
     @staticmethod
     def validate_transaction_id(transaction_id: Any) -> bool:
         """
-        Validate a transaction ID.
+        Validate a transaction ID with comprehensive checks.
         
         Args:
             transaction_id (Any): The transaction ID to validate.
@@ -20,23 +20,29 @@ class TransactionIDValidator:
         Returns:
             bool: True if the transaction ID is a valid UUID, False otherwise.
         """
+        # First, check if it's a string
         if not isinstance(transaction_id, str):
             return False
         
-        # Regular expression for strict UUID validation
+        # Strict regular expression for UUID validation
+        # Ensures exactly 8-4-4-4-12 format with only hex characters
         uuid_pattern = re.compile(
             r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', 
             re.IGNORECASE
         )
         
+        # Check if the pattern matches
         if not uuid_pattern.match(transaction_id):
             return False
         
+        # Additional uuid library validation
         try:
-            # Final validation using uuid library
-            uuid_obj = uuid.UUID(transaction_id)
-            return True
-        except (ValueError, TypeError, AttributeError):
+            # Attempt to create a UUID, which will do additional validation
+            parsed_uuid = uuid.UUID(transaction_id)
+            
+            # Ensure the parsed UUID matches the input exactly
+            return str(parsed_uuid).lower() == transaction_id.lower()
+        except (ValueError, TypeError):
             return False
     
     @staticmethod
