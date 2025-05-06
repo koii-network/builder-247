@@ -1,9 +1,50 @@
 """Database models."""
 
 from datetime import datetime
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, List, Dict
+from sqlmodel import SQLModel, Field, Relationship, Column
+from sqlalchemy import JSON
+from enum import Enum, auto
 
+
+class TransactionStatus(Enum):
+    """Enum for transaction status."""
+    PENDING = auto()
+    PROCESSING = auto()
+    COMPLETED = auto()
+    FAILED = auto()
+    CANCELLED = auto()
+
+
+class Transaction(SQLModel, table=True):
+    """Transaction tracking model."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Transaction Identification
+    transaction_uuid: str = Field(unique=True, index=True)
+    user_id: Optional[str] = Field(index=True)
+    
+    # Transaction Metadata
+    transaction_type: str 
+    description: Optional[str] = None
+    
+    # Transaction State
+    status: str = Field(default=TransactionStatus.PENDING.name)
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Additional Transaction Details
+    details: Optional[Dict] = Field(sa_column=Column(JSON))
+    
+    # Tracking and Debugging
+    source_system: Optional[str] = None
+    error_message: Optional[str] = None
+    stack_trace: Optional[str] = None
+
+    # Existing models from previous implementation...
 
 class Conversation(SQLModel, table=True):
     """Conversation model."""
