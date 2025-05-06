@@ -160,3 +160,4 @@ def test_rollback_no_migrations(temp_db_path, temp_migrations_dir):
     migrator = DatabaseMigrator(temp_db_path, temp_migrations_dir)
     
     with pytest.raises(ValueError, match="No migrations to rollback"):
+        migrator.rollback()
