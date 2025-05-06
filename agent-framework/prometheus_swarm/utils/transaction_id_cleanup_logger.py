@@ -23,7 +23,10 @@ class TransactionIdCleanupLogger:
         self.logger.setLevel(log_level)
         
         # Configure log directory
-        log_dir = log_dir or os.path.join(os.getcwd(), 'logs', 'transaction_cleanup')
+        if log_dir is None:
+            log_dir = os.path.join(os.getcwd(), 'logs', 'transaction_cleanup')
+        
+        # Ensure full path is created
         os.makedirs(log_dir, exist_ok=True)
         
         # File handler

@@ -1,0 +1,4 @@
+2025-05-06 11:46:29,598 - transaction_id_cleanup - INFO - Starting cleanup for transaction ID: test_tx_123
+2025-05-06 11:46:29,598 - transaction_id_cleanup - INFO - Cleanup successful for transaction ID: test_tx_123. Records deleted: 5. Duration: 0.1230 seconds
+2025-05-06 11:46:29,598 - transaction_id_cleanup - ERROR - Cleanup failed for transaction ID: test_tx_123. Error: Database connection failed
+2025-05-06 11:46:29,599 - transaction_id_cleanup - WARNING - Cleanup skipped for transaction ID: test_tx_123. Reason: Transaction already completed
