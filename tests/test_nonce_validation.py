@@ -38,13 +38,12 @@ def test_nonce_context():
     nonce1 = validator.generate_nonce('context1')
     nonce2 = validator.generate_nonce('context2')
     
-    # Validate nonces in their respective contexts
-    assert validator.validate_nonce(nonce1, 'context1') == True
-    assert validator.validate_nonce(nonce2, 'context2') == True
+    # Validate nonces 
+    assert validator.validate_nonce(nonce1) == True
+    assert validator.validate_nonce(nonce2) == True
     
-    # Attempt to validate with incorrect context should work 
-    # (nonce uniqueness is based on the nonce itself, not context)
-    assert validator.validate_nonce(nonce1, 'context2') == True
+    # Context does not affect nonce validation
+    assert validator.validate_nonce(nonce1) == False
 
 
 def test_nonce_expiration():
