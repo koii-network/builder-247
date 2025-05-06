@@ -32,7 +32,7 @@ def test_create_transaction(session):
     assert saved_tx.transaction_id == "test_tx_1"
     assert saved_tx.status == "pending"
     assert saved_tx.source == "test_source"
-    assert json.loads(saved_tx.metadata) == {"key": "value"}
+    assert json.loads(saved_tx.transaction_metadata) == {"key": "value"}
 
 
 def test_update_transaction_status(session):
