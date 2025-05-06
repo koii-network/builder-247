@@ -1,7 +1,7 @@
 """Database models."""
 
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import JSON
 from decimal import Decimal
@@ -46,6 +46,7 @@ class Transaction(SQLModel, table=True):
 
     class Config:
         """Configuration for Transaction model."""
+        arbitrary_types_allowed = True  # Allow Decimal and other complex types
         json_schema_extra = {
             "example": {
                 "transaction_uuid": "tx_123456",
