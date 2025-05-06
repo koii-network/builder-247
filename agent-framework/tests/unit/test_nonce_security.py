@@ -29,7 +29,7 @@ def test_nonce_expiration():
     nonce = nonce_manager.generate_nonce()
     time.sleep(2)  # Wait beyond max age
     
-    assert nonce_manager.validate_nonce(nonce) is True
+    assert nonce_manager.validate_nonce(nonce) is False  # Expired nonce should be false
 
 def test_invalid_nonce():
     """Test handling of invalid/empty nonces."""
