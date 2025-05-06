@@ -85,15 +85,15 @@ def test_nonce_manager_expired_nonce_cleanup(session):
     assert len(remaining_nonces) == 1
     assert remaining_nonces[0] == nonce3
 
-def test_nonce_metadata(session):
-    """Test nonce creation with metadata."""
-    metadata = "test_context"
+def test_nonce_context(session):
+    """Test nonce creation with context."""
+    context = "test_context"
     nonce_manager = NonceManager(session)
     
-    nonce_value = nonce_manager.create_nonce(metadata=metadata)
+    nonce_value = nonce_manager.create_nonce(context=context)
     
-    # Retrieve the nonce to check metadata
+    # Retrieve the nonce to check context
     nonce = session.query(Nonce).filter_by(value=nonce_value).first()
     
     assert nonce is not None
-    assert nonce.metadata == metadata
+    assert nonce.context == context
