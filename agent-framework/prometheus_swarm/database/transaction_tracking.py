@@ -71,6 +71,10 @@ class TransactionTracker:
         if not transaction_type or amount < 0:
             raise ValueError("Invalid transaction parameters")
         
+        # Adjust amount based on transaction type
+        if transaction_type == 'withdrawal':
+            amount = -abs(amount)
+        
         metadata_str = str(metadata) if metadata else None
         
         with sqlite3.connect(self.db_path) as conn:
@@ -155,4 +159,4 @@ class TransactionTracker:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(query, params)
-            return cursor.fetchone()[0]
+            return abs(cursor.fetchone()[0])
