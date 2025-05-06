@@ -1,16 +1,23 @@
-"""Error type for API errors."""
+"""Custom error types for Prometheus Swarm framework."""
 
+class ConfigurationError(Exception):
+    """Raised when a configuration issue is encountered."""
+    
+    def __init__(self, message, context=None):
+        """
+        Initialize configuration error.
+        
+        Args:
+            message (str): Error description
+            context (dict, optional): Additional error context
+        """
+        super().__init__(message)
+        self.context = context or {}
 
-class ClientAPIError(Exception):
-    """Error for API calls with status code."""
+class AuthenticationError(Exception):
+    """Raised when authentication fails."""
+    pass
 
-    def __init__(self, original_error: Exception):
-        print(original_error)
-        if hasattr(original_error, "status_code"):
-            self.status_code = original_error.status_code
-        else:
-            self.status_code = 500
-        if hasattr(original_error, "message"):
-            super().__init__(original_error.message)
-        else:
-            super().__init__(str(original_error))
+class ResourceNotFoundError(Exception):
+    """Raised when a requested resource cannot be found."""
+    pass
