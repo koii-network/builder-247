@@ -1,6 +1,6 @@
-from typing import Set, Any, Hashable
-from functools import lru_cache
+from typing import Set, Any
 import json
+from collections import OrderedDict
 
 class TransactionIDManager:
     """
@@ -18,9 +18,8 @@ class TransactionIDManager:
             max_cache_size (int, optional): Maximum number of transaction IDs to cache. 
                 Defaults to 1000.
         """
-        self._transaction_ids: Set[str] = set()
+        self._transaction_ids: OrderedDict = OrderedDict()
         self._max_cache_size = max_cache_size
-        self._order_of_entry = []
     
     def _convert_to_hashable(self, transaction_id: Any) -> str:
         """
@@ -56,13 +55,11 @@ class TransactionIDManager:
             return True
         
         # Add new transaction ID
-        self._transaction_ids.add(hashable_id)
-        self._order_of_entry.append(hashable_id)
+        self._transaction_ids[hashable_id] = True
         
         # Manage cache size
         if len(self._transaction_ids) > self._max_cache_size:
-            oldest_id = self._order_of_entry.pop(0)
-            self._transaction_ids.remove(oldest_id)
+            self._transaction_ids.popitem(last=False)
         
         return False
     
@@ -71,4 +68,3 @@ class TransactionIDManager:
         Clear all tracked transaction IDs.
         """
         self._transaction_ids.clear()
-        self._order_of_entry.clear()
