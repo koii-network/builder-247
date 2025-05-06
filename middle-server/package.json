@@ -13,6 +13,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.2",
     "@types/supertest": "^6.0.2",
+    "@types/uuid": "^9.0.8",
     "@typescript-eslint/eslint-plugin": "7.0.0",
     "@typescript-eslint/parser": "7.0.0",
     "add": "^2.0.6",
@@ -43,6 +44,7 @@
     "node-cache": "^5.1.2",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
-    "tsx": "^4.19.3"
+    "tsx": "^4.19.3",
+    "uuid": "^9.0.1"
   }
 }
