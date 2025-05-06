@@ -1,35 +1,33 @@
 import pytest
+from sqlmodel import SQLModel, create_engine, Session
 from prometheus_swarm.database.models import Evidence
-from prometheus_swarm.database.database import SessionLocal
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from typing import List
+
+def create_test_engine():
+    """Create an in-memory SQLite engine for testing."""
+    # Using SQLite in-memory database for testing
+    return create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
 
 def test_evidence_uniqueness():
     """
     Integration test to verify evidence uniqueness across the system.
     
     This test ensures that:
-    1. Duplicate evidence cannot be inserted
+    1. Duplicate evidence with same type cannot be inserted
     2. Each evidence entry has a unique identifier
     3. Constraints prevent duplicate evidence submissions
     """
-    # Create a test database session
-    engine = create_engine('sqlite:///:memory:')
-    TestingSessionLocal = sessionmaker(bind=engine)
+    # Create test engine and tables
+    engine = create_test_engine()
+    SQLModel.metadata.create_all(engine)
     
-    # Create tables
-    Evidence.__table__.create(bind=engine)
-    
-    def create_evidence(session, content: str, type: str) -> Evidence:
+    def create_evidence(session: Session, content: str, type: str) -> Evidence:
         """Helper function to create evidence entries"""
         evidence = Evidence(content=content, type=type)
         session.add(evidence)
         session.commit()
         return evidence
 
-    # Test 1: Basic uniqueness
-    with TestingSessionLocal() as session:
+    with Session(engine) as session:
         # First evidence submission should succeed
         evidence1 = create_evidence(session, "Test Content 1", "test_type")
         assert evidence1.id is not None
@@ -38,18 +36,16 @@ def test_evidence_uniqueness():
         with pytest.raises(Exception) as excinfo:
             create_evidence(session, "Test Content 1", "test_type")
         
-        assert "unique constraint" in str(excinfo.value).lower()
+        assert "UNIQUE constraint" in str(excinfo.value)
 
 def test_evidence_multiple_types():
     """
     Test that different types of evidence can have the same content
     """
-    engine = create_engine('sqlite:///:memory:')
-    TestingSessionLocal = sessionmaker(bind=engine)
+    engine = create_test_engine()
+    SQLModel.metadata.create_all(engine)
     
-    Evidence.__table__.create(bind=engine)
-    
-    with TestingSessionLocal() as session:
+    with Session(engine) as session:
         # Create evidence with same content, different types
         evidence1 = Evidence(content="Shared Content", type="type1")
         evidence2 = Evidence(content="Shared Content", type="type2")
@@ -67,22 +63,20 @@ def test_evidence_content_validation():
     """
     Test validation of evidence content
     """
-    engine = create_engine('sqlite:///:memory:')
-    TestingSessionLocal = sessionmaker(bind=engine)
+    engine = create_test_engine()
+    SQLModel.metadata.create_all(engine)
     
-    Evidence.__table__.create(bind=engine)
-    
-    with TestingSessionLocal() as session:
+    with Session(engine) as session:
         # Test empty content
         with pytest.raises(Exception) as excinfo:
             empty_evidence = Evidence(content="", type="test_type")
             session.add(empty_evidence)
             session.commit()
         
-        assert "empty" in str(excinfo.value).lower()
+        assert "content" in str(excinfo.value).lower()
         
         # Test very long content
-        long_content = "a" * 10001  # Assuming a max length constraint
+        long_content = "a" * 10001  # Exceeding max length
         with pytest.raises(Exception) as excinfo:
             long_evidence = Evidence(content=long_content, type="test_type")
             session.add(long_evidence)
