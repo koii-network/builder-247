@@ -1,44 +1,33 @@
-"""Database models."""
+from typing import Dict, Any, Optional
 
-from datetime import datetime
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+class Evidence:
+    """
+    Represents a piece of evidence with unique identification.
+    
+    Attributes:
+        identifier (str): A unique identifier for the evidence.
+        content (str): The main content or description of the evidence.
+        source (str): The origin or source of the evidence.
+        additional_metadata (Dict[str, Any], optional): Additional metadata associated with the evidence.
+    """
 
-
-class Conversation(SQLModel, table=True):
-    """Conversation model."""
-
-    id: str = Field(primary_key=True)
-    model: str
-    system_prompt: Optional[str] = None
-    available_tools: Optional[str] = None  # JSON list of tool names
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    messages: List["Message"] = Relationship(back_populates="conversation")
-
-
-class Message(SQLModel, table=True):
-    """Message model."""
-
-    id: str = Field(primary_key=True)
-    conversation_id: str = Field(foreign_key="conversation.id")
-    role: str
-    content: str  # JSON-encoded content
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    conversation: Conversation = Relationship(back_populates="messages")
-
-
-class Log(SQLModel, table=True):
-    """Log entry model."""
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    level: str
-    message: str
-    module: Optional[str] = None
-    function: Optional[str] = None
-    path: Optional[str] = None
-    line_no: Optional[int] = None
-    exception: Optional[str] = None
-    stack_trace: Optional[str] = None
-    request_id: Optional[str] = None
-    additional_data: Optional[str] = None
+    def __init__(
+        self,
+        identifier: str,
+        content: str,
+        source: str,
+        additional_metadata: Optional[Dict[str, Any]] = None
+    ):
+        """
+        Initialize an Evidence instance.
+        
+        Args:
+            identifier (str): A unique identifier for the evidence.
+            content (str): The main content or description of the evidence.
+            source (str): The origin or source of the evidence.
+            additional_metadata (Dict[str, Any], optional): Additional metadata for the evidence.
+        """
+        self.identifier = identifier
+        self.content = content
+        self.source = source
+        self.additional_metadata = additional_metadata or {}

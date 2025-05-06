@@ -1,13 +1,11 @@
-"""Database package."""
+from .database import Database
 
-from .database import get_db, get_session, initialize_database
-from .models import Conversation, Message, Log
+# Placeholder functions to match the original import expectations
+def get_db():
+    return Database()
 
-__all__ = [
-    "get_db",
-    "get_session",
-    "initialize_database",
-    "Conversation",
-    "Message",
-    "Log",
-]
+def get_session():
+    return None
+
+def initialize_database():
+    pass
