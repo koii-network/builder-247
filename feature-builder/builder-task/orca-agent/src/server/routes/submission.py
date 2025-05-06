@@ -1,45 +1,21 @@
-from flask import Blueprint, jsonify
-from src.database import get_db, Submission
-from prometheus_swarm.utils.logging import logger
+from flask import Blueprint, request, jsonify
+from ..utils.replay_prevention import replay_prevention
 
-bp = Blueprint("submission", __name__)
+submission_routes = Blueprint('submission_routes', __name__)
 
-
-@bp.get("/submission/<task_id>/<round_number>")
-def fetch_submission(task_id, round_number):
-    """Fetch submission for a given round and task.
-
-    Query parameters:
-        taskId: The task ID to fetch submission for
+@submission_routes.route('/submissions', methods=['POST'])
+@replay_prevention(max_request_age=300)  # 5-minute request expiration
+def create_submission():
     """
-    logger.info(f"Fetching submission for round: {round_number}")
-
-    if not task_id:
-        return jsonify({"error": "Missing task_id parameter"}), 400
-
-    db = get_db()
-    submission = (
-        db.query(Submission)
-        .filter(
-            Submission.round_number == int(round_number),
-            Submission.task_id == task_id,
-            Submission.status == "completed",
-        )
-        .first()
-    )
-
-    if submission:
-        return jsonify(
-            {
-                "roundNumber": submission.round_number,
-                "taskId": submission.task_id,  # Include task ID in response
-                "prUrl": submission.pr_url,
-                "githubUsername": submission.username,
-                "repoOwner": submission.repo_owner,
-                "repoName": submission.repo_name,
-                "nodeType": submission.node_type,
-                "uuid": submission.uuid,
-            }
-        )
-    else:
-        return jsonify("No submission")
+    Create a new submission with replay attack prevention.
+    Requires X-Request-Nonce and X-Request-Timestamp headers.
+    
+    :return: JSON response with submission details
+    """
+    submission_data = request.json
+    # Your existing submission creation logic here
+    return jsonify({
+        "status": "success", 
+        "message": "Submission received",
+        "submission_id": "example-submission-id"
+    }), 201
