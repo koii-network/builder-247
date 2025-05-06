@@ -15,7 +15,9 @@ class TestTransactionIDValidator:
             '',
             'not-a-uuid',
             '123',
-            '12345678-abcd-1234-5678-1234567890ab',  # malformed UUID
+            '12345678-abcd-1234-5678-1234567890ab-extra',  # too long
+            '12345678abcd1234567812345678901x',  # invalid characters
+            '12345678-abcd-1234-5678-1234567890ab',  # looks like UUID but isn't valid
             123456,  # integer
             {},  # dictionary
             []   # list
