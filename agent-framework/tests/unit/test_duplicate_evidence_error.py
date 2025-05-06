@@ -33,4 +33,5 @@ def test_log_duplicate_evidence(caplog):
     
     assert log_record.levelno == logging.WARNING
     assert 'Duplicate evidence detected' in log_record.getMessage()
-    assert log_record.extra['evidence'] == evidence
+    assert evidence['id'] in log_record.getMessage()
+    assert evidence['name'] in log_record.getMessage()
