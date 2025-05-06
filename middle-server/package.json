@@ -24,7 +24,8 @@
     "prettier": "^3.4.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
-    "yarn": "^1.22.22"
+    "yarn": "^1.22.22",
+    "@types/uuid": "^9.0.7"
   },
   "dependencies": {
     "@_koii/create-task-cli": "^1.1.7",
@@ -43,6 +44,7 @@
     "node-cache": "^5.1.2",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
-    "tsx": "^4.19.3"
+    "tsx": "^4.19.3",
+    "uuid": "^9.0.1"
   }
 }
