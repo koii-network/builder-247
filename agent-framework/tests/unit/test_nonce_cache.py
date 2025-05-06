@@ -11,13 +11,12 @@ class TestNonceCache:
         """Create a mock Redis client for testing."""
         with patch('redis.from_url') as mock_from_url:
             mock_client = MagicMock()
+            mock_client.ping.return_value = True
             mock_from_url.return_value = mock_client
             yield mock_client
     
     def test_init_default(self, mock_redis):
         """Test initialization with default parameters."""
-        mock_redis.ping.return_value = True
-        
         nonce_cache = NonceCache()
         
         assert nonce_cache is not None
@@ -31,17 +30,20 @@ class TestNonceCache:
             with pytest.raises(ConnectionError, match="Unable to connect to Redis"):
                 NonceCache()
     
-    def test_generate_nonce(self):
+    def test_generate_nonce(self, mock_redis):
         """Test nonce generation."""
-        nonce_cache = NonceCache()
-        
-        # Test with different input types
-        nonce1 = nonce_cache.generate_nonce("test_data")
-        nonce2 = nonce_cache.generate_nonce(12345)
-        
-        assert len(nonce1) == 64  # SHA-256 length
-        assert len(nonce2) == 64
-        assert nonce1 != nonce2  # Nonces should be unique due to timestamp
+        with patch('time.time') as mock_time:
+            mock_time.return_value = 1234567890.0  # Fixed timestamp
+            
+            nonce_cache = NonceCache()
+            
+            # Test with different input types
+            nonce1 = nonce_cache.generate_nonce("test_data")
+            nonce2 = nonce_cache.generate_nonce(12345)
+            
+            assert len(nonce1) == 64  # SHA-256 length
+            assert len(nonce2) == 64
+            assert nonce1 != nonce2  # Ensure hash changes with timestamp
     
     def test_store_nonce(self, mock_redis):
         """Test storing a nonce."""
