@@ -2,6 +2,7 @@
 
 from .database import get_db, get_session, initialize_database
 from .models import Conversation, Message, Log
+from .evidence_validation import validate_evidence_uniqueness
 
 __all__ = [
     "get_db",
@@ -10,4 +11,5 @@ __all__ = [
     "Conversation",
     "Message",
     "Log",
+    "validate_evidence_uniqueness",
 ]
