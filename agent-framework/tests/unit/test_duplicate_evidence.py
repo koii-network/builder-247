@@ -107,7 +107,7 @@ def test_filter_duplicates_missing_key():
     
     filtered = filter_duplicates(evidence)
     
-    assert len(filtered) == 3
+    assert len(filtered) == 2
     assert filtered == [
         {'id': 1, 'data': 'first'},
         {'data': 'no id'}
