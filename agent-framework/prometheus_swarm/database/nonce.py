@@ -40,7 +40,7 @@ class NonceManager:
         
         # Store nonce with timestamp and optional context
         self._nonce_store[nonce] = {
-            'timestamp': datetime.utcnow(),
+            'timestamp': datetime.now(datetime.UTC),
             'context': context,
             'used': False
         }
@@ -69,7 +69,7 @@ class NonceManager:
             return False
         
         # Check age of nonce
-        age = datetime.utcnow() - nonce_data['timestamp']
+        age = datetime.now(datetime.UTC) - nonce_data['timestamp']
         if age > timedelta(seconds=self._max_age):
             del self._nonce_store[nonce]
             return False
@@ -90,7 +90,7 @@ class NonceManager:
         Returns:
             int: Number of expired nonces removed.
         """
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         expired_nonces = [
             nonce for nonce, data in self._nonce_store.items()
             if (now - data['timestamp']) > timedelta(seconds=self._max_age)
