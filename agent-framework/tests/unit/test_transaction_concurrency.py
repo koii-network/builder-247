@@ -34,14 +34,16 @@ def test_concurrent_transaction_registration():
     manager = TransactionIDManager()
     successes = [0]
     failures = [0]
+    lock = threading.Lock()
     
-    def register_transaction(tid: str, success_counter, failure_counter):
+    def register_transaction(tid: str):
+        nonlocal successes, failures
         if manager.register_transaction(tid):
-            with success_counter[0] += 1
-            pass
+            with lock:
+                successes[0] += 1
         else:
-            with failure_counter[0] += 1
-            pass
+            with lock:
+                failures[0] += 1
     
     # Try to register the same transaction ID across multiple threads
     threads = []
@@ -49,7 +51,7 @@ def test_concurrent_transaction_registration():
     
     for _ in range(10):
         thread = threading.Thread(target=register_transaction, 
-                                  args=(transaction_id, successes, failures))
+                                  args=(transaction_id,))
         threads.append(thread)
         thread.start()
     
@@ -66,10 +68,13 @@ def test_concurrent_transaction_state_update():
     manager.register_transaction(transaction_id)
     
     states = []
+    lock = threading.Lock()
     
     def update_state(state: str):
+        nonlocal states
         manager.update_transaction_state(transaction_id, state)
-        states.append(state)
+        with lock:
+            states.append(state)
     
     threads = []
     test_states = ['processing', 'completed', 'error', 'rolled_back', 'finalized']
