@@ -32,18 +32,17 @@ def test_nonce_with_salt():
     
     assert nonce1 != nonce2
 
-def test_nonce_expiration():
+def test_nonce_expiration(monkeypatch):
     """Test nonce expiration"""
-    nonce_service = NonceService(include_timestamp=True)
+    nonce_service = NonceService(include_timestamp=True, max_age=1)
     nonce = nonce_service.generate_nonce()
     
     # Simulate time passing
     def mock_time():
-        return time.time() + 7200  # 2 hours later
+        return time.time() + 2
     
-    with pytest.monkeypatch.context() as m:
-        m.setattr(time, 'time', mock_time)
-        assert nonce_service.validate_nonce(nonce, max_age=3600) is False
+    monkeypatch.setattr(time, 'time', mock_time)
+    assert nonce_service.validate_nonce(nonce) is False
 
 def test_invalid_nonce_length():
     """Test invalid nonce length"""
