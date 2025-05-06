@@ -1,13 +1,13 @@
 import pytest
-from prometheus_swarm.database.evidence_validation import validate_evidence_uniqueness
 from unittest.mock import patch, MagicMock
+from prometheus_swarm.database.evidence_validation import validate_evidence_uniqueness
 
 def test_validate_evidence_uniqueness_valid():
     # Mock an empty database, so evidence should be unique
-    with patch('prometheus_swarm.database.evidence_validation.get_database_connection') as mock_db:
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = (0,)
-        mock_db.return_value.cursor.return_value = mock_cursor
+    with patch('prometheus_swarm.database.evidence_validation.get_db') as mock_db:
+        mock_db_session = MagicMock()
+        mock_db.return_value = mock_db_session
+        mock_db_session.execute.return_value.scalar.return_value = 0
 
         evidence = {
             'hash': 'unique_hash',
@@ -20,10 +20,10 @@ def test_validate_evidence_uniqueness_valid():
 
 def test_validate_evidence_uniqueness_duplicate():
     # Mock a database with existing evidence
-    with patch('prometheus_swarm.database.evidence_validation.get_database_connection') as mock_db:
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = (1,)
-        mock_db.return_value.cursor.return_value = mock_cursor
+    with patch('prometheus_swarm.database.evidence_validation.get_db') as mock_db:
+        mock_db_session = MagicMock()
+        mock_db.return_value = mock_db_session
+        mock_db_session.execute.return_value.scalar.return_value = 1
 
         evidence = {
             'hash': 'duplicate_hash',
@@ -48,7 +48,7 @@ def test_validate_evidence_uniqueness_empty_evidence():
 
 def test_validate_evidence_uniqueness_database_error():
     # Test database connection error
-    with patch('prometheus_swarm.database.evidence_validation.get_database_connection') as mock_db:
+    with patch('prometheus_swarm.database.evidence_validation.get_db') as mock_db:
         mock_db.side_effect = Exception("Database connection failed")
         
         evidence = {
