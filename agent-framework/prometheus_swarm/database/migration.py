@@ -1,3 +1,7 @@
+# migration.py
+# Database Migration Utility for SQLite
+# Provides a flexible and robust way to manage database schema changes
+
 import os
 import sqlite3
 from typing import List, Dict, Any, Optional
@@ -8,6 +12,18 @@ class DatabaseMigrator:
     
     This migrator helps manage schema changes for SQLite databases 
     by tracking and applying migration scripts in a sequential manner.
+
+    Key Features:
+    - Create and track migration versions
+    - Apply pending migrations
+    - Rollback migrations
+    - Handle migration tracking in a schema_migrations table
+    
+    Example:
+        migrator = DatabaseMigrator('my_database.db', 'my_migrations/')
+        migrator.migrate()  # Apply all pending migrations
+        migrator.migrate('002_add_users')  # Migrate to a specific version
+        migrator.rollback()  # Rollback last migration
     """
 
     def __init__(self, db_path: str, migrations_dir: str = 'migrations'):
@@ -25,6 +41,7 @@ class DatabaseMigrator:
     def _ensure_migrations_table(self):
         """
         Create a migrations tracking table if it doesn't exist.
+        This table helps track which migrations have been applied to the database.
         """
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -53,7 +70,7 @@ class DatabaseMigrator:
         Find migration scripts that have not yet been applied.
 
         Returns:
-            List[str]: List of pending migration versions
+            List[str]: List of pending migration versions sorted in order
         """
         applied_migrations = set(self.get_applied_migrations())
         migration_files = [f for f in os.listdir(self.migrations_dir) if f.endswith('.sql')]
