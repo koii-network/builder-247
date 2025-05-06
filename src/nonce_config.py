@@ -40,11 +40,15 @@ class NonceConfig:
         Load configuration from multiple sources.
         Prioritizes environment variables over JSON config.
         """
-        # Load from JSON file if it exists
+        # Check if file exists
+        if not os.path.exists(self._config_path):
+            warnings.warn(f"Configuration file not found: {self._config_path}", UserWarning)
+            return
+
+        # Load from JSON file
         try:
-            if os.path.exists(self._config_path):
-                with open(self._config_path, 'r') as f:
-                    self._config.update(json.load(f))
+            with open(self._config_path, 'r') as f:
+                self._config.update(json.load(f))
         except (IOError, json.JSONDecodeError) as e:
             warnings.warn(f"Could not load config file: {e}", UserWarning)
     
