@@ -8,14 +8,14 @@ def test_nonce_generation_default():
     """Test default nonce generation."""
     nonce = generate_nonce()
     assert isinstance(nonce, str)
-    assert len(nonce) >= 32 and len(nonce) <= 43
+    assert len(nonce) == 43  # Exact length for default 32-byte nonce
 
 def test_nonce_custom_length():
     """Test nonce generation with custom length."""
     lengths = [16, 32, 64, 128]
     for length in lengths:
         nonce = generate_nonce(length=length)
-        assert length - 2 <= len(nonce) <= length + 2  # Allow small variation
+        assert len(nonce) == length
 
 def test_nonce_uniqueness():
     """Test that generated nonces are unique."""
@@ -26,7 +26,7 @@ def test_nonce_no_timestamp():
     """Test nonce generation without timestamp."""
     nonce = generate_nonce(include_timestamp=False)
     assert isinstance(nonce, str)
-    assert len(nonce) >= 32 and len(nonce) <= 43
+    assert len(nonce) == 43
 
 def test_nonce_invalid_length():
     """Test invalid nonce length raises ValueError."""
@@ -40,11 +40,11 @@ def test_nonce_base64_encoding():
     """Test nonce is correctly base64 encoded."""
     nonce = generate_nonce()
     # Check base64 safe characters
-    assert re.match(r'^[A-Za-z0-9_-]+$', nonce)
+    assert re.match(r'^[A-Za-z0-9_-]+={0,3}$', nonce)
     
     # Validate base64 decoding
     try:
-        decoded = base64.urlsafe_b64decode(nonce + '==')
+        decoded = base64.urlsafe_b64decode(nonce)
         assert len(decoded) >= 16
     except Exception as e:
         pytest.fail(f"Invalid base64 encoding: {e}")
