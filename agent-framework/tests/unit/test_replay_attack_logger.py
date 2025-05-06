@@ -61,7 +61,7 @@ def test_signature_uniqueness():
     request2 = {"data": "sensitive", "user_id": 123}  # Same data, different order
     
     assert logger.is_replay(request1) is False
-    assert logger.is_replay(request2) is False  # Because order doesn't matter
+    assert logger.is_replay(request2) is True  # Should be a replay
 
 def test_invalid_input():
     """Test handling of various input types."""
