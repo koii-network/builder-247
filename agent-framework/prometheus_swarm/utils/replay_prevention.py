@@ -24,6 +24,7 @@ class ReplayAttackPrevention:
         self._window_seconds = window_seconds
         self._max_cache_size = max_cache_size
         self._lock = threading.Lock()
+        self._request_order = []
         
         # Start a background thread to clean up expired entries
         self._cleanup_thread = threading.Thread(target=self._periodic_cleanup, daemon=True)
@@ -65,13 +66,14 @@ class ReplayAttackPrevention:
             if request_id in self._request_cache:
                 return False
             
-            # Add request to cache
+            # Add request to cache and track its order
             self._request_cache[request_id] = current_time
+            self._request_order.append(request_id)
             
-            # Limit cache size
-            if len(self._request_cache) > self._max_cache_size:
-                oldest_key = min(self._request_cache, key=self._request_cache.get)
-                del self._request_cache[oldest_key]
+            # Remove oldest entries if cache exceeds max size
+            while len(self._request_cache) > self._max_cache_size:
+                oldest_id = self._request_order.pop(0)
+                del self._request_cache[oldest_id]
             
             return True
     
@@ -84,6 +86,7 @@ class ReplayAttackPrevention:
             
             current_time = time.time()
             with self._lock:
+                # Find and remove expired entries
                 expired_keys = [
                     key for key, timestamp in self._request_cache.items()
                     if current_time - timestamp > self._window_seconds
@@ -91,3 +94,4 @@ class ReplayAttackPrevention:
                 
                 for key in expired_keys:
                     del self._request_cache[key]
+                    self._request_order.remove(key)
