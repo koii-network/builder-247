@@ -33,10 +33,12 @@ def test_unique_nonces():
 
 def test_time_based_nonce_generation():
     """Test time-based nonce generation"""
-    nonce1 = NonceService.generate_time_based_nonce()
-    time.sleep(0.1)  # Small delay
-    nonce2 = NonceService.generate_time_based_nonce()
+    salt = "test_salt"
+    nonce1 = NonceService.generate_time_based_nonce(salt)
+    time.sleep(1)  # Wait for time to change
+    nonce2 = NonceService.generate_time_based_nonce(salt)
     
+    # At different times, these should be different
     assert nonce1 != nonce2
 
 def test_time_based_nonce_verification():
