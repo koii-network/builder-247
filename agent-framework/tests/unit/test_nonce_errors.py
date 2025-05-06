@@ -1,5 +1,6 @@
 """Unit tests for NonceError in prometheus_swarm.utils.errors."""
 
+import logging
 import pytest
 from prometheus_swarm.utils.errors import NonceError
 
@@ -54,10 +55,26 @@ def test_raise_for_invalid_nonce_max_value():
     assert error.error_type == "NONCE_VALUE_TOO_HIGH"
 
 
-def test_nonce_error_log_method(caplog):
-    """Test log method works with capturing logs."""
-    error = NonceError("Test logging", error_type="LOG_TEST")
-    error.log_error()  # Will print to console
+def test_nonce_error_log_method():
+    """Test log method works with a mock logger."""
+    # Create a mock logger
+    mock_logger = logging.getLogger('test_logger')
+    mock_logger.setLevel(logging.ERROR)
     
-    # Optional: add a mock logger test if more complex logging is needed
-    assert "Test logging" in caplog.text
+    # Create a handler that captures log records
+    log_capture_handler = logging.Handler()
+    log_records = []
+    
+    def capture_log_record(record):
+        log_records.append(record)
+    
+    log_capture_handler.emit = capture_log_record
+    mock_logger.addHandler(log_capture_handler)
+    
+    # Create and log an error
+    error = NonceError("Test logging", error_type="LOG_TEST")
+    error.log_error(mock_logger)
+    
+    # Verify the log record
+    assert len(log_records) == 1
+    assert "Test logging" in log_records[0].getMessage()
