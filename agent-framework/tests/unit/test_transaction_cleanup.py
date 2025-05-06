@@ -1,15 +1,13 @@
 import pytest
 import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from prometheus_swarm.utils.transaction_cleanup import cleanup_expired_transactions
 from prometheus_swarm.database.models import Transaction
 
 @pytest.fixture
 def mock_db_session():
-    with patch('prometheus_swarm.database.database.get_database_session') as mock_session:
-        mock_session_instance = MagicMock()
-        mock_session.return_value = mock_session_instance
-        yield mock_session_instance
+    mock_session = MagicMock()
+    return mock_session
 
 def test_cleanup_expired_transactions(mock_db_session):
     # Create mock expired transactions
@@ -24,8 +22,11 @@ def test_cleanup_expired_transactions(mock_db_session):
     # Configure the mock query to return the expired transactions
     mock_db_session.query().filter().limit().all.return_value = mock_transactions
     
-    # Call the cleanup function
-    result = cleanup_expired_transactions(expiration_threshold_hours)
+    # Call the cleanup function with mock session
+    result = cleanup_expired_transactions(
+        expiration_threshold_hours,
+        get_session=lambda: mock_db_session
+    )
     
     # Verify the results
     assert result['status'] == 'success'
@@ -39,8 +40,10 @@ def test_cleanup_no_expired_transactions(mock_db_session):
     # Configure the mock query to return no transactions
     mock_db_session.query().filter().limit().all.return_value = []
     
-    # Call the cleanup function
-    result = cleanup_expired_transactions()
+    # Call the cleanup function with mock session
+    result = cleanup_expired_transactions(
+        get_session=lambda: mock_db_session
+    )
     
     # Verify the results
     assert result['status'] == 'success'
@@ -54,8 +57,10 @@ def test_cleanup_database_error(mock_db_session):
     # Simulate a database error during cleanup
     mock_db_session.query().filter().limit().all.side_effect = Exception("Database error")
     
-    # Call the cleanup function
-    result = cleanup_expired_transactions()
+    # Call the cleanup function with mock session
+    result = cleanup_expired_transactions(
+        get_session=lambda: mock_db_session
+    )
     
     # Verify the results
     assert result['status'] == 'error'
@@ -77,8 +82,11 @@ def test_cleanup_max_batch_size(mock_db_session):
     # Configure the mock query to return transactions
     mock_db_session.query().filter().limit().all.return_value = mock_transactions[:1000]
     
-    # Call the cleanup function with default max batch size
-    result = cleanup_expired_transactions(expiration_threshold_hours)
+    # Call the cleanup function with mock session
+    result = cleanup_expired_transactions(
+        expiration_threshold_hours,
+        get_session=lambda: mock_db_session
+    )
     
     # Verify the results
     assert result['status'] == 'success'
