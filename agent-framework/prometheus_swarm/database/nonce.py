@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import declarative_base
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 import hashlib
 
@@ -21,8 +21,8 @@ class Nonce(Base):
 
     id = Column(Integer, primary_key=True)
     value = Column(String, unique=True, nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    expires_at = Column(DateTime(timezone=True), nullable=False)
     context = Column(String, nullable=True)
 
     @classmethod
@@ -43,11 +43,12 @@ class Nonce(Base):
             unique_seed += str(context)
         
         nonce_value = hashlib.sha256(unique_seed.encode()).hexdigest()
+        now = datetime.now(timezone.utc)
         
         return cls(
             value=nonce_value,
-            created_at=datetime.utcnow(),
-            expires_at=datetime.utcnow() + timedelta(minutes=expiration_minutes),
+            created_at=now,
+            expires_at=now + timedelta(minutes=expiration_minutes),
             context=str(context) if context else None
         )
 
@@ -58,7 +59,7 @@ class Nonce(Base):
         Returns:
             bool: True if nonce is valid, False otherwise
         """
-        return datetime.utcnow() < self.expires_at
+        return datetime.now(timezone.utc) < self.expires_at
 
     def __repr__(self):
         return f"<Nonce(value={self.value}, expires_at={self.expires_at})>"
@@ -124,8 +125,9 @@ class NonceManager:
         Returns:
             int: Number of expired nonces removed
         """
+        now = datetime.now(timezone.utc)
         expired_nonces = self.session.query(Nonce).filter(
-            Nonce.expires_at < datetime.utcnow()
+            Nonce.expires_at < now
         ).all()
         
         for nonce in expired_nonces:
