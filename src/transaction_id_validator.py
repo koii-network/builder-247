@@ -75,15 +75,18 @@ class TransactionIDValidator:
         Returns:
             dict: Performance metrics including min, max, mean, and median validation times
         """
-        # Generate valid transaction IDs for testing
-        valid_transaction_ids = [self.generate_transaction_id() for _ in range(iterations)]
-        # Add some invalid transaction IDs
-        invalid_transaction_ids = ['invalid_id', 'another_bad_id', '123']
+        # Explicitly create a mix of valid and invalid transaction IDs
+        test_ids: List[str] = []
+        
+        # Add valid transaction IDs
+        for _ in range(iterations):
+            test_ids.append(self.generate_transaction_id())
+        
+        # Add explicitly invalid transaction IDs 
+        invalid_ids = ['invalid_id', 'another_bad_id', '123'] * (iterations // 3 + 1)
+        test_ids.extend(invalid_ids[:iterations])
         
         validation_times: List[float] = []
-        
-        # Mix of valid and invalid IDs
-        test_ids = valid_transaction_ids + invalid_transaction_ids
         
         for transaction_id in test_ids:
             start_time = time.perf_counter()
