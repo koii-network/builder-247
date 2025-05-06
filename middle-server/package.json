@@ -3,8 +3,8 @@
     "start": "ts-node src/index.ts",
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
     "build": "tsc && cpx './src/utils/webasm_bincode_deserializer/**/*' './dist/src/utils/webasm_bincode_deserializer'",
-    "test": "jest --runInBand",
-    "test:watch": "jest --watch",
+    "test": "npx ts-jest tests/middleware/transaction-id-validator.test.ts",
+    "test:watch": "npx ts-jest --watch tests/middleware/transaction-id-validator.test.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix"
   },
@@ -13,6 +13,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.2",
     "@types/supertest": "^6.0.2",
+    "@types/uuid": "^9.0.8",
     "@typescript-eslint/eslint-plugin": "7.0.0",
     "@typescript-eslint/parser": "7.0.0",
     "add": "^2.0.6",
@@ -22,9 +23,9 @@
     "jest": "^29.7.0",
     "nodemon": "^3.0.1",
     "prettier": "^3.4.2",
+    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.3",
-    "yarn": "^1.22.22"
+    "typescript": "^5.7.3"
   },
   "dependencies": {
     "@_koii/create-task-cli": "^1.1.7",
@@ -42,7 +43,7 @@
     "morgan": "^1.10.0",
     "node-cache": "^5.1.2",
     "supertest": "^7.0.0",
-    "ts-jest": "^29.2.5",
-    "tsx": "^4.19.3"
+    "tsx": "^4.19.3",
+    "uuid": "^9.0.1"
   }
 }
