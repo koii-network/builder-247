@@ -50,7 +50,13 @@ def test_invalid_uuid_format():
         'g-uuid-format',
         '12345',
         'ffffffff-ffff-ffff-ffff-ffffffffffff',
-        str(uuid.uuid4())[:-1] + 'g'  # Malformed last character
+        str(uuid.uuid4())[:-1] + 'g',  # Malformed last character
+        # Test edge cases with problematic sections
+        'ffffffff-ffff-ffff-ffff-ffffffffxx',  # x is not hex
+        'ffffffff-ffff-ffff-ffff-ffffffffffff0',  # extra character
+        'ffffffff-ffff-ffff-ffff-ffffffffffff-',  # additional segment
+        '12345678-1234-1234-1234-123456789012',  # All numeric
+        'GGGGGGGG-GGGG-GGGG-GGGG-GGGGGGGGGGGG'  # Non-hex uppercase
     ]
     for invalid_uuid in invalid_uuids:
         assert validate_transaction_id(invalid_uuid) is False
