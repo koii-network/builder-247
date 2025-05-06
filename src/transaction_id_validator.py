@@ -9,21 +9,26 @@ class TransactionIDValidator:
     """
     
     @staticmethod
-    def validate_transaction_id(transaction_id: str) -> bool:
+    def validate_transaction_id(transaction_id: Any) -> bool:
         """
         Validate a transaction ID.
         
         Args:
-            transaction_id (str): The transaction ID to validate.
+            transaction_id (Any): The transaction ID to validate.
         
         Returns:
-            bool: True if the transaction ID is valid, False otherwise.
+            bool: True if the transaction ID is a valid UUID, False otherwise.
         """
+        if not isinstance(transaction_id, str):
+            return False
+        
         try:
-            # Check if the transaction_id is a valid UUID
-            uuid.UUID(str(transaction_id))
-            return True
-        except (ValueError, TypeError):
+            # Stricter validation: ensure perfect UUID format
+            uuid_obj = uuid.UUID(transaction_id)
+            
+            # Additional checks to ensure it's a canonical representation
+            return str(uuid_obj) == transaction_id
+        except (ValueError, TypeError, AttributeError):
             return False
     
     @staticmethod
