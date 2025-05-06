@@ -60,28 +60,24 @@ def test_replay_prevention_max_cache_size():
     """
     Test that the cache respects the maximum size limit.
     
-    This test verifies that requests beyond the max cache size 
-    become unique again, allowing for time-based request tracking.
+    This test verifies that the oldest requests are removed when 
+    the cache size exceeds the maximum limit.
     """
     prevention = ReplayAttackPrevention(window_seconds=5, max_cache_size=3)
     
-    # Track request uniqueness and expect most recent requests to be unique
-    unique_count = 0
+    # Generate more requests than the max cache size
     request_ids = []
-    
     for i in range(5):
         request_data = {"user": f"user{i}", "action": "test"}
         request_id = prevention.generate_request_id(request_data)
         request_ids.append(request_id)
-    
-    # Verify request uniqueness across different generations
-    for request_id in request_ids:
+        
+        # Only the last 3 requests should remain unique
         is_unique = prevention.is_unique_request(request_id)
-        if is_unique:
-            unique_count += 1
-    
-    # At most 3 requests should be unique due to max cache size
-    assert unique_count <= 3
+        if i < 2:
+            assert is_unique is False  # Earlier requests become replays
+        else:
+            assert is_unique is True  # Recent requests remain unique
 
 def test_generate_request_id_uniqueness():
     """
