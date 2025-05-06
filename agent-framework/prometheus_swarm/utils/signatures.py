@@ -1,10 +1,55 @@
-"""Utilities for signature verification."""
+"""Utilities for signature generation and verification."""
 
 import base58
 import nacl.signing
 import json
 from typing import Dict, Optional, Any, Union
 from prometheus_swarm.utils.logging import log_error
+
+
+def generate_signature(
+    payload: Union[Dict[str, Any], str],
+    signing_key: str
+) -> str:
+    """Generate a signed message with a given signing key.
+
+    This function takes a payload (dict or JSON string) and signs it using PyNaCl's
+    signing key. The signature is base58 encoded for easy transmission.
+
+    Args:
+        payload (dict or str): The data to be signed. Can be a dictionary or JSON string
+        signing_key (str): Base58 encoded signing key
+
+    Returns:
+        str: Base58 encoded signed message
+    """
+    try:
+        # Decode base58 signing key
+        signing_key_bytes = base58.b58decode(signing_key)
+        
+        # Create signing key object
+        sign_key = nacl.signing.SigningKey(signing_key_bytes)
+        
+        # Ensure payload is a string
+        if isinstance(payload, dict):
+            payload_str = json.dumps(payload)
+        elif isinstance(payload, str):
+            payload_str = payload
+        else:
+            raise ValueError("Payload must be a dictionary or string")
+        
+        # Sign the payload
+        signed_message = sign_key.sign(payload_str.encode('utf-8'))
+        
+        # Encode the signed message in base58
+        return base58.b58encode(signed_message.signature + signed_message.message).decode('utf-8')
+    
+    except Exception as e:
+        log_error(
+            Exception("Signature generation failed"),
+            context=f"Signature generation failed: {str(e)}"
+        )
+        raise
 
 
 def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:
