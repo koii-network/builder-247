@@ -25,6 +25,10 @@ class BaseCustomError(Exception):
         self.original_error = original_error
         super().__init__(self.message)
 
+    def __str__(self) -> str:
+        """Override str representation to include full error information."""
+        return self.message
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert error to a dictionary for logging and serialization.
@@ -68,6 +72,10 @@ class ClientAPIError(BaseCustomError):
             context=context or {},
             original_error=original_error
         )
+
+    def __str__(self) -> str:
+        """Override str representation to include status code."""
+        return f"{self.message} (Status {self.status_code})"
 
     def to_dict(self) -> Dict[str, Any]:
         """Extend base method with status code."""
