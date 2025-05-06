@@ -46,12 +46,17 @@ class ReplayAttackPrevention:
         
         current_time = time.time()
         
-        # Clean up expired tokens
-        self._cleanup_tokens()
-        
         # Include current timestamp and optional payload in token generation
         token_data = f"{current_time}:{payload}"
         token = hashlib.sha256(token_data.encode()).hexdigest()
+        
+        # Enforce strict token limit
+        self._cleanup_tokens()
+        
+        if len(self._tokens) >= self._max_tokens:
+            # Remove the oldest token
+            oldest_token = min(self._tokens, key=self._tokens.get)
+            del self._tokens[oldest_token]
         
         # Store the token with its timestamp
         self._tokens[token] = current_time
@@ -72,7 +77,14 @@ class ReplayAttackPrevention:
             return True
         
         # Clean up expired tokens
-        self._cleanup_tokens()
+        current_time = time.time()
+        expired_tokens = [
+            t for t, timestamp in self._tokens.items() 
+            if current_time - timestamp > self._max_token_age
+        ]
+        
+        for expired_token in expired_tokens:
+            del self._tokens[expired_token]
         
         # Check if token exists and is within the valid time window
         if token in self._tokens:
@@ -80,30 +92,6 @@ class ReplayAttackPrevention:
             return True
         
         return False
-    
-    def _cleanup_tokens(self):
-        """
-        Remove tokens that have exceeded the maximum age.
-        """
-        current_time = time.time()
-        expired_tokens = [
-            token for token, timestamp in self._tokens.items() 
-            if current_time - timestamp > self._max_token_age
-        ]
-        
-        for token in expired_tokens:
-            del self._tokens[token]
-        
-        # Additional protection against memory exhaustion
-        if len(self._tokens) > self._max_tokens:
-            # Remove oldest tokens first
-            oldest_tokens = sorted(
-                self._tokens.items(), 
-                key=lambda x: x[1]
-            )[:len(self._tokens) - self._max_tokens]
-            
-            for token, _ in oldest_tokens:
-                del self._tokens[token]
     
     def configure(
         self, 
@@ -129,7 +117,20 @@ class ReplayAttackPrevention:
             self._enabled = enabled
         
         # Immediately clean up tokens based on new configuration
-        self._cleanup_tokens()
+        current_time = time.time()
+        expired_tokens = [
+            token for token, timestamp in self._tokens.items() 
+            if current_time - timestamp > self._max_token_age
+        ]
+        
+        for token in expired_tokens:
+            del self._tokens[token]
+        
+        # Truncate tokens if over new max_tokens limit
+        if len(self._tokens) > self._max_tokens:
+            sorted_tokens = sorted(self._tokens.items(), key=lambda x: x[1])
+            for token, _ in sorted_tokens[:len(self._tokens) - self._max_tokens]:
+                del self._tokens[token]
     
     def get_config(self) -> Dict[str, Any]:
         """
