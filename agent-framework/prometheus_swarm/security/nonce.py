@@ -51,15 +51,15 @@ class NonceSecurityManager:
         
         current_time = time.time()
         
-        # Check and remove any expired nonces
-        self.cleanup_expired_nonces()
-        
         # Check if nonce exists and is not expired
         if nonce in self._used_nonces:
-            del self._used_nonces[nonce]  # Consume the nonce after first validation
-            return True
+            nonce_time = self._used_nonces[nonce]
+            if current_time - nonce_time > self._max_age_seconds:
+                del self._used_nonces[nonce]
+                return False
+            return False  # Prevent replay attacks
         
-        return False
+        return True
     
     def cleanup_expired_nonces(self) -> int:
         """
