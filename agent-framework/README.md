@@ -1,42 +1,63 @@
-# Prometheus Swarm
+# Prometheus Swarm Framework
 
-A framework for building AI agents with Python.
+## Error Handling and Logging
 
-## Features
+### Error Handling Improvements
 
-- FastAPI-based web framework
-- SQLAlchemy for database operations
-- Redis and Celery for task queue management
-- OpenAI integration
-- Authentication and authorization
-- Async support
-- Comprehensive testing setup
+The `prometheus_swarm/utils/errors.py` module provides enhanced error handling with the following features:
 
-## Installation
+#### Custom Error Types
+- `BasePrometheusError`: Base class for all custom errors
+- `ClientAPIError`: Detailed errors for API call failures
+- `ConfigurationError`: Errors related to configuration issues
+- `ResourceAccessError`: Errors when accessing external resources
 
-```bash
-pip install prometheus-swarm
-```
+#### Key Improvements
+- Comprehensive error context tracking
+- Standardized error response generation
+- Detailed traceback and metadata capture
 
-## Quick Start
+### Logging Enhancements
+
+The `prometheus_swarm/utils/logging.py` module offers advanced logging capabilities:
+
+#### New Logging Functions
+- `log_error_details()`: Provides comprehensive error logging
+- `log_with_timing()`: Decorator for logging function execution times and details
+
+#### Features
+- Colorized console output
+- Detailed error context logging
+- Execution time tracking
+- Flexible logging configuration
+
+### Usage Example
 
 ```python
-from prometheus_swarm.clients import setup_client
+from prometheus_swarm.utils.errors import ClientAPIError, handle_error
+from prometheus_swarm.utils.logging import log_with_timing
+
+@log_with_timing
+def make_api_call():
+    try:
+        # Your API call logic
+        pass
+    except Exception as e:
+        raise ClientAPIError(
+            original_error=e, 
+            message="API call failed", 
+            status_code=500
+        )
+
+# Error handling
+try:
+    result = make_api_call()
+except Exception as e:
+    error_response = handle_error(e)
+    print(error_response)
 ```
 
-## Requirements
-
-- Python 3.8 or higher
-- See requirements.txt for full dependency list
-
-## Documentation
-
-For detailed documentation, please visit [documentation link].
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Best Practices
+- Use custom error types for precise error tracking
+- Leverage logging decorators for comprehensive tracing
+- Include meaningful context in error messages
