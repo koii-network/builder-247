@@ -72,8 +72,13 @@ class NonceConfiguration:
         Returns:
             NonceConfiguration: Configured instance
         """
-        os_secret_key = os.getenv('NONCE_SECRET_KEY', '')
-        config = cls(NONCE_SECRET_KEY=override_secret_key or os_secret_key)
+        config = cls(
+            NONCE_SECRET_KEY=override_secret_key or os.getenv('NONCE_SECRET_KEY', ''),
+            NONCE_EXPIRATION_SECONDS=int(os.getenv('NONCE_EXPIRATION_SECONDS', 300)),
+            NONCE_MAX_ATTEMPTS=int(os.getenv('NONCE_MAX_ATTEMPTS', 5)),
+            NONCE_ALGORITHM=os.getenv('NONCE_ALGORITHM', 'SHA256'),
+            NONCE_DEBUG_MODE=os.getenv('NONCE_DEBUG_MODE', 'false').lower() == 'true'
+        )
         
         if not config.validate():
             raise ValueError("Invalid Nonce Configuration")
