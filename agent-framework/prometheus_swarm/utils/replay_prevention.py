@@ -36,7 +36,8 @@ class ReplayAttackPrevention:
         current_time = time.time()
         
         # Check timestamp validity
-        if abs(current_time - timestamp) > self.max_time_diff:
+        time_diff = abs(current_time - timestamp)
+        if time_diff > self.max_time_diff:
             return False
         
         # Check nonce uniqueness
@@ -51,6 +52,16 @@ class ReplayAttackPrevention:
             del self._nonce_cache[oldest_nonce]
         
         return True
+    
+    @property
+    def nonce_cache_size(self) -> int:
+        """
+        Get the current size of the nonce cache.
+        
+        Returns:
+            int: Number of nonces currently in the cache
+        """
+        return len(self._nonce_cache)
     
     def decorator(self, func):
         """
