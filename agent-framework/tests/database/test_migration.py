@@ -3,6 +3,11 @@ import sqlite3
 import pytest
 import tempfile
 import shutil
+import sys
+
+# Add the parent directory to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 from prometheus_swarm.database.migration import DatabaseMigrator
 
 @pytest.fixture
@@ -155,4 +160,3 @@ def test_rollback_no_migrations(temp_db_path, temp_migrations_dir):
     migrator = DatabaseMigrator(temp_db_path, temp_migrations_dir)
     
     with pytest.raises(ValueError, match="No migrations to rollback"):
-        migrator.rollback()
