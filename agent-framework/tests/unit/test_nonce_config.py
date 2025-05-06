@@ -1,4 +1,5 @@
 import os
+import re
 import pytest
 from prometheus_swarm.utils.nonce_config import NonceConfiguration, get_nonce_config
 
@@ -21,7 +22,7 @@ def test_default_configuration():
     """Test default configuration values."""
     config = NonceConfiguration()
     
-    assert config.NONCE_SECRET_KEY == ''
+    assert len(config.NONCE_SECRET_KEY) == 64  # 32 bytes * 2 (hex encoding)
     assert config.NONCE_EXPIRATION_SECONDS == 300
     assert config.NONCE_MAX_ATTEMPTS == 5
     assert config.NONCE_ALGORITHM == 'SHA256'
@@ -45,35 +46,39 @@ def test_configuration_from_env(clean_env):
 
 def test_configuration_validation():
     """Test configuration validation."""
-    # Valid configuration
+    # Default configuration should be valid
     config_valid = NonceConfiguration()
-    config_valid.NONCE_SECRET_KEY = 'valid_secret'
     assert config_valid.validate() is True
 
     # Invalid configurations
-    config_no_secret = NonceConfiguration()
-    config_no_secret.NONCE_SECRET_KEY = ''
-    assert config_no_secret.validate() is False
-
     config_invalid_expiration = NonceConfiguration()
-    config_invalid_expiration.NONCE_SECRET_KEY = 'valid_secret'
     config_invalid_expiration.NONCE_EXPIRATION_SECONDS = -100
     assert config_invalid_expiration.validate() is False
 
     config_invalid_attempts = NonceConfiguration()
-    config_invalid_attempts.NONCE_SECRET_KEY = 'valid_secret'
     config_invalid_attempts.NONCE_MAX_ATTEMPTS = -5
     assert config_invalid_attempts.validate() is False
+
+def test_auto_generated_secret_key(clean_env):
+    """Test automatic secret key generation when not provided."""
+    # Unset secret key
+    if 'NONCE_SECRET_KEY' in os.environ:
+        del os.environ['NONCE_SECRET_KEY']
+
+    config = NonceConfiguration()
+    
+    # Verify secret key is auto-generated
+    assert len(config.NONCE_SECRET_KEY) == 64  # 32 bytes * 2 (hex encoding)
+    assert re.match(r'^[0-9a-f]{64}$', config.NONCE_SECRET_KEY) is not None
 
 def test_to_dict():
     """Test conversion of configuration to dictionary."""
     config = NonceConfiguration()
-    config.NONCE_SECRET_KEY = 'test_secret'
     
     config_dict = config.to_dict()
     
     assert isinstance(config_dict, dict)
-    assert config_dict['NONCE_SECRET_KEY'] == 'test_secret'
+    assert 'NONCE_SECRET_KEY' in config_dict
     assert 'NONCE_EXPIRATION_SECONDS' in config_dict
     assert 'NONCE_ALGORITHM' in config_dict
 
