@@ -13,8 +13,18 @@ def perform_database_migration(db_path: str, target_version: int = 1) -> bool:
     Returns:
         bool: True if migration was successful, False otherwise
     """
-    # First check if the directory exists
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    # Validate path
+    try:
+        db_dir = os.path.dirname(os.path.abspath(db_path))
+        if not os.path.exists(db_dir):
+            try:
+                os.makedirs(db_dir, exist_ok=True)
+            except (PermissionError, OSError):
+                print(f"Cannot create directory for {db_path}")
+                return False
+    except Exception:
+        print(f"Invalid path: {db_path}")
+        return False
     
     connection = None
     try:
