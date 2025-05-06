@@ -1,25 +1,36 @@
 import datetime
-from typing import List, Dict, Any, Optional, Callable
-from contextlib import contextmanager
+from typing import List, Dict, Any, Optional, Callable, Type
+from sqlmodel import SQLModel
 
 def cleanup_expired_transactions(
+    model_class: Optional[Type[SQLModel]] = None,
+    expiration_column: str = 'created_at',
     expiration_threshold_hours: int = 24,
     max_batch_size: int = 1000,
     get_session: Optional[Callable] = None
 ) -> Dict[str, int]:
     """
-    Clean up expired transactions from the database.
+    Clean up expired database records using a specified model.
 
     Args:
-        expiration_threshold_hours (int): Number of hours after which a transaction is considered expired.
-        max_batch_size (int): Maximum number of transactions to delete in a single batch.
+        model_class (Optional[Type[SQLModel]]): SQLModel class to clean up. 
+        expiration_column (str): Column name used to determine record age.
+        expiration_threshold_hours (int): Number of hours after which a record is considered expired.
+        max_batch_size (int): Maximum number of records to delete in a single batch.
         get_session (Optional[Callable]): Optional custom session getter for dependency injection during testing.
 
     Returns:
-        Dict[str, int]: A dictionary containing the number of deleted transactions.
+        Dict[str, int]: A dictionary containing the number of deleted records.
     """
     from prometheus_swarm.database.database import get_database_session
-    from prometheus_swarm.database.models import Transaction
+
+    # Validate inputs
+    if model_class is None:
+        return {
+            "status": "error", 
+            "message": "No model class specified for cleanup",
+            "deleted_transactions": 0
+        }
 
     # Use provided session getter or default
     session_getter = get_session or get_database_session
@@ -31,19 +42,19 @@ def cleanup_expired_transactions(
         # Calculate the expiration timestamp
         expiration_timestamp = datetime.datetime.utcnow() - datetime.timedelta(hours=expiration_threshold_hours)
 
-        # Query expired transactions
-        expired_transactions = (
-            db_session.query(Transaction)
-            .filter(Transaction.created_at < expiration_timestamp)
+        # Query expired records
+        expired_records = (
+            db_session.query(model_class)
+            .filter(getattr(model_class, expiration_column) < expiration_timestamp)
             .limit(max_batch_size)
             .all()
         )
 
-        # Count and delete expired transactions
-        num_deleted = len(expired_transactions)
+        # Count and delete expired records
+        num_deleted = len(expired_records)
         
-        for transaction in expired_transactions:
-            db_session.delete(transaction)
+        for record in expired_records:
+            db_session.delete(record)
         
         # Commit the changes
         db_session.commit()
@@ -55,7 +66,8 @@ def cleanup_expired_transactions(
 
     except Exception as e:
         # Log the error and rollback the transaction
-        db_session.rollback()
+        if 'db_session' in locals():
+            db_session.rollback()
         return {
             "status": "error",
             "message": str(e),
@@ -63,4 +75,5 @@ def cleanup_expired_transactions(
         }
     finally:
         # Close the database session
-        db_session.close()
+        if 'db_session' in locals():
+            db_session.close()
