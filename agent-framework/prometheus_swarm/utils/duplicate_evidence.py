@@ -79,13 +79,12 @@ def filter_duplicates(evidence_list: List[Dict[Any, Any]],
 
     seen_keys = set()
     filtered_evidence = []
-    items_without_key = []
 
     if keep == 'first':
         for item in evidence_list:
             if unique_key not in item:
                 logger.warning(f"Evidence item missing unique key '{unique_key}': {item}")
-                items_without_key.append(item)
+                filtered_evidence.append(item)
                 continue
 
             current_key = item[unique_key]
@@ -98,7 +97,7 @@ def filter_duplicates(evidence_list: List[Dict[Any, Any]],
         for item in reversed(evidence_list):
             if unique_key not in item:
                 logger.warning(f"Evidence item missing unique key '{unique_key}': {item}")
-                items_without_key.insert(0, item)
+                filtered_evidence.insert(0, item)
                 continue
 
             current_key = item[unique_key]
@@ -106,8 +105,5 @@ def filter_duplicates(evidence_list: List[Dict[Any, Any]],
             if current_key not in seen_keys:
                 filtered_evidence.insert(0, item)
                 seen_keys.add(current_key)
-
-    # Add items without the unique key to the end of the list
-    filtered_evidence.extend(items_without_key)
 
     return filtered_evidence
