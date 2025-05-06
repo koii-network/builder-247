@@ -8,7 +8,7 @@ def test_nonce_generation_default():
     """Test default nonce generation."""
     nonce = generate_nonce()
     assert isinstance(nonce, str)
-    assert len(nonce) == 43  # Standard base64 encoding of 32 bytes
+    assert len(nonce) == 43  # Exact length for default 43-byte nonce
 
 def test_nonce_custom_length():
     """Test nonce generation with custom length."""
