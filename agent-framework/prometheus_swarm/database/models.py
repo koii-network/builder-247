@@ -1,8 +1,8 @@
-from dataclasses import dataclass, field
-from typing import Optional, List
+from dataclasses import dataclass, field, asdict
+from typing import Optional, List, Dict
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 
@@ -36,24 +36,16 @@ class EvidenceModel(Base):
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.now)
 
-class Conversation:
-    # Placeholder for potential compatibility
-    pass
-
-class Message:
-    # Placeholder for potential compatibility
-    pass
-
-class Log:
-    # Placeholder for potential compatibility
-    pass
-
 class Database:
     """
     Database management class with evidence tracking and uniqueness enforcement.
     """
-    _evidence_store: dict = field(default_factory=dict)
-    _evidence_by_submission: dict = field(default_factory=dict)
+    def __init__(self):
+        """
+        Initialize the database with empty stores.
+        """
+        self._evidence_store: Dict[str, Evidence] = {}
+        self._evidence_by_submission: Dict[str, List[Evidence]] = {}
 
     def add_evidence(self, evidence: Evidence):
         """
@@ -124,3 +116,13 @@ class Database:
             raise ValueError("Evidence not found")
         
         raise ValueError("Cannot modify existing evidence")  # Enforce immutability
+
+# Placeholder classes for compatibility
+class Conversation:
+    pass
+
+class Message:
+    pass
+
+class Log:
+    pass
