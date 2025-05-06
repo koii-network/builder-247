@@ -1,12 +1,12 @@
 import re
 from typing import Optional, Union
 
-def validate_transaction_id(transaction_id: Optional[Union[str, int, float]]) -> bool:
+def validate_transaction_id(transaction_id: Optional[Union[str, int, float, bool]]) -> bool:
     """
     Validate a transaction ID based on specific constraints.
 
     Args:
-        transaction_id (Optional[Union[str, int, float]]): The transaction ID to validate.
+        transaction_id (Optional[Union[str, int, float, bool]]): The transaction ID to validate.
 
     Returns:
         bool: True if the transaction ID is valid, False otherwise.
@@ -21,8 +21,8 @@ def validate_transaction_id(transaction_id: Optional[Union[str, int, float]]) ->
     if transaction_id is None:
         return False
 
-    # Reject non-string, non-integer types
-    if not isinstance(transaction_id, (str, int, float)):
+    # Reject boolean, non-string, non-integer types
+    if isinstance(transaction_id, bool) or not isinstance(transaction_id, (str, int, float)):
         return False
 
     # Convert to string for consistent validation
