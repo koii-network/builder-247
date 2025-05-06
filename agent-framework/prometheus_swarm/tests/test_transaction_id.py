@@ -21,7 +21,7 @@ def test_transaction_id_with_different_types():
     
     # Demonstrate type-sensitive duplicate detection
     assert not manager.is_duplicate(123)
-    assert not manager.is_duplicate("123")
+    assert not manager.is_duplicate("123")  # Ensure these are treated as distinct
     assert manager.is_duplicate(123)
     assert manager.is_duplicate("123")
     
