@@ -1,8 +1,9 @@
 """Database models."""
 
 from datetime import datetime
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship, JSON
+from typing import Optional, List, Dict, Any
+import json
+from sqlmodel import SQLModel, Field, Relationship, Column, String
 
 
 class Conversation(SQLModel, table=True):
@@ -52,18 +53,18 @@ class TransactionTracking(SQLModel, table=True):
     status: str = Field(description="Status of the transaction (e.g., 'pending', 'completed', 'failed')")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    metadata: Optional[dict] = Field(default=None, sa_column_kwargs={'type_': JSON}, description="Additional metadata for the transaction")
+    metadata: Optional[str] = Field(default=None, sa_column=Column(String), description="JSON string of transaction metadata")
     source: Optional[str] = Field(description="Source or origin of the transaction")
     
     @classmethod
-    def create_transaction(cls, transaction_id: str, source: Optional[str] = None, metadata: Optional[dict] = None) -> 'TransactionTracking':
+    def create_transaction(cls, transaction_id: str, source: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> 'TransactionTracking':
         """
         Create a new transaction with a unique transaction ID.
         
         Args:
             transaction_id (str): A unique identifier for the transaction
             source (Optional[str]): Source or origin of the transaction
-            metadata (Optional[dict]): Additional metadata for the transaction
+            metadata (Optional[Dict[str, Any]]): Additional metadata for the transaction
         
         Returns:
             TransactionTracking: The created transaction instance
@@ -72,8 +73,17 @@ class TransactionTracking(SQLModel, table=True):
             transaction_id=transaction_id,
             status='pending',
             source=source,
-            metadata=metadata
+            metadata=json.dumps(metadata) if metadata else None
         )
+    
+    def get_metadata(self) -> Optional[Dict[str, Any]]:
+        """
+        Get metadata as a dictionary.
+        
+        Returns:
+            Optional[Dict[str, Any]]: Parsed metadata or None
+        """
+        return json.loads(self.metadata) if self.metadata else None
     
     def update_status(self, new_status: str):
         """
