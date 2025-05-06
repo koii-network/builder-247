@@ -1,5 +1,7 @@
+import os
 import pytest
 import warnings
+import tempfile
 from prometheus_swarm.database.database import Database
 from prometheus_swarm.database.models import Evidence
 
@@ -7,9 +9,21 @@ class TestEvidenceUniqueness:
     """Test suite for ensuring evidence uniqueness in the system."""
 
     @pytest.fixture
-    def db_connection(self):
+    def db_path(self):
+        """Create a temporary database file for each test."""
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as temp_file:
+            temp_path = temp_file.name
+        yield temp_path
+        # Clean up the temporary file after test
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
+
+    @pytest.fixture
+    def db_connection(self, db_path):
         """Fixture to provide a database connection for testing."""
-        database = Database()
+        database = Database(db_path)
         try:
             database.connect()
             yield database
@@ -62,7 +76,6 @@ class TestEvidenceUniqueness:
         Test evidence identifier case sensitivity.
         
         Verifies the behavior of identifier uniqueness across different letter cases.
-        This test now explicitly checks for case-sensitivity policy.
         """
         original_evidence = Evidence(
             identifier='Test_Case_Sensitive_Evidence',
@@ -82,7 +95,6 @@ class TestEvidenceUniqueness:
         # We expect this to either raise an exception or be allowed based on the system's design
         try:
             db_connection.insert_evidence(similar_case_evidence)
-            # If insertion is allowed, we'll raise a warning
             warnings.warn(
                 "Case-insensitive evidence identifiers might be a potential issue", 
                 UserWarning
