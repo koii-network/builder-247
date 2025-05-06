@@ -1,7 +1,18 @@
 from typing import Dict, List, Optional
 from datetime import datetime
 import sqlite3
-from .database import get_db_path
+import os
+
+def get_default_db_path():
+    """
+    Get the default database path.
+    
+    Creates the database directory if it doesn't exist.
+    """
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    db_dir = os.path.join(base_dir, 'data')
+    os.makedirs(db_dir, exist_ok=True)
+    return os.path.join(db_dir, 'transactions.sqlite')
 
 class TransactionTracker:
     """
@@ -20,7 +31,7 @@ class TransactionTracker:
         
         :param db_path: Optional custom database path. Uses default if not specified.
         """
-        self.db_path = db_path or get_db_path()
+        self.db_path = db_path or get_default_db_path()
         self._create_table()
     
     def _create_table(self):
