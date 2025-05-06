@@ -2,11 +2,10 @@
 
 import pytest
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime, UTC
 from sqlmodel import SQLModel, create_engine, Session
 
-from prometheus_swarm.database.models import Transaction
-from prometheus_swarm.database.config import get_sqlite_db_url
+from prometheus_swarm.database.models import Transaction, TransactionStatus
 
 
 def test_transaction_creation():
@@ -26,14 +25,20 @@ def test_transaction_creation():
     assert transaction.amount == 100.50
     assert transaction.currency == "USD"
     assert transaction.transaction_type == "transfer"
-    assert transaction.status == "pending"
+    assert transaction.status == TransactionStatus.PENDING
     assert isinstance(transaction.created_at, datetime)
     assert isinstance(transaction.updated_at, datetime)
 
 
 def test_transaction_status_validation():
     """Test transaction status validation."""
-    valid_statuses = ["pending", "completed", "failed", "refunded", "cancelled"]
+    valid_statuses = [
+        TransactionStatus.PENDING, 
+        TransactionStatus.COMPLETED, 
+        TransactionStatus.FAILED, 
+        TransactionStatus.REFUNDED, 
+        TransactionStatus.CANCELLED
+    ]
     for status in valid_statuses:
         transaction = Transaction(
             source="user1",
@@ -58,7 +63,7 @@ def test_transaction_status_validation():
 
 def test_transaction_database_integration():
     """Test Transaction model database integration."""
-    engine = create_engine(get_sqlite_db_url())
+    engine = create_engine("sqlite:///test_transaction.db")
     SQLModel.metadata.create_all(engine)
 
     with Session(engine) as session:
@@ -104,7 +109,7 @@ def test_transaction_timestamps():
     import time
     time.sleep(0.1)
 
-    transaction.status = "completed"
+    transaction.status = TransactionStatus.COMPLETED
 
     assert transaction.created_at == initial_created_at
     assert transaction.updated_at > initial_updated_at
