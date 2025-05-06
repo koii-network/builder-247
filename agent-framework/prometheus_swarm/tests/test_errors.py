@@ -1,7 +1,7 @@
 """Tests for the custom error handling system."""
 
 import pytest
-from prometheus_swarm.utils.errors import (
+from ..utils.errors import (
     BaseCustomError,
     ClientAPIError,
     ConfigurationError,
