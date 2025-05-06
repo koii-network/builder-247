@@ -27,13 +27,13 @@ def test_create_transaction(transaction_dal):
     transaction = transaction_dal.create_transaction(
         transaction_type='purchase', 
         amount=100.50, 
-        metadata={'item': 'laptop'}
+        extra_data={'item': 'laptop'}
     )
     
     assert transaction is not None
     assert transaction.transaction_type == 'purchase'
     assert transaction.amount == 100.50
-    assert transaction.metadata == {'item': 'laptop'}
+    assert transaction.extra_data == {'item': 'laptop'}
     assert transaction.status == 'pending'
     assert transaction.id is not None
 
