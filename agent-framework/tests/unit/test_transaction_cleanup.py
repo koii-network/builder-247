@@ -2,14 +2,14 @@ import pytest
 from unittest.mock import patch, MagicMock
 import datetime
 
-from agent-framework.prometheus_swarm.utils.transaction_cleanup import (
+from prometheus_swarm.utils.transaction_cleanup import (
     cleanup_expired_transactions,
     configure_transaction_cleanup_job
 )
 
 @pytest.fixture
 def mock_database():
-    with patch('agent-framework.prometheus_swarm.database.database.get_database_connection') as mock_db:
+    with patch('prometheus_swarm.database.database.get_database_connection') as mock_db:
         yield mock_db
 
 def test_cleanup_expired_transactions_no_transactions(mock_database):
