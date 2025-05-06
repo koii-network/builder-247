@@ -1,5 +1,5 @@
 import { Router, RequestHandler } from "express";
-import { verifyBearerToken } from "../middleware/auth";
+import { verifyBearerToken, preventReplayAttack } from "../middleware/auth";
 
 /******** Builder *********/
 import { fetchTodo } from "../controllers/builder/fetchToDo";
@@ -38,41 +38,38 @@ import { info } from "../controllers/prometheus/info";
 const router = Router();
 
 /********** Builder ***********/
-router.post("/builder/fetch-to-do", fetchTodo as RequestHandler);
-router.post("/builder/add-aggregator-info", addAggregatorInfo as RequestHandler);
-router.post("/builder/add-pr-to-to-do", addPR as RequestHandler);
-router.post("/builder/add-issue-pr", addIssuePR as RequestHandler);
-router.post("/builder/check-to-do", checkToDo as RequestHandler);
-router.post("/builder/assign-issue", assignIssue as RequestHandler);
-router.post("/builder/update-audit-result", updateAuditResult as RequestHandler);
-router.post("/builder/fetch-issue", fetchIssue as RequestHandler);
-router.post("/builder/check-issue", checkIssue as RequestHandler);
-router.get("/builder/get-source-repo/:nodeType/:uuid", getSourceRepo as RequestHandler);
+router.post("/builder/fetch-to-do", verifyBearerToken, preventReplayAttack, fetchTodo as RequestHandler);
+router.post("/builder/add-aggregator-info", verifyBearerToken, preventReplayAttack, addAggregatorInfo as RequestHandler);
+router.post("/builder/add-pr-to-to-do", verifyBearerToken, preventReplayAttack, addPR as RequestHandler);
+router.post("/builder/add-issue-pr", verifyBearerToken, preventReplayAttack, addIssuePR as RequestHandler);
+router.post("/builder/check-to-do", verifyBearerToken, preventReplayAttack, checkToDo as RequestHandler);
+router.post("/builder/assign-issue", verifyBearerToken, preventReplayAttack, assignIssue as RequestHandler);
+router.post("/builder/update-audit-result", verifyBearerToken, preventReplayAttack, updateAuditResult as RequestHandler);
+router.post("/builder/fetch-issue", verifyBearerToken, preventReplayAttack, fetchIssue as RequestHandler);
+router.post("/builder/check-issue", verifyBearerToken, preventReplayAttack, checkIssue as RequestHandler);
+router.get("/builder/get-source-repo/:nodeType/:uuid", verifyBearerToken, getSourceRepo as RequestHandler);
 
 /********** Summarizer */
-router.post("/summarizer/fetch-summarizer-todo", fetchSummarizerRequest as RequestHandler);
-router.post("/summarizer/add-pr-to-summarizer-todo", addSummarizerRequest as RequestHandler);
-router.post("/summarizer/trigger-fetch-audit-result", triggerFetchAuditResultSummarizer as RequestHandler);
-router.post("/summarizer/check-summarizer", checkSummarizerRequest as RequestHandler);
-// router.post("/summarizer/trigger-update-swarms-status", triggerUpdateSwarmsStatus as RequestHandler);
-// router.post("/summarizer/trigger-save-swarms-for-round", triggerSaveSwarmsForRound as RequestHandler);
+router.post("/summarizer/fetch-summarizer-todo", verifyBearerToken, preventReplayAttack, fetchSummarizerRequest as RequestHandler);
+router.post("/summarizer/add-pr-to-summarizer-todo", verifyBearerToken, preventReplayAttack, addSummarizerRequest as RequestHandler);
+router.post("/summarizer/trigger-fetch-audit-result", verifyBearerToken, preventReplayAttack, triggerFetchAuditResultSummarizer as RequestHandler);
+router.post("/summarizer/check-summarizer", verifyBearerToken, preventReplayAttack, checkSummarizerRequest as RequestHandler);
 
 /********** Planner ***********/
-router.post("/planner/fetch-planner-todo", fetchPlannerRequest as RequestHandler);
-router.post("/planner/add-pr-to-planner-todo", addPlannerRequest as RequestHandler);
-router.post("/planner/check-planner", checkPlannerRequest as RequestHandler);
-router.post("/planner/trigger-fetch-audit-result", triggerFetchAuditResultPlanner as RequestHandler);
+router.post("/planner/fetch-planner-todo", verifyBearerToken, preventReplayAttack, fetchPlannerRequest as RequestHandler);
+router.post("/planner/add-pr-to-planner-todo", verifyBearerToken, preventReplayAttack, addPlannerRequest as RequestHandler);
+router.post("/planner/check-planner", verifyBearerToken, preventReplayAttack, checkPlannerRequest as RequestHandler);
+router.post("/planner/trigger-fetch-audit-result", verifyBearerToken, preventReplayAttack, triggerFetchAuditResultPlanner as RequestHandler);
 
 /*********** Prometheus Website ***********/
-router.get("/prometheus/get-assigned-nodes", getAssignedTo as RequestHandler);
-router.post("/prometheus/classification", verifyBearerToken, classification as RequestHandler);
-router.get("/prometheus/info", info as RequestHandler);
-
+router.get("/prometheus/get-assigned-nodes", verifyBearerToken, getAssignedTo as RequestHandler);
+router.post("/prometheus/classification", verifyBearerToken, preventReplayAttack, classification as RequestHandler);
+router.get("/prometheus/info", verifyBearerToken, info as RequestHandler);
 
 /****************** Supporter **************/
-router.post("/supporter/bind-key-to-github", bindRequest as RequestHandler);
-router.post("/supporter/fetch-repo-list", fetchRepoList as RequestHandler);
-router.post("/supporter/check-request", checkRepoRequest as RequestHandler);
+router.post("/supporter/bind-key-to-github", verifyBearerToken, preventReplayAttack, bindRequest as RequestHandler);
+router.post("/supporter/fetch-repo-list", verifyBearerToken, preventReplayAttack, fetchRepoList as RequestHandler);
+router.post("/supporter/check-request", verifyBearerToken, preventReplayAttack, checkRepoRequest as RequestHandler);
 
 router.get("/hello", (req, res) => {
   res.json({ message: "Hello World!" });
