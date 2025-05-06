@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 class Nonce:
     """
@@ -31,7 +31,7 @@ class Nonce:
         """
         self.id = str(uuid4())
         self.value = value or str(uuid4())
-        self.created_at = datetime.utcnow()
+        self.created_at = datetime.now(UTC)
         self.expires_at = self.created_at + timedelta(seconds=expires_in)
         self.used = False
         self.metadata = metadata or {}
@@ -43,7 +43,7 @@ class Nonce:
         Returns:
             bool: True if nonce is expired, False otherwise.
         """
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(UTC) > self.expires_at
 
     def mark_as_used(self) -> None:
         """Mark the nonce as used."""
