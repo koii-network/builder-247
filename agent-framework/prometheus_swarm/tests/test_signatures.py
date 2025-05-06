@@ -3,6 +3,7 @@
 import pytest
 import nacl.signing
 import base58
+import json
 from prometheus_swarm.utils.signatures import (
     generate_signature, 
     verify_signature, 
@@ -53,7 +54,7 @@ def test_signature_verification_flow(generate_key_pair):
     verify_result = verify_signature(signature, generate_key_pair['verify_key'])
     
     assert 'data' in verify_result
-    assert verify_result['data'] == str(message)
+    assert json.loads(verify_result['data']) == message
 
 def test_signature_generation_error():
     """Test signature generation with an invalid key."""
