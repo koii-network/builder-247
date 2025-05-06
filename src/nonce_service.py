@@ -28,7 +28,7 @@ class NonceService:
             raise ValueError("Nonce length must be between 8 and 128 characters")
         
         # Generate cryptographically secure random bytes
-        random_bytes = secrets.token_bytes(length // 2)
+        random_bytes = secrets.token_bytes((length + 1) // 2)
         hex_random = random_bytes.hex()
         
         # Optionally include timestamp for additional uniqueness
