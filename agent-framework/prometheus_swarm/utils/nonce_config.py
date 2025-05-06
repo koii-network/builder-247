@@ -1,4 +1,5 @@
 import os
+import secrets
 from typing import Dict, Any, Optional
 from dataclasses import dataclass, fields
 from dotenv import load_dotenv
@@ -25,6 +26,13 @@ class NonceConfiguration:
     # Logging and debugging
     NONCE_DEBUG_MODE: bool = os.getenv('NONCE_DEBUG_MODE', 'false').lower() == 'true'
 
+    def __post_init__(self):
+        """
+        Post-initialization method to generate a default secret key if not provided.
+        """
+        if not self.NONCE_SECRET_KEY:
+            self.NONCE_SECRET_KEY = secrets.token_hex(32)
+
     def validate(self) -> bool:
         """
         Validate the current configuration settings.
@@ -32,10 +40,6 @@ class NonceConfiguration:
         Returns:
             bool: True if configuration is valid, False otherwise
         """
-        if not self.NONCE_SECRET_KEY:
-            print("Error: NONCE_SECRET_KEY must be set")
-            return False
-        
         if self.NONCE_EXPIRATION_SECONDS <= 0:
             print("Error: NONCE_EXPIRATION_SECONDS must be positive")
             return False
