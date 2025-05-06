@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import hashlib
 import json
@@ -18,7 +18,7 @@ class TransactionEvidence:
     """
     
     transaction_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     data: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     
@@ -28,6 +28,13 @@ class TransactionEvidence:
         """
         if not self.transaction_id:
             raise ValueError("Transaction ID cannot be empty")
+        
+        # Validate timestamp
+        if self.timestamp.tzinfo is None:
+            raise TypeError("Timestamp must be timezone-aware")
+        
+        if self.timestamp > datetime.now(timezone.utc):
+            raise TypeError("Timestamp cannot be in the future")
         
         # Compute a hash based on transaction data for uniqueness
         self._compute_evidence_hash()
@@ -60,8 +67,9 @@ class TransactionEvidence:
         if not self.transaction_id or len(self.transaction_id) == 0:
             return False
         
-        # Check timestamp is not in the future
-        if self.timestamp > datetime.utcnow():
+        # Check timestamp (must be timezone-aware and not in future)
+        if (self.timestamp.tzinfo is None or 
+            self.timestamp > datetime.now(timezone.utc)):
             return False
         
         # Verify hash integrity
@@ -99,7 +107,7 @@ class TransactionEvidence:
         """
         evidence = cls(
             transaction_id=data.get('transaction_id', str(uuid.uuid4())),
-            timestamp=datetime.fromisoformat(data.get('timestamp', datetime.utcnow().isoformat())),
+            timestamp=datetime.fromisoformat(data.get('timestamp', datetime.now(timezone.utc).isoformat())),
             data=data.get('data', {}),
             metadata=data.get('metadata', {})
         )
