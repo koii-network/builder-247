@@ -14,13 +14,13 @@ def test_transaction_model_creation():
         user_id="user123",
         transaction_type="purchase",
         description="Test transaction",
-        status=TransactionStatus.PENDING,
+        status=TransactionStatus.PENDING.name,
         details={"product": "test_item", "quantity": 1},
         source_system="test_system"
     )
 
     assert transaction.transaction_type == "purchase"
-    assert transaction.status == TransactionStatus.PENDING
+    assert transaction.status == TransactionStatus.PENDING.name
     assert transaction.user_id == "user123"
     assert transaction.details == {"product": "test_item", "quantity": 1}
     assert transaction.source_system == "test_system"
@@ -44,14 +44,14 @@ def test_transaction_status_changes():
     transaction = Transaction(
         transaction_uuid=str(uuid.uuid4()),
         transaction_type="transfer",
-        status=TransactionStatus.PENDING
+        status=TransactionStatus.PENDING.name
     )
 
-    transaction.status = TransactionStatus.PROCESSING
-    assert transaction.status == TransactionStatus.PROCESSING
+    transaction.status = TransactionStatus.PROCESSING.name
+    assert transaction.status == TransactionStatus.PROCESSING.name
 
-    transaction.status = TransactionStatus.COMPLETED
-    assert transaction.status == TransactionStatus.COMPLETED
+    transaction.status = TransactionStatus.COMPLETED.name
+    assert transaction.status == TransactionStatus.COMPLETED.name
 
 
 def test_transaction_details_and_error_handling():
@@ -59,12 +59,12 @@ def test_transaction_details_and_error_handling():
     transaction = Transaction(
         transaction_uuid=str(uuid.uuid4()),
         transaction_type="refund",
-        status=TransactionStatus.FAILED,
+        status=TransactionStatus.FAILED.name,
         error_message="Insufficient funds",
         stack_trace="Some detailed error trace"
     )
 
-    assert transaction.status == TransactionStatus.FAILED
+    assert transaction.status == TransactionStatus.FAILED.name
     assert transaction.error_message == "Insufficient funds"
     assert transaction.stack_trace == "Some detailed error trace"
 
