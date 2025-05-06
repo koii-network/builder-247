@@ -2,7 +2,8 @@
 
 from datetime import datetime
 from typing import Optional, List, Dict
-from sqlmodel import SQLModel, Field, Relationship, JSON
+from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import JSON
 from enum import Enum, auto
 
 
@@ -29,7 +30,7 @@ class Transaction(SQLModel, table=True):
     description: Optional[str] = None
     
     # Transaction State
-    status: TransactionStatus = Field(default=TransactionStatus.PENDING)
+    status: str = Field(default=TransactionStatus.PENDING.name)
     
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
