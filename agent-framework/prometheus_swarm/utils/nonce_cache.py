@@ -18,7 +18,8 @@ class NonceCache:
                  redis_host: str = 'localhost', 
                  redis_port: int = 6379, 
                  redis_db: int = 0, 
-                 nonce_expiry: int = 3600):
+                 nonce_expiry: int = 3600,
+                 mock_mode: bool = False):
         """
         Initialize the NonceCache with Redis connection and nonce expiry settings.
         
@@ -27,9 +28,21 @@ class NonceCache:
             redis_port (int): Redis server port. Defaults to 6379.
             redis_db (int): Redis database number. Defaults to 0.
             nonce_expiry (int): Nonce expiration time in seconds. Defaults to 1 hour.
+            mock_mode (bool): If True, use an in-memory dictionary instead of Redis. Defaults to False.
         """
-        self.redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
         self.nonce_expiry = nonce_expiry
+        self.mock_mode = mock_mode
+        
+        if mock_mode:
+            self.redis_client = {}
+        else:
+            try:
+                self.redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+            except Exception as e:
+                print(f"Redis connection error: {e}")
+                # Fallback to mock mode
+                self.mock_mode = True
+                self.redis_client = {}
     
     def generate_nonce(self, context: Optional[str] = None) -> str:
         """
@@ -64,6 +77,14 @@ class NonceCache:
         key = f"nonce:{context or ''}:{nonce}"
         
         try:
+            if self.mock_mode:
+                # In mock mode, store in dictionary with timestamp
+                self.redis_client[key] = {
+                    'value': 1,
+                    'timestamp': time.time()
+                }
+                return True
+            
             # Store nonce with expiration
             return bool(self.redis_client.setex(key, self.nonce_expiry, 1))
         except Exception as e:
@@ -86,6 +107,22 @@ class NonceCache:
         key = f"nonce:{context or ''}:{nonce}"
         
         try:
+            if self.mock_mode:
+                # In mock mode, simulate Redis behavior
+                if key in self.redis_client:
+                    # Check if the entry has expired
+                    current_time = time.time()
+                    entry_time = self.redis_client[key]['timestamp']
+                    
+                    if current_time - entry_time >= self.nonce_expiry:
+                        del self.redis_client[key]
+                    else:
+                        return False
+                
+                # Store nonce for tracking
+                self.store_nonce(nonce, context)
+                return True
+            
             # Check if nonce exists in Redis
             if self.redis_client.exists(key):
                 return False
@@ -111,6 +148,12 @@ class NonceCache:
         key = f"nonce:{context or ''}:{nonce}"
         
         try:
+            if self.mock_mode:
+                # In mock mode, remove from dictionary
+                if key in self.redis_client:
+                    del self.redis_client[key]
+                return True
+            
             return bool(self.redis_client.delete(key))
         except Exception as e:
             print(f"Error clearing nonce: {e}")
