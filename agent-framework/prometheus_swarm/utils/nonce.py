@@ -35,31 +35,17 @@ class NonceTracker:
         current_time = time.time()
         
         with self._lock:
-            # Remove expired nonces
-            self._cleanup_expired_nonces(current_time)
-            
-            # Check if nonce exists
+            # Check if nonce exists and is not expired
             if nonce in self._nonces:
-                return False
+                if current_time - self._nonces[nonce] <= self._expiration_time:
+                    return False
+                else:
+                    # Remove expired nonce
+                    del self._nonces[nonce]
             
             # Add new nonce
             self._nonces[nonce] = current_time
             return True
-    
-    def _cleanup_expired_nonces(self, current_time: float) -> None:
-        """
-        Remove nonces that have expired.
-        
-        Args:
-            current_time (float): Current timestamp.
-        """
-        expired_nonces = [
-            key for key, timestamp in self._nonces.items()
-            if current_time - timestamp > self._expiration_time
-        ]
-        
-        for nonce in expired_nonces:
-            del self._nonces[nonce]
     
     def set_expiration_time(self, expiration_time: int) -> None:
         """
