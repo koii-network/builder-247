@@ -43,3 +43,42 @@ class NonceService:
         
         # Ensure exact length by truncating or padding
         return nonce[:length].ljust(length, '0')
+    
+    @staticmethod
+    def validate_nonce(nonce, max_age=3600):
+        """
+        Validate a nonce's format and age.
+        
+        Args:
+            nonce (str): The nonce to validate
+            max_age (int, optional): Maximum age of nonce in seconds. Defaults to 1 hour.
+        
+        Returns:
+            bool: Whether the nonce is valid
+        
+        Raises:
+            TypeError: If nonce is not a string
+        """
+        if not isinstance(nonce, str):
+            raise TypeError("Nonce must be a string")
+        
+        # Check basic format (hex characters)
+        if not all(c in '0123456789abcdef' for c in nonce.lower()):
+            return False
+        
+        # Optional timestamp validation (if included)
+        try:
+            # Try to extract timestamp (assuming last part of nonce is timestamp)
+            timestamp_str = ''.join(filter(str.isdigit, nonce))
+            if timestamp_str:
+                timestamp = int(timestamp_str)
+                current_time = int(time.time())
+                
+                # Check if nonce is within max_age
+                if current_time - timestamp > max_age:
+                    return False
+        except (ValueError, TypeError):
+            # If timestamp extraction fails, consider it valid
+            pass
+        
+        return True
