@@ -29,6 +29,7 @@ class NonceConfiguration:
     def __post_init__(self):
         """
         Post-initialization method to generate a default secret key if not provided.
+        Preserves the environment variable secret key.
         """
         if not self.NONCE_SECRET_KEY:
             self.NONCE_SECRET_KEY = secrets.token_hex(32)
@@ -60,14 +61,20 @@ class NonceConfiguration:
         return {field.name: getattr(self, field.name) for field in fields(self)}
 
     @classmethod
-    def from_env(cls) -> 'NonceConfiguration':
+    def from_env(cls, override_secret_key: Optional[str] = None) -> 'NonceConfiguration':
         """
         Create a configuration instance from environment variables.
+        Optionally override the secret key.
+        
+        Args:
+            override_secret_key (Optional[str]): Optional secret key to override environment variable
         
         Returns:
             NonceConfiguration: Configured instance
         """
-        config = cls()
+        os_secret_key = os.getenv('NONCE_SECRET_KEY', '')
+        config = cls(NONCE_SECRET_KEY=override_secret_key or os_secret_key)
+        
         if not config.validate():
             raise ValueError("Invalid Nonce Configuration")
         return config
