@@ -2,7 +2,8 @@
 
 from datetime import datetime
 from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Column, String, DECIMAL
+from uuid import uuid4
 
 
 class Conversation(SQLModel, table=True):
@@ -42,3 +43,34 @@ class Log(SQLModel, table=True):
     stack_trace: Optional[str] = None
     request_id: Optional[str] = None
     additional_data: Optional[str] = None
+
+
+class Transaction(SQLModel, table=True):
+    """Transaction tracking model."""
+
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    source: str
+    destination: str
+    amount: float = Field(sa_column=Column(DECIMAL(precision=20, scale=2)))
+    currency: str
+    transaction_type: str
+    status: str = Field(default="pending")
+    description: Optional[str] = None
+    metadata: Optional[str] = None  # JSON-encoded additional data
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
+
+    @classmethod
+    def validate_transaction_status(cls, status: str) -> None:
+        """
+        Validate transaction status.
+
+        Args:
+            status (str): Transaction status to validate
+
+        Raises:
+            ValueError: If status is not one of the allowed statuses
+        """
+        allowed_statuses = ["pending", "completed", "failed", "refunded", "cancelled"]
+        if status not in allowed_statuses:
+            raise ValueError(f"Invalid transaction status. Must be one of {allowed_statuses}")
