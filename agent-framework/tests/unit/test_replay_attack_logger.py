@@ -36,8 +36,8 @@ def test_replay_attack_prevention_timeout():
     assert logger.log_and_validate("replay_test") == True
 
 def test_max_entries_limit():
-    """Test that logger enforces maximum entries limit."""
-    logger = ReplayAttackLogger(max_entries=3)
+    """Test that logger enforces maximum entries limit and removes oldest entries."""
+    logger = ReplayAttackLogger(max_entries=3, ttl=10)
     
     # Log more than max_entries
     assert logger.log_and_validate("req1") == True
@@ -45,9 +45,11 @@ def test_max_entries_limit():
     assert logger.log_and_validate("req3") == True
     assert logger.log_and_validate("req4") == True
     
-    # Verify only most recent entries are kept
-    logger.log_and_validate("req1")  # This should now be unique again
+    # The first request (req1) should still be unique because it was the first that was dropped
     assert logger.log_and_validate("req1") == True
+    
+    # But if tried again immediately, it should be rejected
+    assert logger.log_and_validate("req1") == False
 
 def test_thread_safety():
     """Basic test to ensure thread safety."""
