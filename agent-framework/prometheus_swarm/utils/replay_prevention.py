@@ -1,7 +1,7 @@
 import time
 import hashlib
 import threading
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 class ReplayAttackPrevention:
     """
@@ -24,11 +24,7 @@ class ReplayAttackPrevention:
         self._window_seconds = window_seconds
         self._max_cache_size = max_cache_size
         self._lock = threading.Lock()
-        self._request_order = []
-        
-        # Start a background thread to clean up expired entries
-        self._cleanup_thread = threading.Thread(target=self._periodic_cleanup, daemon=True)
-        self._cleanup_thread.start()
+        self._request_order: List[str] = []
     
     def generate_request_id(self, request_data: Any) -> str:
         """
@@ -62,36 +58,36 @@ class ReplayAttackPrevention:
         current_time = time.time()
         
         with self._lock:
-            # Check if request is in cache and within time window
+            # Clean up expired entries
+            self._cleanup_expired_entries(current_time)
+            
+            # Check if request is in cache
             if request_id in self._request_cache:
                 return False
             
-            # Add request to cache and track its order
-            self._request_cache[request_id] = current_time
-            self._request_order.append(request_id)
-            
-            # Remove oldest entries if cache exceeds max size
-            while len(self._request_cache) > self._max_cache_size:
+            # If cache is at max size, remove oldest entry
+            if len(self._request_cache) >= self._max_cache_size:
                 oldest_id = self._request_order.pop(0)
                 del self._request_cache[oldest_id]
             
+            # Add new request to cache
+            self._request_cache[request_id] = current_time
+            self._request_order.append(request_id)
+            
             return True
     
-    def _periodic_cleanup(self):
+    def _cleanup_expired_entries(self, current_time: float) -> None:
         """
-        Background thread to remove expired request entries.
+        Remove entries that have exceeded the time window.
+        
+        Args:
+            current_time (float): Current timestamp.
         """
-        while True:
-            time.sleep(self._window_seconds / 2)  # Clean up every half window
-            
-            current_time = time.time()
-            with self._lock:
-                # Find and remove expired entries
-                expired_keys = [
-                    key for key, timestamp in self._request_cache.items()
-                    if current_time - timestamp > self._window_seconds
-                ]
-                
-                for key in expired_keys:
-                    del self._request_cache[key]
-                    self._request_order.remove(key)
+        expired_keys = [
+            key for key, timestamp in self._request_cache.items()
+            if current_time - timestamp > self._window_seconds
+        ]
+        
+        for key in expired_keys:
+            del self._request_cache[key]
+            self._request_order.remove(key)
