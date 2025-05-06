@@ -3,7 +3,6 @@ import os
 import tempfile
 from datetime import datetime, timedelta
 from prometheus_swarm.database.transaction_tracking import TransactionTracker
-from prometheus_swarm.database.database import get_db_path
 
 class TestTransactionTracker:
     @pytest.fixture
