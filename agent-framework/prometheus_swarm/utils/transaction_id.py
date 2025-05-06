@@ -27,8 +27,8 @@ def validate_transaction_id(transaction_id: str) -> bool:
     if re.search(r'\s', transaction_id):
         return False
     
-    # Strict UUID format validation
-    uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
+    # Strict UUID format validation with specific constraints
+    uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', re.IGNORECASE)
     
     # Check if the transaction_id matches the UUID pattern
     if not uuid_pattern.match(transaction_id):
