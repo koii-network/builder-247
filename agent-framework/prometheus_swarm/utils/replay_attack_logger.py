@@ -32,7 +32,17 @@ class ReplayAttackLogger:
         
         Returns:
             bool: True if the request is new and can be processed, False if it's a potential replay attack
+        
+        Raises:
+            TypeError: If request_signature is None
         """
+        # Explicitly check for None
+        if request_signature is None:
+            raise TypeError("Request signature cannot be None")
+        
+        # Convert to string to handle empty strings
+        request_signature = str(request_signature)
+        
         current_time = time.time()
         
         with self._lock:
@@ -45,6 +55,12 @@ class ReplayAttackLogger:
             
             # Add new request signature
             self._request_log[request_signature] = current_time
+            
+            # Ensure we don't exceed max_entries
+            if len(self._request_log) > self._max_entries:
+                # Remove the oldest entry
+                oldest_sig = min(self._request_log, key=self._request_log.get)
+                del self._request_log[oldest_sig]
             
             return True
     
@@ -62,17 +78,6 @@ class ReplayAttackLogger:
         
         for sig in expired_signatures:
             del self._request_log[sig]
-        
-        # Optional: Limit total number of entries
-        if len(self._request_log) > self._max_entries:
-            # Remove oldest entries
-            oldest_first = sorted(
-                self._request_log.items(), 
-                key=lambda x: x[1]
-            )[:len(self._request_log) - self._max_entries]
-            
-            for sig, _ in oldest_first:
-                del self._request_log[sig]
     
     def clear_log(self) -> None:
         """
