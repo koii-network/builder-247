@@ -49,7 +49,7 @@ class NonceTracker:
         Validate if a nonce is unique and not expired.
         
         :param nonce: Nonce to validate
-        :return: True if nonce is valid, False otherwise
+        :return: True if nonce is valid and not used before, False otherwise
         """
         current_time = time.time()
         
@@ -65,6 +65,8 @@ class NonceTracker:
                 del self._used_nonces[nonce]
                 return False
             
+            # Mark nonce as used and remove it from the tracker
+            del self._used_nonces[nonce]
             return True
     
     def remove_expired_nonces(self) -> None:
