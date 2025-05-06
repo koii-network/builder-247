@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Dict, Any
 
 from prometheus_swarm.database.nonce import Nonce
@@ -61,8 +61,8 @@ def test_nonce_from_dict():
     nonce_dict = {
         'id': 'test_id',
         'value': 'test_value',
-        'created_at': datetime.utcnow().isoformat(),
-        'expires_at': (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+        'created_at': datetime.now(UTC).isoformat(),
+        'expires_at': (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
         'used': False,
         'metadata': {"test": "data"}
     }
