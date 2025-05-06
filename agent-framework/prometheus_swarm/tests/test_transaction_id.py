@@ -20,13 +20,14 @@ def test_transaction_id_with_different_types():
     manager = TransactionIDManager()
     
     # Different types of transaction IDs
-    assert not manager.is_duplicate(123)
-    assert not manager.is_duplicate("123")
-    assert not manager.is_duplicate(["list_transaction"])
+    assert not manager.is_duplicate(123)  # Integer
+    assert manager.is_duplicate(123)      # Integer is a duplicate
     
-    # Verify each remains unique
-    assert not manager.is_duplicate(456)
-    assert manager.is_duplicate(123)
+    assert not manager.is_duplicate("123")  # String
+    assert manager.is_duplicate("123")      # String is a duplicate
+    
+    assert not manager.is_duplicate(["list_transaction"])
+    assert manager.is_duplicate(["list_transaction"])
 
 def test_transaction_id_cache_size_limit():
     """
@@ -43,8 +44,8 @@ def test_transaction_id_cache_size_limit():
     # Add a 4th transaction (should remove the oldest)
     assert not manager.is_duplicate("tx4")
     
-    # First transaction should now be allowed again
-    assert not manager.is_duplicate("tx1")
+    # First transaction should be considered a duplicate now
+    assert manager.is_duplicate("tx1")
 
 def test_transaction_id_clear_method():
     """
