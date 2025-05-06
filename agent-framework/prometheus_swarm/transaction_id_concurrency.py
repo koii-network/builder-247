@@ -30,25 +30,28 @@ class TransactionIDManager:
                 
                 # Check if the ID is already used
                 if new_transaction_id not in self._used_transaction_ids:
-                    self._used_transaction_ids.add(new_transaction_id)
                     return new_transaction_id
         
         return None
 
     async def submit_transaction(self, transaction_id: str) -> bool:
         """
-        Submit a transaction with concurrency safety.
+        Submit a transaction with first-writer-wins concurrency strategy.
+        
+        This method ensures that only the first concurrent submission is successful.
         
         Args:
             transaction_id (str): The transaction ID to submit.
         
         Returns:
-            bool: True if transaction was successfully submitted, False if already exists.
+            bool: True if the transaction was first to be submitted, False otherwise.
         """
         async with self._lock:
+            # First check: if transaction already exists, return False
             if transaction_id in self._used_transaction_ids:
                 return False
             
+            # Second check: this ensures first-writer-wins
             self._used_transaction_ids.add(transaction_id)
             return True
 
