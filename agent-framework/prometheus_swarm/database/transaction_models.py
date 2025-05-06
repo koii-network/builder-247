@@ -1,6 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Enum, ForeignKey
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Float, DateTime, Enum
+from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
 import enum
 
@@ -36,9 +35,6 @@ class Transaction(Base):
     description = Column(String(255), nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
     external_id = Column(String(100), nullable=True, unique=True)
-    
-    # Optional relationship to a user or system entity
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     
     def __repr__(self):
         return f"<Transaction(id={self.id}, type={self.transaction_type}, amount={self.amount}, status={self.status})>"
