@@ -60,9 +60,9 @@ class ReplayAttackDetector:
             if current_time - timestamp <= self._window_size
         }
         
-        # Limit total number of nonces if needed
+        # Limit total number of nonces to max_nonces
         if len(self._nonces) > self._max_nonces:
-            # Sort by timestamp and keep the most recent
+            # Get the most recent nonces
             sorted_nonces = sorted(
                 self._nonces.items(), 
                 key=lambda x: x[1], 
