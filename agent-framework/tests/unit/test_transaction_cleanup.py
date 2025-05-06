@@ -1,14 +1,18 @@
 import pytest
-import datetime
+from datetime import datetime
 from unittest.mock import MagicMock
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, Model
 from typing import Optional
 from prometheus_swarm.utils.transaction_cleanup import cleanup_expired_transactions
+from pydantic import ConfigDict
 
 # Create a test model for transaction cleanup tests
 class TestModel(SQLModel, table=True):
+    """Test model for transaction cleanup."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     name: Optional[str] = None
 
 @pytest.fixture
@@ -19,7 +23,7 @@ def mock_db_session():
 def test_cleanup_expired_transactions(mock_db_session):
     # Create mock expired records
     expiration_threshold_hours = 24
-    expired_timestamp = datetime.datetime.utcnow() - datetime.timedelta(hours=expiration_threshold_hours + 1)
+    expired_timestamp = datetime.utcnow() - datetime.timedelta(hours=expiration_threshold_hours + 1)
     
     mock_transactions = [
         TestModel(created_at=expired_timestamp, name="old1"),
@@ -83,7 +87,7 @@ def test_cleanup_database_error(mock_db_session):
 def test_cleanup_max_batch_size(mock_db_session):
     # Create many expired transactions
     expiration_threshold_hours = 24
-    expired_timestamp = datetime.datetime.utcnow() - datetime.timedelta(hours=expiration_threshold_hours + 1)
+    expired_timestamp = datetime.utcnow() - datetime.timedelta(hours=expiration_threshold_hours + 1)
     
     mock_transactions = [
         TestModel(created_at=expired_timestamp, name=f"old{i}") for i in range(1500)
