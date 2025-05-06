@@ -59,6 +59,16 @@ class TransactionIDBenchmark:
         Returns:
             Dict[str, Any]: Performance metrics
         """
+        if not transaction_ids:
+            return {
+                'total_ids': 0,
+                'avg_validation_time': 0.0,
+                'min_validation_time': 0.0,
+                'max_validation_time': 0.0,
+                'std_dev_validation_time': 0.0,
+                'validation_rate': 0.0
+            }
+        
         validation_times = []
         validation_results = []
         
