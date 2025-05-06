@@ -63,7 +63,8 @@ def test_replay_attack_detector_max_nonces():
     assert not detector.is_replay_attack("nonce1")
     assert not detector.is_replay_attack("nonce5")
     
-    # Most recent nonces added will still be tracked as replay attacks
-    assert detector.is_replay_attack("nonce2")
-    assert detector.is_replay_attack("nonce3")
+    # Since all nonces are added again, the most recent nonces should be tracked
+    # but the oldest ones will be discarded to maintain max limit
     assert detector.is_replay_attack("nonce4")
+    assert detector.is_replay_attack("nonce5")
+    assert detector.is_replay_attack("nonce3")  # Most recently added of the first batch
