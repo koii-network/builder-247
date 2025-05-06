@@ -1,10 +1,11 @@
 import hashlib
 import time
+import threading
 from typing import Dict, Any
 
 class ReplayAttackDetector:
     """
-    A class to detect and prevent replay attacks by tracking request signatures.
+    A thread-safe class to detect and prevent replay attacks by tracking request signatures.
     
     Replay attacks occur when a valid data transmission is maliciously repeated or delayed.
     This detector helps mitigate such attacks by tracking request uniqueness.
@@ -21,6 +22,7 @@ class ReplayAttackDetector:
         self._request_cache: Dict[str, float] = {}
         self._window_seconds = window_seconds
         self._max_cache_size = max_cache_size
+        self._lock = threading.Lock()
     
     def _generate_signature(self, request: Any) -> str:
         """
@@ -32,14 +34,14 @@ class ReplayAttackDetector:
         Returns:
             str: A unique signature for the request
         """
-        # Convert request to a hashable, consistent string representation
-        request_str = str(sorted(str(request).split()))
+        # Use a consistent string representation
+        # Sort dictionary keys to ensure consistent representation
+        if isinstance(request, dict):
+            request_str = str(sorted((k, str(v)) for k, v in request.items()))
+        else:
+            request_str = str(request)
         
-        # Include timestamp to prevent exact replays
-        current_time = str(int(time.time()))
-        
-        # Create a hash of the request and timestamp
-        return hashlib.sha256(f"{request_str}_{current_time}".encode()).hexdigest()
+        return hashlib.sha256(request_str.encode()).hexdigest()
     
     def is_unique_request(self, request: Any) -> bool:
         """
@@ -54,17 +56,18 @@ class ReplayAttackDetector:
         current_time = time.time()
         signature = self._generate_signature(request)
         
-        # Clean up old entries
-        self._cleanup_cache(current_time)
-        
-        # Check if signature exists and is within the time window
-        if signature in self._request_cache:
-            return False
-        
-        # Store the signature with current timestamp
-        self._request_cache[signature] = current_time
-        
-        return True
+        with self._lock:
+            # Clean up old entries
+            self._cleanup_cache(current_time)
+            
+            # Check if signature exists
+            if signature in self._request_cache:
+                return False
+            
+            # Store the signature with current timestamp
+            self._request_cache[signature] = current_time
+            
+            return True
     
     def _cleanup_cache(self, current_time: float) -> None:
         """
