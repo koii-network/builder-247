@@ -2,7 +2,7 @@ import time
 import functools
 import logging
 from typing import Callable, Any, Dict
-from prometheus_client import Summary, Counter, Histogram
+from prometheus_client import Summary, Counter, Histogram, CollectorRegistry
 
 class PerformanceMonitor:
     """
@@ -14,31 +14,39 @@ class PerformanceMonitor:
     - Detailed histogram of operation durations
     """
     
-    def __init__(self, namespace: str = 'cleanup_job'):
+    def __init__(self, namespace: str = 'cleanup_job', registry: CollectorRegistry = None):
         """
         Initialize performance metrics for a specific namespace.
         
         Args:
             namespace (str): Prefix for metric names, defaults to 'cleanup_job'
+            registry (CollectorRegistry, optional): Prometheus registry to use. 
+                If None, uses the default registry.
         """
+        self.registry = registry or CollectorRegistry()
+        
         self.job_duration = Histogram(
             f'{namespace}_job_duration_seconds', 
-            'Duration of cleanup job execution'
+            'Duration of cleanup job execution',
+            registry=self.registry
         )
         
         self.job_total_count = Counter(
             f'{namespace}_job_total_count', 
-            'Total number of cleanup job runs'
+            'Total number of cleanup job runs',
+            registry=self.registry
         )
         
         self.job_success_count = Counter(
             f'{namespace}_job_success_count', 
-            'Number of successful cleanup job runs'
+            'Number of successful cleanup job runs',
+            registry=self.registry
         )
         
         self.job_failure_count = Counter(
             f'{namespace}_job_failure_count', 
-            'Number of failed cleanup job runs'
+            'Number of failed cleanup job runs',
+            registry=self.registry
         )
         
         self.logger = logging.getLogger(__name__)
