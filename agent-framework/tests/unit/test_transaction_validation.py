@@ -1,11 +1,12 @@
 import pytest
+import uuid
 from prometheus_swarm.utils.transaction_validation import validate_transaction_id
 
 def test_valid_transaction_ids():
     """Test various valid transaction ID formats."""
     valid_ids = [
         # UUID format
-        str(pytest.helpers.random_uuid()),
+        str(uuid.uuid4()),
         
         # Alphanumeric with special characters
         'transaction_123-xyz.456',
