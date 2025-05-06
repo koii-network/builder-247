@@ -20,9 +20,9 @@ def generate_nonce(length: int = 32, include_timestamp: bool = True) -> str:
     if length < 16 or length > 128:
         raise ValueError("Nonce length must be between 16 and 128 bytes")
 
-    # Calculate precise byte size needed for this length
-    raw_length = int(length * 3 / 4)
-    padding_length = length - raw_length
+    # Base64 padding overhead calculation
+    base64_overhead = length % 4
+    raw_length = length + base64_overhead
 
     # Generate random bytes
     random_bytes = secrets.token_bytes(raw_length)
@@ -36,5 +36,12 @@ def generate_nonce(length: int = 32, include_timestamp: bool = True) -> str:
     sha256_hash = hashlib.sha256(random_bytes).digest()
 
     # Base64 encode and truncate to exact length
-    encoded_nonce = base64.urlsafe_b64encode(sha256_hash)[:length].decode('utf-8')
-    return encoded_nonce + '=' * padding_length
+    encoded = base64.urlsafe_b64encode(sha256_hash[:raw_length]).decode('utf-8')
+    
+    # Pad or truncate to exact length
+    if len(encoded) > length:
+        return encoded[:length]
+    elif len(encoded) < length:
+        return encoded + '=' * (length - len(encoded))
+    
+    return encoded
