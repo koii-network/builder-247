@@ -3,7 +3,7 @@ Test suite for transaction expiration and cleanup functionality.
 """
 
 import pytest
-from datetime import datetime, timedelta
+import datetime as dt
 from sqlalchemy import Column, Integer, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.orm import Session
@@ -39,8 +39,8 @@ def test_set_expiration(db_session: Session):
     transaction.set_expiration(hours=2)
     
     assert transaction.expires_at is not None
-    assert isinstance(transaction.expires_at, datetime)
-    assert transaction.expires_at > datetime.utcnow()
+    assert isinstance(transaction.expires_at, dt.datetime)
+    assert transaction.expires_at > dt.datetime.now(dt.timezone.utc)
 
 def test_cleanup_expired_transactions(db_session: Session):
     """Test cleanup of expired transactions."""
@@ -49,8 +49,8 @@ def test_cleanup_expired_transactions(db_session: Session):
     recent_transaction = MockTransaction(value=2)
     
     # Set custom timestamps to simulate aging
-    old_transaction.created_at = datetime.utcnow() - timedelta(hours=25)
-    recent_transaction.created_at = datetime.utcnow() - timedelta(hours=10)
+    old_transaction.created_at = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=25)
+    recent_transaction.created_at = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=10)
     
     # Add transactions to session
     db_session.add(old_transaction)
@@ -83,7 +83,7 @@ def test_cleanup_with_explicit_expiration(db_session: Session):
     not_expired_transaction.set_expiration(hours=24)
     
     # Simulate time passage
-    expired_transaction.expires_at = datetime.utcnow() - timedelta(hours=2)
+    expired_transaction.expires_at = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=2)
     
     # Add transactions to session
     db_session.add(expired_transaction)
