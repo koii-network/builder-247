@@ -1,6 +1,6 @@
 import pytest
-from unittest.mock import patch, MagicMock
 import datetime
+import logging
 
 from prometheus_swarm.utils.transaction_cleanup import (
     cleanup_expired_transactions,
