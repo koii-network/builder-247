@@ -1,8 +1,9 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from prometheus_swarm.database.transaction_models import Base, Transaction, User, TransactionType, TransactionStatus
+from prometheus_swarm.database.transaction_models import Base, Transaction
 from datetime import datetime, timedelta
+import uuid
 
 @pytest.fixture(scope='function')
 def engine():
@@ -18,106 +19,62 @@ def session(engine):
     yield session
     session.close()
 
-def test_create_transaction(session):
-    """Test creating a basic transaction"""
-    user = User(username='testuser')
-    session.add(user)
-    session.commit()
-
-    transaction = Transaction(
-        user_id=user.id,
-        amount=100.50,
-        transaction_type=TransactionType.DEPOSIT,
-        status=TransactionStatus.COMPLETED
-    )
+def test_transaction_id_is_uuid(session):
+    """Verify transaction_id is a valid UUID"""
+    transaction = Transaction()
     session.add(transaction)
     session.commit()
 
-    assert transaction.id is not None
-    assert transaction.amount == 100.50
-    assert transaction.transaction_type == TransactionType.DEPOSIT
-    assert transaction.status == TransactionStatus.COMPLETED
+    assert transaction.transaction_id is not None
+    assert isinstance(transaction.transaction_id, uuid.UUID)
 
-def test_transaction_timestamps(session):
-    """Test that timestamps are automatically set"""
-    user = User(username='timestampuser')
-    session.add(user)
-    session.commit()
-
-    transaction = Transaction(
-        user_id=user.id,
-        amount=50.0,
-        transaction_type=TransactionType.WITHDRAWAL
-    )
+def test_created_at_defaults_to_current_timestamp(session):
+    """Check that created_at defaults to current timestamp"""
+    transaction = Transaction()
     session.add(transaction)
     session.commit()
 
     assert transaction.created_at is not None
-    assert transaction.updated_at is not None
     assert isinstance(transaction.created_at, datetime)
-
-def test_transaction_user_relationship(session):
-    """Test the relationship between User and Transaction"""
-    user = User(username='relationshipuser')
-    session.add(user)
     
-    transaction1 = Transaction(
-        user_id=user.id,
-        amount=200.0,
-        transaction_type=TransactionType.TRANSFER
-    )
-    transaction2 = Transaction(
-        user_id=user.id,
-        amount=75.0,
-        transaction_type=TransactionType.REWARD
-    )
-    session.add(transaction1)
-    session.add(transaction2)
-    session.commit()
+    # Check timestamp is very close to current time (within 1 second)
+    time_difference = datetime.utcnow() - transaction.created_at
+    assert abs(time_difference.total_seconds()) < 1
 
-    assert len(user.transactions) == 2
-    assert transaction1 in user.transactions
-    assert transaction2 in user.transactions
-
-def test_transaction_status_validation(session):
-    """Test different transaction statuses"""
-    user = User(username='statususer')
-    session.add(user)
-    session.commit()
-
-    statuses = [
-        TransactionStatus.PENDING,
-        TransactionStatus.COMPLETED,
-        TransactionStatus.FAILED,
-        TransactionStatus.CANCELLED
-    ]
-
-    for status in statuses:
-        transaction = Transaction(
-            user_id=user.id,
-            amount=100.0,
-            transaction_type=TransactionType.DEPOSIT,
-            status=status
-        )
-        session.add(transaction)
-    
-    session.commit()
-
-def test_transaction_optional_fields(session):
-    """Test optional transaction fields"""
-    user = User(username='optionaluser')
-    session.add(user)
-    session.commit()
-
-    transaction = Transaction(
-        user_id=user.id,
-        amount=500.0,
-        transaction_type=TransactionType.WITHDRAWAL,
-        description="Monthly maintenance fee",
-        external_reference="MAINT-2023-001"
-    )
+def test_created_at_millisecond_precision(session):
+    """Verify millisecond-level timestamp precision"""
+    transaction = Transaction()
     session.add(transaction)
     session.commit()
 
-    assert transaction.description == "Monthly maintenance fee"
-    assert transaction.external_reference == "MAINT-2023-001"
+    # Microseconds are stored, which is more precise than milliseconds
+    assert transaction.created_at.microsecond != 0
+
+def test_expiration_time_optional(session):
+    """Test that expiration_time can be set or left as default"""
+    # Transaction with default expiration
+    transaction1 = Transaction()
+    session.add(transaction1)
+
+    # Transaction with custom expiration
+    custom_expiration = datetime.utcnow() + timedelta(days=2)
+    transaction2 = Transaction(expiration_time=custom_expiration)
+    session.add(transaction2)
+
+    session.commit()
+
+    assert transaction1.expiration_time is not None
+    assert transaction2.expiration_time == custom_expiration
+
+def test_unique_transaction_id(session):
+    """Verify unique constraint on transaction_id"""
+    transaction_id = uuid.uuid4()
+    
+    transaction1 = Transaction(transaction_id=transaction_id)
+    session.add(transaction1)
+    session.commit()
+
+    with pytest.raises(Exception):
+        transaction2 = Transaction(transaction_id=transaction_id)
+        session.add(transaction2)
+        session.commit()
