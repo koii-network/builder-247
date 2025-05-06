@@ -1,12 +1,12 @@
 import pytest
 import datetime
 from unittest.mock import patch, MagicMock
-from agent-framework.prometheus_swarm.utils.transaction_cleanup import cleanup_expired_transactions
-from agent-framework.prometheus_swarm.database.models import Transaction
+from agent_framework.prometheus_swarm.utils.transaction_cleanup import cleanup_expired_transactions
+from agent_framework.prometheus_swarm.database.models import Transaction
 
 @pytest.fixture
 def mock_db_session():
-    with patch('agent-framework.prometheus_swarm.database.database.get_database_session') as mock_session:
+    with patch('agent_framework.prometheus_swarm.database.database.get_database_session') as mock_session:
         mock_session_instance = MagicMock()
         mock_session.return_value = mock_session_instance
         yield mock_session_instance
