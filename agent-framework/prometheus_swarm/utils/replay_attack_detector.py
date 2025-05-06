@@ -49,7 +49,14 @@ class ReplayAttackDetector:
         
         Returns:
             bool: True if the request appears to be a replay attack, False otherwise.
+        
+        Raises:
+            TypeError: If nonce is not a valid string.
         """
+        # Input validation
+        if not isinstance(nonce, str):
+            raise TypeError("Nonce must be a string")
+        
         # Use current time if no timestamp is provided
         current_time = timestamp or time.time()
         
@@ -60,8 +67,9 @@ class ReplayAttackDetector:
         if nonce in self._nonce_cache:
             return True
         
-        # Check timestamp validity
-        if current_time < time.time() - self._max_time_window:
+        # Check timestamp validity: reject if too far in past or future
+        time_diff = abs(current_time - time.time())
+        if time_diff > self._max_time_window:
             return True
         
         # If cache is getting too large, limit its size by removing the oldest entries
