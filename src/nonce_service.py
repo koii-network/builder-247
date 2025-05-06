@@ -46,8 +46,9 @@ class NonceService:
         """
         current_time = int(time.time())
         
-        # Combine current time, salt, and a random component
-        nonce_components = f"{current_time}:{salt}"
+        # Combine current time, salt, and a random component to ensure uniqueness
+        random_component = secrets.token_hex(8)
+        nonce_components = f"{current_time}:{salt}:{random_component}"
         
         # Hash the components to create a secure nonce
         return hashlib.sha256(nonce_components.encode()).hexdigest()
@@ -70,8 +71,9 @@ class NonceService:
         # Check multiple time windows to account for slight time discrepancies
         for offset in range(-1, 2):
             check_time = current_time + offset
-            check_components = f"{check_time}:{salt}"
-            check_nonce = hashlib.sha256(check_components.encode()).hexdigest()
+            
+            # Simulate how the original nonce was generated
+            check_nonce = NonceService.generate_time_based_nonce(salt, max_age_seconds)
             
             if check_nonce == nonce:
                 return True
