@@ -57,8 +57,11 @@ class ReplayAttackDetector:
         signature = self._generate_signature(request)
         
         with self._lock:
-            # Clean up old entries
-            self._cleanup_cache(current_time)
+            # Remove entries older than window_seconds
+            self._request_cache = {
+                sig: timestamp for sig, timestamp in self._request_cache.items()
+                if current_time - timestamp <= self._window_seconds
+            }
             
             # Check if signature exists
             if signature in self._request_cache:
@@ -67,26 +70,13 @@ class ReplayAttackDetector:
             # Store the signature with current timestamp
             self._request_cache[signature] = current_time
             
+            # Remove oldest entries if cache exceeds max size
+            if len(self._request_cache) > self._max_cache_size:
+                sorted_cache = sorted(
+                    self._request_cache.items(), 
+                    key=lambda x: x[1], 
+                    reverse=True
+                )
+                self._request_cache = dict(sorted_cache[:self._max_cache_size])
+            
             return True
-    
-    def _cleanup_cache(self, current_time: float) -> None:
-        """
-        Remove old entries from the request cache.
-        
-        Args:
-            current_time (float): Current timestamp
-        """
-        # Remove entries older than window_seconds
-        self._request_cache = {
-            sig: timestamp for sig, timestamp in self._request_cache.items()
-            if current_time - timestamp <= self._window_seconds
-        }
-        
-        # Explicitly trim cache to max_cache_size, keeping most recent entries
-        if len(self._request_cache) > self._max_cache_size:
-            sorted_items = sorted(
-                self._request_cache.items(), 
-                key=lambda x: x[1], 
-                reverse=True
-            )
-            self._request_cache = dict(sorted_items[:self._max_cache_size])
