@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, JSON
 
 
 class Conversation(SQLModel, table=True):
@@ -42,3 +42,45 @@ class Log(SQLModel, table=True):
     stack_trace: Optional[str] = None
     request_id: Optional[str] = None
     additional_data: Optional[str] = None
+
+
+class TransactionTracking(SQLModel, table=True):
+    """Transaction tracking model to track unique transactions."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    transaction_id: str = Field(unique=True, index=True)
+    status: str = Field(description="Status of the transaction (e.g., 'pending', 'completed', 'failed')")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    metadata: Optional[dict] = Field(default=None, sa_column_kwargs={'type_': JSON}, description="Additional metadata for the transaction")
+    source: Optional[str] = Field(description="Source or origin of the transaction")
+    
+    @classmethod
+    def create_transaction(cls, transaction_id: str, source: Optional[str] = None, metadata: Optional[dict] = None) -> 'TransactionTracking':
+        """
+        Create a new transaction with a unique transaction ID.
+        
+        Args:
+            transaction_id (str): A unique identifier for the transaction
+            source (Optional[str]): Source or origin of the transaction
+            metadata (Optional[dict]): Additional metadata for the transaction
+        
+        Returns:
+            TransactionTracking: The created transaction instance
+        """
+        return cls(
+            transaction_id=transaction_id,
+            status='pending',
+            source=source,
+            metadata=metadata
+        )
+    
+    def update_status(self, new_status: str):
+        """
+        Update the status of the transaction.
+        
+        Args:
+            new_status (str): New status for the transaction
+        """
+        self.status = new_status
+        self.updated_at = datetime.utcnow()
