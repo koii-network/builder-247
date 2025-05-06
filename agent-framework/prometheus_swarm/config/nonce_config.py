@@ -7,7 +7,7 @@ including environment variables, configuration loading, and default settings.
 
 import os
 from typing import Dict, Any, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 import json
 from dotenv import load_dotenv
 
@@ -26,11 +26,11 @@ class NonceConfig:
         encryption_key (Optional[str]): Optional encryption key for nonce
         debug_mode (bool): Enable debug logging
     """
-    nonce_salt: str = os.getenv('NONCE_SALT', 'default_salt')
-    max_nonce_age: int = int(os.getenv('MAX_NONCE_AGE', 3600))  # 1 hour default
-    nonce_length: int = int(os.getenv('NONCE_LENGTH', 32))
-    encryption_key: Optional[str] = os.getenv('NONCE_ENCRYPTION_KEY')
-    debug_mode: bool = os.getenv('NONCE_DEBUG', 'false').lower() == 'true'
+    nonce_salt: str = field(default_factory=lambda: os.getenv('NONCE_SALT', 'default_salt'))
+    max_nonce_age: int = field(default_factory=lambda: int(os.getenv('MAX_NONCE_AGE', 3600)))
+    nonce_length: int = field(default_factory=lambda: int(os.getenv('NONCE_LENGTH', 32)))
+    encryption_key: Optional[str] = field(default_factory=lambda: os.getenv('NONCE_ENCRYPTION_KEY'))
+    debug_mode: bool = field(default_factory=lambda: os.getenv('NONCE_DEBUG', 'false').lower() == 'true')
 
     def to_dict(self) -> Dict[str, Any]:
         """
