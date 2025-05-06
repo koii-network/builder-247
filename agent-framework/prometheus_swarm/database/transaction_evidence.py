@@ -1,48 +1,34 @@
-from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from .database import Base
+"""Transaction Evidence Model."""
+
+from datetime import datetime
+from typing import Optional
+from sqlmodel import SQLModel, Field, UniqueConstraint
 import uuid
 
-class TransactionEvidence(Base):
+class TransactionEvidence(SQLModel, table=True):
     """
     Database model for Transaction Evidence with uniqueness constraints.
     
     Ensures each transaction evidence record is unique based on multiple attributes.
     """
+    # Custom table name in the database
     __tablename__ = 'transaction_evidence'
     
     # Primary Key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     
     # Transaction-specific fields
-    transaction_hash = Column(String, nullable=False)
-    transaction_type = Column(String, nullable=False)
+    transaction_hash: str = Field(index=True, unique=True)
+    transaction_type: str
     
     # Timestamp fields
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
     
-    # Optional foreign key reference (adjust as needed)
-    # user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
-    
-    # Uniqueness Constraints
-    __table_args__ = (
-        # Ensure unique combination of transaction hash and type
-        UniqueConstraint('transaction_hash', 'transaction_type', name='uq_transaction_evidence'),
-    )
-    
-    def __repr__(self):
-        """
-        String representation of the TransactionEvidence model.
-        
-        Returns:
-            str: A string describing the transaction evidence
-        """
-        return f"<TransactionEvidence(id={self.id}, hash={self.transaction_hash}, type={self.transaction_type})>"
+    # Optional additional fields can be added here
     
     @classmethod
-    def validate_transaction_evidence(cls, transaction_hash, transaction_type):
+    def validate_transaction_evidence(cls, transaction_hash: str, transaction_type: str):
         """
         Validate transaction evidence before creation.
         
@@ -59,4 +45,4 @@ class TransactionEvidence(Base):
         if not transaction_type or not isinstance(transaction_type, str):
             raise ValueError("Transaction type must be a non-empty string")
         
-        # Add any additional validation logic here
+        # Optional: Add more specific validation rules here
