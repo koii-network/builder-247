@@ -1,7 +1,10 @@
 import secrets
 import time
 import uuid
-from typing import Union, Dict, ClassVar
+from typing import Union, Dict
+
+# Global set to track nonces across all instances
+_GLOBAL_NONCE_TRACKING: Dict[str, float] = {}
 
 class NonceService:
     """
@@ -12,9 +15,6 @@ class NonceService:
     - Validate nonces with optional expiration
     - Track and manage nonce usage
     """
-    
-    # Class variable to track used nonces across all instances
-    _used_nonces: ClassVar[Dict[str, float]] = {}
     
     def __init__(self, max_age_seconds: int = 3600):
         """
@@ -57,11 +57,11 @@ class NonceService:
         self._cleanup_expired_nonces(current_time)
         
         # Check if nonce has been used before
-        if nonce in self._used_nonces:
+        if nonce in _GLOBAL_NONCE_TRACKING:
             return False
         
         if use_nonce:
-            self._used_nonces[nonce] = current_time
+            _GLOBAL_NONCE_TRACKING[nonce] = current_time
         
         return True
     
@@ -72,7 +72,8 @@ class NonceService:
         Args:
             current_time (float): Current timestamp.
         """
-        self._used_nonces = {
-            nonce: timestamp for nonce, timestamp in self._used_nonces.items()
+        global _GLOBAL_NONCE_TRACKING
+        _GLOBAL_NONCE_TRACKING = {
+            nonce: timestamp for nonce, timestamp in _GLOBAL_NONCE_TRACKING.items()
             if current_time - timestamp <= self._max_age
         }
