@@ -1,8 +1,8 @@
 import datetime
 from typing import List, Dict, Any
-from prometheus_swarm.utils.logging import get_logger
+import logging
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 class DatabaseConnectionError(Exception):
     """Raised when there's an issue connecting to the database."""
