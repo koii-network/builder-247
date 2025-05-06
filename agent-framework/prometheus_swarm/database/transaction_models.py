@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Float, DateTime, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from enum import Enum as PyEnum
 from datetime import datetime
@@ -25,7 +24,6 @@ class Transaction(Base):
         status (TransactionStatus): Current status of the transaction
         timestamp (datetime): Timestamp when the transaction was initiated
         description (str, optional): Additional description or notes about the transaction
-        user_id (int, optional): Foreign key to link transaction to a user
         reference_id (str, optional): External reference or tracking ID
     """
     __tablename__ = 'transactions'
@@ -37,15 +35,11 @@ class Transaction(Base):
     status = Column(Enum(TransactionStatus), default=TransactionStatus.PENDING, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
     description = Column(String(255), nullable=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     reference_id = Column(String(100), nullable=True, unique=True)
     
-    # Optional relationship with user model (assuming it exists)
-    user = relationship("User", back_populates="transactions")
-    
     def __repr__(self):
-        return (f"&lt;Transaction(id={self.id}, type={self.transaction_type}, "
-                f"amount={self.amount}, status={self.status})&gt;")
+        return (f"<Transaction(id={self.id}, type={self.transaction_type}, "
+                f"amount={self.amount}, status={self.status})>")
 
 def create_transaction_tables(engine):
     """
