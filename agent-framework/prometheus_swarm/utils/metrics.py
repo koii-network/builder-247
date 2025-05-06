@@ -1,7 +1,8 @@
 import time
 import psutil
 import threading
-from prometheus_client import Counter, Gauge, Summary, start_http_server, REGISTRY, CollectorRegistry
+import contextlib
+from prometheus_client import Counter, Gauge, Summary, start_http_server, CollectorRegistry
 
 class AgentMetrics:
     """
@@ -73,21 +74,29 @@ class AgentMetrics:
         self.memory_usage.set(psutil.virtual_memory().used)
         self.disk_usage.set(psutil.disk_usage('/').percent)
     
+    @contextlib.contextmanager
     def track_task(self):
         """
         Context manager to track task processing time and count.
+        
+        Increments task counter and tracks execution time.
         
         Usage:
             with metrics.track_task():
                 # Your task processing code
         """
-        return self.task_duration.time()
-    
-    def record_error(self, error_type):
-        """
-        Record an error with a specific type.
+        # Increment task counter before entering the context
+        self.task_counter.inc()
         
-        :param error_type: Type or category of error
+        # Use the Summary's time() method for tracking duration
+        with self.task_duration.time():
+            yield
+    
+    def record_error(self, error_type=None):
+        """
+        Record an error with an optional type.
+        
+        :param error_type: Optional type or category of error (not used in this implementation)
         """
         self.error_counter.inc()
     
