@@ -31,62 +31,66 @@ class NonceService:
         self.include_timestamp = include_timestamp
         self.salt = salt
         self.max_age = max_age
-        self._used_nonces = set()
+        self._used_nonces = {}
     
-    def generate_nonce(self) -> str:
+    def generate_nonce(self, current_time: float = None) -> str:
         """
         Generate a secure, unique nonce.
+        
+        Args:
+            current_time (float, optional): Specific time to use for nonce. 
+                                            Defaults to current system time.
         
         Returns:
             str: A cryptographically secure nonce
         """
+        current_time = current_time or time.time()
+        
         # Generate random bytes
         random_bytes = secrets.token_bytes(self.length // 2)
         
         # Include current timestamp if enabled
-        timestamp = str(int(time.time())).encode('utf-8') if self.include_timestamp else b''
+        timestamp_bytes = str(int(current_time)).encode('utf-8') if self.include_timestamp else b''
         
         # Add optional salt
         salt_bytes = self.salt.encode('utf-8') if self.salt else b''
         
         # Combine all inputs
-        combined_bytes = random_bytes + timestamp + salt_bytes
+        combined_bytes = random_bytes + timestamp_bytes + salt_bytes
         
         # Hash to create a fixed-length nonce
         nonce = hashlib.sha256(combined_bytes).hexdigest()[:self.length]
         
-        # Mark nonce as used
-        self._used_nonces.add(nonce)
+        # Store nonce with generation time
+        self._used_nonces[nonce] = current_time
         
         return nonce
     
-    def validate_nonce(self, nonce: str) -> bool:
+    def validate_nonce(self, nonce: str, current_time: float = None) -> bool:
         """
         Validate a previously generated nonce.
         
         Args:
             nonce (str): The nonce to validate
+            current_time (float, optional): Specific time to use for validation. 
+                                            Defaults to current system time.
         
         Returns:
             bool: Whether the nonce is valid
         """
+        current_time = current_time or time.time()
+        
         # Check basic requirements
         if not nonce or len(nonce) != self.length or nonce not in self._used_nonces:
             return False
         
         # If timestamp is included, validate age
         if self.include_timestamp:
-            try:
-                # Extract timestamp from the last 10 characters
-                timestamp_str = nonce[-10:]
-                nonce_timestamp = int(timestamp_str, 16)  # Convert hex timestamp
-                current_time = int(time.time())
-                
-                # Check timestamp age
-                if current_time - nonce_timestamp > self.max_age:
-                    self._used_nonces.remove(nonce)
-                    return False
-            except (ValueError, TypeError):
+            nonce_timestamp = self._used_nonces[nonce]
+            
+            # Check timestamp age
+            if current_time - nonce_timestamp > self.max_age:
+                del self._used_nonces[nonce]
                 return False
         
         return True
