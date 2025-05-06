@@ -1,5 +1,6 @@
 import os
 import json
+import warnings
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
@@ -45,7 +46,7 @@ class NonceConfig:
                 with open(self._config_path, 'r') as f:
                     self._config.update(json.load(f))
         except (IOError, json.JSONDecodeError) as e:
-            print(f"Warning: Could not load config file: {e}")
+            warnings.warn(f"Could not load config file: {e}", UserWarning)
     
     def get(self, key: str, default: Optional[Any] = None) -> Any:
         """
