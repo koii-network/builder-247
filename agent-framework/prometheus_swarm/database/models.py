@@ -1,8 +1,9 @@
 """Database models."""
 
 from datetime import datetime
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship, JSON
+from typing import Optional, List, Dict, Any
+from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import JSON
 from decimal import Decimal
 
 # Existing models...
@@ -33,7 +34,11 @@ class Transaction(SQLModel, table=True):
     destination: Optional[str] = Field(default=None, description="Destination of transaction")
     
     # Additional flexible metadata
-    metadata: Optional[dict] = Field(default=None, sa_column_type=JSON, description="Additional transaction metadata")
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None, 
+        sa_column_kwargs={'type_': JSON}, 
+        description="Additional transaction metadata"
+    )
     
     # Auditing fields
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Record creation timestamp")
@@ -41,7 +46,7 @@ class Transaction(SQLModel, table=True):
 
     class Config:
         """Configuration for Transaction model."""
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "transaction_uuid": "tx_123456",
                 "type": "income",
