@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
-
+from sqlmodel import SQLModel, Field, Relationship, Column, UniqueConstraint
+from sqlalchemy import CheckConstraint
 
 class Conversation(SQLModel, table=True):
     """Conversation model."""
@@ -42,3 +42,19 @@ class Log(SQLModel, table=True):
     stack_trace: Optional[str] = None
     request_id: Optional[str] = None
     additional_data: Optional[str] = None
+
+
+class Evidence(SQLModel, table=True):
+    """Evidence model to ensure uniqueness."""
+
+    __tablename__ = 'evidence'
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    content: str = Field(min_length=1, max_length=10000)
+    type: str = Field(index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint('content', 'type', name='uix_evidence_content_type'),
+        CheckConstraint('length(content) > 0', name='check_content_not_empty')
+    )
