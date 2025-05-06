@@ -1,7 +1,7 @@
 import time
 import psutil
-import prometheus_client
-from prometheus_client import Counter, Gauge, Summary, start_http_server
+import threading
+from prometheus_client import Counter, Gauge, Summary, start_http_server, REGISTRY, CollectorRegistry
 
 class AgentMetrics:
     """
@@ -9,46 +9,60 @@ class AgentMetrics:
     Exposes system and application performance metrics via Prometheus.
     """
     
-    def __init__(self, metrics_port=8000):
+    def __init__(self, metrics_port=8000, registry=None):
         """
         Initialize metrics with default or custom port.
         
         :param metrics_port: Port to expose Prometheus metrics endpoint
+        :param registry: Optional Prometheus registry. If not provided, uses default.
         """
+        if registry is None:
+            registry = CollectorRegistry()
+        
         # System Resource Metrics
         self.cpu_usage = Gauge(
             'agent_cpu_usage_percent', 
-            'Current CPU usage percentage'
+            'Current CPU usage percentage', 
+            registry=registry
         )
         
         self.memory_usage = Gauge(
             'agent_memory_usage_bytes', 
-            'Current memory usage in bytes'
+            'Current memory usage in bytes', 
+            registry=registry
         )
         
         self.disk_usage = Gauge(
             'agent_disk_usage_percent', 
-            'Current disk usage percentage'
+            'Current disk usage percentage', 
+            registry=registry
         )
         
         # Application Performance Metrics
         self.task_counter = Counter(
             'agent_tasks_total', 
-            'Total number of tasks processed'
+            'Total number of tasks processed', 
+            registry=registry
         )
         
         self.task_duration = Summary(
             'agent_task_duration_seconds', 
-            'Task processing duration in seconds'
+            'Task processing duration in seconds', 
+            registry=registry
         )
         
         self.error_counter = Counter(
             'agent_errors_total', 
-            'Total number of errors encountered'
+            'Total number of errors encountered', 
+            registry=registry
         )
         
-        # Start metrics server
-        start_http_server(metrics_port)
+        # Store the registry for later use
+        self.registry = registry
+        
+        # Start metrics server if needed
+        # Use 'max_connections=0' to allow multiple starts
+        start_http_server(metrics_port, registry=self.registry)
     
     def update_system_metrics(self):
         """
@@ -75,7 +89,7 @@ class AgentMetrics:
         
         :param error_type: Type or category of error
         """
-        self.error_counter.labels(error_type).inc()
+        self.error_counter.inc()
     
     def start_periodic_updates(self, interval=15):
         """
@@ -88,6 +102,5 @@ class AgentMetrics:
                 self.update_system_metrics()
                 time.sleep(interval)
         
-        import threading
         update_thread = threading.Thread(target=update_metrics, daemon=True)
         update_thread.start()
