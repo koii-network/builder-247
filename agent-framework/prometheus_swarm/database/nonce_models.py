@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 import uuid
 
@@ -23,8 +23,8 @@ class Nonce(Base):
     id = Column(Integer, primary_key=True)
     token = Column(String, unique=True, nullable=False, index=True)
     purpose = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    expires_at = Column(DateTime(timezone=True), nullable=False)
     used = Column(Integer, default=0)  # Use int for atomic updates
 
     @classmethod
@@ -39,7 +39,7 @@ class Nonce(Base):
         Returns:
             Nonce: A new nonce instance
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return cls(
             token=secrets.token_urlsafe(32),  # Cryptographically secure token
             purpose=purpose,
@@ -56,7 +56,7 @@ class Nonce(Base):
             bool: True if nonce is valid, False otherwise
         """
         return (
-            datetime.utcnow() <= self.expires_at and 
+            datetime.now(timezone.utc) <= self.expires_at and 
             self.used == 0
         )
 
