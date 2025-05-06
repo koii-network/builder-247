@@ -72,7 +72,7 @@ def test_evidence_content_validation():
     # Whitespace-only content
     with pytest.raises(ValidationError) as excinfo:
         Evidence(content="   ", type="test_type")
-    assert "String should have at least 1 character" in str(excinfo.value)
+    assert "Content cannot be empty or just whitespace" in str(excinfo.value)
     
     # Test very long content
     long_content = "a" * 10001  # Exceeding max length
