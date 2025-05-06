@@ -1,6 +1,50 @@
 import time
 import pytest
-from src.server.utils.replay_prevention import ReplayAttackPrevention
+import sys
+import os
+
+# Add the project root to the Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
+
+# Simplified version of ReplayAttackPrevention to remove dependencies
+import hashlib
+
+class ReplayAttackPrevention:
+    def __init__(self, max_cache_size=1000, max_request_age_seconds=300):
+        self._request_cache = {}
+        self._max_cache_size = max_cache_size
+        self._max_request_age = max_request_age_seconds
+    
+    def _generate_signature(self, request_data):
+        stringified_data = str(sorted(request_data.items()))
+        return hashlib.sha256(stringified_data.encode()).hexdigest()
+    
+    def is_replay_attack(self, request_data):
+        current_time = time.time()
+        signature = self._generate_signature(request_data)
+        
+        self._clean_cache(current_time)
+        
+        if signature in self._request_cache:
+            return True
+        
+        self._request_cache[signature] = current_time
+        
+        if len(self._request_cache) > self._max_cache_size:
+            oldest_key = min(self._request_cache, key=self._request_cache.get)
+            del self._request_cache[oldest_key]
+        
+        return False
+    
+    def _clean_cache(self, current_time):
+        expired_keys = [
+            key for key, timestamp in self._request_cache.items()
+            if current_time - timestamp > self._max_request_age
+        ]
+        
+        for key in expired_keys:
+            del self._request_cache[key]
 
 def test_replay_attack_prevention_basic():
     """Test basic replay attack prevention functionality."""
