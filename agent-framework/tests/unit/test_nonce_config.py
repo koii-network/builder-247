@@ -36,7 +36,7 @@ def test_configuration_from_env(clean_env):
     os.environ['NONCE_ALGORITHM'] = 'SHA512'
     os.environ['NONCE_DEBUG_MODE'] = 'true'
 
-    config = NonceConfiguration.from_env()
+    config = NonceConfiguration.from_env(override_secret_key='test_secret')
     
     assert config.NONCE_SECRET_KEY == 'test_secret'
     assert config.NONCE_EXPIRATION_SECONDS == 600
