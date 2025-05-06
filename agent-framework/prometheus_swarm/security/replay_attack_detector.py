@@ -35,15 +35,15 @@ class ReplayAttackDetector:
         """
         current_time = time.time()
         
+        # Prune old nonces first
+        self._prune_nonces(current_time)
+        
         # Check if nonce has been seen before within the time window
         if nonce in self._nonces:
             return True
         
         # Add the new nonce
         self._nonces[nonce] = current_time
-        
-        # Prune old nonces to prevent memory growth
-        self._prune_nonces(current_time)
         
         return False
 
@@ -55,21 +55,18 @@ class ReplayAttackDetector:
             current_time (float): Current timestamp.
         """
         # Remove nonces outside the time window
-        expired_nonces = [
-            nonce for nonce, timestamp in self._nonces.items() 
-            if current_time - timestamp > self._window_size
-        ]
+        self._nonces = {
+            nonce: timestamp for nonce, timestamp in self._nonces.items() 
+            if current_time - timestamp <= self._window_size
+        }
         
-        for nonce in expired_nonces:
-            del self._nonces[nonce]
-        
-        # Limit total number of nonces
+        # Limit total number of nonces if needed
         if len(self._nonces) > self._max_nonces:
-            # Sort by timestamp and remove oldest
-            oldest_nonces = sorted(
+            # Sort by timestamp and keep the most recent
+            sorted_nonces = sorted(
                 self._nonces.items(), 
-                key=lambda x: x[1]
-            )[:len(self._nonces) - self._max_nonces]
+                key=lambda x: x[1], 
+                reverse=True
+            )[:self._max_nonces]
             
-            for nonce, _ in oldest_nonces:
-                del self._nonces[nonce]
+            self._nonces = dict(sorted_nonces)
