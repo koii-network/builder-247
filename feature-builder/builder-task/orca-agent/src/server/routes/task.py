@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from src.server.services import task_service
 from prometheus_swarm.utils.logging import logger
+from src.server.utils.replay_prevention import prevent_replay, generate_request_signature
 import requests
 import os
 
@@ -8,16 +9,19 @@ bp = Blueprint("task", __name__)
 
 
 @bp.post("/worker-task/<round_number>")
+@prevent_replay
 def start_worker_task(round_number):
     return start_task(round_number, "worker", request)
 
 
 @bp.post("/leader-task/<round_number>")
+@prevent_replay
 def start_leader_task(round_number):
     return start_task(round_number, "leader", request)
 
 
 @bp.post("/create-aggregator-repo/<task_id>")
+@prevent_replay
 def create_aggregator_repo(task_id):
     print("\n=== ROUTE HANDLER CALLED ===")
     print(f"task_id: {task_id}")
@@ -32,6 +36,7 @@ def create_aggregator_repo(task_id):
 
 
 @bp.post("/add-aggregator-info/<task_id>")
+@prevent_replay
 def add_aggregator_info(task_id):
     print("\n=== ADD AGGREGATOR INFO ROUTE HANDLER CALLED ===")
     print(f"task_id: {task_id}")
@@ -65,6 +70,11 @@ def start_task(round_number, node_type, request):
     logger.info(f"{node_type.capitalize()} task started for round: {round_number}")
 
     request_data = request.get_json()
+    
+    # Validate replay signature (client should generate this before sending)
+    if 'replay_signature' not in request_data:
+        return jsonify({"success": False, "message": "Missing replay signature"}), 403
+
     logger.info(f"Task data: {request_data}")
     required_fields = [
         "taskId",
@@ -128,6 +138,7 @@ def start_task(round_number, node_type, request):
 
 
 @bp.post("/update-audit-result/<task_id>/<round_number>")
+@prevent_replay
 def update_audit_result(task_id, round_number):
     try:
         # Convert round_number to integer
