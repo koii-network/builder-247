@@ -22,19 +22,26 @@ class PerformanceMonitor:
         
         :param log_path: Optional path to log performance metrics
         """
-        self.log_path = log_path or os.path.join(os.getcwd(), 'performance_metrics.log')
+        # Ensure log_path is absolute and directory exists
+        log_path = log_path or os.path.join(os.getcwd(), 'performance_metrics.log')
+        log_dir = os.path.dirname(os.path.abspath(log_path))
         
-        # Ensure log directory exists
-        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+        # Create log directory if it doesn't exist
+        os.makedirs(log_dir, exist_ok=True)
         
+        # Ensure full absolute path
+        self.log_path = os.path.abspath(log_path)
+        
+        # Configure logging
         logging.basicConfig(
             filename=self.log_path, 
             level=logging.INFO, 
             format='%(asctime)s - %(levelname)s: %(message)s'
         )
         
-        # Log an initialization message
-        logging.info("Performance Monitor Initialized")
+        # Ensure log file exists and log an initialization message
+        with open(self.log_path, 'a') as log_file:
+            log_file.write(f"Performance Monitor Initialized at {time.time()}\n")
         
     def track_function(self, log_performance: bool = True):
         """
