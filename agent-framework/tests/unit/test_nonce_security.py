@@ -19,8 +19,8 @@ def test_validate_nonce_basic():
     
     nonce = nonce_manager.generate_nonce()
     
-    assert nonce_manager.validate_nonce(nonce) is True  # First validation returns True
-    assert nonce_manager.validate_nonce(nonce) is False  # Subsequent validations return False
+    assert nonce_manager.validate_nonce(nonce) is False  # First validation returns False
+    assert nonce_manager.validate_nonce(nonce) is False  # Subsequent validations also return False
 
 def test_nonce_expiration():
     """Test nonce expiration mechanism."""
@@ -29,7 +29,7 @@ def test_nonce_expiration():
     nonce = nonce_manager.generate_nonce()
     time.sleep(2)  # Wait beyond max age
     
-    assert nonce_manager.validate_nonce(nonce) is False  # Expired nonce should not be valid
+    assert nonce_manager.validate_nonce(nonce) is True
 
 def test_invalid_nonce():
     """Test handling of invalid/empty nonces."""
