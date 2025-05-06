@@ -47,8 +47,16 @@ def validate_nonce(nonce: str, max_ttl: int = 3600) -> bool:
         NonceError: If nonce is malformed or invalid
     """
     try:
+        # Validate nonce is base64 and of minimum expected length
+        if not nonce or len(nonce) < 44:  # Minimum base64 encoded length
+            raise NonceError("Invalid nonce length")
+        
         # Decode base64 nonce
         decoded_nonce = base64.b64decode(nonce)
+        
+        # Validate decoded nonce has enough bytes
+        if len(decoded_nonce) < 40:  # hash (32) + timestamp (8)
+            raise NonceError("Nonce too short after decoding")
         
         # Extract timestamp (last 8 bytes)
         timestamp_bytes = decoded_nonce[-8:]
@@ -61,5 +69,5 @@ def validate_nonce(nonce: str, max_ttl: int = 3600) -> bool:
         
         return True
     
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, base64.binascii.Error) as e:
         raise NonceError(f"Invalid nonce format: {e}")

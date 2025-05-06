@@ -1,4 +1,5 @@
 import time
+from unittest.mock import patch
 import pytest
 from prometheus_swarm.utils.nonce import generate_nonce, validate_nonce, NonceError
 
@@ -15,8 +16,6 @@ def test_nonce_validation_success():
 
 def test_nonce_validation_expired():
     """Test that an expired nonce is rejected."""
-    from unittest.mock import patch
-    
     # Generate a nonce
     nonce = generate_nonce()
     
@@ -27,7 +26,7 @@ def test_nonce_validation_expired():
 def test_invalid_nonce_format():
     """Test handling of malformed nonces."""
     with pytest.raises(NonceError):
-        validate_nonce("invalid_nonce")
+        validate_nonce("invalid.nonce.format")
 
 def test_different_nonces_are_unique():
     """Ensure that generated nonces are unique."""
