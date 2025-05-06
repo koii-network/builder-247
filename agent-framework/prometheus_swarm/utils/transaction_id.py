@@ -13,7 +13,7 @@ def validate_transaction_id(transaction_id: str) -> bool:
     
     Validation criteria:
     1. Must be a non-empty string
-    2. Must be a valid UUID
+    2. Must be a valid UUID (using strict validation)
     3. Cannot contain whitespace
     """
     if not isinstance(transaction_id, str):
@@ -27,9 +27,16 @@ def validate_transaction_id(transaction_id: str) -> bool:
     if re.search(r'\s', transaction_id):
         return False
     
-    # Check if it's a valid UUID
+    # Strict UUID format validation
+    uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
+    
+    # Check if the transaction_id matches the UUID pattern
+    if not uuid_pattern.match(transaction_id):
+        return False
+    
+    # Additional validation to ensure a valid UUID
     try:
-        uuid.UUID(transaction_id)
-        return True
+        parsed_uuid = uuid.UUID(transaction_id)
+        return str(parsed_uuid) == transaction_id.lower()
     except ValueError:
         return False
