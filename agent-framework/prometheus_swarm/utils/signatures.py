@@ -42,8 +42,8 @@ def generate_signature(
         # Sign the message
         signed_message = signing_key_obj.sign(message_str.encode('utf-8'))
 
-        # Encode signed message in base58
-        signature = base58.b58encode(signed_message.signature).decode('utf-8')
+        # Encode entire signed message in base58
+        signature = base58.b58encode(signed_message).decode('utf-8')
 
         return {"signature": signature}
     except Exception as e:
@@ -66,15 +66,18 @@ def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:
             - error (str): Error message if verification fails
     """
     try:
-        # Decode base58 signature and public key
+        # Decode base58 entire signed message and public key
         signed_bytes = base58.b58decode(signed_message)
         pubkey_bytes = base58.b58decode(staking_key)
 
         # Create verify key from public key
         verify_key = nacl.signing.VerifyKey(pubkey_bytes)
 
+        # Open signed message
+        verified_message = nacl.signing.SignedMessage(signed_bytes)
+
         # Verify and get message
-        message = verify_key.verify(signed_bytes)
+        message = verify_key.verify(verified_message)
 
         # Decode message from bytes to string
         decoded_message = message.decode("utf-8")
