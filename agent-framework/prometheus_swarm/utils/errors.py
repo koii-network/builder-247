@@ -1,16 +1,30 @@
-"""Error type for API errors."""
+import logging
+from typing import Any, Dict
 
+class DuplicateEvidenceError(Exception):
+    """
+    Custom exception raised when duplicate evidence is detected.
+    
+    Attributes:
+        message (str): Description of the duplicate evidence error
+        evidence (Dict[str, Any]): The duplicate evidence details
+    """
+    def __init__(self, message: str, evidence: Dict[str, Any]):
+        self.message = message
+        self.evidence = evidence
+        super().__init__(self.message)
 
-class ClientAPIError(Exception):
-    """Error for API calls with status code."""
-
-    def __init__(self, original_error: Exception):
-        print(original_error)
-        if hasattr(original_error, "status_code"):
-            self.status_code = original_error.status_code
-        else:
-            self.status_code = 500
-        if hasattr(original_error, "message"):
-            super().__init__(original_error.message)
-        else:
-            super().__init__(str(original_error))
+def log_duplicate_evidence(evidence: Dict[str, Any]) -> None:
+    """
+    Log details of duplicate evidence with appropriate logging level.
+    
+    Args:
+        evidence (Dict[str, Any]): Details of the duplicate evidence
+    """
+    logger = logging.getLogger('duplicate_evidence')
+    logger.warning(
+        f"Duplicate evidence detected: {evidence}",
+        extra={
+            'evidence': evidence
+        }
+    )
