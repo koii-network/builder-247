@@ -20,8 +20,7 @@ def test_replay_attack_prevention_timestamp():
     assert rap.is_request_valid(time.time(), "nonce2") == True
     
     # Request with outdated timestamp should be invalid
-    with pytest.raises(Exception):
-        rap.is_request_valid(time.time() - 100, "nonce3")
+    assert rap.is_request_valid(time.time() - 100, "nonce3") == False
 
 def test_nonce_cache_size():
     """Test that nonce cache does not exceed max size."""
@@ -34,7 +33,7 @@ def test_nonce_cache_size():
     assert rap.is_request_valid(time.time(), "nonce4") == True
     
     # The first nonce should have been removed
-    assert len(rap.is_request_valid) == 3
+    assert rap.nonce_cache_size == 3
 
 def test_decorator():
     """Test decorator functionality."""
