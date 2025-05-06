@@ -7,7 +7,10 @@ from prometheus_swarm.utils.performance_monitor import PerformanceMonitor
 class TestPerformanceMonitor:
     @pytest.fixture
     def performance_monitor(self, tmp_path):
-        log_path = os.path.join(tmp_path, 'performance_test.log')
+        # Explicitly create the log directory
+        log_dir = tmp_path / 'logs'
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = os.path.join(log_dir, 'performance_test.log')
         return PerformanceMonitor(log_path=log_path)
 
     def test_system_metrics(self, performance_monitor):
