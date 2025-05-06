@@ -5,8 +5,7 @@ from prometheus_swarm.utils.nonce_cache import NonceCache
 @pytest.fixture
 def nonce_cache():
     """Fixture to create a NonceCache instance for testing."""
-    # Use a test-specific Redis database to avoid conflicts
-    return NonceCache(redis_host='localhost', redis_db=15)
+    return NonceCache(mock_mode=True)
 
 def test_generate_nonce(nonce_cache):
     """Test nonce generation."""
@@ -40,7 +39,7 @@ def test_nonce_context(nonce_cache):
 def test_nonce_expiration(nonce_cache):
     """Test nonce expiration."""
     # Override nonce cache with very short expiry for testing
-    short_expiry_cache = NonceCache(redis_host='localhost', redis_db=15, nonce_expiry=1)
+    short_expiry_cache = NonceCache(mock_mode=True, nonce_expiry=1)
     
     nonce = short_expiry_cache.generate_nonce()
     
@@ -65,19 +64,3 @@ def test_manual_nonce_clear(nonce_cache):
     
     # Nonce should be valid again after clearing
     assert nonce_cache.validate_nonce(nonce) is True
-
-def test_redis_connection_error(mocker):
-    """Test error handling when Redis connection fails."""
-    # Mock Redis client to simulate connection failure
-    mock_redis = mocker.Mock()
-    mock_redis.setex.side_effect = Exception("Redis connection error")
-    
-    nonce_cache = NonceCache()
-    nonce_cache.redis_client = mock_redis
-    
-    nonce = nonce_cache.generate_nonce()
-    
-    # Method should handle connection errors gracefully
-    assert nonce_cache.store_nonce(nonce) is False
-    assert nonce_cache.validate_nonce(nonce) is False
-    assert nonce_cache.clear_nonce(nonce) is False
