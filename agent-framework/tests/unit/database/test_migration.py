@@ -65,10 +65,19 @@ def test_migration_multiple_calls():
         if os.path.exists(db_path):
             os.remove(db_path)
 
-def test_migration_non_existent_path():
+def test_migration_non_existent_path(tmpdir):
     """Test migration with a directory that doesn't exist"""
-    # Use a path that requires root permissions
-    db_path = '/root/test.db'
+    # Use a path that's guaranteed to be unwritable
+    import os.path
+    import tempfile
     
-    result = perform_database_migration(db_path)
-    assert result is False
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a read-only directory
+        unwritable_dir = os.path.join(tmpdir, 'unwritable')
+        os.makedirs(unwritable_dir)
+        os.chmod(unwritable_dir, 0o555)  # Read and execute permissions only
+        
+        db_path = os.path.join(unwritable_dir, 'test.db')
+        
+        result = perform_database_migration(db_path)
+        assert result is False
