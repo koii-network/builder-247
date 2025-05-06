@@ -29,6 +29,32 @@ from prometheus_swarm.clients import setup_client
 - Python 3.8 or higher
 - See requirements.txt for full dependency list
 
+## Testing
+
+### Running Tests
+
+To run tests with coverage:
+
+```bash
+# Install dev dependencies
+pip install -r requirements-dev.txt
+
+# Run tests
+./run_tests.sh
+```
+
+Test configuration:
+- Framework: pytest
+- Coverage reporting: pytest-cov
+- Test discovery: Looks for `test_*.py` files in the `tests/` directory
+
+### Coverage Report
+
+After running tests, you'll find:
+- Terminal coverage summary
+- XML coverage report at `coverage.xml`
+- HTML coverage report at `htmlcov/`
+
 ## Documentation
 
 For detailed documentation, please visit [documentation link].
