@@ -88,7 +88,7 @@ class DatabaseMigration:
                 if not migration_file.endswith('_migration.sql'):
                     continue
                 
-                migration_name = os.path.splitext(migration_file)[0]
+                migration_name = os.path.splitext(migration_file)[0].replace('_migration', '')
                 
                 # Check if migration has already been applied
                 migration_cursor.execute(
