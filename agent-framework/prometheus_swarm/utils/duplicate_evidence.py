@@ -8,7 +8,8 @@ class DuplicateEvidenceError(Exception):
     pass
 
 def detect_duplicate_evidence(evidence_list: List[Dict[str, Any]], 
-                               unique_keys: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+                               unique_keys: Optional[List[str]] = None,
+                               allow_duplicates: bool = False) -> List[Dict[str, Any]]:
     """
     Detect and handle duplicate evidence in a list of evidence items.
 
@@ -16,6 +17,7 @@ def detect_duplicate_evidence(evidence_list: List[Dict[str, Any]],
         evidence_list (List[Dict[str, Any]]): List of evidence items to check
         unique_keys (Optional[List[str]], optional): Keys to use for uniqueness check. 
                                                      Defaults to checking all keys.
+        allow_duplicates (bool, optional): If True, do not raise error on duplicates. Defaults to False.
 
     Returns:
         List[Dict[str, Any]]: List of unique evidence items
@@ -53,31 +55,38 @@ def detect_duplicate_evidence(evidence_list: List[Dict[str, Any]],
         logger.info(f"Found {len(duplicate_evidence)} duplicate evidence items")
         
         # Optional: Raise an error if duplicates are critical
-        if len(duplicate_evidence) > 0:
+        if not allow_duplicates and len(duplicate_evidence) > 0:
             raise DuplicateEvidenceError(f"Found {len(duplicate_evidence)} duplicate evidence items")
 
-    return unique_evidence
+    return unique_evidence if not allow_duplicates else evidence_list
 
 def log_duplicate_evidence(evidence_list: List[Dict[str, Any]], 
-                            log_level: int = logging.WARNING) -> None:
+                            log_level: int = logging.WARNING,
+                            unique_keys: Optional[List[str]] = None) -> None:
     """
     Log information about duplicate evidence without removing them.
 
     Args:
         evidence_list (List[Dict[str, Any]]): List of evidence items to log
         log_level (int, optional): Logging level. Defaults to logging.WARNING.
+        unique_keys (Optional[List[str]], optional): Keys to use for duplicate detection.
     """
+    if not unique_keys:
+        # Use all keys if not specified
+        unique_keys = list(evidence_list[0].keys()) if evidence_list else []
+
+    # Track unique and duplicate evidence
+    unique_evidence = set()
     duplicates = []
-    seen = set()
 
     for evidence in evidence_list:
-        # Convert evidence to hashable tuple for comparison
-        evidence_tuple = tuple(sorted(evidence.items()))
+        # Create a tuple of values for keys used to identify uniqueness
+        unique_tuple = tuple(str(evidence.get(key, '')) for key in unique_keys)
         
-        if evidence_tuple in seen:
+        if unique_tuple in unique_evidence:
             duplicates.append(evidence)
         else:
-            seen.add(evidence_tuple)
+            unique_evidence.add(unique_tuple)
 
     # Log duplicate details
     if duplicates:
