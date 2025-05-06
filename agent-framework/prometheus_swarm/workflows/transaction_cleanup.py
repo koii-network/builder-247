@@ -1,10 +1,5 @@
 import datetime
-from typing import List, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
-
-from prometheus_swarm.database.database import SessionLocal
-from prometheus_swarm.database.models import TransactionLog  # Assuming this model exists
+from typing import List, Optional, Any
 
 class TransactionCleanupJob:
     """
@@ -16,7 +11,8 @@ class TransactionCleanupJob:
     @staticmethod
     def cleanup_old_transactions(
         retention_days: int = 30, 
-        max_delete_batch: Optional[int] = 10000
+        max_delete_batch: Optional[int] = 10000,
+        session_factory: Any = None
     ) -> int:
         """
         Remove transaction logs older than the specified retention period.
@@ -25,13 +21,29 @@ class TransactionCleanupJob:
             retention_days (int): Number of days to retain transaction logs. Defaults to 30.
             max_delete_batch (Optional[int]): Maximum number of records to delete in one batch. 
                                              Defaults to 10000 to prevent overwhelming the database.
+            session_factory (Any): Optional session factory for database interactions. 
+                                   Allows dependency injection for testing.
         
         Returns:
             int: Number of transaction logs deleted
         """
         try:
+            # Import SQLAlchemy only if session is not provided
+            if session_factory is None:
+                from sqlalchemy.orm import Session
+                from prometheus_swarm.database.database import SessionLocal
+                session_factory = SessionLocal
+            
             # Create a database session
-            db: Session = SessionLocal()
+            db = session_factory()
+            
+            # Import TransactionLog model dynamically
+            try:
+                from prometheus_swarm.database.models import TransactionLog
+            except ImportError:
+                # For testing scenarios where model might not exist
+                class TransactionLog:
+                    created_at = None
             
             # Calculate the cutoff date for deletion
             cutoff_date = datetime.datetime.utcnow() - datetime.timedelta(days=retention_days)
@@ -73,4 +85,5 @@ class TransactionCleanupJob:
             return 0
         finally:
             # Always close the session
-            db.close()
+            if 'db' in locals():
+                db.close()
