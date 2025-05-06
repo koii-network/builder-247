@@ -47,3 +47,24 @@ class CustomError(Exception):
             value (Any): Context value
         """
         self.context[key] = value
+
+class ClientAPIError(CustomError):
+    """
+    Specific error for API-related client errors.
+    """
+    def __init__(self, message="API Error", status_code=None, response=None):
+        """
+        Initialize ClientAPIError.
+        
+        Args:
+            message (str): Error message
+            status_code (int, optional): HTTP status code
+            response (dict, optional): API response details
+        """
+        context = {
+            "status_code": status_code,
+            "response": response
+        }
+        super().__init__(message, context=context)
+        self.status_code = status_code
+        self.response = response
