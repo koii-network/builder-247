@@ -1,0 +1,112 @@
+import pytest
+from datetime import datetime, UTC, timedelta
+from unittest.mock import MagicMock
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from prometheus_swarm.utils.transaction_cleanup import cleanup_expired_transactions
+from pydantic import ConfigDict
+
+# Create a test model for transaction cleanup tests
+class TestModel(SQLModel, table=True):
+    """Test model for transaction cleanup."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    name: Optional[str] = None
+
+@pytest.fixture
+def mock_db_session():
+    mock_session = MagicMock()
+    return mock_session
+
+def test_cleanup_expired_transactions(mock_db_session):
+    # Create mock expired records
+    expiration_threshold_hours = 24
+    expired_timestamp = datetime.now(UTC) - timedelta(hours=expiration_threshold_hours + 1)
+    
+    mock_transactions = [
+        TestModel(created_at=expired_timestamp, name="old1"),
+        TestModel(created_at=expired_timestamp, name="old2")
+    ]
+    
+    # Configure the mock query to return the expired records
+    mock_db_session.query().filter().limit().all.return_value = mock_transactions
+    
+    # Call the cleanup function with mock session
+    result = cleanup_expired_transactions(
+        model_class=TestModel,
+        expiration_threshold_hours=expiration_threshold_hours,
+        get_session=lambda: mock_db_session
+    )
+    
+    # Verify the results
+    assert result['status'] == 'success'
+    assert result['deleted_transactions'] == 2
+    
+    # Check that delete was called on each transaction
+    assert mock_db_session.delete.call_count == 2
+    mock_db_session.commit.assert_called_once()
+
+def test_cleanup_no_expired_transactions(mock_db_session):
+    # Configure the mock query to return no transactions
+    mock_db_session.query().filter().limit().all.return_value = []
+    
+    # Call the cleanup function with mock session
+    result = cleanup_expired_transactions(
+        model_class=TestModel,
+        get_session=lambda: mock_db_session
+    )
+    
+    # Verify the results
+    assert result['status'] == 'success'
+    assert result['deleted_transactions'] == 0
+    
+    # Ensure no delete or commit operations occurred
+    mock_db_session.delete.assert_not_called()
+    mock_db_session.commit.assert_called_once()
+
+def test_cleanup_database_error(mock_db_session):
+    # Simulate a database error during cleanup
+    mock_db_session.query().filter().limit().all.side_effect = Exception("Database error")
+    
+    # Call the cleanup function with mock session
+    result = cleanup_expired_transactions(
+        model_class=TestModel,
+        get_session=lambda: mock_db_session
+    )
+    
+    # Verify the results
+    assert result['status'] == 'error'
+    assert 'Database error' in result['message']
+    assert result['deleted_transactions'] == 0
+    
+    # Ensure rollback was called
+    mock_db_session.rollback.assert_called_once()
+
+def test_cleanup_max_batch_size(mock_db_session):
+    # Create many expired transactions
+    expiration_threshold_hours = 24
+    expired_timestamp = datetime.now(UTC) - timedelta(hours=expiration_threshold_hours + 1)
+    
+    mock_transactions = [
+        TestModel(created_at=expired_timestamp, name=f"old{i}") for i in range(1500)
+    ]
+    
+    # Configure the mock query to return transactions
+    mock_db_session.query().filter().limit().all.return_value = mock_transactions[:1000]
+    
+    # Call the cleanup function with mock session
+    result = cleanup_expired_transactions(
+        model_class=TestModel,
+        expiration_threshold_hours=expiration_threshold_hours,
+        get_session=lambda: mock_db_session
+    )
+    
+    # Verify the results
+    assert result['status'] == 'success'
+    assert result['deleted_transactions'] == 1000
+    
+    # Check that delete was called 1000 times (max batch size)
+    assert mock_db_session.delete.call_count == 1000
+    mock_db_session.commit.assert_called_once()
