@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from datetime import datetime, timedelta
 import uuid
 import hashlib
@@ -15,7 +15,7 @@ class Nonce(Base):
         value (str): Unique hash generated for the nonce
         created_at (datetime): Timestamp when the nonce was created
         expires_at (datetime): Timestamp when the nonce expires
-        metadata (str): Optional metadata associated with the nonce
+        context (str): Optional context associated with the nonce
     """
     __tablename__ = 'nonces'
 
@@ -23,24 +23,24 @@ class Nonce(Base):
     value = Column(String, unique=True, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
-    metadata = Column(String, nullable=True)
+    context = Column(String, nullable=True)
 
     @classmethod
-    def generate(cls, metadata=None, expiration_minutes=30):
+    def generate(cls, context=None, expiration_minutes=30):
         """
         Generate a new unique nonce.
         
         Args:
-            metadata (str, optional): Additional context for the nonce
+            context (str, optional): Additional context for the nonce
             expiration_minutes (int, optional): Minutes until nonce expires. Defaults to 30.
         
         Returns:
             Nonce: A new nonce instance
         """
-        # Generate a unique hash using UUID and optional metadata
+        # Generate a unique hash using UUID and optional context
         unique_seed = str(uuid.uuid4())
-        if metadata:
-            unique_seed += str(metadata)
+        if context:
+            unique_seed += str(context)
         
         nonce_value = hashlib.sha256(unique_seed.encode()).hexdigest()
         
@@ -48,7 +48,7 @@ class Nonce(Base):
             value=nonce_value,
             created_at=datetime.utcnow(),
             expires_at=datetime.utcnow() + timedelta(minutes=expiration_minutes),
-            metadata=str(metadata) if metadata else None
+            context=str(context) if context else None
         )
 
     def is_valid(self):
@@ -76,18 +76,18 @@ class NonceManager:
         """
         self.session = session
 
-    def create_nonce(self, metadata=None, expiration_minutes=30):
+    def create_nonce(self, context=None, expiration_minutes=30):
         """
         Create and store a new nonce.
         
         Args:
-            metadata (str, optional): Additional context for the nonce
+            context (str, optional): Additional context for the nonce
             expiration_minutes (int, optional): Minutes until nonce expires
         
         Returns:
             str: The nonce value
         """
-        nonce = Nonce.generate(metadata, expiration_minutes)
+        nonce = Nonce.generate(context, expiration_minutes)
         self.session.add(nonce)
         self.session.commit()
         return nonce.value
