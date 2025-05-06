@@ -46,8 +46,12 @@ class DistributedNonceValidator:
             if nonce in self._nonces:
                 return False
             
+            # If we've reached max nonces, prevent adding new nonces
+            if len(self._nonces) >= self._max_nonces:
+                return False
+            
             # Store the nonce with current timestamp
-            self._add_nonce(nonce, current_time)
+            self._nonces[nonce] = current_time
             
             return True
     
@@ -64,17 +68,3 @@ class DistributedNonceValidator:
         
         for nonce in expired_nonces:
             del self._nonces[nonce]
-    
-    def _add_nonce(self, nonce: str, timestamp: float) -> None:
-        """
-        Add a nonce to the storage, managing maximum capacity.
-        
-        :param nonce: Nonce to add
-        :param timestamp: Timestamp of nonce creation
-        """
-        # If we've reached max nonces, remove the oldest
-        if len(self._nonces) >= self._max_nonces:
-            oldest_nonce = min(self._nonces, key=self._nonces.get)
-            del self._nonces[oldest_nonce]
-        
-        self._nonces[nonce] = timestamp
