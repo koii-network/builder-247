@@ -55,8 +55,8 @@ class SignatureLogger:
             'metadata': metadata or {}
         }
         
-        # Log to console
-        self.logger.info(json.dumps(log_entry))
+        # Log to console with signature explicitly mentioned
+        self.logger.info(f"Logging Signature: {signature} | Full Entry: {json.dumps(log_entry)}")
         
         # Log to file
         log_file_path = os.path.join(
