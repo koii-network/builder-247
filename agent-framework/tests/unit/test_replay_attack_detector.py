@@ -61,8 +61,9 @@ def test_replay_attack_detector_max_nonces():
     
     # First nonce should no longer be tracked as a replay attack
     assert not detector.is_replay_attack("nonce1")
+    assert not detector.is_replay_attack("nonce5")
     
-    # Recent nonces should still be tracked
+    # Most recent nonces added will still be tracked as replay attacks
     assert detector.is_replay_attack("nonce2")
     assert detector.is_replay_attack("nonce3")
     assert detector.is_replay_attack("nonce4")
