@@ -34,10 +34,10 @@ def test_transaction_model_with_metadata():
         type="expense",
         amount=Decimal("250.75"),
         status="pending",
-        metadata=metadata
+        extra_metadata=metadata
     )
     
-    assert transaction.metadata == {
+    assert transaction.extra_metadata == {
         "project": "Financial Tracking",
         "department": "Engineering"
     }
