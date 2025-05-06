@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from prometheus_swarm.database.nonce import Base, Nonce, NonceManager
@@ -34,7 +34,7 @@ def test_nonce_expiration(session):
     session.commit()
     
     # Simulate time passing
-    nonce.expires_at = datetime.utcnow() - timedelta(minutes=1)
+    nonce.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
     session.commit()
     
     assert not nonce.is_valid()
@@ -71,8 +71,8 @@ def test_nonce_manager_expired_nonce_cleanup(session):
     session.commit()
     
     # Simulate time passing for first two nonces
-    nonce1.expires_at = datetime.utcnow() - timedelta(minutes=1)
-    nonce2.expires_at = datetime.utcnow() - timedelta(minutes=1)
+    nonce1.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+    nonce2.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
     session.commit()
     
     # Cleanup expired nonces
