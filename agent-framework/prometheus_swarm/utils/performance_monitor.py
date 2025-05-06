@@ -23,11 +23,19 @@ class PerformanceMonitor:
         :param log_path: Optional path to log performance metrics
         """
         self.log_path = log_path or os.path.join(os.getcwd(), 'performance_metrics.log')
+        
+        # Ensure log directory exists
+        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+        
         logging.basicConfig(
             filename=self.log_path, 
             level=logging.INFO, 
             format='%(asctime)s - %(levelname)s: %(message)s'
         )
+        
+        # Create an empty log file to ensure its existence
+        with open(self.log_path, 'a'):
+            os.utime(self.log_path, None)
         
     def track_function(self, log_performance: bool = True):
         """
