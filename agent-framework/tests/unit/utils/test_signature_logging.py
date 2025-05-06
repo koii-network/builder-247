@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 import pytest
 import tempfile
 from datetime import datetime
