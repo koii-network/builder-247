@@ -125,6 +125,3 @@ class NonceConfig:
             bool: True if debug mode is on, False otherwise
         """
         return self._config['debug_mode']
-
-# Create a singleton instance for easy import and use
-nonce_config = NonceConfig()
