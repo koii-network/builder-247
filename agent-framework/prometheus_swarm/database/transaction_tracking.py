@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Any
 from sqlalchemy import Column, Integer, String, DateTime, Float, JSON
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import Session
 from datetime import datetime
 
@@ -15,7 +15,7 @@ class Transaction(Base):
         transaction_type (str): Type of transaction 
         amount (float): Transaction amount
         timestamp (datetime): Time of the transaction
-        metadata (dict): Additional transaction metadata
+        extra_data (dict): Additional transaction metadata
         status (str): Current status of the transaction
     """
     __tablename__ = 'transactions'
@@ -24,7 +24,7 @@ class Transaction(Base):
     transaction_type = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
-    metadata = Column(JSON)
+    extra_data = Column(JSON)
     status = Column(String, default='pending')
 
 class TransactionAccessLayer:
@@ -47,7 +47,7 @@ class TransactionAccessLayer:
     def create_transaction(self, 
                            transaction_type: str, 
                            amount: float, 
-                           metadata: Optional[Dict[str, Any]] = None, 
+                           extra_data: Optional[Dict[str, Any]] = None, 
                            status: str = 'pending') -> Transaction:
         """
         Create a new transaction record.
@@ -55,7 +55,7 @@ class TransactionAccessLayer:
         Args:
             transaction_type (str): Type of transaction
             amount (float): Transaction amount
-            metadata (dict, optional): Additional transaction details
+            extra_data (dict, optional): Additional transaction details
             status (str, optional): Transaction status, defaults to 'pending'
         
         Returns:
@@ -73,7 +73,7 @@ class TransactionAccessLayer:
         transaction = Transaction(
             transaction_type=transaction_type,
             amount=amount,
-            metadata=metadata or {},
+            extra_data=extra_data or {},
             status=status
         )
         
