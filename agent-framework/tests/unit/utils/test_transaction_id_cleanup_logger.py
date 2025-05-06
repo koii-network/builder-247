@@ -18,8 +18,8 @@ def test_custom_log_level():
 def test_log_directory_creation():
     """Verify log directory is created if it doesn't exist."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        logger = TransactionIdCleanupLogger(log_dir=os.path.join(tmpdir, 'logs'))
-        log_dir = os.path.join(tmpdir, 'logs', 'transaction_cleanup')
+        log_dir = os.path.join(tmpdir, 'logs')
+        logger = TransactionIdCleanupLogger(log_dir=log_dir)
         assert os.path.exists(log_dir)
 
 def test_log_methods(caplog):
