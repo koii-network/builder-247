@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, DateTime, JSON, Boolean, Integer, UniqueConstraint
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from datetime import datetime
 import uuid
 import hashlib
@@ -37,8 +37,8 @@ class TransactionEvidence(Base):
     is_verified = Column(Boolean, default=False)
     verification_attempts = Column(Integer, default=0)
     
-    # Arbitrary metadata
-    metadata = Column(JSON, nullable=True)
+    # Arbitrary transaction metadata
+    extra_data = Column(JSON, nullable=True)
     
     # Uniqueness constraint
     __table_args__ = (
