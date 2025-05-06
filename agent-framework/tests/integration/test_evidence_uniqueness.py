@@ -1,7 +1,6 @@
 import pytest
-from prometheus_swarm.database.database import Database
+from prometheus_swarm.database.models import Database
 from prometheus_swarm.database.models import Evidence
-from typing import List
 
 class TestEvidenceUniqueness:
     """
@@ -74,7 +73,7 @@ class TestEvidenceUniqueness:
         """
         Test adding multiple evidence for the same submission, ensuring hash uniqueness.
         """
-        evidence_items: List[Evidence] = [
+        evidence_items = [
             Evidence(
                 submission_id="test_submission_1",
                 content=f"Evidence content {i}",
