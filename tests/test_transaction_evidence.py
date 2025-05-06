@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 import json
 from src.transaction_evidence import TransactionEvidence
@@ -27,7 +27,7 @@ def test_transaction_evidence_validation():
     assert valid_evidence.validate() is True
     
     # Evidence with future timestamp
-    future_time = datetime.utcnow() + timedelta(days=1)
+    future_time = datetime.now(timezone.utc) + timedelta(days=1)
     with pytest.raises(TypeError):
         TransactionEvidence(timestamp=future_time)
 
@@ -52,7 +52,7 @@ def test_transaction_evidence_from_dict():
     """Test creating transaction evidence from a dictionary."""
     original_dict = {
         'transaction_id': str(uuid.uuid4()),
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'data': {'amount': 200},
         'metadata': {'source': 'test_recreation'}
     }
