@@ -1,8 +1,7 @@
 """Tests for Transaction model."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
-from sqlmodel import SQLModel, create_engine, Session
 
 from prometheus_swarm.database.models import Transaction
 
@@ -82,22 +81,3 @@ def test_transaction_model_decimal_precision():
     
     assert transaction.amount == Decimal("33.33")
     assert isinstance(transaction.amount, Decimal)
-
-def test_transaction_uniqueness_constraint():
-    """Test that transaction UUID must be unique."""
-    transaction1 = Transaction(
-        transaction_uuid="tx_unique_001",
-        type="income",
-        amount=Decimal("200.00"),
-        status="completed"
-    )
-    
-    transaction2 = Transaction(
-        transaction_uuid="tx_unique_001",  # Same UUID
-        type="expense",
-        amount=Decimal("100.00"),
-        status="pending"
-    )
-    
-    # In a real database, this would raise a constraint violation
-    assert transaction1.transaction_uuid == transaction2.transaction_uuid
