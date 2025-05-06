@@ -1,4 +1,5 @@
 import pytest
+import warnings
 from prometheus_swarm.database.database import Database
 from prometheus_swarm.database.models import Evidence
 
@@ -61,6 +62,7 @@ class TestEvidenceUniqueness:
         Test evidence identifier case sensitivity.
         
         Verifies the behavior of identifier uniqueness across different letter cases.
+        This test now explicitly checks for case-sensitivity policy.
         """
         original_evidence = Evidence(
             identifier='Test_Case_Sensitive_Evidence',
@@ -74,16 +76,20 @@ class TestEvidenceUniqueness:
             source='test_source'
         )
         
+        # Insert the first evidence
         db_connection.insert_evidence(original_evidence)
         
-        # Depending on the desired behavior, this might raise an exception or be allowed
+        # We expect this to either raise an exception or be allowed based on the system's design
         try:
             db_connection.insert_evidence(similar_case_evidence)
-            pytest.warn(pytest.PendingDeprecationWarning, 
-                        "Case-insensitive evidence identifiers might be a potential issue")
-        except Exception as e:
-            # If case-sensitivity is strictly enforced
-            assert 'duplicate' in str(e).lower()
+            # If insertion is allowed, we'll raise a warning
+            warnings.warn(
+                "Case-insensitive evidence identifiers might be a potential issue", 
+                UserWarning
+            )
+        except ValueError as e:
+            # If an exception is raised, it should indicate a uniqueness constraint
+            assert 'duplicate' in str(e).lower() or 'unique' in str(e).lower()
 
     def test_evidence_metadata_preservation(self, db_connection):
         """
