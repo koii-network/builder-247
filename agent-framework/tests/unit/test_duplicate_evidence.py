@@ -51,9 +51,9 @@ def test_log_duplicate_evidence(caplog):
     
     assert log_record.levelname == 'WARNING'
     assert 'Duplicate evidence detected' in log_record.msg
-    assert log_record.extra['current_evidence'] == new_evidence
-    assert log_record.extra['existing_entries_count'] == 1
-    assert log_record.extra['existing_entries_ids'] == [1]
+    assert 'Current Evidence: ' + str(new_evidence) in log_record.msg
+    assert 'Existing Entries Count: 1' in log_record.msg
+    assert 'Existing Entries IDs: [1]' in log_record.msg
 
 def test_custom_unique_key():
     """Test duplicate checking with a custom unique key."""
