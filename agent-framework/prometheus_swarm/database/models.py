@@ -53,7 +53,7 @@ class TransactionTracking(SQLModel, table=True):
     status: str = Field(description="Status of the transaction (e.g., 'pending', 'completed', 'failed')")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    metadata: Optional[str] = Field(default=None, sa_column=Column(String), description="JSON string of transaction metadata")
+    transaction_metadata: Optional[str] = Field(default=None, sa_column=Column(String), description="JSON string of transaction metadata")
     source: Optional[str] = Field(description="Source or origin of the transaction")
     
     @classmethod
@@ -73,7 +73,7 @@ class TransactionTracking(SQLModel, table=True):
             transaction_id=transaction_id,
             status='pending',
             source=source,
-            metadata=json.dumps(metadata) if metadata else None
+            transaction_metadata=json.dumps(metadata) if metadata else None
         )
     
     def get_metadata(self) -> Optional[Dict[str, Any]]:
@@ -83,7 +83,7 @@ class TransactionTracking(SQLModel, table=True):
         Returns:
             Optional[Dict[str, Any]]: Parsed metadata or None
         """
-        return json.loads(self.metadata) if self.metadata else None
+        return json.loads(self.transaction_metadata) if self.transaction_metadata else None
     
     def update_status(self, new_status: str):
         """
