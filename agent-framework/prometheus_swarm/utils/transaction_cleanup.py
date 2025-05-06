@@ -1,7 +1,7 @@
 import datetime
 from typing import List, Dict, Any, Optional
-from agent_framework.prometheus_swarm.database.database import get_database_session
-from agent_framework.prometheus_swarm.database.models import Transaction
+from prometheus_swarm.database.database import get_database_session
+from prometheus_swarm.database.models import Transaction
 
 def cleanup_expired_transactions(
     expiration_threshold_hours: int = 24,
