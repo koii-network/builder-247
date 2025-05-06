@@ -82,8 +82,7 @@ class ReplayAttackDetector:
             if current_time - timestamp <= self._window_seconds
         }
         
-        # Trim cache if it grows too large
+        # Limit cache to max_cache_size, removing oldest entries
         if len(self._request_cache) > self._max_cache_size:
-            # Remove oldest entries first
             sorted_cache = sorted(self._request_cache.items(), key=lambda x: x[1])
             self._request_cache = dict(sorted_cache[-self._max_cache_size:])
