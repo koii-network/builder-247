@@ -67,7 +67,8 @@ def test_migration_multiple_calls():
 
 def test_migration_non_existent_path():
     """Test migration with a directory that doesn't exist"""
-    db_path = '/non/existent/path/test.db'
+    # Use a path that requires root permissions
+    db_path = '/root/test.db'
     
     result = perform_database_migration(db_path)
     assert result is False
