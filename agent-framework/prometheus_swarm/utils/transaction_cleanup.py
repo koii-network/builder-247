@@ -1,7 +1,7 @@
 import datetime
 from typing import List, Dict, Any
-from agent-framework.prometheus_swarm.database.database import get_database_connection
-from agent-framework.prometheus_swarm.utils.logging import get_logger
+from prometheus_swarm.database.database import get_database_connection
+from prometheus_swarm.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
