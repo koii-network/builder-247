@@ -69,9 +69,5 @@ def test_migration_non_existent_path():
     """Test migration with a directory that doesn't exist"""
     db_path = '/non/existent/path/test.db'
     
-    try:
-        result = perform_database_migration(db_path)
-        assert result is False
-    except Exception:
-        # If the path is so invalid it raises an exception, that's also acceptable
-        pass
+    result = perform_database_migration(db_path)
+    assert result is False
