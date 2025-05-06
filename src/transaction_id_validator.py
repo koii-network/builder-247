@@ -1,5 +1,6 @@
 import time
 import uuid
+import re
 import statistics
 from typing import List, Callable, Any
 
@@ -22,12 +23,19 @@ class TransactionIDValidator:
         if not isinstance(transaction_id, str):
             return False
         
+        # Regular expression for strict UUID validation
+        uuid_pattern = re.compile(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', 
+            re.IGNORECASE
+        )
+        
+        if not uuid_pattern.match(transaction_id):
+            return False
+        
         try:
-            # Stricter validation: ensure perfect UUID format
+            # Final validation using uuid library
             uuid_obj = uuid.UUID(transaction_id)
-            
-            # Additional checks to ensure it's a canonical representation
-            return str(uuid_obj) == transaction_id
+            return True
         except (ValueError, TypeError, AttributeError):
             return False
     
