@@ -3,6 +3,31 @@
 from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
+from enum import Enum
+
+
+class TransactionStatus(str, Enum):
+    """Enum for transaction status."""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class TransactionTracking(SQLModel, table=True):
+    """Transaction tracking model for monitoring transaction lifecycles."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    transaction_id: str = Field(unique=True, index=True)
+    status: TransactionStatus = Field(default=TransactionStatus.PENDING)
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Additional metadata fields
+    workflow_name: Optional[str] = None
+    initiator: Optional[str] = None
+    extra_info: Optional[str] = None  # JSON-encoded additional details
 
 
 class Conversation(SQLModel, table=True):
