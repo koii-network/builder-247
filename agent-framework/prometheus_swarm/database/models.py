@@ -56,7 +56,7 @@ class Transaction(SQLModel, table=True):
     transaction_type: str
     status: str = Field(default="pending")
     description: Optional[str] = None
-    metadata: Optional[str] = None  # JSON-encoded additional data
+    transaction_metadata: Optional[str] = None  # JSON-encoded additional data
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
 
