@@ -2,6 +2,7 @@ import secrets
 import time
 import base64
 import hashlib
+import struct
 
 class NonceService:
     """
@@ -35,7 +36,8 @@ class NonceService:
         
         # Include timestamp for additional uniqueness
         timestamp = timestamp or time.time()
-        timestamp_bytes = str(timestamp).encode('utf-8')
+        # Convert timestamp to bytes
+        timestamp_bytes = struct.pack('d', timestamp)
         
         # Create a combined hash for increased entropy
         combined = random_bytes + timestamp_bytes
@@ -61,12 +63,13 @@ class NonceService:
             nonce += '=' * (4 - len(nonce) % 4)
             decoded_nonce = base64.urlsafe_b64decode(nonce.encode('utf-8'))
             
-            # In a real-world scenario, we'd track used nonces to prevent replay
-            # This is a basic time-based validation
-            current_time = time.time()
-            nonce_timestamp = float(decoded_nonce[-8:].decode('utf-8'))
+            # Extract timestamp from the end of the decoded nonce
+            timestamp_bytes = decoded_nonce[-8:]
+            nonce_timestamp = struct.unpack('d', timestamp_bytes)[0]
             
+            # Check timestamp
+            current_time = time.time()
             return (current_time - nonce_timestamp) <= max_age
         
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, struct.error):
             return False
