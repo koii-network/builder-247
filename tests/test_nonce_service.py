@@ -44,7 +44,8 @@ def test_time_based_nonce_verification():
     salt = "test_salt"
     nonce = NonceService.generate_time_based_nonce(salt)
     
-    # Should be valid
+    # Should be valid with current or near-current time
+    time.sleep(0.1)  # Small delay
     assert NonceService.verify_time_based_nonce(nonce, salt) == True
 
 def test_time_based_nonce_verification_expiry():
