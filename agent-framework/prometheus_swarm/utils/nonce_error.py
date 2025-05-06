@@ -54,30 +54,32 @@ def handle_nonce_error(
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             retry_count = 0
             
-            # Inspect function signature to find nonce parameter
+            # Inspect function signature and extract nonce parameter
             sig = inspect.signature(func)
-            nonce_param = None
-            for param_name, param in sig.parameters.items():
-                if param_name == 'nonce':
-                    nonce_param = kwargs.get(param_name)
-                    break
+            nonce_param_name = next((param_name for param_name, param in sig.parameters.items() 
+                                     if param_name == 'nonce'), None)
             
-            # Fallback to first positional argument if no keyword 'nonce'
-            if nonce_param is None and len(args) > 0:
-                nonce_param = args[0]
+            # Determine nonce value
+            if nonce_param_name:
+                # If nonce is passed as keyword
+                if 'nonce' in kwargs:
+                    nonce_value = kwargs['nonce']
+                # If nonce is the first positional argument
+                elif len(args) > 0:
+                    nonce_value = args[0]
+                    kwargs['nonce'] = nonce_value
+                    args = args[1:]
+                else:
+                    nonce_value = None
+            else:
+                # If no explicit nonce parameter, use first argument
+                nonce_value = args[0] if len(args) > 0 else None
             
             while retry_count < max_retries:
                 try:
                     # Validate nonce before function execution
-                    if not validate_nonce(nonce_param):
-                        raise NonceError(f"Invalid nonce: {nonce_param}")
-                    
-                    # Inject validated nonce into arguments if needed
-                    if nonce_param is not None:
-                        if 'nonce' in sig.parameters:
-                            kwargs['nonce'] = nonce_param
-                        elif len(args) > 0:
-                            args = (nonce_param,) + args[1:]
+                    if not validate_nonce(nonce_value):
+                        raise NonceError(f"Invalid nonce: {nonce_value}")
                     
                     result = func(*args, **kwargs)
                     return result
