@@ -44,12 +44,12 @@ class DistributedNonceValidator:
         current_time = time.time()
         
         with self._lock:
+            # Prune expired nonces
+            self._prune_expired_nonces(current_time)
+            
             # Check if nonce exists and is not expired
             if nonce in self._nonces:
                 return False
-            
-            # Prune expired nonces
-            self._prune_expired_nonces(current_time)
             
             # Add new nonce if max limit not reached
             if len(self._nonces) >= self._max_nonces:
