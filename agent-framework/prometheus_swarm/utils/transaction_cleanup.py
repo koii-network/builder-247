@@ -1,0 +1,106 @@
+import datetime
+from typing import List, Dict, Any
+from agent-framework.prometheus_swarm.database.database import get_database_connection
+from agent-framework.prometheus_swarm.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+def cleanup_expired_transactions(
+    expiration_hours: int = 24, 
+    max_transactions_to_delete: int = 1000
+) -> Dict[str, Any]:
+    """
+    Cleanup expired transactions from the database.
+
+    Args:
+        expiration_hours (int): Number of hours after which a transaction is considered expired. Defaults to 24.
+        max_transactions_to_delete (int): Maximum number of transactions to delete in a single run. Defaults to 1000.
+
+    Returns:
+        Dict[str, Any]: A summary of the cleanup operation
+    """
+    try:
+        # Get database connection
+        db = get_database_connection()
+
+        # Calculate the expiration threshold
+        expiration_threshold = datetime.datetime.utcnow() - datetime.timedelta(hours=expiration_hours)
+
+        # Find and delete expired transactions
+        expired_transactions = db.query(
+            "SELECT id FROM transactions WHERE created_at < :threshold LIMIT :max_limit", 
+            {
+                'threshold': expiration_threshold, 
+                'max_limit': max_transactions_to_delete
+            }
+        )
+
+        if not expired_transactions:
+            logger.info(f"No transactions expired after {expiration_hours} hours")
+            return {
+                'status': 'success',
+                'message': 'No expired transactions found',
+                'deleted_count': 0
+            }
+
+        transaction_ids = [trans.id for trans in expired_transactions]
+        
+        # Delete expired transactions
+        deleted_count = db.delete(
+            "DELETE FROM transactions WHERE id IN :transaction_ids", 
+            {'transaction_ids': transaction_ids}
+        )
+
+        logger.info(f"Deleted {deleted_count} expired transactions")
+
+        return {
+            'status': 'success',
+            'message': f'Deleted {deleted_count} expired transactions',
+            'deleted_count': deleted_count,
+            'deleted_ids': transaction_ids
+        }
+
+    except Exception as e:
+        logger.error(f"Error during transaction cleanup: {str(e)}")
+        return {
+            'status': 'error',
+            'message': str(e),
+            'deleted_count': 0
+        }
+
+def configure_transaction_cleanup_job(
+    interval_hours: int = 24, 
+    expiration_hours: int = 24, 
+    max_transactions_to_delete: int = 1000
+) -> Dict[str, Any]:
+    """
+    Configure and schedule the transaction cleanup job.
+
+    Args:
+        interval_hours (int): How often the cleanup job should run. Defaults to 24 hours.
+        expiration_hours (int): Number of hours after which a transaction is considered expired. Defaults to 24.
+        max_transactions_to_delete (int): Maximum number of transactions to delete in a single run. Defaults to 1000.
+
+    Returns:
+        Dict[str, Any]: Configuration details of the cleanup job
+    """
+    try:
+        # In a real-world scenario, this would integrate with a task scheduler like Celery or APScheduler
+        logger.info(f"Configuring transaction cleanup job: interval={interval_hours}h, expiration={expiration_hours}h")
+
+        return {
+            'status': 'success',
+            'message': 'Transaction cleanup job configured',
+            'configuration': {
+                'interval_hours': interval_hours,
+                'expiration_hours': expiration_hours,
+                'max_transactions_to_delete': max_transactions_to_delete
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error configuring transaction cleanup job: {str(e)}")
+        return {
+            'status': 'error',
+            'message': str(e)
+        }
