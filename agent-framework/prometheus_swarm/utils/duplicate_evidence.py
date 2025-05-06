@@ -25,12 +25,10 @@ def log_duplicate_evidence(evidence: Dict[str, Any], existing_entries: List[Dict
     """
     logger = logging.getLogger(__name__)
     logger.warning(
-        "Duplicate evidence detected",
-        extra={
-            "current_evidence": evidence,
-            "existing_entries_count": len(existing_entries),
-            "existing_entries_ids": [entry.get('id') for entry in existing_entries]
-        }
+        "Duplicate evidence detected. "
+        f"Current Evidence: {evidence}, "
+        f"Existing Entries Count: {len(existing_entries)}, "
+        f"Existing Entries IDs: {[entry.get('id') for entry in existing_entries]}"
     )
 
 def check_duplicate_evidence(new_evidence: Dict[str, Any], existing_evidence: List[Dict[str, Any]], unique_key: str = 'id') -> None:
