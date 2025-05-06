@@ -7,6 +7,7 @@ from the database based on configurable expiration parameters.
 
 from datetime import datetime, timedelta
 from typing import List, Optional, Type, TypeVar
+import datetime as dt
 
 from sqlalchemy import Column, DateTime, func
 from sqlalchemy.orm import Session
@@ -41,15 +42,15 @@ class TransactionExpirationMixin:
         Returns:
             List[ModelType]: List of expired transactions that were deleted
         """
-        now = datetime.utcnow()
-        expiration_time = now - timedelta(hours=expiration_hours)
+        now = dt.datetime.now(dt.timezone.utc)
+        expiration_time = now - dt.timedelta(hours=expiration_hours)
 
         # Find expired transactions
         expired_transactions = (
             db_session.query(cls)
             .filter(
-                (cls.expires_at < expiration_time) | 
-                (cls.expires_at == None) & (cls.created_at < expiration_time)
+                ((cls.expires_at < expiration_time) & (cls.expires_at != None)) | 
+                ((cls.expires_at == None) & (cls.created_at < expiration_time))
             )
             .all()
         )
@@ -69,4 +70,4 @@ class TransactionExpirationMixin:
             hours (int, optional): Number of hours until expiration. 
                 Defaults to 24 hours.
         """
-        self.expires_at = datetime.utcnow() + timedelta(hours=hours)
+        self.expires_at = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=hours)
