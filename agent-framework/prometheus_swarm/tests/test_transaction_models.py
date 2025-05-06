@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from agent_framework.prometheus_swarm.database.transaction_models import Base, Transaction, TransactionStatus, TransactionAuditLog
+from prometheus_swarm.database.transaction_models import Base, Transaction, TransactionStatus, TransactionAuditLog
 from datetime import datetime, timedelta
 
 @pytest.fixture(scope='module')
