@@ -8,7 +8,7 @@ environment-specific settings.
 
 import os
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 from dotenv import load_dotenv
 
 class NonceConfig:
