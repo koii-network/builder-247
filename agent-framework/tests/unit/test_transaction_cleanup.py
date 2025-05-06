@@ -1,8 +1,15 @@
 import pytest
 import datetime
 from unittest.mock import MagicMock
+from sqlmodel import SQLModel, Field
+from typing import Optional
 from prometheus_swarm.utils.transaction_cleanup import cleanup_expired_transactions
-from prometheus_swarm.database.models import Transaction
+
+# Create a test model for transaction cleanup tests
+class TestModel(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.datetime.utcnow)
+    name: Optional[str] = None
 
 @pytest.fixture
 def mock_db_session():
@@ -10,21 +17,22 @@ def mock_db_session():
     return mock_session
 
 def test_cleanup_expired_transactions(mock_db_session):
-    # Create mock expired transactions
+    # Create mock expired records
     expiration_threshold_hours = 24
     expired_timestamp = datetime.datetime.utcnow() - datetime.timedelta(hours=expiration_threshold_hours + 1)
     
     mock_transactions = [
-        MagicMock(spec=Transaction, created_at=expired_timestamp),
-        MagicMock(spec=Transaction, created_at=expired_timestamp)
+        TestModel(created_at=expired_timestamp, name="old1"),
+        TestModel(created_at=expired_timestamp, name="old2")
     ]
     
-    # Configure the mock query to return the expired transactions
+    # Configure the mock query to return the expired records
     mock_db_session.query().filter().limit().all.return_value = mock_transactions
     
     # Call the cleanup function with mock session
     result = cleanup_expired_transactions(
-        expiration_threshold_hours,
+        model_class=TestModel,
+        expiration_threshold_hours=expiration_threshold_hours,
         get_session=lambda: mock_db_session
     )
     
@@ -42,6 +50,7 @@ def test_cleanup_no_expired_transactions(mock_db_session):
     
     # Call the cleanup function with mock session
     result = cleanup_expired_transactions(
+        model_class=TestModel,
         get_session=lambda: mock_db_session
     )
     
@@ -59,6 +68,7 @@ def test_cleanup_database_error(mock_db_session):
     
     # Call the cleanup function with mock session
     result = cleanup_expired_transactions(
+        model_class=TestModel,
         get_session=lambda: mock_db_session
     )
     
@@ -76,7 +86,7 @@ def test_cleanup_max_batch_size(mock_db_session):
     expired_timestamp = datetime.datetime.utcnow() - datetime.timedelta(hours=expiration_threshold_hours + 1)
     
     mock_transactions = [
-        MagicMock(spec=Transaction, created_at=expired_timestamp) for _ in range(1500)
+        TestModel(created_at=expired_timestamp, name=f"old{i}") for i in range(1500)
     ]
     
     # Configure the mock query to return transactions
@@ -84,7 +94,8 @@ def test_cleanup_max_batch_size(mock_db_session):
     
     # Call the cleanup function with mock session
     result = cleanup_expired_transactions(
-        expiration_threshold_hours,
+        model_class=TestModel,
+        expiration_threshold_hours=expiration_threshold_hours,
         get_session=lambda: mock_db_session
     )
     
