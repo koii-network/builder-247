@@ -2,6 +2,7 @@ import logging
 import json
 import uuid
 import pytest
+import datetime
 from prometheus_swarm.utils.nonce_event_logger import NonceEventLogger
 
 
@@ -64,37 +65,32 @@ def test_nonce_validation():
         assert logger.validate_event(invalid_nonce) is False
 
 
-def test_event_structure():
-    """Test the structure of logged events."""
+def test_event_structure(caplog):
+    """Test the structure of logged events with pytest caplog."""
+    caplog.set_level(logging.INFO)
+    
     logger = NonceEventLogger()
     metadata = {'test_key': 'test_value'}
+    
+    # Log an event
     nonce = logger.log_event('rotation', metadata)
     
-    # Add a logging handler to capture log messages
-    log_capture = logging.getLogger('nonce_event_logger')
-    log_capture.propagate = False
+    # Check captured log record
+    assert len(caplog.records) == 1
+    log_record = caplog.records[0]
     
-    # Create a StringIO to capture log messages
-    from io import StringIO
-    import sys
-    log_output = StringIO()
-    handler = logging.StreamHandler(log_output)
-    log_capture.addHandler(handler)
+    # Parse the log message JSON
+    event_log = json.loads(log_record.getMessage())
     
-    try:
-        logger.log_event('rotation', metadata)
-        log_message = log_output.getvalue().strip()
-        
-        # Parse the log message as JSON
-        event_log = json.loads(log_message.split(': ')[-1])
-        
-        # Validate event log structure
-        assert 'nonce' in event_log
-        assert 'event_type' in event_log
-        assert 'timestamp' in event_log
-        assert 'metadata' in event_log
-        assert event_log['event_type'] == 'rotation'
-        assert event_log['metadata'] == metadata
-    finally:
-        log_capture.removeHandler(handler)
-        handler.close()
+    # Validate event log structure
+    assert 'nonce' in event_log
+    assert event_log['nonce'] == nonce
+    assert 'event_type' in event_log
+    assert event_log['event_type'] == 'rotation'
+    assert 'timestamp' in event_log
+    assert 'metadata' in event_log
+    assert event_log['metadata'] == metadata
+
+    # Validate timestamp format
+    timestamp = event_log['timestamp']
+    assert datetime.datetime.fromisoformat(timestamp) is not None
