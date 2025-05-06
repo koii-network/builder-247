@@ -1,94 +1,60 @@
-"""Utilities for signature verification."""
-
-import base58
-import nacl.signing
+import hashlib
 import json
-from typing import Dict, Optional, Any, Union
-from prometheus_swarm.utils.logging import log_error
+from typing import Any, Dict, Union
 
-
-def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:
-    """Verify a signature locally using PyNaCl.
-
-    This function verifies signatures created by the Koii task node using nacl.sign().
-    The signatures are base58 encoded before being sent.
+def generate_signature(data: Union[Dict[str, Any], str], secret_key: str = '') -> str:
+    """
+    Generate a cryptographic signature for a given data payload.
 
     Args:
-        signed_message (str): Base58 encoded signed message
-        staking_key (str): Base58 encoded public key
+        data (Union[Dict[str, Any], str]): The data to sign. 
+                Can be a dictionary or a string.
+        secret_key (str, optional): A secret key for additional security. 
+                Defaults to an empty string.
 
     Returns:
-        dict: Contains either:
-            - data (str): The decoded message if verification succeeds
-            - error (str): Error message if verification fails
+        str: A hexadecimal signature string.
+
+    Raises:
+        TypeError: If data is not a dictionary or string.
     """
-    try:
-        # Decode base58 signature and public key
-        signed_bytes = base58.b58decode(signed_message)
-        pubkey_bytes = base58.b58decode(staking_key)
+    # Validate input type
+    if not isinstance(data, (dict, str)):
+        raise TypeError("Data must be a dictionary or a string")
 
-        # Create verify key from public key
-        verify_key = nacl.signing.VerifyKey(pubkey_bytes)
+    # Normalize data to a consistent string representation
+    if isinstance(data, dict):
+        # Sort the dictionary to ensure consistent string representation
+        sorted_data = json.dumps(data, sort_keys=True)
+    else:
+        sorted_data = str(data)
 
-        # Verify and get message
-        message = verify_key.verify(signed_bytes)
+    # Combine data with secret key
+    payload = f"{sorted_data}{secret_key}"
 
-        # Decode message from bytes to string
-        decoded_message = message.decode("utf-8")
-        return {"data": decoded_message}
-    except Exception as e:
-        return {"error": f"Verification failed: {str(e)}"}
+    # Generate SHA-256 hash
+    signature = hashlib.sha256(payload.encode('utf-8')).hexdigest()
 
+    return signature
 
-def verify_and_parse_signature(
-    signed_message: str,
-    staking_key: str,
-    expected_values: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Union[Dict[str, Any], str]]:
-    """Verify a signature and optionally validate its contents.
-
-    This function combines signature verification with payload validation.
-    It verifies the signature, decodes the message, parses it as JSON,
-    and optionally validates expected values in the payload.
+def verify_signature(data: Union[Dict[str, Any], str], 
+                     signature: str, 
+                     secret_key: str = '') -> bool:
+    """
+    Verify the signature of a given data payload.
 
     Args:
-        signed_message (str): Base58 encoded signed message
-        staking_key (str): Base58 encoded public key
-        expected_values (dict, optional): Dictionary of key-value pairs that must be present
-            and match in the decoded payload
+        data (Union[Dict[str, Any], str]): The original data.
+        signature (str): The signature to verify.
+        secret_key (str, optional): The secret key used for signing. 
+                Defaults to an empty string.
 
     Returns:
-        dict: Contains either:
-            - data (dict): The decoded and parsed JSON payload if verification succeeds
-            - error (str): Error message if verification or validation fails
+        bool: True if signature is valid, False otherwise.
     """
-    # First verify the signature
-    result = verify_signature(signed_message, staking_key)
-    if result.get("error"):
-        log_error(
-            Exception("Signature verification failed"),
-            context=f"Signature verification failed: {result.get('error')}",
-        )
-        return result
-
     try:
-        # Parse the decoded message as JSON
-        data = json.loads(result["data"])
-
-        # If we have expected values, verify them
-        if expected_values:
-            for key, value in expected_values.items():
-                if data.get(key) != value:
-                    log_error(
-                        Exception("Invalid payload"),
-                        context=f"Invalid payload: expected {key}={value}, got {data.get(key)}",
-                    )
-                    return {
-                        "error": f"Invalid payload: expected {key}={value}, got {data.get(key)}"
-                    }
-
-        return {"data": data}
-    except json.JSONDecodeError:
-        return {"error": "Failed to parse signature payload as JSON"}
-    except Exception as e:
-        return {"error": f"Error validating signature payload: {str(e)}"}
+        # Regenerate signature and compare
+        generated_signature = generate_signature(data, secret_key)
+        return generated_signature == signature
+    except Exception:
+        return False
