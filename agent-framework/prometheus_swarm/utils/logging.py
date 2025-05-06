@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 from pathlib import Path
 from functools import wraps
 from datetime import datetime
-from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+from logging.handlers import RotatingFileHandler
 
 # Default configuration
 DEFAULT_LOG_LEVEL = logging.INFO
@@ -53,7 +53,8 @@ class StructuredLogger:
 
         # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(logging.Formatter(log_format))
+        console_formatter = logging.Formatter(DEFAULT_LOG_FORMAT)
+        console_handler.setFormatter(console_formatter)
         self.logger.addHandler(console_handler)
 
         # Optional file logging
@@ -66,15 +67,15 @@ class StructuredLogger:
         log_filename = f"{datetime.now().strftime('%Y%m%d')}_prometheus.log"
         log_path = log_dir / log_filename
 
-        # Timed rotating file handler (daily rotation)
-        file_handler = TimedRotatingFileHandler(
+        # Rotating file handler
+        file_handler = RotatingFileHandler(
             filename=log_path,
-            when='midnight',
-            interval=1,
-            backupCount=10,
+            maxBytes=10 * 1024 * 1024,  # 10 MB
+            backupCount=5,
             encoding='utf-8'
         )
-        file_handler.setFormatter(logging.Formatter(DEFAULT_LOG_FORMAT))
+        file_formatter = logging.Formatter(DEFAULT_LOG_FORMAT)
+        file_handler.setFormatter(file_formatter)
         self.logger.addHandler(file_handler)
 
     def log(
@@ -106,13 +107,9 @@ class StructuredLogger:
                     'traceback': traceback.format_exc()
                 }
 
-            # Attempt to log as JSON if possible
-            try:
-                detailed_message = json.dumps(log_data, indent=2)
-            except (TypeError, ValueError):
-                detailed_message = str(log_data)
-
-            self.logger.log(level, detailed_message)
+            # Log JSON-structured message
+            structured_message = json.dumps(log_data, indent=2)
+            self.logger.log(level, structured_message)
         except Exception as e:
             print(f"Logging error: {e}", file=sys.stderr)
 
@@ -130,11 +127,13 @@ class StructuredLogger:
 
     def error(self, message: str, **kwargs):
         """Log error message."""
-        self.log(logging.ERROR, message, exc_info=True, **kwargs)
+        kwargs['exc_info'] = kwargs.get('exc_info', True)
+        self.log(logging.ERROR, message, **kwargs)
 
     def critical(self, message: str, **kwargs):
         """Log critical message."""
-        self.log(logging.CRITICAL, message, exc_info=True, **kwargs)
+        kwargs['exc_info'] = kwargs.get('exc_info', True)
+        self.log(logging.CRITICAL, message, **kwargs)
 
 
 # Global structured logger

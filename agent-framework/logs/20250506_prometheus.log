@@ -1,0 +1,17 @@
+2025-05-06 02:24:35,845 - prometheus - INFO - {
+  "message": "Info message",
+  "user_id": 123
+}
+2025-05-06 02:24:35,845 - prometheus - WARNING - {
+  "message": "Warning message",
+  "component": "tests"
+}
+2025-05-06 02:24:35,845 - prometheus - ERROR - {
+  "message": "Division by zero",
+  "operation": "divide",
+  "exception": {
+    "type": "<class 'ZeroDivisionError'>",
+    "message": "division by zero",
+    "traceback": "Traceback (most recent call last):\n  File \"/app/repos/repo_35/agent-framework/tests/unit/test_error_handling.py\", line 113, in test_structured_logging\n    1 / 0  # Raise an exception\n    ~~^~~\nZeroDivisionError: division by zero\n"
+  }
+}
