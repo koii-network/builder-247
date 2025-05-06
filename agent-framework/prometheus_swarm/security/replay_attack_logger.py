@@ -1,5 +1,6 @@
 import hashlib
 import time
+import json
 from typing import Dict, Any, Optional
 
 class ReplayAttackLogger:
@@ -32,8 +33,8 @@ class ReplayAttackLogger:
         Returns:
             str: A cryptographic hash of the request data
         """
-        # Convert request data to a sorted, consistent string representation
-        data_str = str(sorted(request_data.items()))
+        # Use JSON dumps with sorted keys to ensure consistent representation
+        data_str = json.dumps(request_data, sort_keys=True)
         return hashlib.sha256(data_str.encode()).hexdigest()
     
     def is_replay(self, request_data: Dict[Any, Any]) -> bool:
