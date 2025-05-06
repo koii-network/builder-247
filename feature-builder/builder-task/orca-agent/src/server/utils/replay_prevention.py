@@ -1,7 +1,12 @@
 import time
+import logging
 from functools import wraps
 from typing import Dict, Any
 from flask import request, abort
+
+# Configure logging to prevent sensitive info exposure
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class ReplayPreventionError(Exception):
     """Custom exception for replay prevention failures."""
@@ -32,12 +37,18 @@ class ReplayPreventionManager:
         """
         current_time = time.time()
 
+        # Log rejection with minimal sensitive information
+        def log_rejection(reason: str):
+            logger.warning(f"Replay prevention: {reason} | Nonce length: {len(nonce)}")
+
         # Check timestamp is not too old
         if current_time - timestamp > self._max_request_age:
+            log_rejection("Request timestamp is too old")
             raise ReplayPreventionError("Request timestamp is too old")
 
         # Check if nonce has been used before
         if nonce in self._used_nonces:
+            log_rejection("Duplicate request detected")
             raise ReplayPreventionError("Duplicate request detected")
 
         # Store the nonce
@@ -75,12 +86,14 @@ def replay_prevention(max_request_age: int = 300):
             timestamp = request.headers.get('X-Request-Timestamp')
 
             if not nonce or not timestamp:
+                logger.warning("Replay prevention: Missing headers")
                 abort(400, description="Missing replay prevention headers")
 
             try:
                 timestamp = float(timestamp)
                 replay_manager.validate_request(nonce, timestamp)
             except (ValueError, ReplayPreventionError) as e:
+                logger.warning(f"Replay prevention violation: {str(e)}")
                 abort(403, description=str(e))
 
             return func(*args, **kwargs)
