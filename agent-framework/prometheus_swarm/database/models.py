@@ -34,7 +34,7 @@ class Transaction(SQLModel, table=True):
     destination: Optional[str] = Field(default=None, description="Destination of transaction")
     
     # Additional flexible metadata
-    metadata: Optional[dict] = Field(
+    extra_metadata: Optional[dict] = Field(
         default=None, 
         sa_column=Column(SAJSONType, nullable=True),
         description="Additional transaction metadata"
