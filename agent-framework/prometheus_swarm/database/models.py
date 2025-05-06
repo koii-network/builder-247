@@ -1,9 +1,9 @@
 """Database models."""
 
 from datetime import datetime
-from typing import Optional, Dict, Any
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import JSON
+from typing import Optional
+from sqlmodel import SQLModel, Field, Relationship, Column, JSON
+from sqlalchemy import JSON as SAJSONType
 from decimal import Decimal
 
 # Existing models...
@@ -34,9 +34,9 @@ class Transaction(SQLModel, table=True):
     destination: Optional[str] = Field(default=None, description="Destination of transaction")
     
     # Additional flexible metadata
-    metadata: Optional[Dict[str, Any]] = Field(
+    metadata: Optional[dict] = Field(
         default=None, 
-        sa_column_kwargs={'type_': JSON}, 
+        sa_column=Column(SAJSONType, nullable=True),
         description="Additional transaction metadata"
     )
     
@@ -46,7 +46,6 @@ class Transaction(SQLModel, table=True):
 
     class Config:
         """Configuration for Transaction model."""
-        arbitrary_types_allowed = True  # Allow Decimal and other complex types
         json_schema_extra = {
             "example": {
                 "transaction_uuid": "tx_123456",
