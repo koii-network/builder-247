@@ -1,10 +1,53 @@
-"""Utilities for signature verification."""
+"""Utilities for signature verification and generation."""
 
 import base58
 import nacl.signing
 import json
 from typing import Dict, Optional, Any, Union
 from prometheus_swarm.utils.logging import log_error
+
+
+def generate_signature(
+    message: Union[str, Dict[Any, Any]], 
+    signing_key: str
+) -> Dict[str, Union[str, Dict[str, Any]]]:
+    """Generate a signed message using PyNaCl.
+
+    This function signs a message using the provided signing key and returns
+    the base58 encoded signed message.
+
+    Args:
+        message (str or dict): The message to sign. If a dict is provided, 
+            it will be converted to a JSON string.
+        signing_key (str): Base58 encoded secret key for signing
+
+    Returns:
+        dict: Contains either:
+            - signature (str): Base58 encoded signed message
+            - error (str): Error message if signing fails
+    """
+    try:
+        # Convert dict to JSON string if needed
+        if isinstance(message, dict):
+            message_str = json.dumps(message)
+        else:
+            message_str = str(message)
+
+        # Decode base58 signing key
+        signing_key_bytes = base58.b58decode(signing_key)
+
+        # Create signing key object
+        signing_key_obj = nacl.signing.SigningKey(signing_key_bytes)
+
+        # Sign the message
+        signed_message = signing_key_obj.sign(message_str.encode('utf-8'))
+
+        # Encode entire signed message in base58
+        signature = base58.b58encode(signed_message).decode('utf-8')
+
+        return {"signature": signature}
+    except Exception as e:
+        return {"error": f"Signature generation failed: {str(e)}"}
 
 
 def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:
@@ -23,15 +66,18 @@ def verify_signature(signed_message: str, staking_key: str) -> Dict[str, Any]:
             - error (str): Error message if verification fails
     """
     try:
-        # Decode base58 signature and public key
+        # Decode base58 entire signed message and public key
         signed_bytes = base58.b58decode(signed_message)
         pubkey_bytes = base58.b58decode(staking_key)
 
         # Create verify key from public key
         verify_key = nacl.signing.VerifyKey(pubkey_bytes)
 
+        # Open signed message
+        verified_message = nacl.signing.SignedMessage(signed_bytes)
+
         # Verify and get message
-        message = verify_key.verify(signed_bytes)
+        message = verify_key.verify(verified_message)
 
         # Decode message from bytes to string
         decoded_message = message.decode("utf-8")
