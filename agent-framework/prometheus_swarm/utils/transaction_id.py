@@ -1,4 +1,4 @@
-from typing import Set, Any
+from typing import Any
 import json
 from collections import OrderedDict
 
@@ -23,20 +23,30 @@ class TransactionIDManager:
     
     def _convert_to_hashable(self, transaction_id: Any) -> str:
         """
-        Convert transaction ID to a hashable string representation.
+        Convert transaction ID to a unique hashable string representation.
+        
+        Ensures type-safe representation.
         
         Args:
             transaction_id (Any): The transaction ID to convert.
         
         Returns:
-            str: A hashable string representation of the transaction ID.
+            str: A unique hashable string representation of the transaction ID.
         """
+        # Create a type-specific representation
+        type_prefix = type(transaction_id).__name__
+        
         try:
-            # Try direct string conversion first
-            return str(transaction_id)
+            if isinstance(transaction_id, (list, dict, set, tuple)):
+                # For complex types, use JSON serialization with sorted keys
+                type_specific_id = f"{type_prefix}:{json.dumps(transaction_id, sort_keys=True)}"
+            else:
+                # For primitive types, use repr to capture type information
+                type_specific_id = f"{type_prefix}:{repr(transaction_id)}"
+            
+            return type_specific_id
         except Exception:
-            # Fallback to JSON serialization for complex types
-            return json.dumps(transaction_id, sort_keys=True)
+            return f"{type_prefix}:{str(transaction_id)}"
     
     def is_duplicate(self, transaction_id: Any) -> bool:
         """
