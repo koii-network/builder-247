@@ -44,6 +44,7 @@ def test_nonce_age():
     nonce_manager = NonceSecurityManager(nonce_expiry_seconds=1)
     
     nonce = nonce_manager.generate_nonce()
+    nonce_manager.validate_nonce(nonce)  # Important: validate first
     time.sleep(0.5)
     
     age = nonce_manager.get_nonce_age(nonce)
