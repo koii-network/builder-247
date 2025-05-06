@@ -57,18 +57,21 @@ class NonceEventLogger:
         
         return nonce
     
-    def verify_nonce(self, nonce: str) -> bool:
+    def verify_nonce(self, nonce: Optional[str]) -> bool:
         """
         Verify the format of a nonce.
         
         Args:
-            nonce (str): Nonce to verify
+            nonce (str, optional): Nonce to verify
         
         Returns:
             bool: Whether the nonce is valid
         """
+        if not nonce:
+            return False
+        
         try:
-            uuid.UUID(nonce)
+            uuid.UUID(str(nonce))
             return True
-        except ValueError:
+        except (ValueError, TypeError):
             return False
