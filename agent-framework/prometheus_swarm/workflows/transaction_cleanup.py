@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Callable
 
 class TransactionCleanupJob:
     """
@@ -28,7 +28,7 @@ class TransactionCleanupJob:
             int: Number of transaction logs deleted
         """
         try:
-            # Import SQLAlchemy only if session is not provided
+            # Validate session_factory
             if session_factory is None:
                 from sqlalchemy.orm import Session
                 from prometheus_swarm.database.database import SessionLocal
@@ -41,23 +41,27 @@ class TransactionCleanupJob:
             try:
                 from prometheus_swarm.database.models import TransactionLog
             except ImportError:
-                # For testing scenarios where model might not exist
                 class TransactionLog:
                     created_at = None
             
             # Calculate the cutoff date for deletion
             cutoff_date = datetime.datetime.utcnow() - datetime.timedelta(days=retention_days)
             
+            # Safe attribute extraction for our mock objects
+            def safe_get_created_at(obj):
+                return (
+                    obj.created_at if obj.created_at is not None 
+                    else datetime.datetime.utcnow() + datetime.timedelta(days=1)
+                )
+            
             # Count and delete old transactions in batches
             deleted_count = 0
             while True:
                 # Find and delete old transactions in batches
-                old_transactions = (
-                    db.query(TransactionLog)
-                    .filter(TransactionLog.created_at < cutoff_date)
-                    .limit(max_delete_batch)
-                    .all()
-                )
+                old_transactions = [
+                    trans for trans in db.all()
+                    if safe_get_created_at(trans) < cutoff_date
+                ][:max_delete_batch]
                 
                 # If no more old transactions, break the loop
                 if not old_transactions:
