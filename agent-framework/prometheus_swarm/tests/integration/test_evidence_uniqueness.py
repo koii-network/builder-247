@@ -67,16 +67,17 @@ def test_evidence_content_validation():
     # Test empty content
     with pytest.raises(ValidationError) as excinfo:
         Evidence(content="", type="test_type")
+    assert "Content cannot be empty or just whitespace" in str(excinfo.value)
     
     # Whitespace-only content
     with pytest.raises(ValidationError) as excinfo:
         Evidence(content="   ", type="test_type")
+    assert "Content cannot be empty or just whitespace" in str(excinfo.value)
     
     # Test very long content
     long_content = "a" * 10001  # Exceeding max length
     with pytest.raises(ValidationError) as excinfo:
         Evidence(content=long_content, type="test_type")
     
-    # Validate content cannot be completely empty
-    assert "cannot be empty" in str(excinfo.value)
-    assert "max_length" in str(excinfo.value)
+    # Validate content cannot be completely empty or too long
+    assert "String must have at most" in str(excinfo.value)
