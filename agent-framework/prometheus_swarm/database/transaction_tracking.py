@@ -1,7 +1,6 @@
 from typing import Dict, List, Optional
 from datetime import datetime
 import sqlite3
-import os
 from .database import get_db_path
 
 class TransactionTracker:
