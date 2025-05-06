@@ -25,9 +25,8 @@ class TransactionIDValidator:
         if not isinstance(transaction_id, str) or not transaction_id:
             return False
         
-        # Optional: Add specific validation rules (e.g., format, length)
-        # Example: Alphanumeric ID between 10-50 characters
-        return bool(re.match(r'^[a-zA-Z0-9]{10,50}$', transaction_id))
+        # Allow alphanumeric characters and underscores, length between 10-50
+        return bool(re.match(r'^[a-zA-Z0-9_]{10,50}$', transaction_id))
     
     @staticmethod
     def benchmark_validation(transaction_ids: List[str], iterations: int = 1000) -> Dict[str, Any]:
