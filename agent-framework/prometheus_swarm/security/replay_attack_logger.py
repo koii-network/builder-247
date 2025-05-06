@@ -54,15 +54,15 @@ class ReplayAttackLogger:
             # Remove expired entries
             self._prune_expired_entries(current_time)
 
-            # Check if signature already exists
-            if signature in self._log:
+            # Check if signature already exists and is not too old
+            if signature in self._log and current_time - self._log[signature] <= self._ttl:
                 return False
 
             # Store the new signature with current timestamp
             self._log[signature] = current_time
 
-            # Enforce max entries limit
-            if len(self._log) > self._max_entries:
+            # Enforce max entries limit by removing oldest entries
+            while len(self._log) > self._max_entries:
                 oldest_key = min(self._log, key=self._log.get)
                 del self._log[oldest_key]
 
