@@ -1,6 +1,13 @@
 import time
 import pytest
-from feature_builder.builder_task.orca_agent.src.server.utils.replay_prevention import ReplayAttackPrevention
+import sys
+import os
+
+# Add the project root to the Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
+
+from src.server.utils.replay_prevention import ReplayAttackPrevention
 
 def test_replay_attack_prevention_basic():
     """Test basic replay attack prevention functionality."""
