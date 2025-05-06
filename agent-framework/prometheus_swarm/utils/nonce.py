@@ -36,11 +36,21 @@ class NonceManager:
             client_id (Optional[str], optional): Identifier for the client. Defaults to None.
         
         Raises:
+            TypeError: If nonce is None or empty
             NonceError: If nonce is invalid or has been used before
         
         Returns:
             bool: True if nonce is valid
         """
+        # Validate nonce input
+        if nonce is None or not isinstance(nonce, str):
+            self._logger.error("Invalid nonce type or None")
+            raise TypeError("Nonce must be a non-empty string")
+        
+        if len(nonce.strip()) == 0:
+            self._logger.error("Empty nonce provided")
+            raise TypeError("Nonce cannot be an empty string")
+        
         current_time = datetime.now()
         
         # Remove expired nonces
