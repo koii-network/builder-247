@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.database.transaction_models import Base, Transaction, TransactionType, TransactionStatus, create_transaction
+from prometheus_swarm.database.transaction_models import Base, Transaction, TransactionType, TransactionStatus, create_transaction
 
 @pytest.fixture(scope='function')
 def engine():
