@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime
+from datetime import datetime, UTC, timedelta
 from unittest.mock import MagicMock
 from sqlmodel import SQLModel, Field
 from typing import Optional
@@ -12,7 +12,7 @@ class TestModel(SQLModel, table=True):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     name: Optional[str] = None
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def mock_db_session():
 def test_cleanup_expired_transactions(mock_db_session):
     # Create mock expired records
     expiration_threshold_hours = 24
-    expired_timestamp = datetime.utcnow() - datetime.timedelta(hours=expiration_threshold_hours + 1)
+    expired_timestamp = datetime.now(UTC) - timedelta(hours=expiration_threshold_hours + 1)
     
     mock_transactions = [
         TestModel(created_at=expired_timestamp, name="old1"),
@@ -87,7 +87,7 @@ def test_cleanup_database_error(mock_db_session):
 def test_cleanup_max_batch_size(mock_db_session):
     # Create many expired transactions
     expiration_threshold_hours = 24
-    expired_timestamp = datetime.utcnow() - datetime.timedelta(hours=expiration_threshold_hours + 1)
+    expired_timestamp = datetime.now(UTC) - timedelta(hours=expiration_threshold_hours + 1)
     
     mock_transactions = [
         TestModel(created_at=expired_timestamp, name=f"old{i}") for i in range(1500)
