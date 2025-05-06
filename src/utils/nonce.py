@@ -3,12 +3,12 @@ import time
 import hashlib
 import base64
 
-def generate_nonce(length: int = 32, include_timestamp: bool = True) -> str:
+def generate_nonce(length: int = 43, include_timestamp: bool = True) -> str:
     """
     Generate a cryptographically secure nonce.
 
     Args:
-        length (int, optional): Length of the nonce. Defaults to 32.
+        length (int, optional): Length of the nonce. Defaults to 43.
         include_timestamp (bool, optional): Whether to include a timestamp. Defaults to True.
 
     Returns:
@@ -20,9 +20,8 @@ def generate_nonce(length: int = 32, include_timestamp: bool = True) -> str:
     if length < 16 or length > 128:
         raise ValueError("Nonce length must be between 16 and 128 bytes")
 
-    # Base64 padding overhead calculation
-    base64_overhead = length % 4
-    raw_length = length + base64_overhead
+    # Calculate raw bytes needed (accounts for base64 encoding)
+    raw_length = int(length * 3 / 4)
 
     # Generate random bytes
     random_bytes = secrets.token_bytes(raw_length)
@@ -35,13 +34,11 @@ def generate_nonce(length: int = 32, include_timestamp: bool = True) -> str:
     # Hash the bytes to ensure uniformity and prevent timing attacks
     sha256_hash = hashlib.sha256(random_bytes).digest()
 
-    # Base64 encode and truncate to exact length
-    encoded = base64.urlsafe_b64encode(sha256_hash[:raw_length]).decode('utf-8')
+    # Base64 encode, remove padding, ensure exact length
+    encoded = base64.urlsafe_b64encode(sha256_hash).decode('utf-8').rstrip('=')
     
-    # Pad or truncate to exact length
+    # Truncate or pad to match the requested length
     if len(encoded) > length:
         return encoded[:length]
-    elif len(encoded) < length:
-        return encoded + '=' * (length - len(encoded))
     
-    return encoded
+    return encoded + '=' * (length - len(encoded))
