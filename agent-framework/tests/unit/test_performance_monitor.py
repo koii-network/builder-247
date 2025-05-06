@@ -1,7 +1,7 @@
 import pytest
 import time
 from unittest.mock import Mock, patch
-from prometheus_client import REGISTRY, CollectorRegistry
+from prometheus_client import REGISTRY, CollectorRegistry, generate_latest
 from prometheus_swarm.utils.performance_monitor import PerformanceMonitor
 
 def test_performance_monitor_initialization():
@@ -56,8 +56,12 @@ def test_performance_monitor_metrics_increment():
         time.sleep(0.1)  # Simulate some work
         return True
     
+    # Run the job
     sample_job()
     
-    # Since we're using a custom registry, we'll verify this through other means
-    assert monitor.job_total_count._metrics == {(): 1.0}
-    assert monitor.job_success_count._metrics == {(): 1.0}
+    # Convert the metrics to a string representation
+    metrics_text = generate_latest(registry).decode('utf-8')
+    
+    # Check that our metrics are present and incremented
+    assert 'cleanup_job_job_total_count 1.0' in metrics_text
+    assert 'cleanup_job_job_success_count 1.0' in metrics_text
