@@ -33,9 +33,8 @@ class PerformanceMonitor:
             format='%(asctime)s - %(levelname)s: %(message)s'
         )
         
-        # Create an empty log file to ensure its existence
-        with open(self.log_path, 'a'):
-            os.utime(self.log_path, None)
+        # Log an initialization message
+        logging.info("Performance Monitor Initialized")
         
     def track_function(self, log_performance: bool = True):
         """
