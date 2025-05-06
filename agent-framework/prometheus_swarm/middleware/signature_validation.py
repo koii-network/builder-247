@@ -4,6 +4,7 @@ from functools import wraps
 from typing import Callable, Dict, Any, Optional
 from prometheus_swarm.utils.signatures import verify_and_parse_signature
 from prometheus_swarm.utils.logging import log_error
+import inspect
 
 def validate_signature(
     staking_key_getter: Optional[Callable[..., str]] = None,
@@ -47,14 +48,17 @@ def validate_signature(
                 )
                 raise ValueError(result['error'])
 
-            # If verification succeeds, replace the signed_message with the decoded data
-            # and call the original function
-            new_args = list(args)
-            if len(new_args) > 0:
-                new_args[0] = result['data']
-            else:
-                kwargs['signed_message'] = result['data']
+            # Inspect function signature to determine how to call it
+            sig = inspect.signature(func)
+            expected_num_params = len(sig.parameters)
 
-            return func(*new_args, **kwargs)
+            # Call function based on its expected parameters
+            if expected_num_params == 1:
+                return func(result['data'])
+            elif result['data'] and staking_key:
+                return func(result['data'], staking_key)
+            else:
+                return func(result['data'])
+
         return wrapper
     return decorator
