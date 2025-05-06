@@ -33,10 +33,11 @@ def test_nonce_expiration(session):
     session.add(nonce)
     session.commit()
     
-    # Simulate time passing
+    # Simulate time passing by updating expires_at
     nonce.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
     session.commit()
     
+    # Explicitly test is_valid method
     assert not nonce.is_valid()
 
 def test_nonce_manager_create_and_validate(session):
@@ -63,6 +64,7 @@ def test_nonce_manager_expired_nonce_cleanup(session):
     nonce_manager = NonceManager(session)
     
     # Create multiple nonces with different expiration times
+    now = datetime.now(timezone.utc)
     nonce1 = Nonce.generate(expiration_minutes=0)
     nonce2 = Nonce.generate(expiration_minutes=0)
     nonce3 = Nonce.generate(expiration_minutes=60)
@@ -71,8 +73,8 @@ def test_nonce_manager_expired_nonce_cleanup(session):
     session.commit()
     
     # Simulate time passing for first two nonces
-    nonce1.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
-    nonce2.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+    nonce1.expires_at = now - timedelta(minutes=1)
+    nonce2.expires_at = now - timedelta(minutes=1)
     session.commit()
     
     # Cleanup expired nonces
