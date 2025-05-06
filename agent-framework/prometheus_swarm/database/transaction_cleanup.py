@@ -49,7 +49,9 @@ class TransactionExpirationMixin:
         expired_transactions = (
             db_session.query(cls)
             .filter(
-                ((cls.expires_at < expiration_time) & (cls.expires_at != None)) | 
+                # Transactions with explicit expiration that have passed
+                ((cls.expires_at < now) & (cls.expires_at != None)) | 
+                # Transactions without explicit expiration that are too old
                 ((cls.expires_at == None) & (cls.created_at < expiration_time))
             )
             .all()
