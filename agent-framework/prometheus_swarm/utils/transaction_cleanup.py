@@ -1,11 +1,11 @@
 import datetime
-from typing import List, Dict, Any, Optional
-from prometheus_swarm.database.database import get_database_session
-from prometheus_swarm.database.models import Transaction
+from typing import List, Dict, Any, Optional, Callable
+from contextlib import contextmanager
 
 def cleanup_expired_transactions(
     expiration_threshold_hours: int = 24,
-    max_batch_size: int = 1000
+    max_batch_size: int = 1000,
+    get_session: Optional[Callable] = None
 ) -> Dict[str, int]:
     """
     Clean up expired transactions from the database.
@@ -13,13 +13,20 @@ def cleanup_expired_transactions(
     Args:
         expiration_threshold_hours (int): Number of hours after which a transaction is considered expired.
         max_batch_size (int): Maximum number of transactions to delete in a single batch.
+        get_session (Optional[Callable]): Optional custom session getter for dependency injection during testing.
 
     Returns:
         Dict[str, int]: A dictionary containing the number of deleted transactions.
     """
+    from prometheus_swarm.database.database import get_database_session
+    from prometheus_swarm.database.models import Transaction
+
+    # Use provided session getter or default
+    session_getter = get_session or get_database_session
+
     try:
         # Get a database session
-        db_session = get_database_session()
+        db_session = session_getter()
 
         # Calculate the expiration timestamp
         expiration_timestamp = datetime.datetime.utcnow() - datetime.timedelta(hours=expiration_threshold_hours)
