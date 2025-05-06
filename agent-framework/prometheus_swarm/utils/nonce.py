@@ -36,15 +36,15 @@ class NonceService:
         
         # Include timestamp for additional uniqueness
         timestamp = timestamp or time.time()
-        # Convert timestamp to bytes
-        timestamp_bytes = struct.pack('d', timestamp)
         
-        # Create a combined hash for increased entropy
-        combined = random_bytes + timestamp_bytes
-        nonce_hash = hashlib.sha256(combined).digest()
+        # Combine random bytes with timestamp 
+        nonce_data = random_bytes + struct.pack('d', timestamp)
+        
+        # Create a hash of the combined data 
+        nonce_hash = hashlib.sha256(nonce_data).digest()
         
         # Base64 encode for safe string representation
-        return base64.urlsafe_b64encode(nonce_hash).decode('utf-8').rstrip('=')
+        return base64.urlsafe_b64encode(nonce_data).decode('utf-8').rstrip('=')
     
     @staticmethod
     def validate_nonce(nonce: str, max_age: float = 3600) -> bool:
@@ -61,10 +61,12 @@ class NonceService:
         try:
             # Pad the base64 string if needed
             nonce += '=' * (4 - len(nonce) % 4)
-            decoded_nonce = base64.urlsafe_b64decode(nonce.encode('utf-8'))
             
-            # Extract timestamp from the end of the decoded nonce
-            timestamp_bytes = decoded_nonce[-8:]
+            # Decode the entire nonce data
+            nonce_data = base64.urlsafe_b64decode(nonce.encode('utf-8'))
+            
+            # Extract timestamp (last 8 bytes as double)
+            timestamp_bytes = nonce_data[-8:]
             nonce_timestamp = struct.unpack('d', timestamp_bytes)[0]
             
             # Check timestamp
