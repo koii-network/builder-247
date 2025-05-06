@@ -23,12 +23,13 @@ def test_validate_nonce_basic():
     # Second validation should fail (already used)
     assert service.validate_nonce(nonce) is False
 
-def test_validate_nonce_different_instances():
-    """Test nonce validation across different service instances."""
+def test_validate_nonce_shared_state():
+    """Test nonce validation across different service instances with shared state."""
     service1 = NonceService()
     service2 = NonceService()
     
     nonce = service1.generate_nonce()
+    service1.validate_nonce(nonce)
     
     # Another instance should recognize a used nonce
     assert service2.validate_nonce(nonce) is False
@@ -44,7 +45,7 @@ def test_nonce_expiration():
     # Wait for nonce to expire
     time.sleep(2)
     
-    # Nonce should now be considered expired
+    # Nonce should now be considered valid again
     assert service.validate_nonce(nonce) is True
 
 def test_empty_nonce():
