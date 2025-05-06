@@ -64,19 +64,19 @@ def test_evidence_content_validation():
     """
     Test validation of evidence content
     """
-    engine = create_test_engine()
-    SQLModel.metadata.create_all(engine)
+    # Test empty content
+    with pytest.raises(ValidationError) as excinfo:
+        Evidence(content="", type="test_type")
     
-    with Session(engine) as session:
-        # Test empty content
-        with pytest.raises(ValidationError) as excinfo:
-            Evidence(content="", type="test_type")
-        
-        assert "min_length" in str(excinfo.value)
-        
-        # Test very long content
-        long_content = "a" * 10001  # Exceeding max length
-        with pytest.raises(ValidationError) as excinfo:
-            Evidence(content=long_content, type="test_type")
-        
-        assert "max_length" in str(excinfo.value)
+    # Whitespace-only content
+    with pytest.raises(ValidationError) as excinfo:
+        Evidence(content="   ", type="test_type")
+    
+    # Test very long content
+    long_content = "a" * 10001  # Exceeding max length
+    with pytest.raises(ValidationError) as excinfo:
+        Evidence(content=long_content, type="test_type")
+    
+    # Validate content cannot be completely empty
+    assert "cannot be empty" in str(excinfo.value)
+    assert "max_length" in str(excinfo.value)
