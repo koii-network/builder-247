@@ -20,6 +20,7 @@ prometheus_swarm/clients/xai_client.py
 prometheus_swarm/database/__init__.py
 prometheus_swarm/database/config.py
 prometheus_swarm/database/database.py
+prometheus_swarm/database/migration.py
 prometheus_swarm/database/models.py
 prometheus_swarm/old/__init__.py
 prometheus_swarm/old/analyze_test_failure.py

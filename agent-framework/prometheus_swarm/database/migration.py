@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from typing import List, Dict, Any, Optional
 
@@ -12,6 +13,10 @@ def perform_database_migration(db_path: str, target_version: int = 1) -> bool:
     Returns:
         bool: True if migration was successful, False otherwise
     """
+    # First check if the directory exists
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    
+    connection = None
     try:
         connection = sqlite3.connect(db_path)
         cursor = connection.cursor()
