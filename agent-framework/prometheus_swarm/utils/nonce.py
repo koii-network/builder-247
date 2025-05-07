@@ -52,12 +52,13 @@ class NonceManager:
             
             return nonce
 
-    def validate_nonce(self, nonce: str) -> bool:
+    def validate_nonce(self, nonce: str, consume: bool = True) -> bool:
         """
         Validate a nonce, checking for uniqueness and expiration.
         
         Args:
             nonce (str): The nonce to validate.
+            consume (bool): Whether to mark the nonce as used after validation. Default is True.
         
         Raises:
             NonceAlreadyUsedError: If the nonce has been used before.
@@ -73,6 +74,10 @@ class NonceManager:
             # Check if nonce is already used
             if nonce in self._used_nonces:
                 raise NonceAlreadyUsedError(f"Nonce {nonce} has already been used.")
+            
+            # Mark the nonce as used if consume is True
+            if consume:
+                self._used_nonces[nonce] = time.time()
             
             return True
 
