@@ -1,6 +1,6 @@
 import uuid
 import time
-from typing import Dict, Set
+from typing import Dict, Any
 from threading import Lock
 
 class NonceError(Exception):
@@ -29,7 +29,7 @@ class NonceManager:
             max_nonces (int): Maximum number of nonces to track. Default is 1000.
             nonce_expiry (int): Nonce expiration time in seconds. Default is 5 minutes.
         """
-        self._used_nonces: Dict[str, float] = {}
+        self._generated_nonces: Dict[str, float] = {}
         self._lock = Lock()
         self._max_nonces = max_nonces
         self._nonce_expiry = nonce_expiry
@@ -48,7 +48,7 @@ class NonceManager:
             # Generate a unique nonce
             nonce = str(uuid.uuid4())
             current_time = time.time()
-            self._used_nonces[nonce] = current_time
+            self._generated_nonces[nonce] = current_time
             
             return nonce
 
@@ -58,26 +58,25 @@ class NonceManager:
         
         Args:
             nonce (str): The nonce to validate.
-            consume (bool): Whether to mark the nonce as used after validation. Default is True.
+            consume (bool): Whether to remove the nonce after validation. Default is True.
         
         Raises:
-            NonceAlreadyUsedError: If the nonce has been used before.
-            NonceExpiredError: If the nonce has expired.
+            NonceAlreadyUsedError: If the nonce is not found or has been validated.
         
         Returns:
-            bool: True if the nonce is valid.
+            bool: True if the nonce is valid and has not been previously validated.
         """
         with self._lock:
             # Cleanup expired nonces
             self._cleanup_expired_nonces()
             
-            # Check if nonce is already used
-            if nonce in self._used_nonces:
-                raise NonceAlreadyUsedError(f"Nonce {nonce} has already been used.")
+            # Check if nonce is present and not expired
+            if nonce not in self._generated_nonces:
+                raise NonceAlreadyUsedError(f"Nonce {nonce} is not valid or has been used.")
             
-            # Mark the nonce as used if consume is True
+            # If consume is True, remove the nonce
             if consume:
-                self._used_nonces[nonce] = time.time()
+                del self._generated_nonces[nonce]
             
             return True
 
@@ -87,22 +86,24 @@ class NonceManager:
         """
         current_time = time.time()
         expired_nonces = [
-            nonce for nonce, timestamp in self._used_nonces.items()
+            nonce for nonce, timestamp in self._generated_nonces.items()
             if current_time - timestamp > self._nonce_expiry
         ]
         
+        # Remove expired nonces
         for nonce in expired_nonces:
-            del self._used_nonces[nonce]
+            del self._generated_nonces[nonce]
         
         # Limit the number of tracked nonces
-        if len(self._used_nonces) > self._max_nonces:
+        if len(self._generated_nonces) > self._max_nonces:
+            # Remove the oldest nonces first
             oldest_nonces = sorted(
-                self._used_nonces.items(), 
+                self._generated_nonces.items(), 
                 key=lambda x: x[1]
-            )[:len(self._used_nonces) - self._max_nonces]
+            )[:len(self._generated_nonces) - self._max_nonces]
             
             for nonce, _ in oldest_nonces:
-                del self._used_nonces[nonce]
+                del self._generated_nonces[nonce]
 
 # Global singleton instance for easy import and use
 nonce_manager = NonceManager()
