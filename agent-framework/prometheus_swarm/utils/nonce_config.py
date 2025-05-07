@@ -52,14 +52,20 @@ class NonceConfigManager:
         Generate a secure nonce for a given identifier.
         
         :param identifier: Unique identifier for the nonce
-        :param length: Length of the nonce (default: 32 bytes)
-        :return: Generated nonce
+        :param length: Length of the nonce in bytes (default: 32)
+        :return: Generated nonce as a hex string
         """
         if not identifier:
             raise ValueError("Identifier cannot be empty")
         
+        # Ensure minimum length of 16 bytes
+        length = max(16, length)
+        
         # Generate a cryptographically secure random nonce
-        nonce = secrets.token_hex(length // 2)
+        nonce = secrets.token_hex(length)
+        
+        # Truncate or pad to ensure consistent length
+        nonce = nonce[:length * 2]
         
         # Store the nonce with a timestamp hash
         self.nonce_config[identifier] = hashlib.sha256(nonce.encode()).hexdigest()
