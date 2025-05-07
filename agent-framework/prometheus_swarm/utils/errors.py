@@ -2,7 +2,8 @@
 
 import logging
 import time
-from typing import Optional, Callable
+from functools import wraps
+from typing import Optional, Callable, Any, Union
 
 
 class ClientAPIError(Exception):
@@ -36,41 +37,49 @@ class NonceError(Exception):
 
 
 def nonce_error_handler(
-    func: Callable,
+    func: Optional[Callable] = None,
+    *,
     max_retries: int = 3,
     retry_delay: float = 1.0,
     logger: Optional[logging.Logger] = None
-) -> Callable:
+) -> Union[Callable, Any]:
     """
     Decorator to handle nonce-related errors with automatic recovery and retries.
 
     Args:
-        func (Callable): The function to wrap
+        func (Optional[Callable]): The function to wrap
         max_retries (int): Maximum number of retry attempts
         retry_delay (float): Delay between retry attempts in seconds
         logger (Optional[logging.Logger]): Logger for tracking retry attempts
 
     Returns:
-        Callable: Wrapped function with nonce error handling
+        Wrapped function with nonce error handling
     """
-    def wrapper(*args, **kwargs):
-        retries = 0
-        while retries < max_retries:
-            try:
-                return func(*args, **kwargs)
-            except NonceError as e:
-                retries += 1
-                if logger:
-                    logger.warning(
-                        f"Nonce error encountered: {e}. "
-                        f"Retry attempt {retries}/{max_retries}"
-                    )
-                
-                if retries >= max_retries:
-                    raise
-                
-                time.sleep(retry_delay * (2 ** retries))  # Exponential backoff
+    def decorator(func_to_wrap: Callable) -> Callable:
+        @wraps(func_to_wrap)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func_to_wrap(*args, **kwargs)
+                except NonceError as e:
+                    retries += 1
+                    if logger:
+                        logger.warning(
+                            f"Nonce error encountered: {e}. "
+                            f"Retry attempt {retries}/{max_retries}"
+                        )
+                    
+                    if retries >= max_retries:
+                        raise
+                    
+                    time.sleep(retry_delay * (2 ** retries))  # Exponential backoff
+            
+            raise RuntimeError("Max nonce error retries exceeded")
         
-        raise RuntimeError("Max nonce error retries exceeded")
-    
-    return wrapper
+        return wrapper
+
+    # Support using decorator with or without arguments
+    if func is None:
+        return decorator
+    return decorator(func)
