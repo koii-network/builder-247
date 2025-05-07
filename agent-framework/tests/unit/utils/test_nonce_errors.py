@@ -53,7 +53,7 @@ def test_nonce_error_handler_with_logger(caplog):
     def mock_function():
         raise NonceError("Logged nonce error")
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="Max nonce error retries exceeded"):
         mock_function()
 
     assert "Nonce error encountered: Logged nonce error" in caplog.text
