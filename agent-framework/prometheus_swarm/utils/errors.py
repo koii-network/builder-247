@@ -59,11 +59,13 @@ def nonce_error_handler(
         @wraps(func_to_wrap)
         def wrapper(*args, **kwargs):
             retries = 0
+            last_error = None
             while retries < max_retries:
                 try:
                     return func_to_wrap(*args, **kwargs)
                 except NonceError as e:
                     retries += 1
+                    last_error = e
                     if logger:
                         logger.warning(
                             f"Nonce error encountered: {e}. "
@@ -71,11 +73,11 @@ def nonce_error_handler(
                         )
                     
                     if retries >= max_retries:
-                        raise
+                        break
                     
                     time.sleep(retry_delay * (2 ** retries))  # Exponential backoff
             
-            raise RuntimeError("Max nonce error retries exceeded")
+            raise RuntimeError("Max nonce error retries exceeded") from last_error
         
         return wrapper
 
