@@ -16,9 +16,23 @@ def test_nonce_validation():
     
     # Generate and validate a nonce
     nonce = nonce_manager.generate_nonce()
-    assert nonce_manager.validate_nonce(nonce) is True
+    nonce_manager.validate_nonce(nonce)
     
-    # Attempt to validate the same nonce again should raise an error
+    # Attempting to validate the same nonce again should raise an error
+    with pytest.raises(NonceAlreadyUsedError):
+        nonce_manager.validate_nonce(nonce)
+
+def test_nonce_validation_without_consume():
+    """Test nonce validation without consuming the nonce."""
+    nonce_manager = NonceManager()
+    
+    # Generate a nonce
+    nonce = nonce_manager.generate_nonce()
+    
+    # Validate without consuming first
+    assert nonce_manager.validate_nonce(nonce, consume=False) is True
+    
+    # Second validation should raise an error
     with pytest.raises(NonceAlreadyUsedError):
         nonce_manager.validate_nonce(nonce)
 
@@ -42,7 +56,7 @@ def test_nonce_max_limit():
     # Generate more nonces than the max limit
     nonces = [nonce_manager.generate_nonce() for _ in range(5)]
     
-    # Verify only the latest 3 nonces are tracked
+    # Verify the oldest nonces are removed
     for nonce in nonces[:2]:
         with pytest.raises(NonceAlreadyUsedError):
             nonce_manager.validate_nonce(nonce)
@@ -52,7 +66,7 @@ def test_nonce_max_limit():
 
 def test_thread_safety():
     """Basic thread safety test."""
-    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     
     nonce_manager = NonceManager()
     
@@ -60,7 +74,10 @@ def test_thread_safety():
         nonce = nonce_manager.generate_nonce()
         return nonce_manager.validate_nonce(nonce)
     
+    # Use as_completed to handle potential exceptions
     with ThreadPoolExecutor(max_workers=10) as executor:
-        results = list(executor.map(lambda _: generate_and_validate_nonce(), range(100)))
-    
-    assert len(results) == 100, "All nonce generations should succeed"
+        futures = [executor.submit(generate_and_validate_nonce) for _ in range(100)]
+        
+        # Wait for all futures to complete
+        for future in as_completed(futures):
+            assert future.result() is True
