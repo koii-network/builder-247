@@ -82,10 +82,11 @@ class NonceMiddleware:
         
         # If too many nonces, remove oldest
         if len(self._used_nonces) > self._max_nonces:
-            oldest_nonces = sorted(
+            # Sort nonces by timestamp and remove oldest
+            sorted_nonces = sorted(
                 self._used_nonces.items(), 
                 key=lambda x: x[1]
-            )[:len(self._used_nonces) - self._max_nonces]
+            )
             
-            for nonce, _ in oldest_nonces:
-                del self._used_nonces[nonce]
+            # Keep only the most recent max_nonces
+            self._used_nonces = dict(sorted_nonces[-self._max_nonces:])
